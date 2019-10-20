@@ -1,12 +1,12 @@
 let mapleader =","
 
-if ! filereadable(expand('~/.config/vim/autoload/plug.vim'))
+if ! filereadable(expand('~/.vim/autoload/plug.vim'))
 	echo "Downloading junegunn/vim-plug to manage plugins..."
-	silent !mkdir -p ~/.config/vim/autoload/
-	silent !curl "https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim" > ~/.config/vim/autoload/plug.vim
+	silent !mkdir -p ~/.vim/autoload/
+	silent !curl "https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim" > ~/.vim/autoload/plug.vim
 endif
 
-call plug#begin('~/.config/vim/plugged')
+call plug#begin('~/.vim/plugged')
 Plug 'tpope/vim-surround'
 Plug 'scrooloose/nerdtree'
 Plug 'junegunn/goyo.vim'
