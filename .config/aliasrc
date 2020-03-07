@@ -25,8 +25,11 @@ alias ka="killall" \
 	ref="shortcuts >/dev/null; source ~/.config/shortcutrc" \
 	ffmpeg="ffmpeg -hide_banner" \
 	c='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME' \
-	sl='ls' \
-	ll='ls -la' \
+	sl='ls --color=auto' \
+	ll='ls -la --color=auto' \
+	l.='ls -d .* --color=auto' \
+	ll.='ls -ld .* --color=auto' \
+	which='alias | /usr/bin/which --tty-only --read-alias --show-dot --show-tilde' \
 	pss='ps auxf | grep -v grep | grep -i -e VSZ -e'
 
 command -v nvim >/dev/null && alias vim="nvim" vimdiff="nvim -d" # Use neovim for vim if present.
