@@ -1,0 +1,32 @@
+#!/bin/sh
+alias ka="killall" \
+	mkd="mkdir -pv" \
+	mpv="mpv --input-ipc-server=/tmp/mpvsoc$(date +%s)" \
+	calcurse="calcurse -D ~/.config/calcurse" \
+	magit="nvim -c MagitOnly" \
+	emi="sudo emerge -pv" \
+	emu="sudo emerge-webrsync" \
+	emw="sudo emerge -auDN @world" \
+	emr="sudo emerge -Ca" \
+	f="$FILE" \
+	g="git" \
+	trem="transmission-remote" \
+	e="$EDITOR" \
+	v="$EDITOR" \
+	x="sxiv -ft *" \
+	sdn="sudo shutdown -h now" \
+	gua="git remote | xargs -L1 git push --all" \
+	ls="ls -hN --color=auto --group-directories-first" \
+	grep="grep --color=auto" \
+	diff="diff --color=auto" \
+	yt="youtube-dl --add-metadata -i -o '%(upload_date)s-%(title)s.%(ext)s'" \
+	yta="yt -x -f bestaudio/best" \
+	YT="youtube-viewer" \
+	ref="shortcuts >/dev/null; source ~/.config/shortcutrc" \
+	ffmpeg="ffmpeg -hide_banner" \
+	c='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME' \
+	sl='ls' \
+	ll='ls -la' \
+	pss='ps auxf | grep -v grep | grep -i -e VSZ -e'
+
+command -v nvim >/dev/null && alias vim="nvim" vimdiff="nvim -d" # Use neovim for vim if present.
