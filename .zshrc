@@ -2,7 +2,7 @@
 # export PATH=$HOME/bin:/usr/local/bin:$PATH
 
 # Path to your oh-my-zsh installation.
-export ZSH="/home/ok/.oh-my-zsh"
+export ZSH="$HOME/.oh-my-zsh"
 # alias vim="nvim"
 alias vi="nvim"
 
@@ -128,7 +128,7 @@ if [[ -d "${ZPLUG_HOME}" ]]; then
   source "${ZPLUG_HOME}/init.zsh"
 fi
 zplug 'plugins/git', from:oh-my-zsh, if:'which git'
-#zplug 'romkatv/powerlevel10k', use:powerlevel10k.zsh-theme
+zplug 'romkatv/powerlevel10k', use:powerlevel10k.zsh-theme
 zplug "plugins/vi-mode", from:oh-my-zsh
 zplug 'zsh-users/zsh-autosuggestions'
 zplug 'zsh-users/zsh-completions', defer:2

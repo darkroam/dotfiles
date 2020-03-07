@@ -26,10 +26,12 @@ alias ka="killall" \
 	ffmpeg="ffmpeg -hide_banner" \
 	c='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME' \
 	sl='ls --color=auto' \
-	ll='ls -la --color=auto' \
+	ll='ls -hAlF' \
 	l.='ls -d .* --color=auto' \
-	ll.='ls -ld .* --color=auto' \
+	ll.='ls -hAlFd .*' \
 	which='alias | /usr/bin/which --tty-only --read-alias --show-dot --show-tilde' \
-	pss='ps auxf | grep -v grep | grep -i -e VSZ -e'
+	pss='ps auxf | grep -v grep | grep -i -e VSZ -e' \
+	..='cd ..' \
+	...='cd ..\..'
 
 command -v nvim >/dev/null && alias vim="nvim" vimdiff="nvim -d" # Use neovim for vim if present.
