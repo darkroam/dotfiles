@@ -27,7 +27,8 @@ alias \
 	diff="diff --color=auto" \
 	ccat="highlight --out-format=ansi" \
 	which='alias | /usr/bin/which --tty-only --read-alias --show-dot --show-tilde' \
-	pss='ps auxf | grep -v grep | grep -i -e VSZ -e' \
+	#pss='ps auxf | grep -v grep | grep -i -e VSZ -e' \
+	pss='ps aux | grep -v grep | grep -i -e VSZ -e' \
 	..='cd ..' \
 	...='cd ..\..'
 
