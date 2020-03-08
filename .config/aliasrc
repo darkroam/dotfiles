@@ -16,8 +16,10 @@ alias \
 
 # Colorize commands when possible.
 alias \
-	ls="ls -hN --color=auto --group-directories-first" \
-	sl="ls -hN --color=auto --group-directories-first" \
+	#ls="ls -hN --color=auto --group-directories-first" \
+	ls="ls -h --color=auto --group-directories-first" \
+	#sl="ls -hN --color=auto --group-directories-first" \
+	sl="ls -h --color=auto --group-directories-first" \
 	l.='ls -d .* --color=auto --group-directories-first' \
 	ll='ls -hAlF --group-directories-first' \
 	ll.='ls -hAlFd .* --group-directories-first' \
