@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 
 # xinitrc runs automatically when you run startx.
 
@@ -10,10 +10,13 @@
 
 [ -f ~/.xprofile ] && . ~/.xprofile
 
+# Your default LARBS WM is determined in your `~/.profile` on login.  Here we
+# run the proper command to run when the graphical environment starts.
 
-# Here we start dwm.
-# The loop is just to enable dwm's "restart" feature (mod+F2).
-
-while :; do
-	ssh-agent dwm || break
-done
+case "$LARBSWM" in
+	dwm) while :; do
+		ssh-agent dwm || break
+		done ;;
+	i3) exec i3 ;;
+	*) echo "No valid LARBS window manager detected." ;;
+esac
