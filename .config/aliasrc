@@ -1,37 +1,62 @@
 #!/bin/sh
-alias ka="killall" \
+
+# Use neovim for vim if present.
+command -v nvim >/dev/null && alias vim="nvim" vimdiff="nvim -d"
+
+# Verbosity and settings that you pretty much just always are going to want.
+alias \
+	bat="cat /sys/class/power_supply/BAT?/capacity" \
+	cp="cp -iv" \
+	mv="mv -iv" \
+	rm="rm -v" \
 	mkd="mkdir -pv" \
-	mpv="mpv --input-ipc-server=/tmp/mpvsoc$(date +%s)" \
-	calcurse="calcurse -D ~/.config/calcurse" \
-	magit="nvim -c MagitOnly" \
-	emi="sudo emerge -pv" \
-	emu="sudo emerge-webrsync" \
-	emw="sudo emerge -auDN @world" \
-	emr="sudo emerge -Ca" \
-	f="$FILE" \
-	g="git" \
-	trem="transmission-remote" \
-	e="$EDITOR" \
-	v="$EDITOR" \
-	x="sxiv -ft *" \
-	sdn="sudo shutdown -h now" \
-	gua="git remote | xargs -L1 git push --all" \
+	yt="youtube-dl --add-metadata -i" \
+	yta="yt -x -f bestaudio/best" \
+	ffmpeg="ffmpeg -hide_banner"
+
+# Colorize commands when possible.
+alias \
 	ls="ls -hN --color=auto --group-directories-first" \
+	sl="ls -hN --color=auto --group-directories-first" \
+	l.='ls -d .* --color=auto --group-directories-first' \
+	ll='ls -hAlF --group-directories-first' \
+	ll.='ls -hAlFd .* --group-directories-first' \
 	grep="grep --color=auto" \
 	diff="diff --color=auto" \
-	yt="youtube-dl --add-metadata -i -o '%(upload_date)s-%(title)s.%(ext)s'" \
-	yta="yt -x -f bestaudio/best" \
-	YT="youtube-viewer" \
-	ref="shortcuts >/dev/null; source ~/.config/shortcutrc" \
-	ffmpeg="ffmpeg -hide_banner" \
-	c='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME' \
-	sl='ls --color=auto' \
-	ll='ls -hAlF' \
-	l.='ls -d .* --color=auto' \
-	ll.='ls -hAlFd .*' \
+	ccat="highlight --out-format=ansi" \
 	which='alias | /usr/bin/which --tty-only --read-alias --show-dot --show-tilde' \
 	pss='ps auxf | grep -v grep | grep -i -e VSZ -e' \
 	..='cd ..' \
 	...='cd ..\..'
 
-command -v nvim >/dev/null && alias vim="nvim" vimdiff="nvim -d" # Use neovim for vim if present.
+# These common commands are just too long! Abbreviate them.
+alias \
+	ka="killall" \
+	g="git" \
+	gua='git remote | xargs -L1 git push --all' \
+	c='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME' \
+	trem="transmission-remote" \
+	YT="youtube-viewer" \
+	sdn="sudo shutdown -h now" \
+	f="$FILE" \
+	e="$EDITOR" \
+	v="$EDITOR" \
+	calcurse='calcurse -D ~/.config/calcurse' \
+	x='sxiv -ft *' \
+	p="sudo pacman" \
+	xi="sudo xbps-install" \
+	xr="sudo xbps-remove -R" \
+	xq="xbps-query"
+	emi='sudo emerge -pv' \
+	emr='sudo emerge -Ca' \
+	emu='sudo emerge-webrsync' \
+	emw='sudo emerge -auDN @world'
+
+# This alias is important. It enables the `pauseallmpv` command.
+alias mpv="mpv --input-ipc-server=/tmp/mpvsoc$(date +%s)"
+
+# Some other stuff
+alias \
+	magit="nvim -c MagitOnly" \
+	ref="shortcuts >/dev/null; source ~/.config/shortcutrc" \
+	weath="less -S ~/.local/share/weatherreport" \
