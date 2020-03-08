@@ -1,0 +1,8 @@
+#!/bin/bash
+XBACKLIGHT_CFG="${HOME}/.xbacklight.conf"
+if [[ $# -eq 0 ]]; then
+	xbacklight -set $(sed -n '1p' ${XBACKLIGHT_CFG})
+else
+	xbacklight $1 $2
+	xbacklight > ${XBACKLIGHT_CFG}
+fi
