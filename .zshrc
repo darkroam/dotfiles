@@ -11,8 +11,8 @@ export ZSH="$HOME/.oh-my-zsh"
 # load a random theme each time oh-my-zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
-#ZSH_THEME="robbyrussell"
-ZSH_THEME="agnoster"
+ZSH_THEME="robbyrussell"
+#ZSH_THEME="agnoster"
 
 
 # Set list of themes to pick from when loading at random
@@ -126,7 +126,7 @@ if [[ -d "${ZPLUG_HOME}" ]]; then
   source "${ZPLUG_HOME}/init.zsh"
 fi
 zplug 'plugins/git', from:oh-my-zsh, if:'which git'
-zplug 'romkatv/powerlevel10k', use:powerlevel10k.zsh-theme
+#zplug 'romkatv/powerlevel10k', use:powerlevel10k.zsh-theme
 zplug "plugins/vi-mode", from:oh-my-zsh
 zplug 'zsh-users/zsh-autosuggestions'
 zplug 'zsh-users/zsh-completions', defer:2
@@ -139,3 +139,5 @@ fi
 
 zplug load
 
+
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
