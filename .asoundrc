@@ -1,0 +1,38 @@
+#### REFERENCE <https://www.alsa-project.org/main/index.php/Asoundrc>
+#### REFERENCE <http://www.voidcn.com/article/p-kylvnapv-et.html>
+
+#cat /proc/asound/cards		#### checek the sound cards on th computer
+#aplay -D default test.wav	#### test the sound cards
+#aplay -D hw:1,0 test.wav
+
+## With the 'PCM hw type' you are able to define aliases for your devices. The syntax for this definition is:
+#pcm.NAME {
+#        type hw		# Kernel PCM	# type: hw/rate/plug/dmix/dsnoop/jack/multi/route/etc.
+#        card INT/STR		# Card name or number
+#        [device] INT		# Device number (default 0)
+#        [subdevice] INT	# Subdevice number, -1 first available (default -1)
+#        mmap_emulation BOOL	# enable mmap emulation for ro/wo devices
+#}
+## For example, this gives your first soundcard an alias:
+#pcm.primary {
+#        type hw
+#        card 0
+#        device 0
+#}
+## Now you can access this card by the alias 'primary'.
+#aplay -D primary test.wav
+
+#defaults.pcm.card 1
+#defaults.pcm.device 0
+#defaults.ctl.card 1
+#defaults.ctl.device 0
+
+pcm.!default {
+        type hw
+        card 1
+}
+
+ctl.!default {
+        type hw
+        card 1
+}
