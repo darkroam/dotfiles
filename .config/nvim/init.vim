@@ -58,8 +58,10 @@ Plug 'tweekmonster/braceless.vim'
 " Markdown
 Plug 'iamcco/markdown-preview.nvim', { 'do': { -> mkdp#util#install_sync() }, 'for' :['markdown', 'vim-plug'] }
 Plug 'dhruvasagar/vim-table-mode', { 'on': 'TableModeToggle' }
-Plug 'theniceboy/bullets.vim'
+"Plug 'theniceboy/bullets.vim'
 
+" Editor Enhancement
+Plug 'scrooloose/nerdcommenter' " in <space>cn to comment a line
 call plug#end()
 
 set bg=light
@@ -67,6 +69,8 @@ set go=a
 set mouse=a
 set nohlsearch
 set clipboard=unnamedplus
+
+colorscheme elflord
 
 " Some basics:
 	nnoremap c "_c
@@ -117,7 +121,7 @@ set clipboard=unnamedplus
 	nnoremap S :%s//g<Left><Left>
 
 " Compile document, be it groff/LaTeX/markdown/etc.
-	map <leader>c :w! \| !compiler <c-r>%<CR>
+"	map <leader>c :w! \| !compiler <c-r>%<CR>
 
 " Open corresponding .pdf/.html or preview
 	map <leader>p :!opout <c-r>%<CR><CR>
