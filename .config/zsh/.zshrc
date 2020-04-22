@@ -64,7 +64,9 @@ ZSH_THEME="robbyrussell"
 # "mm/dd/yyyy"|"dd.mm.yyyy"|"yyyy-mm-dd"
 # or set a custom format using the strftime function format specifications,
 # see 'man strftime' for details.
-# HIST_STAMPS="mm/dd/yyyy"
+HIST_STAMPS="mm/dd/yyyy"
+HISTFILESIZE=100000
+
 
 # Would you like to use another custom folder than $ZSH/custom?
 # ZSH_CUSTOM=/path/to/new-custom-folder
@@ -75,9 +77,43 @@ ZSH_THEME="robbyrussell"
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
 
-plugins=(git vi-mode)
+plugins=(
+	z			#目录匹配
+	git			#git的alias
+	docker			#docker的补全
+	#extract		#用x智能解压
+	thefuck			#用fuck命令或用ESC键修订最近一个错误命令，需要pip install thefuck
+	#fzf-zsh		#追溯历史命令
+	vi-mode
+)
+
+# ctrl + n autosuggest
+bindkey '^n' autosuggest-accept
 
 source $ZSH/oh-my-zsh.sh
+
+# docker
+attach() {
+  docker exec -it `docker ps | grep $* | awk -F ' ' '{print $1}'` bash
+}
+
+git_set_proxy() {
+  git config --global http.proxy 'socks5://127.0.0.1:1080'
+  git config --global https.proxy 'socks5://127.0.0.1:1080'
+}
+
+git_unset_proxy() {
+  git config --global --unset http.proxy
+  git config --global --unset https.proxy
+}
+
+json() {
+  echo `xclip -o` | jq		# Linux
+  # echo `pbpaste` | jq		# macOS
+}
+
+# for manOS's homebrew
+# export HOMEBREW_BOTTLE_DOMAIN=https://mirrors.ustc.edu.cn/homebrew-bottles
 
 # User configuration
 
