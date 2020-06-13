@@ -113,7 +113,9 @@ json() {
 }
 
 # for manOS's homebrew
-# export HOMEBREW_BOTTLE_DOMAIN=https://mirrors.ustc.edu.cn/homebrew-bottles
+if [ "$(uname)" = "Darwin" ]; then
+  export HOMEBREW_BOTTLE_DOMAIN=https://mirrors.ustc.edu.cn/homebrew-bottles
+fi
 
 # User configuration
 

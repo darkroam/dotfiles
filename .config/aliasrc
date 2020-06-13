@@ -15,17 +15,29 @@ alias \
 	ffmpeg="ffmpeg -hide_banner"
 
 # Colorize commands when possible.
+if [ "$(uname)" = "Darwin" ]; then
+	alias \
+		ls="ls -h" \
+		sl="ls -h" \
+		l.='ls -d .*' \
+		ll='ls -hAlF' \
+		ll.='ls -hAlFd .*' \
+		pss='ps aux | grep -v grep | grep -i -e VSZ -e'
+elif [ "$(expr substr $(uname -s) 1 5)" = "Linux" ]; then
+	alias \
+		ls="ls -h --color=auto --group-directories-first" \
+		sl="ls -h --color=auto --group-directories-first" \
+		l.='ls -d .* --color=auto --group-directories-first' \
+		ll='ls -hAlF --group-directories-first' \
+		ll.='ls -hAlFd .* --group-directories-first' \
+		diff="diff --color=auto" \
+		pss='ps auxf | grep -v grep | grep -i -e VSZ -e'
+fi
+
 alias \
-	ls="ls -h --color=auto --group-directories-first" \
-	sl="ls -h --color=auto --group-directories-first" \
-	l.='ls -d .* --color=auto --group-directories-first' \
-	ll='ls -hAlF --group-directories-first' \
-	ll.='ls -hAlFd .* --group-directories-first' \
 	grep="grep --color=auto" \
-	diff="diff --color=auto" \
 	ccat="highlight --out-format=ansi" \
 	which='alias | /usr/bin/which --tty-only --read-alias --show-dot --show-tilde' \
-	pss='ps auxf | grep -v grep | grep -i -e VSZ -e' \
 	..='cd ..' \
 	...='cd ..\..'
 
@@ -61,4 +73,3 @@ alias \
 	ref="shortcuts >/dev/null; source ${XDG_CONFIG_HOME:-$HOME/.config}/shortcutrc ; source ${XDG_CONFIG_HOME:-$HOME/.config}/zshnameddirrc" \
 	weath="less -S ${XDG_DATA_HOME:-$HOME/.local/share}/weatherreport"
 #	tmux="tmux -f ${XDG_CONFIG_HOME:-$HOME/.config}/tmux/tmux.conf"
-

@@ -62,7 +62,7 @@ bindsym $mod+grave		exec --no-startup-id dmenuunicode
 bindsym $mod+Shift+Delete	exec --no-startup-id pulsemixer --mute ; exec --no-startup-id mpc pause && pkill -RTMIN+10 i3blocks ; exec --no-startup-id pauseallmpv; workspace 0; exec $term -e htop ; exec $term -e lf
 
 # Show selection:
-bindsym $mod+Insert		exec --no-startup-id showclip
+bindsym $mod+Insert		exec --no-startup-id notify-send "📋 Clipboard contents:" "$(xclip -o -selection clipboard)"
 ##bindsym $mod+Pause
 
 # #---Letter Key Bindings---# #
@@ -134,7 +134,7 @@ bindsym $mod+Ctrl+l		move workspace to output right
 bindsym $mod+z			gaps outer current plus 5
 bindsym $mod+Shift+z		gaps outer current minus 5
 
-bindsym $mod+x			exec --no-startup-id mpc pause; exec --no-startup-id pauseallmpv ; exec --no-startup-id i3lock -e -f -c 1d2021 ; exec --no-startup-id xset dpms force off
+bindsym $mod+x			exec --no-startup-id xset dpms force off && mpc pause && pauseallmpv && slock &
 bindsym $mod+Shift+x		exec --no-startup-id prompt "Shutdown computer?" "$shutdown"
 
 bindsym $mod+c			exec --no-startup-id cabl
