@@ -117,6 +117,16 @@ if [ "$(uname)" = "Darwin" ]; then
   export HOMEBREW_BOTTLE_DOMAIN=https://mirrors.ustc.edu.cn/homebrew-bottles
 fi
 
+setproxy() {
+  export ALL_PROXY=http://127.0.0.1:10080
+  #export ALL_PROXY=socks5://127.0.0.1:1080
+}
+
+unsetproxy() {
+  unset ALL_PROXY
+}
+
+
 # User configuration
 
 # export MANPATH="/usr/local/man:$MANPATH"
