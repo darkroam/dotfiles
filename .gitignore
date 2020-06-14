@@ -11,6 +11,12 @@ Desktop
 Movies
 Public
 Library
+Templates
+VMs
+
+.steam*
+.Xclients
+.gnupg
 
 .DS_Store
 .CFUserTextEnncoding
@@ -40,7 +46,7 @@ Library
 .viminfo
 .w3m/
 .xbacklight.conf
-.z
+.z*
 .zcompdump-*
 .zplug/
 zsh_history
