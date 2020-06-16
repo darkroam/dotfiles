@@ -21,6 +21,9 @@ alias setproxy="export ALL_PROXY=http://127.0.0.1:10080"
 alias unsetproxy="unset ALL_PROXY"
 alias ip="curl -i http://ip.cn"
 
+export GO111MODULE=on
+export GOPROXY=https://goproxy.cn,direct
+
 mpd &			# music player daemon-you might prefer it as a service though
 #remaps &		# run the remaps script, switching caps/esc and more; check it for more info
 setbg &			# set the background with the `setbg` script

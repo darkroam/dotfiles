@@ -49,4 +49,5 @@ VMs
 .z*
 .zcompdump-*
 .zplug/
-zsh_history
+.zsh_history
+.npm/
