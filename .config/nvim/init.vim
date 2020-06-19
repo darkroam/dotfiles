@@ -64,7 +64,7 @@ Plug 'tweekmonster/braceless.vim'
 " Markdown
 Plug 'iamcco/markdown-preview.nvim', { 'do': { -> mkdp#util#install_sync() }, 'for' :['markdown', 'vim-plug'] }
 Plug 'dhruvasagar/vim-table-mode', { 'on': 'TableModeToggle' }
-"Plug 'theniceboy/bullets.vim'
+"Plug 'dkarter/bullets.vim'
 
 " Editor Enhancement
 Plug 'scrooloose/nerdcommenter' " in <space>cn to comment a line
@@ -72,12 +72,27 @@ Plug 'scrooloose/nerdcommenter' " in <space>cn to comment a line
 " Fzf
 Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all'  }
 Plug 'junegunn/fzf.vim'
+
+" Pretty Dress
+" Plug 'bling/vim-bufferline'
+Plug 'theniceboy/vim-deus'
+"Plug 'arzg/vim-colors-xcode'
+
+" Status line
+Plug 'theniceboy/eleline.vim'
+
+" Other visual enhancement
+Plug 'ryanoasis/vim-devicons'
+Plug 'luochen1990/rainbow'
+Plug 'mg979/vim-xtabline'
+Plug 'wincent/terminus'
+
 call plug#end()
 
 set bg=light
 set go=a
 set mouse=a
-set nohlsearch
+set hlsearch
 set clipboard+=unnamedplus
 
 colorscheme elflord
@@ -175,6 +190,36 @@ colorscheme elflord
 	autocmd BufWritePost *sxhkdrc !pkill -USR1 sxhkd
 " Update dwmbar when changed.
 	autocmd BufWritePost *dwmbar !killall dwmbar; setsid dwmbar &
+
+" ===
+" === Dress up my vim
+" ===
+set termguicolors " enable true colors support
+let $NVIM_TUI_ENABLE_TRUE_COLOR=1
+"set background=dark
+"let ayucolor="mirage"
+"let g:oceanic_next_terminal_bold = 1
+"let g:oceanic_next_terminal_italic = 1
+"let g:one_allow_italics = 1
+
+"color dracula
+"color one
+color deus
+"color gruvbox
+"let ayucolor="light"
+"color ayu
+"color xcodelighthc
+"set background=light
+"set cursorcolumn
+
+hi NonText ctermfg=gray guifg=grey10
+"hi SpecialKey ctermfg=blue guifg=grey70
+
+" ===
+" === eleline.vim
+" ===
+let g:airline_powerline_fonts = 0
+
 
 " ===
 " === vim-go
@@ -350,3 +395,20 @@ command! BD call fzf#run(fzf#wrap({
 noremap <c-d> :BD<CR>
 
 let g:fzf_layout = { 'window': { 'width': 0.9, 'height': 0.7 } }
+
+" ===
+" === rainbow
+" ===
+let g:rainbow_active = 1
+
+
+" ===
+" === xtabline
+" ===
+let g:xtabline_settings = {}
+let g:xtabline_settings.enable_mappings = 0
+let g:xtabline_settings.tabline_modes = ['tabs', 'buffers']
+let g:xtabline_settings.enable_persistance = 0
+let g:xtabline_settings.last_open_first = 1
+noremap to :XTabCycleMode<CR>
+noremap \p :XTabInfo<CR>

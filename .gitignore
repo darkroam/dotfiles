@@ -22,6 +22,7 @@ VMs
 .CFUserTextEnncoding
 .bash_sessions/
 .docker/
+.gem/
 
 .Xauthority
 .bash_history
