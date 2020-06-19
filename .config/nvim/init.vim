@@ -44,6 +44,7 @@ Plug 'kovetskiy/sxhkd-vim'
 
 " Auto Complete
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
+Plug 'wellle/tmux-complete.vim'
 
 " Snippets
 " Plug 'SirVer/ultisnips'
@@ -64,7 +65,8 @@ Plug 'tweekmonster/braceless.vim'
 " Markdown
 Plug 'iamcco/markdown-preview.nvim', { 'do': { -> mkdp#util#install_sync() }, 'for' :['markdown', 'vim-plug'] }
 Plug 'dhruvasagar/vim-table-mode', { 'on': 'TableModeToggle' }
-"Plug 'dkarter/bullets.vim'
+Plug 'mzlogin/vim-markdown-toc', { 'for': ['gitignore', 'markdown', 'vim-plug'] }
+Plug 'dkarter/bullets.vim'
 
 " Editor Enhancement
 Plug 'scrooloose/nerdcommenter' " in <space>cn to comment a line
@@ -81,11 +83,30 @@ Plug 'theniceboy/vim-deus'
 " Status line
 Plug 'theniceboy/eleline.vim'
 
-" Other visual enhancement
-Plug 'ryanoasis/vim-devicons'
-Plug 'luochen1990/rainbow'
-Plug 'mg979/vim-xtabline'
-Plug 'wincent/terminus'
+" File navigation
+Plug 'kevinhwang91/rnvimr', {'do': 'make sync'}
+Plug 'airblade/vim-rooter'
+Plug 'pechorin/any-jump.vim'
+
+" Editor Enhancement
+"Plug 'Raimondi/delimitMate'
+Plug 'jiangmiao/auto-pairs'
+Plug 'tomtom/tcomment_vim' " in <space>cn to comment a line
+Plug 'theniceboy/antovim' " gs to switch
+Plug 'gcmt/wildfire.vim' " in Visual mode, type k' to select all text in '', or type k) k] k} kp
+Plug 'junegunn/vim-after-object' " da= to delete what's after =
+Plug 'godlygeek/tabular' " ga, or :Tabularize <regex> to align
+Plug 'tpope/vim-capslock'	" Ctrl+L (insert) to toggle capslock
+Plug 'easymotion/vim-easymotion'
+"Plug 'Konfekt/FastFold'
+"Plug 'junegunn/vim-peekaboo'
+"Plug 'wellle/context.vim'
+Plug 'svermeulen/vim-subversive'
+Plug 'theniceboy/argtextobj.vim'
+Plug 'rhysd/clever-f.vim'
+Plug 'chrisbra/NrrwRgn'
+Plug 'AndrewRadev/splitjoin.vim'
+
 
 call plug#end()
 
@@ -397,18 +418,108 @@ noremap <c-d> :BD<CR>
 let g:fzf_layout = { 'window': { 'width': 0.9, 'height': 0.7 } }
 
 " ===
-" === rainbow
+" === rnvimr
 " ===
-let g:rainbow_active = 1
+let g:rnvimr_ex_enable = 1
+let g:rnvimr_pick_enable = 1
+let g:rnvimr_draw_border = 0
+" let g:rnvimr_bw_enable = 1
+highlight link RnvimrNormal CursorLine
+nnoremap <silent> R :RnvimrSync<CR>:RnvimrToggle<CR><C-\><C-n>:RnvimrResize 0<CR>
+let g:rnvimr_action = {
+            \ '<C-t>': 'NvimEdit tabedit',
+            \ '<C-x>': 'NvimEdit split',
+            \ '<C-v>': 'NvimEdit vsplit',
+            \ 'gw': 'JumpNvimCwd',
+            \ 'yw': 'EmitRangerCwd'
+            \ }
+let g:rnvimr_layout = { 'relative': 'editor',
+            \ 'width': &columns,
+            \ 'height': &lines,
+            \ 'col': 0,
+            \ 'row': 0,
+            \ 'style': 'minimal' }
+let g:rnvimr_presets = [{'width': 1.0, 'height': 1.0}]
 
+" ===
+" === vim-rooter
+" ===
+let g:rooter_patterns = ['__vim_project_root', '.git/']
 
 " ===
-" === xtabline
+" === any-jump
 " ===
-let g:xtabline_settings = {}
-let g:xtabline_settings.enable_mappings = 0
-let g:xtabline_settings.tabline_modes = ['tabs', 'buffers']
-let g:xtabline_settings.enable_persistance = 0
-let g:xtabline_settings.last_open_first = 1
-noremap to :XTabCycleMode<CR>
-noremap \p :XTabInfo<CR>
+nnoremap <C-o> :AnyJump<CR>
+let g:any_jump_window_width_ratio  = 0.8
+let g:any_jump_window_height_ratio = 0.9
+
+" ===
+" === Bullets.vim
+" ===
+" let g:bullets_set_mappings = 0
+let g:bullets_enabled_file_types = [
+			\ 'markdown',
+			\ 'text',
+			\ 'gitcommit',
+			\ 'scratch'
+			\]
+
+" ===
+" === vim-markdown-toc
+" ===
+"let g:vmt_auto_update_on_save = 0
+"let g:vmt_dont_insert_fence = 1
+let g:vmt_cycle_list_item_markers = 1
+let g:vmt_fence_text = 'TOC'
+let g:vmt_fence_closing_text = '/TOC'
+
+" ===
+" === tcomment_vim
+" ===
+nnoremap ci cl
+let g:tcomment_textobject_inlinecomment = ''
+nmap <LEADER>cn g>c
+vmap <LEADER>cn g>
+nmap <LEADER>cu g<c
+vmap <LEADER>cu g<
+
+" ===
+" === vim-after-object
+" ===
+autocmd VimEnter * call after_object#enable('=', ':', '-', '#', ' ')
+
+" ===
+" === tabular
+" ===
+vmap ga :Tabularize /
+
+" ===
+" === vim-easymotion
+" ===
+let g:EasyMotion_do_mapping = 0
+let g:EasyMotion_do_shade = 0
+let g:EasyMotion_smartcase = 1
+map ' <Plug>(easymotion-overwin-f2)
+nmap ' <Plug>(easymotion-overwin-f2)
+"map J <Plug>(easymotion-j)
+"map K <Plug>(easymotion-k)
+"nmap f <Plug>(easymotion-overwin-f)
+"map \; <Plug>(easymotion-prefix)
+"nmap ' <Plug>(easymotion-overwin-f2)
+"map 'l <Plug>(easymotion-bd-jk)
+"nmap 'l <Plug>(easymotion-overwin-line)
+"map  'w <Plug>(easymotion-bd-w)
+"nmap 'w <Plug>(easymotion-overwin-w)
+
+" ===
+" === vim-subversive
+" ===
+nmap s <plug>(SubversiveSubstitute)
+nmap ss <plug>(SubversiveSubstituteLine)
+
+" ===
+" === NrrwRgn
+" ===
+let g:nrrw_rgn_nomap_nr = 1
+let g:nrrw_rgn_nomap_Nr = 1
+noremap <c-y> :NR<CR>
