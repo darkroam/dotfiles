@@ -191,7 +191,7 @@ zplug load
 
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 export FZF_DEFAULT_COMMAND='fd --hidden --follow -E ".git" -E "node_modules" . /etc /home'
-export FZF_DEFAULT_OPTS='--height 60% --layout=reverse --bind=alt-j:down,alt-k:up,alt-i:toggle+down --border --preview "echo {} | ~/.local/bin/fzf_preview" --preview-window=down'
+export FZF_DEFAULT_OPTS='--height 90% --layout=reverse --bind=alt-j:down,alt-k:up,alt-i:toggle+down --border --preview "echo {} | ~/.local/bin/fzf_preview" --preview-window=down'
 
 # use fzf in bash and zsh
 # Use ~~ as the trigger sequence instead of the default **
