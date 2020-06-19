@@ -68,6 +68,10 @@ Plug 'dhruvasagar/vim-table-mode', { 'on': 'TableModeToggle' }
 
 " Editor Enhancement
 Plug 'scrooloose/nerdcommenter' " in <space>cn to comment a line
+
+" Fzf
+Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all'  }
+Plug 'junegunn/fzf.vim'
 call plug#end()
 
 set bg=light
@@ -316,3 +320,33 @@ imap <C-j> <Plug>(coc-snippets-expand-jump)
 source $XDG_CONFIG_HOME/nvim/md-snippets.vim
 " auto spell
 autocmd BufRead,BufNewFile *.md setlocal spell
+
+" ===
+" === FZF
+" ===
+noremap <C-f> :Files<CR>
+noremap <C-\> :Ag<CR>
+
+let g:fzf_preview_window = 'right:60%'
+let g:fzf_commits_log_options = '--graph --color=always --format="%C(auto)%h%d %s %C(black)%C(bold)%cr"'
+
+function! s:list_buffers()
+  redir => list
+  silent ls
+  redir END
+  return split(list, "\n")
+endfunction
+
+function! s:delete_buffers(lines)
+  execute 'bwipeout' join(map(a:lines, {_, line -> split(line)[0]}))
+endfunction
+
+command! BD call fzf#run(fzf#wrap({
+  \ 'source': s:list_buffers(),
+  \ 'sink*': { lines -> s:delete_buffers(lines) },
+  \ 'options': '--multi --reverse --bind ctrl-a:select-all+accept'
+\ }))
+
+noremap <c-d> :BD<CR>
+
+let g:fzf_layout = { 'window': { 'width': 0.9, 'height': 0.7 } }

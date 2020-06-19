@@ -23,3 +23,4 @@ cfmc="$EDITOR ${XDG_CONFIG_HOME:-$HOME/.config}/ncmpcpp/config" \
 cfk="$EDITOR ${XDG_CONFIG_HOME:-$HOME/.config}/sxhkd/sxhkdrc" \
 cfi="$EDITOR ${XDG_CONFIG_HOME:-$HOME/.config}/i3/config" \
 cfb="$EDITOR ${XDG_CONFIG_HOME:-$HOME/.config}/i3blocks/config" \
+cfr="$EDITOR ${XDG_CONFIG_HOME:-$HOME/.config}/ranger/rc.conf" \

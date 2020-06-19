@@ -1,0 +1,11 @@
+--- .fzf/shell/key-bindings.zsh	2020-06-19 11:32:38.223023305 +0800
++++ .fzf/shell/key-bindings.zsh.bak	2020-06-19 11:32:32.935880719 +0800
+@@ -94,7 +94,7 @@
+   return $ret
+ }
+ zle     -N    fzf-cd-widget
+-bindkey '\ec' fzf-cd-widget
++bindkey '' fzf-cd-widget
+ 
+ # CTRL-R - Paste the selected command from history into the command line
+ fzf-history-widget() {
