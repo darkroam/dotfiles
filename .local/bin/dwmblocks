@@ -28,6 +28,10 @@ status() { \
 	# Get current mpd track filename or artist - title if possible.
 	mpc -f "[[%artist% - ]%title%]|[%file%]" 2>/dev/null | grep -v "volume:" | head -n 1 && echo "$delim"
 
+	# newsboats unread count
+	echo "$(newsboat -x print-unread | awk '{ print "📰 " $1}')"
+	echo "$delim"
+
 	# If the weather report is current, show daily precipitation chance,
 	# low and high.  Don't even bother to understand this one unless you
 	# have all day. Takes the weather report format from wttr.in and makes
@@ -61,11 +65,11 @@ status() { \
 	for x in /sys/class/power_supply/BAT?/capacity;
 	do
 	case "$(cat $x)" in
-		100|9[0-9])	echo "" ;;
-		8[0-9]|7[0-9])	echo "" ;;
-		6[0-9]|5[0-9])	echo "" ;;
-		4[0-9]|3[0-9])	echo "" ;;
-		*)		echo "" ;;
+		100|9[0-9])	echo "$(cat $x)% " ;;
+		8[0-9]|7[0-9])	echo "$(cat $x)% " ;;
+		6[0-9]|5[0-9])	echo "$(cat $x)% " ;;
+		4[0-9]|3[0-9])	echo "$(cat $x)% " ;;
+		*)		echo "$(cat $x)% " ;;
 	esac
 	done && echo "$delim"
 

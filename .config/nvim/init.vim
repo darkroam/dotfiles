@@ -1,5 +1,7 @@
+" 设置leader键
 let mapleader =","
 
+" 自动下载插件管理插件plug.vim
 if ! filereadable(system('echo -n "${XDG_CONFIG_HOME:-$HOME/.config}/nvim/autoload/plug.vim"'))
 	echo "Downloading junegunn/vim-plug to manage plugins..."
 	silent !mkdir -p ${XDG_CONFIG_HOME:-$HOME/.config}/nvim/autoload/
@@ -7,8 +9,13 @@ if ! filereadable(system('echo -n "${XDG_CONFIG_HOME:-$HOME/.config}/nvim/autolo
 	autocmd VimEnter * PlugInstall
 endif
 
-" Compile function
-noremap \ :call CompileRunGcc()<CR>
+" 配置python路径,如果必要的话
+"let g:python_host_prog='/usr/bin/python2'
+"let g:python3_host_prog='/usr/bin/python3'
+"let g:mkdp_browser = 'firefox'
+
+" Compile function 目前只有sh、python、markdown(vimwiki)、tex和go
+noremap R :call CompileRunGcc()<CR>
 func! CompileRunGcc()
 	exec "w"
 	if &filetype == 'sh'
@@ -18,6 +25,8 @@ func! CompileRunGcc()
 		:sp
 		:term python3 %
 	elseif &filetype == 'markdown'
+		exec "MarkdownPreview"
+	elseif &filetype == 'vimwiki'
 		exec "MarkdownPreview"
 	elseif &filetype == 'tex'
 		silent! exec "VimtexStop"
@@ -29,17 +38,20 @@ func! CompileRunGcc()
 	endif
 endfunc
 
+" 加载插件
 call plug#begin(system('echo -n "${XDG_CONFIG_HOME:-$HOME/.config}/nvim/plugged"'))
-Plug 'tpope/vim-surround'
-Plug 'preservim/nerdtree'
-Plug 'junegunn/goyo.vim'
-Plug 'PotatoesMaster/i3-vim-syntax'
-Plug 'jreybert/vimagit'
+Plug 'tpope/vim-surround' " N模式：ds(删除，cs'(替换，ysiw(增加，yss(整行添加, V模式：S(对对象添加
+Plug 'preservim/nerdtree' " ,n 呼叫出侧栏
+"Plug 'junegunn/goyo.vim'
+"Plug 'PotatoesMaster/i3-vim-syntax'
+"Plug 'jreybert/vimagit' " ,M 呼叫出git repo
 "Plug 'lukesmithxyz/vimling'
 Plug 'vimwiki/vimwiki'
+Plug 'mattn/calendar-vim'
+"Plug 'itchyny/calendar.vim'
 Plug 'bling/vim-airline'
 Plug 'tpope/vim-commentary'
-Plug 'vifm/vifm.vim'
+"Plug 'vifm/vifm.vim'
 Plug 'kovetskiy/sxhkd-vim'
 
 " Auto Complete
@@ -47,12 +59,12 @@ Plug 'neoclide/coc.nvim', {'branch': 'release'}
 Plug 'wellle/tmux-complete.vim'
 
 " Snippets
-" Plug 'SirVer/ultisnips'
+"Plug 'SirVer/ultisnips'
 Plug 'theniceboy/vim-snippets'
 
 " Go
-"Plug 'fatih/vim-go' , { 'for': ['go', 'vim-plug'], 'tag': '*' }
-Plug 'fatih/vim-go', { 'do': ':GoUpdateBinaries' }
+Plug 'fatih/vim-go' , { 'for': ['go', 'vim-plug'], 'tag': '*' }
+"Plug 'fatih/vim-go', { 'do': ':GoUpdateBinaries' }
 
 " Python
 Plug 'tmhedberg/SimpylFold', { 'for' :['python', 'vim-plug'] }
@@ -68,15 +80,12 @@ Plug 'dhruvasagar/vim-table-mode', { 'on': 'TableModeToggle' }
 Plug 'mzlogin/vim-markdown-toc', { 'for': ['gitignore', 'markdown', 'vim-plug'] }
 Plug 'dkarter/bullets.vim'
 
-" Editor Enhancement
-Plug 'scrooloose/nerdcommenter' " in <space>cn to comment a line
-
 " Fzf
 Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all'  }
 Plug 'junegunn/fzf.vim'
 
 " Pretty Dress
-" Plug 'bling/vim-bufferline'
+"Plug 'bling/vim-bufferline'
 Plug 'theniceboy/vim-deus'
 "Plug 'arzg/vim-colors-xcode'
 
@@ -84,57 +93,75 @@ Plug 'theniceboy/vim-deus'
 Plug 'theniceboy/eleline.vim'
 
 " File navigation
-Plug 'kevinhwang91/rnvimr', {'do': 'make sync'}
 Plug 'airblade/vim-rooter'
 Plug 'pechorin/any-jump.vim'
 
 " Editor Enhancement
+Plug 'scrooloose/nerdcommenter' " N模式：打开/关闭 ,c<space> 或者一对操作,co <==> ,cn
 "Plug 'Raimondi/delimitMate'
 Plug 'jiangmiao/auto-pairs'
-Plug 'tomtom/tcomment_vim' " in <space>cn to comment a line
+"Plug 'tomtom/tcomment_vim' " in <space>cn to comment a line
 Plug 'theniceboy/antovim' " gs to switch
 Plug 'gcmt/wildfire.vim' " in Visual mode, type k' to select all text in '', or type k) k] k} kp
 Plug 'junegunn/vim-after-object' " da= to delete what's after =
-Plug 'godlygeek/tabular' " ga, or :Tabularize <regex> to align
-Plug 'tpope/vim-capslock'	" Ctrl+L (insert) to toggle capslock
-Plug 'easymotion/vim-easymotion'
+Plug 'godlygeek/tabular' " V模式：ga, or :Tabularize <regex> to align
+"Plug 'tpope/vim-capslock'	" Ctrl+L (insert) to toggle capslock
+Plug 'easymotion/vim-easymotion' " 支持快速跳转，启动后输入匹配词，再确认跳转位置的高亮字母直接跳转
+Plug 'ZSaberLv0/vim-easymotion-chs'
 "Plug 'Konfekt/FastFold'
 "Plug 'junegunn/vim-peekaboo'
 "Plug 'wellle/context.vim'
 Plug 'svermeulen/vim-subversive'
 Plug 'theniceboy/argtextobj.vim'
 Plug 'rhysd/clever-f.vim'
-Plug 'chrisbra/NrrwRgn'
+"Plug 'chrisbra/NrrwRgn'
 Plug 'AndrewRadev/splitjoin.vim'
 
 
 call plug#end()
 
-set bg=light
-set go=a
-set mouse=a
-set hlsearch
-set clipboard+=unnamedplus
+" ===
+" === System
+" ===
+	set go=a
+	set mouse=a " 启用鼠标
+	set hlsearch " 搜索高亮关键词
+	set clipboard+=unnamedplus " 设置系统剪贴板
+	let &t_ut='' " 使配色更加兼容你的终端
+	set autochdir " 自动切换工作目录。这主要用在一个 Vim 会话之中打开多个文件的情况，默认的工作目录是打开的第一个文件的目录。该配置可以将工作目录自动切换到，正在编辑的文件的目录。
+	set wrap " 自动折行，即太长的行分成几行显示。
 
-colorscheme elflord
+" 设置缩进距离
+	set noexpandtab "输入 tab 时不自动将其转化为空格
+	set tabstop=2 " 设定 tab 的位置
+	set shiftwidth=2 " 换行时的自动缩进列数
+	set softtabstop=2 " 设定编辑模式下 tab 的视在宽度
+
+" 设置空格的显示
+	set list
+	set listchars=tab:▸\ ,trail:▫
+	set tw=0
+	set indentexpr=
 
 " Some basics:
+	" 删除替换时, 不要覆盖剪贴板
 	nnoremap c "_c
-	set nocompatible
-	filetype plugin on
-	syntax on
-	set encoding=utf-8
-	set number relativenumber
+	set nocompatible " 去掉有关vi一致性模式，避免以前版本的bug和局限
+	filetype plugin on " 打开文件类型识别
+	syntax on " 打开语法高亮
+	set encoding=utf-8 " 设置文件编码方式
+	set number relativenumber " 打开行号，设置相对行号
+
 " Enable autocompletion:
 	set wildmode=longest,list,full
 " Disables automatic commenting on newline:
 	autocmd FileType * setlocal formatoptions-=c formatoptions-=r formatoptions-=o
 
 " Goyo plugin makes text more readable when writing prose:
-	map <leader>f :Goyo \| set bg=light \| set linebreak<CR>
+"	map <leader>f :Goyo \| set bg=light \| set linebreak<CR>
 
 " Spell-check set to <leader>o, 'o' for 'orthography':
-	map <leader>o :setlocal spell! spelllang=en_us<CR>
+	map <leader>o :setlocal spell! spelllang=en_us,cjk<CR>
 
 " Splits open at the bottom and right, which is non-retarded, unlike vim defaults.
 	set splitbelow splitright
@@ -144,11 +171,11 @@ colorscheme elflord
 	autocmd bufenter * if (winnr("$") == 1 && exists("b:NERDTree") && b:NERDTree.isTabTree()) | q | endif
 
 " vimling:
-	nm <leader>d :call ToggleDeadKeys()<CR>
-	imap <leader>d <esc>:call ToggleDeadKeys()<CR>a
-	nm <leader>i :call ToggleIPA()<CR>
-	imap <leader>i <esc>:call ToggleIPA()<CR>a
-	nm <leader>q :call ToggleProse()<CR>
+"	nm <leader>d :call ToggleDeadKeys()<CR>
+"	imap <leader>d <esc>:call ToggleDeadKeys()<CR>a
+"	nm <leader>i :call ToggleIPA()<CR>
+"	imap <leader>i <esc>:call ToggleIPA()<CR>a
+"	nm <leader>q :call ToggleProse()<CR>
 
 " Shortcutting split navigation, saving a keypress:
 	map <C-h> <C-w>h
@@ -156,15 +183,15 @@ colorscheme elflord
 	map <C-k> <C-w>k
 	map <C-l> <C-w>l
 
-" Replace ex mode with gq
-	map Q gq
+" Save & quit
+	noremap Q :q<CR>
 
 " Check file in shellcheck:
 	map <leader>s :!clear && shellcheck %<CR>
 
 " Open my bibliography file in split
-	map <leader>b :vsp<space>$BIB<CR>
-	map <leader>r :vsp<space>$REFER<CR>
+"	map <leader>b :vsp<space>$BIB<CR>
+"	map <leader>r :vsp<space>$REFER<CR>
 
 " Replace all is aliased to S.
 	nnoremap S :%s//g<Left><Left>
@@ -173,18 +200,35 @@ colorscheme elflord
 "	map <leader>c :w! \| !compiler <c-r>%<CR>
 
 " Open corresponding .pdf/.html or preview
-	map <leader>p :!opout <c-r>%<CR><CR>
+"	map <leader>p :!opout <c-r>%<CR><CR>
+
+" Open corresponding .markdown or preview
+	map <C-o> :MarkdownPreview<CR>
 
 " Runs a script that cleans out tex build files whenever I close out of a .tex file.
-	autocmd VimLeave *.tex !texclear %
+"	autocmd VimLeave *.tex !texclear %
 
 " Ensure files are read as what I want:
 	let g:vimwiki_ext2syntax = {'.Rmd': 'markdown', '.rmd': 'markdown','.md': 'markdown', '.markdown': 'markdown', '.mdown': 'markdown'}
 	map <leader>v :VimwikiIndex
-	let g:vimwiki_list = [{'path': '~/vimwiki', 'syntax': 'markdown', 'ext': '.md'}]
+	let g:vimwiki_list = [{'path': '~/Documents/vimwiki/', 'syntax': 'markdown', 'ext': '.md'}]
 	autocmd BufRead,BufNewFile /tmp/calcurse*,~/.calcurse/notes/* set filetype=markdown
 	autocmd BufRead,BufNewFile *.ms,*.me,*.mom,*.man set filetype=groff
 	autocmd BufRead,BufNewFile *.tex set filetype=tex
+	function! ToggleCalendar()
+		execute ":CalendarH"
+		if exists("g:calendar_open")
+			if g:calendar_open == 1
+				execute "q"
+				unlet g:calendar_open
+			else
+				g:calendar_open = 1
+			end
+		else
+			let g:calendar_open = 1
+		end
+	endfunction
+	autocmd FileType vimwiki map c :call ToggleCalendar()
 
 " Copy selected text to system clipboard (requires gvim/nvim/vim-x11 installed):
 	vnoremap <C-c> "+y
@@ -194,14 +238,14 @@ colorscheme elflord
 	cnoremap w!! execute 'silent! write !sudo tee % >/dev/null' <bar> edit!
 
 " Enable Goyo by default for mutt writting
-	autocmd BufRead,BufNewFile /tmp/neomutt* let g:goyo_width=80
-	autocmd BufRead,BufNewFile /tmp/neomutt* :Goyo | set bg=light
-	autocmd BufRead,BufNewFile /tmp/neomutt* map ZZ :Goyo\|x!<CR>
-	autocmd BufRead,BufNewFile /tmp/neomutt* map ZQ :Goyo\|q!<CR>
+"	autocmd BufRead,BufNewFile /tmp/neomutt* let g:goyo_width=80
+"	autocmd BufRead,BufNewFile /tmp/neomutt* :Goyo | set bg=light
+"	autocmd BufRead,BufNewFile /tmp/neomutt* map ZZ :Goyo\|x!<CR>
+"	autocmd BufRead,BufNewFile /tmp/neomutt* map ZQ :Goyo\|q!<CR>
 
 " Automatically deletes all trailing whitespace and newlines at end of file on save.
-	autocmd BufWritePre * %s/\s\+$//e
-	autocmd BufWritepre * %s/\n\+\%$//e
+"	autocmd BufWritePre * %s/\s\+$//e
+"	autocmd BufWritepre * %s/\n\+\%$//e
 
 " When shortcut files are updated, renew bash and ranger configs with new material:
 	autocmd BufWritePost files,directories !shortcuts
@@ -337,9 +381,9 @@ inoremap <silent><expr> <c-o> coc#refresh()
 " Open up coc-commands
 nnoremap <c-c> :CocCommand<CR>
 " Text Objects
-xmap kf <Plug>(coc-funcobj-i)
+xmap if <Plug>(coc-funcobj-i)
 xmap af <Plug>(coc-funcobj-a)
-omap kf <Plug>(coc-funcobj-i)
+omap if <Plug>(coc-funcobj-i)
 omap af <Plug>(coc-funcobj-a)
 " Useful commands
 nnoremap <silent> <space>y :<C-u>CocList -A --normal yank<cr>
@@ -418,30 +462,6 @@ noremap <c-d> :BD<CR>
 let g:fzf_layout = { 'window': { 'width': 0.9, 'height': 0.7 } }
 
 " ===
-" === rnvimr
-" ===
-let g:rnvimr_ex_enable = 1
-let g:rnvimr_pick_enable = 1
-let g:rnvimr_draw_border = 0
-" let g:rnvimr_bw_enable = 1
-highlight link RnvimrNormal CursorLine
-nnoremap <silent> R :RnvimrSync<CR>:RnvimrToggle<CR><C-\><C-n>:RnvimrResize 0<CR>
-let g:rnvimr_action = {
-            \ '<C-t>': 'NvimEdit tabedit',
-            \ '<C-x>': 'NvimEdit split',
-            \ '<C-v>': 'NvimEdit vsplit',
-            \ 'gw': 'JumpNvimCwd',
-            \ 'yw': 'EmitRangerCwd'
-            \ }
-let g:rnvimr_layout = { 'relative': 'editor',
-            \ 'width': &columns,
-            \ 'height': &lines,
-            \ 'col': 0,
-            \ 'row': 0,
-            \ 'style': 'minimal' }
-let g:rnvimr_presets = [{'width': 1.0, 'height': 1.0}]
-
-" ===
 " === vim-rooter
 " ===
 let g:rooter_patterns = ['__vim_project_root', '.git/']
@@ -449,7 +469,7 @@ let g:rooter_patterns = ['__vim_project_root', '.git/']
 " ===
 " === any-jump
 " ===
-nnoremap <C-o> :AnyJump<CR>
+"nnoremap <C-o> :AnyJump<CR>
 let g:any_jump_window_width_ratio  = 0.8
 let g:any_jump_window_height_ratio = 0.9
 
@@ -472,16 +492,6 @@ let g:bullets_enabled_file_types = [
 let g:vmt_cycle_list_item_markers = 1
 let g:vmt_fence_text = 'TOC'
 let g:vmt_fence_closing_text = '/TOC'
-
-" ===
-" === tcomment_vim
-" ===
-nnoremap ci cl
-let g:tcomment_textobject_inlinecomment = ''
-nmap <LEADER>cn g>c
-vmap <LEADER>cn g>
-nmap <LEADER>cu g<c
-vmap <LEADER>cu g<
 
 " ===
 " === vim-after-object
@@ -518,8 +528,20 @@ nmap s <plug>(SubversiveSubstitute)
 nmap ss <plug>(SubversiveSubstituteLine)
 
 " ===
-" === NrrwRgn
+" === Other useful stuff
 " ===
-let g:nrrw_rgn_nomap_nr = 1
-let g:nrrw_rgn_nomap_Nr = 1
-noremap <c-y> :NR<CR>
+" Open a new instance of st with the cwd
+nnoremap \t :tabe<CR>:-tabmove<CR>:term sh -c 'st'<CR><C-\><C-N>:q<CR>
+
+" Opening a terminal window
+noremap <leader>/ :set splitbelow<CR>:split<CR>:res +10<CR>:term<CR>
+
+" Press space twice to jump to the next '<++>' and edit it
+noremap <leader><leader> <Esc>/<++><CR>:nohlsearch<CR>c4l
+
+" Auto change directory to current dir
+autocmd BufEnter * silent! lcd %:p:h
+
+" Open up lazygit
+noremap \g :Git
+noremap <c-g> :tabe<CR>:-tabmove<CR>:term lazygit<CR>

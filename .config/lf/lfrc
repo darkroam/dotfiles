@@ -8,6 +8,7 @@ set scrolloff 10
 set color256
 set icons
 set period 1
+set hiddenfiles ".*:*.aux:*.log:*.bbl:*.bcf:*.blg:*.run.xml"
 
 # Vars that depend on environmental variables
 $lf -remote "send $id set previewer ${XDG_CONFIG_HOME:-$HOME/.config}/lf/scope"
@@ -59,9 +60,8 @@ cmd copyto ${{
 	notify-send "📋 File(s) copied." "File(s) copies to $dest."
 }}
 
-cmd bulkrename ${{
-    vidir
-}}
+cmd setbg "$1"
+cmd bulkrename $vidir
 
 # Bindings
 map <c-f> $lf -remote "send $id select '$(fzf)'"
@@ -84,7 +84,8 @@ map c push A<c-u> # new rename
 map I push A<c-a> # at the very beginning
 map i push A<a-b><a-b><a-f> # before extention
 map a push A<a-b> # after extention
-map b bulkrename
+map B bulkrename
+map b $setbg $f
 
 map <c-e> down
 map <c-y> up

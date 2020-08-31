@@ -51,7 +51,7 @@ alias \
 	YT="youtube-viewer" \
 	sdn="sudo shutdown -h now" \
 	f="$FILE" \
-	e="$EDITOR" \
+	e="emacs" \
 	v="$EDITOR" \
 	calcurse='calcurse -D ~/.config/calcurse' \
 	x='sxiv -ft *' \
@@ -62,7 +62,8 @@ alias \
 	emi='sudo emerge -pv' \
 	emr='sudo emerge -Ca' \
 	emu='sudo emerge-webrsync' \
-	emw='sudo emerge -auDN @world'
+	emw='sudo emerge -auDN @world' \
+	emd='sudo emerge --depclean' \
 
 # This alias is important. It enables the `pauseallmpv` command.
 alias mpv="mpv --input-ipc-server=/tmp/mpvsoc$(date +%s)"
