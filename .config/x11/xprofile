@@ -24,19 +24,28 @@ alias ip="curl -i http://ip.cn"
 export GO111MODULE=on
 export GOPROXY=https://goproxy.cn,direct
 
+xrandr --dpi 96		# Set DPI. User may want to use a larger number for larger screens.
 setbg &			# set the background with the `setbg` script
-#xrdb ${XDG_CONFIG_HOME:-$HOME/.config}/x11/xresources &	# Uncomment to use Xresources colors/settings on startup
-mpd &			# music player daemon-you might prefer it as a service though
+#xrdb ${XDG_CONFIG_HOME:-$HOME/.config}/x11/xresources & xrdbpid=$!	# Uncomment to use Xresources colors/settings on startup
 remaps &		# run the remaps script, switching caps/esc and more; check it for more info
-xcompmgr &		# xcompmgr for transparency
-dunst &			# dunst for notifications
 xset r rate 300 50 &	# Speed xrate up
-unclutter &		# Remove mouse when idle
 fcitx &
 if [ -f /usr/bin/synergy ]; then
 	synergyc &
 fi
 
+autostart="mpd xcompmgr dunst unclutter pipewire"
+for program in $autostart; do
+	pidof -s "$program" || setsid -f "$program"
+done >/dev/null 2>&1
+
+# Ensure that xrdb has finished running before moving on to start the WM/DE.
+[ -n "$xrdbpid" ] && wait "$xrdbpid"
+
+# mpd &			# music player daemon-you might prefer it as a service though
+# xcompmgr &		# xcompmgr for transparency
+# dunst &			# dunst for notifications
+# unclutter &		# Remove mouse when idle
 
 # This line autostarts an instance of Pulseaudio that does not exit on idle.
 # This is "necessary" on Artix due to a current bug between PA and
