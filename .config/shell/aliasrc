@@ -20,7 +20,8 @@ alias \
 	rm="rm -vI" \
 	bc="bc -ql" \
 	mkd="mkdir -pv" \
-	yt="youtube-dl --add-metadata -i" \
+#	yt="youtube-dl --add-metadata -i" \
+	yt="yt-dlp --embed-metadata -i" \
 	yta="yt -x -f bestaudio/best" \
 	ffmpeg="ffmpeg -hide_banner"
 
@@ -35,8 +36,8 @@ if [ "$(uname)" = "Darwin" ]; then
 		pss='ps aux | grep -v grep | grep -i -e VSZ -e'
 elif [ "$(expr substr $(uname -s) 1 5)" = "Linux" ]; then
 	alias \
-		ls="ls -h --color=auto --group-directories-first" \
-		sl="ls -h --color=auto --group-directories-first" \
+		ls="ls -hN --color=auto --group-directories-first" \
+		sl="ls -hN --color=auto --group-directories-first" \
 		l.='ls -d .* --color=auto --group-directories-first' \
 		ll='ls -hAlF --group-directories-first' \
 		ll.='ls -hAlFd .* --group-directories-first' \
@@ -47,6 +48,7 @@ fi
 alias \
 	grep="grep --color=auto" \
 	ccat="highlight --out-format=ansi" \
+	ip="ip -color=auto" \
 	which='alias | /usr/bin/which --tty-only --read-alias --show-dot --show-tilde' \
 	..='cd ..' \
 	...='cd ..\..'
@@ -61,6 +63,7 @@ alias \
 	YT="youtube-viewer" \
 	sdn="sudo shutdown -h now" \
 	e="emacs" \
+	p="pacman" \
 	v="$EDITOR" \
 	calcurse='calcurse -D ~/.config/calcurse' \
 	x='sxiv -ft *' \
@@ -75,6 +78,7 @@ alias mpv="mpv --input-ipc-server=/tmp/mpvsoc$(date +%s)"
 
 # Some other stuff
 alias \
+	lf="lfub" \
 	magit="nvim -c MagitOnly" \
 	ref="shortcuts >/dev/null; source ${XDG_CONFIG_HOME:-$HOME/.config}/shell/shortcutrc ; source ${XDG_CONFIG_HOME:-$HOME/.config}/shell/zshnameddirrc" \
 	weath="less -S ${XDG_DATA_HOME:-$HOME/.local/share}/weatherreport"
