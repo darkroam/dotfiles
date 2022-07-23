@@ -7,7 +7,7 @@
 
 # Adds `~/.local/bin` to $PATH
 export PATH="$PATH:${$(find ~/.local/bin -type d -printf %p:)%%:}"
-export PATH="$PATH:$HOME/Study/golang/bin/"
+export PATH="$PATH:$HOME/Project/go/bin/"
 export PATH="$PATH:${$(gem environment gemdir)}/bin"
 
 unsetopt PROMPT_SP

@@ -6,7 +6,7 @@ export ZSH="$HOME/.oh-my-zsh"
 
 [ -f "$HOME/.config/shortcutrc" ] && source "$HOME/.config/shortcutrc" # Load shortcut aliases
 [ -f "$HOME/.config/shell/aliasrc" ] && source "$HOME/.config/shell/aliasrc"
-export GOPATH="$HOME/Study/golang"
+export GOPATH="$HOME/Project/go"
 
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time oh-my-zsh is loaded, in which case,
