@@ -1,0 +1,20 @@
+# 字体设置
+font-names=Hack,Fira Code,JetBrains Mono,Maple Mono CN,Sarasa Mono Sc,Noto Sans CJK SC
+font-size=16
+
+# 编码
+text-encodings=utf8
+
+# 颜色（可选）
+color-foreground=7
+color-background=0
+
+# 光标
+cursor-shape=0
+cursor-interval=500
+
+# 滚动缓冲行数
+history-lines=1000
+
+# 输入法（如果需要中文输入）
+input-method=

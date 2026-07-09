@@ -27,6 +27,8 @@ Install config tracking in your $HOME by runinng:
 
 	`curl -Lks https://github.com/darkroam/dotfiles/raw/master/.local/bin/install.sh | /bin/bash`
 
+tools: *pywal xwallpaper slock xdotool dunst*
+
 ## Thanks
 
 [luke smith] Inspiration comes from him. This dotfiles based his LARBS.

@@ -120,6 +120,7 @@ fi
 setproxy() {
   export ALL_PROXY=http://127.0.0.1:10080
   #export ALL_PROXY=socks5://127.0.0.1:1080
+  export ALL_PROXY=http://192.168.31.217:7890
 }
 
 unsetproxy() {
@@ -212,3 +213,17 @@ _fzf_compgen_path() {
 _fzf_compgen_dir() {
   fd --type d --hidden --follow -E ".git" -E "node_modules" . /etc /home
 }
+
+# zsh completion system
+autoload -Uz compinit && compinit
+. "$HOME/.local/bin/env"
+
+export NVM_DIR="$HOME/.config/nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+# bun completions
+[ -s "/home/ok/.bun/_bun" ] && source "/home/ok/.bun/_bun"
+
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
