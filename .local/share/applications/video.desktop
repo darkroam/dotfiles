@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Video Player
+Exec=/usr/bin/env mpv %U
+Type=Application
+MimeType=video/x-matroska;
+Categories=AudioVideo;Video;Player;
+Terminal=false
