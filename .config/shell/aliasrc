@@ -109,8 +109,18 @@ elif command -v emerge >/dev/null 2>&1; then
 	alias pc='sudo emerge --depclean'
 fi
 
-# This alias is important. It enables the `pauseallmpv` command.
-alias mpv="mpv --input-ipc-server=/tmp/mpvsoc$(date +%s)"
+# Give each MPV instance a unique socket so pauseallmpv can control it.
+mpv() {
+	mpv_socket_dir="${XDG_RUNTIME_DIR:-/tmp}/mpvSockets"
+	if ! mkdir -p "$mpv_socket_dir"; then
+		unset mpv_socket_dir
+		return 1
+	fi
+	command mpv --input-ipc-server="$mpv_socket_dir/mpv-$$-$(date +%s%N)" "$@"
+	mpv_status=$?
+	unset mpv_socket_dir
+	return "$mpv_status"
+}
 
 # Some other stuff
 alias \
