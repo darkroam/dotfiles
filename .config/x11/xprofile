@@ -49,8 +49,11 @@ export GOPROXY=https://goproxy.cn,direct
 
 command -v xrandr >/dev/null 2>&1 && xrandr --dpi 96		# Set DPI. User may want to use a larger number for larger screens.
 command -v setbg >/dev/null 2>&1 && setbg			# set the background with the `setbg` script
-#xrdb ${XDG_CONFIG_HOME:-$HOME/.config}/x11/xresources & xrdbpid=$!   # Uncomment to use Xresources colors/settings on startup
-if [ -f "${XDG_CACHE_HOME:-$HOME/.cache}/wal/colors.Xresources" ]; then
+xresources="${XDG_CONFIG_HOME:-$HOME/.config}/x11/xresources"
+if command -v xrdb >/dev/null 2>&1 && [ -f "$xresources" ]; then
+	xrdb -merge "$xresources"
+fi
+if command -v xrdb >/dev/null 2>&1 && [ -f "${XDG_CACHE_HOME:-$HOME/.cache}/wal/colors.Xresources" ]; then
 	xrdb -merge "${XDG_CACHE_HOME:-$HOME/.cache}/wal/colors.Xresources" & xrdbpid=$!  # wal colors via Xresources
 fi
 command -v remaps >/dev/null 2>&1 && remaps &		# run the remaps script, switching caps/esc and more; check it for more info
@@ -90,6 +93,7 @@ done >/dev/null 2>&1
 
 # Ensure that xrdb has finished running before moving on to start the WM/DE.
 [ -n "$xrdbpid" ] && wait "$xrdbpid"
+unset xresources
 
 # mpd &			# music player daemon-you might prefer it as a service though
 # xcompmgr &		# xcompmgr for transparency
