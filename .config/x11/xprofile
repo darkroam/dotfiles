@@ -81,7 +81,9 @@ elif command -v xcompmgr >/dev/null 2>&1; then
 	fi
 fi
 
-autostart="mpd dunst unclutter pipewire"
+# PipeWire is managed by its systemd user services. Missing optional programs
+# are harmless here because failures are silenced by the loop below.
+autostart="mpd dunst unclutter"
 for program in $autostart; do
 	pidof -s "$program" || "$program" &
 done >/dev/null 2>&1
