@@ -52,14 +52,11 @@
 # delete tag(s)
 	dtag = "!f() { git tag -d $1 && git push origin :refs/tags/$1; }; f"
 	ds = diff --stat
-# @see http://mislav.uniqpath.com/2014/02/hidden-documentation/
-	cat = "!f() { git show $1:./`git ls-tree -r $1 --name-status | python ~/bin/percol.py`; }; f"
 	who1m = "!f() { git log --format='%an' --since='1 month ago' $1 | sort | uniq -c | sort -rn | head -n50; }; f"
 	who3m = "!f() { git log --format='%an' --since='3 months ago' $1 | sort | uniq -c | sort -rn | head -n50; }; f"
 	who6m = "!f() { git log --format='%an' --since='6 months ago' $1 | sort | uniq -c | sort -rn | head -n50; }; f"
 	who1y = "!f() { git log --format='%an' --since='1 year ago' $1 | sort | uniq -c | sort -rn | head -n50; }; f"
 	who3y = "!f() { git log --format='%an' --since='3 years ago' $1 | sort | uniq -c | sort -rn | head; }; f"
-	who = "!f() { git log --format='%an' $1 | sort | uniq -c | sort -rn | head -n 50; }; f"
 	fc=fetch -p #fetch and clean local invalid ref
 # Find branches containing commit
 	fb = "!f() { git branch -a --contains $1; }; f"
@@ -117,7 +114,7 @@
 	su= status --untracked-files=no
 	t=stash
 	ta=stash apply
-	up = !git stash && git pull --rebase && git stash pop
+	up = pull --rebase --autostash
 	untrack=rm -r --cached # donot track the file(s)
 	wc = whatchanged
 	who = shortlog -sn
@@ -131,7 +128,7 @@
 # for paste into email title, NO parentheses
 	pwhatis = show -s --pretty='tformat:%h, %s, %ad' --date=short
 [push]
-	default = tracking
+	default = simple
 [merge]
 	branchdesc = true
 	log = true
