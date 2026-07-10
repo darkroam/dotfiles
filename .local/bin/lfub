@@ -11,8 +11,8 @@ cleanup() {
 	rm "$FIFO_UEBERZUG"
 }
 
-if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ]; then
-	lf "$@"
+if [ -n "$SSH_CLIENT" ] || [ -n "$SSH_TTY" ] || ! command -v ueberzug >/dev/null 2>&1; then
+	exec lf "$@"
 else
 	[ ! -d "$HOME/.cache/lf" ] && mkdir -p "$HOME/.cache/lf"
 	export FIFO_UEBERZUG="$HOME/.cache/lf/ueberzug-$$"

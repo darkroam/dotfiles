@@ -2,6 +2,7 @@
 
 # Use neovim for vim if present.
 [ -x "$(command -v nvim)" ] && alias vim="nvim" vimdiff="nvim -d"
+alias nvim="$EDITOR"
 
 # Use $XINITRC variable if file exists.
 [ -f "$XINITRC" ] && alias startx="startx $XINITRC"
@@ -133,7 +134,6 @@ alias \
 # Customization
 alias \
 	lg="lazygit" \
-	ra="ranger" \
 	t="tldr" \
   cc-switch-cli='~/.local/bin/cc-switch'
 
