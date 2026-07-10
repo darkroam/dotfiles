@@ -156,4 +156,12 @@ ex=🎯:\
 *.java=♨:\
 "
 
+shell_shortcuts="${XDG_CONFIG_HOME:-$HOME/.config}/shell/shortcutrc"
+zsh_named_dirs="${XDG_CONFIG_HOME:-$HOME/.config}/shell/zshnameddirrc"
+lf_shortcuts="${XDG_CONFIG_HOME:-$HOME/.config}/lf/shortcutrc"
+if [ ! -f "$shell_shortcuts" ] || [ ! -f "$zsh_named_dirs" ] || [ ! -f "$lf_shortcuts" ]; then
+	"$HOME/.local/bin/shortcuts" >/dev/null 2>&1
+fi
+unset shell_shortcuts zsh_named_dirs lf_shortcuts
+
 . "$HOME/.local/bin/env"

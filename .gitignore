@@ -6,6 +6,9 @@
 .shell.pre-oh-my-zsh
 .bashrc.local
 .config/shell/aliasrc.local
+.config/shell/shortcutrc
+.config/shell/zshnameddirrc
+.config/lf/shortcutrc
 .*history
 .z*
 .zcompdump-*
