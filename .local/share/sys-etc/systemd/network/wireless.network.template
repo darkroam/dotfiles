@@ -1,0 +1,8 @@
+# Copy to /etc/systemd/network/25-wireless.network and adjust as needed.
+
+[Match]
+# Match wireless interfaces by default; replace with an exact name if required.
+Name=wlp*
+
+[Network]
+DHCP=yes

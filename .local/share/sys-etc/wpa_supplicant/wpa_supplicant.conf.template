@@ -1,0 +1,13 @@
+# Copy to /etc/wpa_supplicant/wpa_supplicant-<interface>.conf, then replace the
+# placeholders before starting wpa_supplicant@<interface>.
+
+ctrl_interface=DIR=/run/wpa_supplicant GROUP=netdev
+update_config=0
+eapol_version=1
+ap_scan=1
+fast_reauth=1
+
+network={
+	ssid="<ssid>"
+	psk="<passphrase>"
+}
