@@ -13,3 +13,6 @@ map J zoom out
 map i recolor
 map p print
 map g goto top
+
+# wal creates this optional color override when a wallpaper is available.
+include ../../.cache/wal/zathurarc

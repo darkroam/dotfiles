@@ -1,17 +1,9 @@
 #!/bin/bash
 
-dunstconf="${XDG_CONFIG_HOME:-$HOME/.config}/dunst/dunstrc"
-zathuraconf="${XDG_CONFIG_HOME:-$HOME/.config}/zathura/zathurarc"
+wal_cache="${XDG_CACHE_HOME:-$HOME/.cache}/wal"
+dunstconf="$wal_cache/dunstrc"
 
-source "${XDG_CACHE_HOME:-$HOME/.cache}/wal/colors.sh"
-
-mkdir -p "${dunstconf%/*}" "${zathuraconf%/*}"
-
-mv -n "$dunstconf" "$dunstconf.bak"
-mv -n "$zathuraconf" "$zathuraconf.bak"
-
-ln -sf "${XDG_CACHE_HOME:-$HOME/.cache}/wal/dunstrc" "$dunstconf"
-ln -sf "${XDG_CACHE_HOME:-$HOME/.cache}/wal/zathurarc" "$zathuraconf"
+source "$wal_cache/colors.sh"
 
 fix_sequences() {
         e=$'\e'
@@ -27,6 +19,13 @@ fix_sequences() {
 	done
 }
 
-fix_sequences <"${XDG_CACHE_HOME:-$HOME/.cache}/wal/sequences"
+fix_sequences <"$wal_cache/sequences"
 
-pkill dunst; setsid -f dunst
+if command -v dunst >/dev/null 2>&1; then
+	pkill dunst
+	if command -v setsid >/dev/null 2>&1; then
+		setsid -f dunst -conf "$dunstconf"
+	else
+		dunst -conf "$dunstconf" &
+	fi
+fi

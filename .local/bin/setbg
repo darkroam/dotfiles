@@ -9,26 +9,65 @@
 # Location of link to wallpaper link.
 bgloc="${XDG_DATA_HOME:-$HOME/.local/share}/bg"
 
-# Configuration files of applications that have their themes changed by pywal.
-dunstconf="${XDG_CONFIG_HOME:-$HOME/.config}/dunst/dunstrc"
-zathuraconf="${XDG_CONFIG_HOME:-$HOME/.config}/zathura/zathurarc"
+wal_cache="${XDG_CACHE_HOME:-$HOME/.cache}/wal"
+wal_zathurarc="$wal_cache/zathurarc"
 
-trueloc="$(readlink -f "$1")" &&
-case "$(file --mime-type -b "$trueloc")" in
-	image/* ) ln -sf "$(readlink -f "$1")" "$bgloc" && notify-send -i "$bgloc" "Changing wallpaper..." ;;
-	inode/directory ) ln -sf "$(find "$trueloc" -iregex '.*.\(jpg\|jpeg\|png\|gif\)' -type f | shuf -n 1)" "$bgloc" && notify-send -i "$bgloc" "Random Wallpaper chosen." ;;
-	*) notify-send "🖼️ Error" "Not a valid image or directory." ; exit 1;;
-esac
+# A missing wallpaper or wal must leave applications on their tracked defaults.
+clear_wal_override() {
+	mkdir -p "$wal_cache"
+	: > "$wal_zathurarc"
+	rm -f "$wal_cache/colors.Xresources"
+}
 
-# If pywal is installed, use it.
-if command -v wal >/dev/null 2>&1 ; then
-	wal -n -i "$(readlink -f $bgloc)" -o "${XDG_CONFIG_HOME:-$HOME/.config}/wal/postrun" >/dev/null 2>&1
-# If pywal is removed, return config files to normal.
+restart_default_dunst() {
+	command -v dunst >/dev/null 2>&1 || return 0
+	pidof -s dunst >/dev/null 2>&1 || return 0
+	pkill dunst
+	if command -v setsid >/dev/null 2>&1; then
+		setsid -f dunst
+	else
+		dunst &
+	fi
+}
+
+if [ "$#" -gt 0 ]; then
+	trueloc="$(readlink -f "$1")" || trueloc=""
 else
-	[ -f "$dunstconf.bak" ] && unlink "$dunstconf" && mv "$dunstconf.bak" "$dunstconf"
-	[ -f "$zathuraconf.bak" ] && unlink "$zathuraconf" && mv "$zathuraconf.bak" "$zathuraconf"
+	trueloc="$(readlink -f "$bgloc")" || trueloc=""
 fi
 
-xwallpaper --zoom "$bgloc"
+case "$(file --mime-type -b "$trueloc" 2>/dev/null)" in
+	image/*)
+		wallpaper="$trueloc"
+		;;
+	inode/directory)
+		wallpaper="$(find "$trueloc" -iregex '.*.\(jpg\|jpeg\|png\|gif\)' -type f | shuf -n 1)"
+		;;
+	*)
+		clear_wal_override
+		restart_default_dunst
+		exit 0
+		;;
+esac
+
+[ -n "$wallpaper" ] || {
+	clear_wal_override
+	exit 0
+}
+
+if [ "$#" -gt 0 ]; then
+	mkdir -p "${bgloc%/*}"
+	ln -sf "$wallpaper" "$bgloc"
+	command -v notify-send >/dev/null 2>&1 && notify-send -i "$bgloc" "Wallpaper updated"
+fi
+
+if command -v wal >/dev/null 2>&1; then
+	wal -n -i "$wallpaper" -o "${XDG_CONFIG_HOME:-$HOME/.config}/wal/postrun" >/dev/null 2>&1 || clear_wal_override
+else
+	clear_wal_override
+	restart_default_dunst
+fi
+
+command -v xwallpaper >/dev/null 2>&1 && xwallpaper --zoom "$wallpaper"
 # If running, dwm hit the key to refresh the color scheme.
-pidof dwm >/dev/null && xdotool key super+F5
+pidof dwm >/dev/null 2>&1 && xdotool key super+F5
