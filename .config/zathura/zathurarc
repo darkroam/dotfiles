@@ -1,4 +1,5 @@
-set sandbox none
+# Disable this only if a document requires it; the default sandbox is safer.
+# set sandbox none
 set statusbar-h-padding 0
 set statusbar-v-padding 0
 set page-padding 1
