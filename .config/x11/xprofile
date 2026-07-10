@@ -12,15 +12,37 @@
 dbus-update-activation-environment --systemd DBUS_SESSION_BUS_ADDRESS DISPLAY XAUTHORITY
 
 command -v dbus-launch >/dev/null 2>&1 && eval "$(dbus-launch --sh-syntax --exit-with-session)"
-export GTK_IM_MODULE=fcitx
-export QT_IM_MODULE=fcitx
-export XMODIFIERS="@im=fcitx"
+
+# Select one input-method engine for both environment variables and startup.
+IM_NAME=""
+IM_COMMAND=""
+IM_MODULE=""
+if command -v fcitx5 >/dev/null 2>&1; then
+	IM_NAME="fcitx5"
+	IM_COMMAND="$(command -v fcitx5)"
+	IM_MODULE="fcitx"
+elif command -v fcitx >/dev/null 2>&1; then
+	IM_NAME="fcitx"
+	IM_COMMAND="$(command -v fcitx)"
+	IM_MODULE="fcitx"
+elif command -v ibus >/dev/null 2>&1; then
+	IM_NAME="ibus"
+	IM_COMMAND="$(command -v ibus)"
+	IM_MODULE="ibus"
+fi
+
+if [ -n "$IM_NAME" ]; then
+	export IM_NAME IM_COMMAND
+	export GTK_IM_MODULE="$IM_MODULE"
+	export QT_IM_MODULE="$IM_MODULE"
+	export XMODIFIERS="@im=$IM_MODULE"
+fi
+unset IM_MODULE
 
 alias setproxy="export ALL_PROXY=http://127.0.0.1:10080"
 #alias setproxy="export ALL_PROXY=socks5://127.0.0.1:1080"
 alias unsetproxy="unset ALL_PROXY"
 alias ip="curl -i http://ip.cn"
-alias fcitx="fcitx5"
 
 export GO111MODULE=on
 export GOPROXY=https://goproxy.cn,direct
@@ -31,7 +53,10 @@ command -v setbg >/dev/null 2>&1 && setbg &			# set the background with the `set
 xrdb -merge ${XDG_CACHE_HOME:-$HOME/.cache}/wal/colors.Xresources & xrdbpid=$!  # wal colors via Xresources
 command -v remaps >/dev/null 2>&1 && remaps &		# run the remaps script, switching caps/esc and more; check it for more info
 command -v xset >/dev/null 2>&1 && xset r rate 300 50 &	# Speed xrate up
-command -v fcitx >/dev/null 2>&1 && fcitx &
+case "$IM_NAME" in
+	fcitx|fcitx5) "$IM_COMMAND" -d ;;
+	ibus) "$IM_COMMAND" daemon -drx ;;
+esac
 
 command -v xdisplay.sh >/dev/null 2>&1 && xdisplay.sh &
 picom_cmd="${PICOM_BIN:-$(command -v picom 2>/dev/null)}"
