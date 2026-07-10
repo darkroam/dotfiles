@@ -6,9 +6,9 @@
 # Use $XINITRC variable if file exists.
 [ -f "$XINITRC" ] && alias startx="startx $XINITRC"
 
-# sudo not required for some system commands
+# Run selected system commands through sudo when they are available.
 for command in mount umount sv pacman updatedb su shutdown poweroff reboot ; do
-	alias $command="sudo $command"
+	command -v "$command" >/dev/null 2>&1 && alias "$command=sudo $command"
 done; unset command
 
 
@@ -63,15 +63,51 @@ alias \
 	YT="youtube-viewer" \
 	sdn="sudo shutdown -h now" \
 	e="emacs" \
-	p="pacman" \
 	v="$EDITOR" \
 	calcurse='calcurse -D ~/.config/calcurse' \
 	x='sxiv -ft *' \
-	p="sudo pacman" \
-	xi="sudo xbps-install" \
-	xr="sudo xbps-remove -R" \
-	xq="xbps-query" \
 	z="zathura"
+
+# Package management. All aliases use the same p-prefix across distributions:
+# p: manager, pu: update, pi: install, pr: remove, ps: search,
+# pp: package information, pl: installed packages, pc: cleanup.
+if command -v apt >/dev/null 2>&1; then
+	alias p='sudo apt'
+	alias pu='sudo apt update && sudo apt upgrade'
+	alias pi='sudo apt install'
+	alias pr='sudo apt remove'
+	alias ps='apt search'
+	alias pp='apt show'
+	alias pl='apt list --installed'
+	alias pc='sudo apt autoremove --purge'
+elif command -v pacman >/dev/null 2>&1; then
+	alias p='sudo pacman'
+	alias pu='sudo pacman -Syu'
+	alias pi='sudo pacman -S'
+	alias pr='sudo pacman -Rns'
+	alias ps='pacman -Ss'
+	alias pp='pacman -Qi'
+	alias pl='pacman -Q'
+	alias pc='sudo pacman -Rns $(pacman -Qtdq)'
+elif command -v xbps-install >/dev/null 2>&1; then
+	alias p='sudo xbps-install'
+	alias pu='sudo xbps-install -Syu'
+	alias pi='sudo xbps-install'
+	alias pr='sudo xbps-remove -R'
+	alias ps='xbps-query -Rs'
+	alias pp='xbps-query -R'
+	alias pl='xbps-query -l'
+	alias pc='sudo xbps-remove -Oo'
+elif command -v emerge >/dev/null 2>&1; then
+	alias p='sudo emerge'
+	alias pu='sudo emerge-webrsync && sudo emerge --ask -uDN @world'
+	alias pi='sudo emerge'
+	alias pr='sudo emerge --ask --unmerge'
+	alias ps='emerge --search'
+	alias pp='emerge -pv'
+	alias pl='find /var/db/pkg -mindepth 2 -maxdepth 2 -type d -printf "%P\n"'
+	alias pc='sudo emerge --depclean'
+fi
 
 # This alias is important. It enables the `pauseallmpv` command.
 alias mpv="mpv --input-ipc-server=/tmp/mpvsoc$(date +%s)"
@@ -89,8 +125,8 @@ alias \
 	lg="lazygit" \
 	ra="ranger" \
 	t="tldr" \
-	emi='sudo emerge -pv' \
-	emr='sudo emerge -Ca' \
-	emu='sudo emerge-webrsync' \
-	emw='sudo emerge -auDN @world' \
-	emd='sudo emerge --depclean' \
+  cc-switch-cli='~/.local/bin/cc-switch'
+
+local_aliasrc="${XDG_CONFIG_HOME:-$HOME/.config}/shell/aliasrc.local"
+[ -r "$local_aliasrc" ] && . "$local_aliasrc"
+unset local_aliasrc

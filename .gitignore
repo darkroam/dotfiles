@@ -5,6 +5,7 @@
 .bash_profile
 .shell.pre-oh-my-zsh
 .bashrc.local
+.config/shell/aliasrc.local
 .*history
 .z*
 .zcompdump-*
