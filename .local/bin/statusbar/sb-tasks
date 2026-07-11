@@ -6,6 +6,8 @@
 
 # This block displays the number running background tasks.  Requires tsp.
 
+command -v tsp >/dev/null 2>&1 || exit 0
+
 num=$(tsp -l | awk -v numr=0 -v numq=0 '{if (/running/)numr++; if (/queued/)numq++} END{print numr+numq"("numq")"}')
 
 # Handle mouse clicks
