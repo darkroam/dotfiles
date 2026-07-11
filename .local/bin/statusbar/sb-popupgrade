@@ -2,8 +2,12 @@
 
 printf "Beginning upgrade.\\n"
 
-yay -Syu
+if sudo apt update && sudo apt upgrade; then
+	result="Upgrade complete."
+else
+	result="Upgrade failed. Review the output above."
+fi
 pkill -RTMIN+8 "${STATUSBAR:-dwmblocks}"
 
-printf "\\nUpgrade complete.\\nPress <Enter> to exit window.\\n\\n"
+printf "\\n%s\\nPress <Enter> to exit window.\\n\\n" "$result"
 read -r _
