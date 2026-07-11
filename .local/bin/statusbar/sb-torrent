@@ -1,6 +1,8 @@
 #!/bin/sh
 
-transmission-remote -l | grep % |
+command -v transmission-remote >/dev/null 2>&1 || exit 0
+
+transmission-remote -l 2>/dev/null | grep % |
 	sed " # The letters are for sorting and will not appear.
 	s/.*Stopped.*/A 🛑/;
 	s/.*Seeding.*/Z 🌱/;
@@ -11,7 +13,7 @@ transmission-remote -l | grep % |
 		sort -h | uniq -c | awk '{print $3 $1}' | paste -sd ' ' -
 
 case $BLOCK_BUTTON in
-	1) setsid -f "$TERMINAL" -e tremc ;;
+	1) setsid -f torrent ;;
 	2) td-toggle ;;
 	3) notify-send "🌱 Torrent module" "\- Left click to open tremc.
 - Middle click to toggle transmission.
