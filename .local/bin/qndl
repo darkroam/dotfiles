@@ -1,12 +1,20 @@
 #!/bin/sh
 
 # $1 is a url; $2 is a command
-[ -z "$1" ] && exit
+[ -z "$1" ] && exit 1
+
+ifinstalled tsp || exit 1
+
+cmd="$2"
+[ -n "$cmd" ] || {
+	ifinstalled yt-dlp || exit 1
+	cmd="yt-dlp --embed-metadata -ic"
+}
+
 base="$(basename "$1")"
 notify-send "⏳ Queuing $base..."
-cmd="$2"
-[ -z "$cmd" ] && cmd="yt-dlp --embed-metadata -ic"
-idnum="$(tsp $cmd "$1")"
+idnum="$(tsp $cmd "$1")" || exit 1
+[ -n "$idnum" ] || exit 1
 realname="$(echo "$base" | sed "s/?\(source\|dest\).*//;s/%20/ /g")"
 tsp -D "$idnum" mv "$base" "$realname"
 tsp -D "$idnum" notify-send "👍 $realname done."
