@@ -8,7 +8,7 @@ usage ()
 
 # Tests for requirements
 ifinstalled ffmpeg || { echo >&2 "We require 'ffmpeg' but it's not installed."; exit 1; }
-ifinstalled sox || { echo >&2 "We require 'ffmpeg' but it's not installed."; exit 1; }
+ifinstalled sox || { echo >&2 "We require 'sox' but it's not installed."; exit 1; }
 
 if [ "$#" -ne 2 ]
 then
@@ -55,11 +55,15 @@ read -r sensitivity
 if [ -z "$sensitivity" ] ; then sensitivity="0.21"; fi
 
 
-tmpVidFile="/tmp/noiseclean_tmpvid.$inExt"
-tmpAudFile="/tmp/noiseclean_tmpaud.wav"
-noiseAudFile="/tmp/noiseclean_noiseaud.wav"
-noiseProfFile="/tmp/noiseclean_noise.prof"
-tmpAudCleanFile="/tmp/noiseclean_tmpaud-clean.wav"
+tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/noiseclean.XXXXXX")" || exit 1
+trap 'rm -rf "$tmpdir"' 0
+trap 'exit 1' HUP INT QUIT TERM
+
+tmpVidFile="$tmpdir/video.$inExt"
+tmpAudFile="$tmpdir/audio.wav"
+noiseAudFile="$tmpdir/noise.wav"
+noiseProfFile="$tmpdir/noise.prof"
+tmpAudCleanFile="$tmpdir/audio-clean.wav"
 
 printf "Cleaning noise on %s...\n" "$1"
 
@@ -69,7 +73,7 @@ if [ $isVideo -eq "1" ]; then
 else
     cp "$1" "$tmpAudFile"
 fi
-ffmpeg -v warning -y -i "$1" -vn -ss "$sampleStart" -t "$sampleEnd" "$noiseAudFile"
+ffmpeg -v warning -y -i "$1" -vn -ss "$sampleStart" -to "$sampleEnd" "$noiseAudFile"
 sox "$noiseAudFile" -n noiseprof "$noiseProfFile"
 sox "$tmpAudFile" "$tmpAudCleanFile" noisered "$noiseProfFile" "$sensitivity"
 if [ $isVideo -eq "1" ]; then
