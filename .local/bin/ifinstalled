@@ -1,12 +1,28 @@
 #!/bin/sh
 
-# Some optional functions in LARBS require programs not installed by default. I
-# use this little script to check to see if a command exists and if it doesn't
-# it informs the user that they need that command to continue. This is used in
-# various other scripts for clarity's sake.
+# Checks whether an optional dependency is available as a command or package.
 
-for x in "$@"; do
-	if ! which "$x" >/dev/null 2>&1 && ! pacman -Qq "$x" >/dev/null 2>&1; then
- 		notify-send "📦 $x" "must be installed for this function." && exit 1 ;
+package_installed() {
+	if command -v dpkg-query >/dev/null 2>&1; then
+		[ "$(dpkg-query -W -f='${db:Status-Status}' "$1" 2>/dev/null)" = installed ]
+	elif command -v pacman >/dev/null 2>&1; then
+		pacman -Qq "$1" >/dev/null 2>&1
+	elif command -v xbps-query >/dev/null 2>&1; then
+		xbps-query -p pkgver "$1" >/dev/null 2>&1
+	elif command -v emerge >/dev/null 2>&1; then
+		find /var/db/pkg -mindepth 2 -maxdepth 2 -type d -name "$1-*" -print -quit 2>/dev/null | grep -q .
+	elif command -v rpm >/dev/null 2>&1; then
+		rpm -q "$1" >/dev/null 2>&1
+	elif command -v apk >/dev/null 2>&1; then
+		apk info -e "$1" >/dev/null 2>&1
+	else
+		return 1
+	fi
+}
+
+for dependency in "$@"; do
+	if ! command -v "$dependency" >/dev/null 2>&1 && ! package_installed "$dependency"; then
+		notify-send "📦 $dependency" "must be installed for this function."
+		exit 1
 	fi
 done
