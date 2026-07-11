@@ -1,4 +1,0 @@
-#!/bin/sh
-
-# Compatibility name for older DWM builds. No Tor proxy is used.
-exec torrent "$@"
