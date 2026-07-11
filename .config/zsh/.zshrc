@@ -216,7 +216,29 @@ _fzf_compgen_dir() {
 }
 
 # zsh completion system
+setopt complete_aliases
 autoload -Uz compinit && compinit
+_c_git() {
+	local -a saved_words
+	local saved_current=$CURRENT
+	local GIT_DIR="$HOME/.cfg/"
+	local GIT_WORK_TREE="$HOME"
+	export GIT_DIR GIT_WORK_TREE
+	if (( CURRENT >= 2 )) && [[ $words[2] == diff ]]; then
+		local -a changed_files
+		changed_files=(${(f)"$(git diff --name-only --no-color)"})
+		(( ${#changed_files} )) && _describe -t changed-files 'changed file' changed_files
+		return
+	fi
+	saved_words=("${words[@]}")
+	words=(git "${saved_words[@]:1}")
+	_git
+	local status=$?
+	words=("${saved_words[@]}")
+	CURRENT=$saved_current
+	return $status
+}
+compdef _c_git c
 . "$HOME/.local/bin/env"
 
 export NVM_DIR="$HOME/.config/nvm"
