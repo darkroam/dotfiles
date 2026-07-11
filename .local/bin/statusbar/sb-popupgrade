@@ -2,7 +2,22 @@
 
 printf "Beginning upgrade.\\n"
 
-if sudo apt update && sudo apt upgrade; then
+if command -v apt >/dev/null 2>&1; then
+	upgrade='sudo apt update && sudo apt upgrade'
+elif command -v pacman >/dev/null 2>&1; then
+	upgrade='sudo pacman -Syu'
+elif command -v xbps-install >/dev/null 2>&1; then
+	upgrade='sudo xbps-install -Syu'
+elif command -v emerge >/dev/null 2>&1; then
+	upgrade='sudo emerge-webrsync && sudo emerge --ask -uDN @world'
+else
+	printf "No supported package manager found.\\n"
+	printf "\\nPress <Enter> to exit window.\\n\\n"
+	read -r _
+	exit 1
+fi
+
+if sh -c "$upgrade"; then
 	result="Upgrade complete."
 else
 	result="Upgrade failed. Review the output above."

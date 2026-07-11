@@ -1,13 +1,38 @@
 #!/bin/sh
 
-# Displays the number of upgradeable APT packages. Package lists are refreshed
-# by the checkup script or the system's APT timers.
+# Displays the number of available package updates.
 
-updates="$(apt list --upgradable 2>/dev/null | sed 1d)"
+updates_supported=true
+
+if command -v apt >/dev/null 2>&1; then
+	updates="$(apt list --upgradable 2>/dev/null | sed 1d)"
+	update_manager="APT"
+elif command -v pacman >/dev/null 2>&1; then
+	updates="$(pacman -Qu 2>/dev/null || true)"
+	update_manager="pacman"
+elif command -v xbps-install >/dev/null 2>&1; then
+	updates="$(xbps-install -un 2>/dev/null || true)"
+	update_manager="XBPS"
+elif command -v emerge >/dev/null 2>&1; then
+	# A Portage preview resolves dependencies and is too expensive for a block.
+	updates=""
+	update_manager="Portage"
+	updates_supported=false
+else
+	updates=""
+	update_manager="package manager"
+	updates_supported=false
+fi
 
 case $BLOCK_BUTTON in
 	1) setsid -f "$TERMINAL" -e sb-popupgrade ;;
-	2) if [ -n "$updates" ]; then notify-send "$updates"; else notify-send "📦 Package Check" "No updates available."; fi ;;
+	2) if [ "$updates_supported" = false ]; then
+		notify-send "📦 Package Check" "Run pu to check updates with $update_manager."
+	elif [ -n "$updates" ]; then
+		notify-send "$updates"
+	else
+		notify-send "📦 Package Check" "No updates available."
+	fi ;;
 	3) notify-send "🎁 Upgrade module" "📦: number of upgradable packages
 - Left click to upgrade packages
 - Middle click to show upgradable packages" ;;
@@ -15,4 +40,4 @@ case $BLOCK_BUTTON in
 esac
 
 count="$(printf '%s\n' "$updates" | sed '/^$/d' | wc -l)"
-[ "$count" -gt 0 ] && printf '📦%s\n' "$count"
+[ "$count" -gt 0 ] && printf ' 📦%s\n' "$count"
