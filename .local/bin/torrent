@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# Start Transmission if needed, then open its Tremc terminal interface.
+ifinstalled tremc transmission-cli || exit 1
+
+! pidof transmission-daemon >/dev/null && transmission-daemon && notify-send "Starting torrent daemon..."
+
+$TERMINAL -e tremc
+pkill -RTMIN+7 "${STATUSBAR:-dwmblocks}"
