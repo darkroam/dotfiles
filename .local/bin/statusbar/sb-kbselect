@@ -1,14 +1,21 @@
 #!/bin/sh
-# works on any init system
-# requirements: dmenu, xorg-setxkbmap, xkblayout-state (https://github.com/nonpop/xkblayout-state)
-kb="$(xkblayout-state print "%s")" || exit 1
+# Works on any init system. xkblayout-state (https://github.com/nonpop/xkblayout-state)
+# supports active layout groups; setxkbmap provides a dependency-free fallback
+# for single-layout setups.
+if command -v xkblayout-state >/dev/null 2>&1; then
+	kb="$(xkblayout-state print "%s")"
+else
+	kb="$(setxkbmap -query 2>/dev/null | awk '$1 == "layout:" { print $2; exit }')"
+fi
+
+[ -n "$kb" ] || exit 1
 
 case $BLOCK_BUTTON in
 	1) kb_choice="$(awk '/! layout/{flag=1; next} /! variant/{flag=0} flag {print $2, "- " $1}' /usr/share/X11/xkb/rules/base.lst | dmenu -l 15)"
 	kb="$(echo "$kb_choice" | awk '{print $3}')"
 	setxkbmap "$kb"
 	pkill -RTMIN+30 "${STATUSBAR:-dwmblocks}";;
-	3) notify-send "⌨  Keyboard/language module" "$(xkblayout-state print "\- Current layout: %s (%n)")
+	3) notify-send "⌨  Keyboard/language module" "Current layout: $kb
 - Left click to change keyboard.";;
 	6) "$TERMINAL" -e "$EDITOR" "$0" ;;
 esac
