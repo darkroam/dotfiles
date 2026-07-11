@@ -273,6 +273,9 @@ Completed:
 - Hardened optional helper scripts for missing dependencies and failed queues.
 - Fixed status-bar launch behavior, task-spooler handling, keyboard-layout
   fallback, image MIME declarations, and cron environment documentation.
+- Reviewed display, mount, and brightness helpers. Android MTP mounting now
+  retries only after the initial authorization failure, and `xlight` handles
+  an absent saved-brightness file safely.
 - Checked status modules in the current environment. CPU temperature stays
   blank because the system exposes no CPU thermal sensor; NVMe temperature is
   intentionally not shown as CPU temperature.
@@ -299,9 +302,11 @@ before reviewing the affected tracked file and its runtime dependency.
 - [x] Check the status-bar modules for syntax and current environment issues.
 - [x] Check cron documentation, MIME image association, and package manager
   portability.
+- [x] Review display, mount, and brightness helpers: `displayselect`,
+  `dmenumount*`, `dmenuumount`, and `xlight`.
 - [ ] Review the remaining general helper scripts in `.local/bin/` one by one
-  (about 46 scripts outside statusbar and cron), prioritizing mount, display,
-  dmenu, download, and media helpers.
+  (about 41 scripts outside statusbar, cron, and the completed device group),
+  prioritizing dmenu, download, and media helpers.
 - [ ] Review remaining configuration files for obsolete settings and
   distribution-specific assumptions without removing trusted personal values.
 - [ ] Test interactive X-session paths after installing deferred dependencies:
