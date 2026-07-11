@@ -5,11 +5,32 @@
 # The assumption of this script is that all otp passwords are stored with the
 # suffix `-otp`. This script automatically appends newly added otps as such.
 
-# For OTP passwords to be generated properly, it is important for the local
-# computer to have its time properly synced. This can be done with the command
-# below which requires the package `ntp`.
+# OTP generation requires a correctly synchronized system clock.
 
-ifinstalled pass pass-otp
+require_pass_otp() {
+	if command -v pass >/dev/null 2>&1 && pass otp --help >/dev/null 2>&1; then
+		return 0
+	fi
+
+	notify-send "📦 pass-otp" "The pass OTP extension must be installed for this function."
+	return 1
+}
+
+sync_time() {
+	if command -v timedatectl >/dev/null 2>&1 && sudo timedatectl set-ntp true; then
+		notify-send -u low "🕙 Synchronizing Time..." "Enabled system time synchronization."
+	elif command -v chronyc >/dev/null 2>&1 && sudo chronyc -a makestep; then
+		notify-send -u low "🕙 Synchronizing Time..." "Synchronized time with chrony."
+	elif command -v ntpdate >/dev/null 2>&1; then
+		updatedata="$(sudo ntpdate pool.ntp.org)" &&
+			notify-send -u low "🕙 Synchronizing Time..." "Done. Time changed by ${updatedata#*offset }"
+	else
+		notify-send "🕙 Synchronizing Time..." "Install a time synchronization tool (systemd, chrony, or ntpdate)."
+		return 1
+	fi
+}
+
+require_pass_otp || exit 1
 
 dir="${PASSWORD_STORE_DIR}"
 
@@ -17,7 +38,7 @@ choice="$({ echo "🆕add" ; echo "🕙sync-time" ; ls ${dir}/*-otp.gpg ;} | sed
 
 case $choice in
 	🆕add )
-		ifinstalled maim zbar xclip || exit 1
+		ifinstalled maim zbarimg xclip || exit 1
 
 		temp="$dir/temp.png"
 		otp="otp-test-script"
@@ -44,10 +65,7 @@ case $choice in
 
 		;;
 	🕙sync-time )
-		ifinstalled ntp || exit 1
-		notify-send -u low "🕙 Synchronizing Time..." "Synching time with remote NTP servers..."
-		updatedata="$(sudo ntpdate pool.ntp.org)" &&
-		notify-send -u low "🕙 Synchronizing Time..." "Done. Time changed by ${updatedata#*offset }"
+		sync_time
 		;;
 	*) pass otp -c ${choice}-otp ;;
 esac
