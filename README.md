@@ -333,6 +333,9 @@ the current cross-distribution, optional-dependency behavior.
   ImageMagick decoder and a cached thumbnail only when ueberzug is available.
   NDJSON uses the existing `bat`/`batcat`/`sed` text fallback; EPUB thumbnails
   remain deferred because their dedicated helper is not installed.
+- [x] Move LF icons from the shell `LF_ICONS` environment variable into
+  `.config/lf/icons`, so every LF launch path loads the same mapping. Add an
+  AVIF icon to match the preview support.
 - [x] Harden `samedir` with Voidrice's active-window process-tree lookup while
   retaining the existing command name. It now handles shell and LF windows,
   skips Git subprocesses, and falls back to the current working directory.
