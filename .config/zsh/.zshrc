@@ -254,7 +254,10 @@ export NVM_DIR="$HOME/.config/nvm"
 [ -s "/home/ok/.bun/_bun" ] && source "/home/ok/.bun/_bun"
 
 export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
+case ":$PATH:" in
+	*:"$BUN_INSTALL/bin":*) ;;
+	*) export PATH="$BUN_INSTALL/bin:$PATH" ;;
+esac
 
 # fzf fuzzy finder keybindings and completions
 [ -f /usr/share/doc/fzf/examples/key-bindings.zsh ] && source /usr/share/doc/fzf/examples/key-bindings.zsh

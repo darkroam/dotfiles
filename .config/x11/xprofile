@@ -11,6 +11,13 @@
 # Add this when you include flatpak in your system
 dbus-update-activation-environment --systemd DBUS_SESSION_BUS_ADDRESS DISPLAY XAUTHORITY
 
+# Display-manager sessions may not load the shell profile.
+case ":$PATH:" in
+	*:"$HOME/.local/bin":*) ;;
+	*) PATH="$HOME/.local/bin:$PATH" ;;
+esac
+export PATH
+
 command -v dbus-launch >/dev/null 2>&1 && eval "$(dbus-launch --sh-syntax --exit-with-session)"
 
 # Select one input-method engine for both environment variables and startup.
