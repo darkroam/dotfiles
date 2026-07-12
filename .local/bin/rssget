@@ -1,0 +1,127 @@
+#!/bin/sh
+
+# Discover RSS and Atom feeds from a URL, then add a selected feed to Newsboat.
+
+notify() {
+	if command -v notify-send >/dev/null 2>&1; then
+		notify-send "$1" >/dev/null 2>&1 || printf '%s\n' "$1" >&2
+	else
+		printf '%s\n' "$1" >&2
+	fi
+}
+
+if [ "$#" -gt 0 ]; then
+	url="$1"
+	shift
+elif command -v xclip >/dev/null 2>&1; then
+	url="$(xclip -selection clipboard -o 2>/dev/null)"
+else
+	notify "Provide a URL; xclip is unavailable."
+	exit 1
+fi
+
+case "$url" in
+	http://*|https://*) ;;
+	*)
+		notify "Provide a valid HTTP(S) URL."
+		exit 1
+		;;
+esac
+
+command -v curl >/dev/null 2>&1 || {
+	notify "rssget requires curl."
+	exit 1
+}
+command -v python3 >/dev/null 2>&1 || {
+	notify "rssget requires python3."
+	exit 1
+}
+command -v rssadd >/dev/null 2>&1 || {
+	notify "rssget requires rssadd."
+	exit 1
+}
+
+page="$(mktemp "${TMPDIR:-/tmp}/rssget.XXXXXX")" || exit 1
+trap 'rm -f "$page"' EXIT HUP INT TERM
+final_url="$(curl --fail --location --silent --show-error --connect-timeout 10 --max-time 30 --max-filesize 5242880 --output "$page" --write-out '%{url_effective}' "$url")" || {
+	notify "Unable to retrieve the URL."
+	exit 1
+}
+
+candidates="$(python3 - "$page" "$final_url" <<'PY'
+from html.parser import HTMLParser
+from pathlib import Path
+from urllib.parse import urljoin, urlparse
+import re
+import sys
+
+page, base_url = sys.argv[1:]
+data = Path(page).read_bytes().decode("utf-8", "replace")
+
+class FeedLinks(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.links = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() != "link":
+            return
+        values = {key.lower(): value for key, value in attrs if value}
+        href = values.get("href")
+        kind = values.get("type", "").lower()
+        rel = values.get("rel", "").lower().split()
+        if href and ("rss" in kind or "atom" in kind or "rdf" in kind or
+                     ("alternate" in rel and re.search(r"\.(atom|rss|rdf|xml)(?:[?#]|$)", href, re.I))):
+            self.links.append(urljoin(base_url, href))
+
+feeds = FeedLinks()
+feeds.feed(data)
+candidates = []
+prefix = data.lstrip().lower()[:2048]
+if "<rss" in prefix or "<feed" in prefix or "<rdf:rdf" in prefix:
+    candidates.append(base_url)
+candidates.extend(feeds.links)
+
+parsed = urlparse(base_url)
+host = parsed.netloc.lower()
+if host.startswith("www."):
+    host = host[4:]
+parts = [part for part in parsed.path.split("/") if part]
+if host == "github.com":
+    if len(parts) >= 2:
+        project = f"https://github.com/{parts[0]}/{parts[1]}"
+        candidates.extend((f"{project}/commits.atom", f"{project}/releases.atom", f"{project}/tags.atom"))
+    elif len(parts) == 1:
+        candidates.append(f"https://github.com/{parts[0]}.atom")
+elif host == "gitlab.com" and parts:
+    candidates.append(base_url.rstrip("/") + ".atom")
+elif host.endswith("reddit.com"):
+    candidates.append(base_url.rstrip("/") + ".rss")
+
+seen = set()
+for candidate in candidates:
+    if candidate not in seen:
+        seen.add(candidate)
+        print(candidate)
+PY
+)" || {
+	notify "Unable to parse feeds from the URL."
+	exit 1
+}
+
+[ -n "$candidates" ] || {
+	notify "No RSS or Atom feed was found."
+	exit 1
+}
+
+if [ "$(printf '%s\n' "$candidates" | wc -l)" -eq 1; then
+	selected="$candidates"
+elif command -v dmenu >/dev/null 2>&1; then
+	selected="$(printf '%s\n' "$candidates" | dmenu -i -p 'Select RSS feed:')"
+else
+	notify "Multiple feeds found; dmenu is unavailable."
+	exit 1
+fi
+
+[ -n "$selected" ] || exit 1
+rssadd "$selected" "$@"

@@ -320,10 +320,11 @@ the current cross-distribution, optional-dependency behavior.
 - [ ] Improve `opout` PDF discovery: locate the compiled PDF when a document
   compiler writes outside the source directory or uses a root file. Define
   the search boundary and behavior for multiple matching PDFs first.
-- [ ] Design an RSS feed discovery helper inspired by `rssget`: accept a URL
-  or clipboard URL, discover declared feeds and offer a selection before
-  calling `rssadd`. Implement a portable, bounded version rather than copying
-  Voidrice's hard-coded Invidious instances and fixed temporary file.
+- [x] Add an RSS feed discovery helper inspired by `rssget`: accept a URL or
+  clipboard URL, discover declared feeds and offer a selection before calling
+  `rssadd`. It uses bounded requests, standard HTML parsing, stable GitHub,
+  GitLab, and Reddit rules, and a unique temporary file rather than Voidrice's
+  hard-coded Invidious instances.
 - [ ] Evaluate optional `latexmk` support with an output directory, XeLaTeX,
   and SyncTeX. It must remain opt-in and agree with `compiler`, `opout`, and
   the existing direct TeX workflow.

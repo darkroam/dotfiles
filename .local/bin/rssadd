@@ -1,18 +1,67 @@
 #!/bin/sh
 
-if echo "$1" | grep -q "https*://\S\+\.[A-Za-z]\+\S*" ; then
-	url="$1"
+notify() {
+	if command -v notify-send >/dev/null 2>&1; then
+		notify-send "$1" >/dev/null 2>&1 || printf '%s\n' "$1" >&2
+	else
+		printf '%s\n' "$1" >&2
+	fi
+}
+
+is_url() {
+	case "$1" in
+		http://*|https://*) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
+[ "$#" -gt 0 ] || {
+	notify "Provide an RSS URL or a readable feed file."
+	exit 1
+}
+
+source="$1"
+shift
+
+if is_url "$source"; then
+	url="$source"
 else
-	url="$(grep -Eom1 '<[^>]+(rel="self"|application/[a-z]+\+xml)[^>]+>' "$1" |
+	[ -r "$source" ] || {
+		notify "Provide an RSS URL or a readable feed file."
+		exit 1
+	}
+	url="$(grep -Eom1 '<[^>]+(rel="self"|application/[a-z]+\+xml)[^>]+>' "$source" |
 		grep -o "https?://[^\" ]")"
 
-	echo "$url" | grep -q "https*://\S\+\.[A-Za-z]\+\S*" ||
-		notify-send "That doesn't look like a full URL." && exit 1
+	if ! is_url "$url"; then
+		notify "That doesn't look like a full URL."
+		exit 1
+	fi
 fi
 
 RSSFILE="${XDG_CONFIG_HOME:-$HOME/.config}/newsboat/urls"
+mkdir -p "${RSSFILE%/*}" || exit 1
+[ -e "$RSSFILE" ] || : > "$RSSFILE" || exit 1
 if awk '{print $1}' "$RSSFILE" | grep -Fqx "$url" >/dev/null; then
-	notify-send "You already have this RSS feed."
+	notify "You already have this RSS feed."
 else
-	echo "$url" >> "$RSSFILE" && notify-send "RSS feed added."
+	for tag in "$@"; do
+		case "$tag" in
+			*'"'*|*'\\'*)
+				notify "RSS tags cannot contain quotes, backslashes, or newlines."
+				exit 1
+				;;
+		esac
+		if printf '%s' "$tag" | grep -q '[[:cntrl:]]'; then
+			notify "RSS tags cannot contain quotes, backslashes, or newlines."
+			exit 1
+		fi
+	done
+	{
+		printf '%s' "$url"
+		for tag in "$@"; do
+			printf ' "%s"' "$tag"
+		done
+		printf '\n'
+	} >> "$RSSFILE" && notify "RSS feed added."
 fi
