@@ -27,15 +27,30 @@ text() {
 	fi
 }
 
+thumbnail() {
+	source="$1"
+	cache="${XDG_CACHE_HOME:-$HOME/.cache}/lf/thumb.$(stat --printf '%n\0%i\0%F\0%s\0%W\0%Y' -- "$(readlink -f "$source")" | sha256sum | cut -d' ' -f1).png"
+	if ifub; then
+		mkdir -p "${cache%/*}" || return 1
+		[ -f "$cache" ] || magick "$source[0]" "$cache" >/dev/null 2>&1
+		if [ -f "$cache" ]; then
+			image "$cache" "$2" "$3" "$4" "$5" "$source"
+			return
+		fi
+	fi
+	image "$source" "$2" "$3" "$4" "$5" "$source"
+}
+
 # Note that the cache file name is a function of file information, meaning if
 # an image appears in multiple places across the machine, it will not have to
 # be regenerated once seen.
 
 case "$(file --dereference --brief --mime-type -- "$1")" in
+	image/avif|image/vnd.djvu|image/svg+xml|image/x-xcf) thumbnail "$1" "$2" "$3" "$4" "$5" ;;
 	image/*) image "$1" "$2" "$3" "$4" "$5" "$1" ;;
 	text/html) lynx -width="$4" -display_charset=utf-8 -dump "$1" ;;
 	text/troff) man ./ "$1" | col -b ;;
-	text/* | */xml | application/json) text "$1" "$(($4-2))" ;;
+	text/* | */xml | application/json | application/x-ndjson) text "$1" "$(($4-2))" ;;
 	application/zip) atool --list -- "$1" ;;
 	audio/* | application/octet-stream) mediainfo "$1" || exit 1 ;;
 	video/* )

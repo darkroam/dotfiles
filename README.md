@@ -329,10 +329,10 @@ the current cross-distribution, optional-dependency behavior.
 - [ ] Deferred: evaluate optional `latexmk` support after installing the TeX
   toolchain and deciding on an output directory. It must remain opt-in and
   agree with `compiler`, `opout`, and the existing direct TeX workflow.
-- [ ] Evaluate selected LF preview additions from Voidrice, such as AVIF,
-  DjVu, SVG, XCF, and EPUB. Add formats only when the preview command and its
-  dependency are useful on this machine; retain the current `bat`/`batcat`/`sed`
-  text-preview fallback.
+- [x] Add LF previews for AVIF, DjVu, SVG, and XCF using the installed
+  ImageMagick decoder and a cached thumbnail only when ueberzug is available.
+  NDJSON uses the existing `bat`/`batcat`/`sed` text fallback; EPUB thumbnails
+  remain deferred because their dedicated helper is not installed.
 - [ ] Evaluate migration from `sxiv` to `nsxiv`: compare the current MIME
   handler, key-handler behavior, desktop entry, and required package name;
   migrate them together only after interactive image-viewing tests pass.
