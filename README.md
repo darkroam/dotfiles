@@ -281,6 +281,12 @@ Completed:
   downloads preserve the current desktop state.
 - Hardened URL file handling in `dmenuhandler` and `linkhandler` with unique
   temporary files and HTTP error handling before opening downloaded content.
+- Completed the first-round review of general helper scripts: device and
+  display control, file and MIME handling, RSS/download/torrent workflows,
+  media tools, document helpers, system helpers, and system templates.
+- Corrected edge cases in recording control, slideshow and audiobook timecode
+  parsing, PeerTube/RSS handling, document compilation, and helper error
+  reporting.
 - Checked status modules in the current environment. CPU temperature stays
   blank because the system exposes no CPU thermal sensor; NVMe temperature is
   intentionally not shown as CPU temperature.
@@ -309,14 +315,17 @@ before reviewing the affected tracked file and its runtime dependency.
   portability.
 - [x] Review display, mount, and brightness helpers: `displayselect`,
   `dmenumount*`, `dmenuumount`, and `xlight`.
-- [ ] Review the remaining general helper scripts in `.local/bin/` one by one
-  (about 41 scripts outside statusbar, cron, and the completed device group),
-  prioritizing dmenu, download, and media helpers.
+- [x] Complete the first-round static and semantic review of tracked general
+  helper scripts, including file/MIME, download/torrent, media, document, and
+  system helper groups.
 - [ ] Review remaining configuration files for obsolete settings and
   distribution-specific assumptions without removing trusted personal values.
 - [ ] Test interactive X-session paths after installing deferred dependencies:
-  `nmtui`, `sxiv`, calendar, brightness, screenshots, OTP, torrents, and RSS
-  download queue.
+  `nmtui`, `sxiv`, calendar, brightness, screenshots, OTP, MTP/CIFS mounts,
+  torrents, recording selection, and RSS download queue.
+- [ ] Recheck feature dependencies after installation: `mpc`, NetworkManager,
+  image and preview tools, task-spooler, Transmission, media metadata tools,
+  and the required compiler toolchains.
 - [ ] Decide whether ALSA fallback files can be removed after a sustained
   PipeWire-only test.
 - [ ] Recheck cron scheduling and the sudo policy before enabling unattended
