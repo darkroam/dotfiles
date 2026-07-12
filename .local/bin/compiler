@@ -19,11 +19,12 @@ cd "$dir" || exit 1
 textype() { \
 	command="pdflatex"
 	( head -n5 "$file" | grep -qi 'xelatex' ) && command="xelatex"
-	$command --output-directory="$dir" "$base" &&
-	grep -qi addbibresource "$file" &&
-	biber --input-directory "$dir" "$base" &&
-	$command --output-directory="$dir" "$base" &&
-	$command --output-directory="$dir" "$base"
+	"$command" --output-directory="$dir" "$base" || return 1
+	if grep -qi addbibresource "$file"; then
+		biber --input-directory "$dir" "$base" || return 1
+		"$command" --output-directory="$dir" "$base" || return 1
+		"$command" --output-directory="$dir" "$base" || return 1
+	fi
 }
 
 case "$ext" in
