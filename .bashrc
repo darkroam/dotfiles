@@ -47,5 +47,9 @@ fi
 
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
 
-. "$HOME/.local/bin/env"
+# Non-login Bash sessions do not read the shared profile.
+case ":$PATH:" in
+	*:"$HOME/.local/bin":*) ;;
+	*) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
 alias groff='groff -P-e'

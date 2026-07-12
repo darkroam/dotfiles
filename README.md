@@ -54,11 +54,9 @@ Xorg display manager
   `-- .xprofile -> .config/x11/xprofile
 ```
 
-`.xinitrc` first sources `.config/x11/xprofile` and only falls back to a root
-`.xprofile` when that configuration file is absent. A display-manager login
-normally needs the `.xprofile` link shown above so it can load the same X11
-startup configuration. This link is not currently tracked and must be created
-when deploying through a display manager.
+`.xinitrc` first sources `.config/x11/xprofile` and only falls back to the root
+`.xprofile` when that configuration file is absent. The tracked `.xprofile`
+link lets a display-manager login load the same X11 startup configuration.
 
 ## Layout
 
@@ -79,6 +77,7 @@ The root entry points are tracked links:
 .profile   -> .config/shell/profile
 .zprofile  -> .config/shell/zprofile
 .xinitrc   -> .config/x11/xinitrc
+.xprofile  -> .config/x11/xprofile
 .asoundrc  -> .config/alsa/asoundrc
 .gtkrc-2.0 -> .config/gtk-2.0/gtkrc-2.0
 ```
@@ -86,7 +85,7 @@ The root entry points are tracked links:
 ## Key Behavior
 
 - Package aliases use a consistent `p` prefix: `pu` update, `pi` install,
-  `pr` remove, `ps` search, `pp` information, `pl` list, and `pc` cleanup.
+  `pr` remove, `pse` search, `pp` information, `pl` list, and `pc` cleanup.
   APT, pacman, XBPS, and Portage are supported.
 - PipeWire is managed by systemd user services. X startup does not launch
   PipeWire or PulseAudio manually. DWM volume keys and the volume status
@@ -133,8 +132,9 @@ The Zsh setup additionally expects Oh My Zsh and its configured plugins:
 `zsh-history-substring-search`, and `zsh-completions`. Bash completion needs
 the distribution's Bash completion package and Git completion script.
 
-`dwm`, `dwmblocks`, and `st` are maintained outside this repository. Their
-local source and installation state must be managed separately.
+`dwm`, `dwmblocks`, `dmenu`, and `st` are maintained outside this repository
+at `~/src/dwm`, `~/src/dwmblocks`, `~/src/dmenu`, and `~/src/st` respectively.
+Their local source and installation state must be managed separately.
 
 ### Appearance, Fonts, and Wallpaper
 
@@ -300,6 +300,57 @@ Known deferred items:
   scroll functions are wanted.
 - Keep the existing ALSA configuration until the PipeWire setup has remained
   stable in normal use.
+
+## TODO: Voidrice Inspiration Review
+
+This repository began as a personal adaptation of
+[voidrice](https://github.com/LukeSmithxyz/voidrice). The following items were
+reviewed against Voidrice commit `0e8bd85`; they are candidates for focused
+discussion, not planned changes. Work through them one at a time and preserve
+the current cross-distribution, optional-dependency behavior.
+
+- [ ] Evaluate `sysact` lock integration: temporarily mute the PipeWire
+  default sink and pause MPD/MPV while locked, then restore the previous mute
+  state and refresh the status bar. This needs `mpc` installed and real
+  lock/unlock testing.
+- [ ] Improve `displayselect`: filter displays by exact output name and pass
+  `--primary` to `xrandr` for the selected primary monitor. Test it on an
+  actual multi-monitor X11 session before keeping the change.
+- [ ] Improve `opout` PDF discovery: locate the compiled PDF when a document
+  compiler writes outside the source directory or uses a root file. Define
+  the search boundary and behavior for multiple matching PDFs first.
+- [ ] Design an RSS feed discovery helper inspired by `rssget`: accept a URL
+  or clipboard URL, discover declared feeds and offer a selection before
+  calling `rssadd`. Implement a portable, bounded version rather than copying
+  Voidrice's hard-coded Invidious instances and fixed temporary file.
+- [ ] Evaluate optional `latexmk` support with an output directory, XeLaTeX,
+  and SyncTeX. It must remain opt-in and agree with `compiler`, `opout`, and
+  the existing direct TeX workflow.
+- [ ] Evaluate selected LF preview additions from Voidrice, such as AVIF,
+  DjVu, SVG, XCF, and EPUB. Add formats only when the preview command and its
+  dependency are useful on this machine; retain the current `bat`/`batcat`/`sed`
+  text-preview fallback.
+- [ ] Evaluate migration from `sxiv` to `nsxiv`: compare the current MIME
+  handler, key-handler behavior, desktop entry, and required package name;
+  migrate them together only after interactive image-viewing tests pass.
+- [ ] Evaluate asynchronous DWMBlocks modules only after inspecting the local
+  DWMBlocks source at `~/src/dwmblocks` and its signal configuration. Voidrice's
+  implementation relies on a compatible patched status-bar architecture and
+  should not be copied into the current setup blindly.
+
+Not adopting under the current configuration decisions:
+
+- [x] Do not add Voidrice's PipeWire/WirePlumber X-session autostart. These
+  services are owned by systemd user units here.
+- [x] Do not replace the existing mount helpers with Voidrice's Bash-heavy
+  `mounter`/`unmounter` scripts. Their LUKS assumptions and dependencies do
+  not match every target system.
+- [x] Do not restore Tor wrapping or Voidrice-specific Firefox, Neovim, and
+  Python configuration. They are outside the current repository's intended
+  scope.
+- [x] Do not adopt Voidrice's `xdg-terminal-exec` unchanged. It only wraps
+  `$TERMINAL -e` and provides no fallback or desktop-entry registration;
+  revisit only when a concrete terminal-launch integration needs it.
 
 ## TODO: Resume the Review
 

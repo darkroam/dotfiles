@@ -4,6 +4,12 @@
 # Path to your oh-my-zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
 
+# Non-login Zsh sessions do not read .zprofile.
+case ":$PATH:" in
+	*:"$HOME/.local/bin":*) ;;
+	*) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+
 [ -f "$HOME/.config/shell/shortcutrc" ] && source "$HOME/.config/shell/shortcutrc" # Load shortcut aliases
 [ -f "$HOME/.config/shell/zshnameddirrc" ] && source "$HOME/.config/shell/zshnameddirrc"
 [ -f "$HOME/.config/shell/aliasrc" ] && source "$HOME/.config/shell/aliasrc"
@@ -239,7 +245,6 @@ _c_git() {
 	return $status
 }
 compdef _c_git c
-. "$HOME/.local/bin/env"
 
 export NVM_DIR="$HOME/.config/nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
