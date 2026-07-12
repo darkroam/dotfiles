@@ -21,12 +21,12 @@ escbook="$(echo "$booktitle" | iconv -cf UTF-8 -t ASCII//TRANSLIT | tr -d '[:pun
     echo "Do you have write access in this directory?" &&
     exit 1
 
-# Get the total number of tracks from the number of lines.
-total="$(wc -l < "$2")"
+# Count all timecode records, including a final line without a newline.
+total="$(awk 'END { print NR }' "$2")"
 
 cmd="ffmpeg -i \"$inputaudio\" -nostdin -y"
 
-while read -r x;
+while IFS= read -r x || [ -n "$x" ];
 do
     end="$(echo "$x" | cut -d'	' -f1)"
     file="$escbook/$(printf "%.2d" "$track")-$esctitle.$ext"
