@@ -14,8 +14,25 @@ updateicon() { \
 	pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}"
 	}
 
+recording_ffmpeg() {
+	case "$1" in
+		""|*[!0-9]*) return 1 ;;
+	esac
+	[ "$(ps -p "$1" -o comm= 2>/dev/null | tr -d '[:space:]')" = ffmpeg ]
+}
+
 killrecording() {
+	[ -r /tmp/recordingpid ] || {
+		updateicon ""
+		exit 0
+	}
 	recpid="$(cat /tmp/recordingpid)"
+	if ! recording_ffmpeg "$recpid"; then
+		rm -f /tmp/recordingpid
+		updateicon ""
+		exit 1
+	fi
+
 	# kill with SIGTERM, allowing finishing touches.
 	kill -15 "$recpid"
 	rm -f /tmp/recordingpid
@@ -23,7 +40,7 @@ killrecording() {
 	pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}"
 	# even after SIGTERM, ffmpeg may still run, so SIGKILL it.
 	sleep 3
-	kill -9 "$recpid"
+	recording_ffmpeg "$recpid" && kill -9 "$recpid"
 	exit
 	}
 
