@@ -317,17 +317,18 @@ the current cross-distribution, optional-dependency behavior.
 - [ ] Improve `displayselect`: filter displays by exact output name and pass
   `--primary` to `xrandr` for the selected primary monitor. Test it on an
   actual multi-monitor X11 session before keeping the change.
-- [ ] Improve `opout` PDF discovery: locate the compiled PDF when a document
-  compiler writes outside the source directory or uses a root file. Define
-  the search boundary and behavior for multiple matching PDFs first.
+- [ ] Deferred: improve `opout` PDF discovery when a document compiler writes
+  outside the source directory or uses a root file. The current compiler writes
+  PDFs next to their sources; revisit this with the optional `latexmk` output
+  directory and define the search boundary for multiple matching PDFs first.
 - [x] Add an RSS feed discovery helper inspired by `rssget`: accept a URL or
   clipboard URL, discover declared feeds and offer a selection before calling
   `rssadd`. It uses bounded requests, standard HTML parsing, stable GitHub,
   GitLab, and Reddit rules, and a unique temporary file rather than Voidrice's
   hard-coded Invidious instances.
-- [ ] Evaluate optional `latexmk` support with an output directory, XeLaTeX,
-  and SyncTeX. It must remain opt-in and agree with `compiler`, `opout`, and
-  the existing direct TeX workflow.
+- [ ] Deferred: evaluate optional `latexmk` support after installing the TeX
+  toolchain and deciding on an output directory. It must remain opt-in and
+  agree with `compiler`, `opout`, and the existing direct TeX workflow.
 - [ ] Evaluate selected LF preview additions from Voidrice, such as AVIF,
   DjVu, SVG, XCF, and EPUB. Add formats only when the preview command and its
   dependency are useful on this machine; retain the current `bat`/`batcat`/`sed`
