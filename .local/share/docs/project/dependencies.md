@@ -69,6 +69,7 @@ util-linux (`setsid`, `lsblk`), procps (`pgrep`, `pkill`, `pidof`, `ps`),
 | --- | --- |
 | `lf`, `ueberzug`, `atool`, `mimeopen`, `vidir` | File manager, previews, archive/MIME workflows |
 | `nsxiv`, `zathura`, `mpv`, `gimp` | Image, PDF, video, and graphic handlers |
+| `libreoffice-calc` (`localc`) | Spreadsheet handler configured in LF |
 | ImageMagick (`display`, `convert`), `mediainfo`, `ffmpegthumbnailer` | LF image/video previews |
 | `pdftoppm`, `pdftotext`, `pdfinfo`, `odt2txt` | Document previews and `getbib` |
 | `gpg`, `man`, `col`, `xdg-open` | Encryption, manuals, formatted text, desktop opening |
@@ -93,7 +94,7 @@ programs: `dmenuunicode`, `dmenumount`, `dmenuumount`, `dmenurecord`,
 | NetworkManager: `nmtui`, `nmcli` | Network status-bar menu and interactive connection setup |
 | `xbacklight` | Brightness key and status-bar scroll action |
 | `lm-sensors` | CPU temperature module when hardware exports a CPU sensor |
-| `simple-mtpfs`, `udisks2` | USB and Android mounting |
+| `simple-mtpfs` | Android MTP mounting. This command has no Debian package in the audited release; the tracked scripts use its specific interface, so Debian adaptation is suspended pending a tested compatible replacement. USB mounting uses the base `mount` and `lsblk` tools. |
 | `cifs-utils`, `smbclient`, `avahi-browse`, Avahi daemon | CIFS discovery and mount helpers |
 | systemd (`loginctl`, `systemctl`), `pstree`, `slock` | `sysact` lock/session control |
 | `geoiplookup` | Optional IP-location status module |
@@ -105,7 +106,7 @@ programs: `dmenuunicode`, `dmenumount`, `dmenuumount`, `dmenurecord`,
 | Software or command | Used for |
 | --- | --- |
 | `htop`, `bmon`, `cal`, `calcurse`, `sensors` | System, network, calendar, temperature modules |
-| `curl`, `nmtui`, `newsboat`, `neomutt`, `mbsync` | Network, RSS, mail modules |
+| `curl`, `nmtui`, `newsboat`, `neomutt`, `mbsync`, Mutt Wizard (`mw`) | Network, RSS, and mail modules; Mutt Wizard provides the local `mw` account/synchronization wrapper used by the mailbox module |
 | `tsp`, `transmission-remote`, `wpctl`, `pulsemixer` | Task queue, torrents, audio modules |
 | `dwmblocks` | Renders status modules and receives their real-time signals |
 | Outbound HTTPS to `wttr.in` | Forecast and moon-phase modules |
@@ -121,10 +122,11 @@ scripts also use `sudo`.
 | Software or command | Used for |
 | --- | --- |
 | `yt-dlp`, `curl`, `tsp`, `entr` | Queued downloads and RSS queue monitoring |
-| `transmission-daemon`, `transmission-remote`, `transmission-show`, `tremc` | Torrent helpers and status module |
+| `transmission-daemon`, `transmission-remote`, `transmission-show` | Torrent daemon, helpers, and status module |
 | `lynx` | Text-browser option in `dmenuhandler` |
 | `urlview` | Configured tmux URL selection binding |
 | Facebook PathPicker (`fpp`) | Lowest-priority optional tmux path-selection binding; excluded from the Debian audit and not required for normal deployment |
+| `tremc` | Lowest-priority optional Transmission terminal interface. The `torrent` launcher starts the daemon without it and directs the user to the web interface or `transmission-remote`; excluded from the Debian audit |
 
 ## Compilation, Typesetting, and Data Helpers
 

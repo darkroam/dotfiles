@@ -1,9 +1,13 @@
 #!/bin/sh
 
-# Start Transmission if needed, then open its Tremc terminal interface.
-ifinstalled tremc transmission-daemon transmission-remote || exit 1
+# Start Transmission if needed, then open its optional Tremc terminal interface.
+ifinstalled transmission-daemon transmission-remote || exit 1
 
 ! pidof transmission-daemon >/dev/null && transmission-daemon && notify-send "Starting torrent daemon..."
 
-$TERMINAL -e tremc
+if command -v tremc >/dev/null 2>&1; then
+	$TERMINAL -e tremc
+else
+	notify-send "Transmission is running" "Tremc is optional and unavailable; use the web interface or transmission-remote."
+fi
 pkill -RTMIN+7 "${STATUSBAR:-dwmblocks}"

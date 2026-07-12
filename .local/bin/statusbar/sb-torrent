@@ -15,7 +15,7 @@ transmission-remote -l 2>/dev/null | grep % |
 case $BLOCK_BUTTON in
 	1) setsid -f torrent ;;
 	2) td-toggle ;;
-	3) notify-send "🌱 Torrent module" "\- Left click to open tremc.
+	3) notify-send "🌱 Torrent module" "\- Left click to open Transmission controls.
 - Middle click to toggle transmission.
 - Shift click to edit script.
 Module shows number of torrents:
