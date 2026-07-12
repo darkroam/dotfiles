@@ -333,13 +333,15 @@ the current cross-distribution, optional-dependency behavior.
   ImageMagick decoder and a cached thumbnail only when ueberzug is available.
   NDJSON uses the existing `bat`/`batcat`/`sed` text fallback; EPUB thumbnails
   remain deferred because their dedicated helper is not installed.
-- [ ] Evaluate migration from `sxiv` to `nsxiv`: compare the current MIME
-  handler, key-handler behavior, desktop entry, and required package name;
-  migrate them together only after interactive image-viewing tests pass.
-- [ ] Evaluate asynchronous DWMBlocks modules only after inspecting the local
-  DWMBlocks source at `~/src/dwmblocks` and its signal configuration. Voidrice's
-  implementation relies on a compatible patched status-bar architecture and
-  should not be copied into the current setup blindly.
+- [ ] Deferred: migrate from `sxiv` to `nsxiv` together with the pending
+  `displayselect` work. Install `nsxiv` first, then test the MIME handler,
+  key-handler behavior, desktop entry, LF image flow, and image viewing in an
+  X11 session before making the hard migration.
+- [ ] Deferred: evaluate asynchronous DWMBlocks modules only if more network
+  blocks are enabled or the current weather request causes observed lag. The
+  local source at `~/src/dwmblocks` is synchronous, but the active forecast
+  module already has a two-second request limit; do not copy Voidrice's
+  indefinite background retries into the current setup.
 
 Not adopting under the current configuration decisions:
 
