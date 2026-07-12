@@ -115,9 +115,13 @@ asktoend() { \
 
 videoselected()
 {
-	slop -f "%x %y %w %h" > /tmp/slop
-	read -r X Y W H < /tmp/slop
-	rm /tmp/slop
+	selection="$(slop -f "%x %y %w %h")" || exit 0
+	set -- $selection
+	[ "$#" -eq 4 ] || exit 1
+	X="$1"
+	Y="$2"
+	W="$3"
+	H="$4"
 
 	ffmpeg \
 	-f x11grab \
