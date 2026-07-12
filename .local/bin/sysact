@@ -13,8 +13,38 @@ wmpid(){ # This function is needed if there are multiple instances of the window
 	echo "${tree%%)*}"
 }
 
+lock(){
+	restore_unmuted=0
+	refresh_volume=0
+	if command -v wpctl >/dev/null 2>&1; then
+		volume_state="$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null)"
+		case "$volume_state" in
+			Volume*)
+				case "$volume_state" in
+					*MUTED*) ;;
+					*) restore_unmuted=1 ;;
+				esac
+				if wpctl set-mute @DEFAULT_AUDIO_SINK@ 1 >/dev/null 2>&1; then
+					refresh_volume=1
+				else
+					restore_unmuted=0
+				fi
+				;;
+		esac
+	fi
+
+	command -v mpc >/dev/null 2>&1 && mpc pause >/dev/null 2>&1
+	command -v pauseallmpv >/dev/null 2>&1 && pauseallmpv >/dev/null 2>&1
+	slock
+
+	[ "$restore_unmuted" -eq 1 ] && wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 >/dev/null 2>&1
+	if [ "$refresh_volume" -eq 1 ] && command -v pkill >/dev/null 2>&1; then
+		pkill -RTMIN+10 -x "${STATUSBAR:-dwmblocks}" >/dev/null 2>&1
+	fi
+}
+
 case "$(printf "🔒 lock\n🚪 leave $WM\n🔄 renew $WM\n🐻 hibernate\n🔁 reboot\n⏻ shutdown\n🌙 sleep\n🌑 display off" | dmenu -i -p 'Action: ')" in
-	'🔒 lock') slock ;;
+	'🔒 lock') lock ;;
 	"🚪 leave $WM") kill -TERM "$(wmpid)" ;;
 	"🔄 renew $WM") kill -HUP "$(wmpid)" ;;
 	'🐻 hibernate') slock $ctl hibernate -i ;;

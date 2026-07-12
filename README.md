@@ -309,10 +309,11 @@ reviewed against Voidrice commit `0e8bd85`; they are candidates for focused
 discussion, not planned changes. Work through them one at a time and preserve
 the current cross-distribution, optional-dependency behavior.
 
-- [ ] Evaluate `sysact` lock integration: temporarily mute the PipeWire
-  default sink and pause MPD/MPV while locked, then restore the previous mute
-  state and refresh the status bar. This needs `mpc` installed and real
-  lock/unlock testing.
+- [x] Add `sysact` lock integration: when available, mute the PipeWire default
+  sink and pause MPD/MPV while locked, then restore only a previously unmuted
+  sink. Playback is deliberately not resumed; successful PipeWire changes
+  refresh the DWMBlocks volume block, while an enabled music block refreshes
+  itself through its existing MPD watcher.
 - [ ] Improve `displayselect`: filter displays by exact output name and pass
   `--primary` to `xrandr` for the selected primary monitor. Test it on an
   actual multi-monitor X11 session before keeping the change.
