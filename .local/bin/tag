@@ -28,7 +28,7 @@ esac done
 
 shift $((OPTIND - 1))
 
-file="$1"
+file="${file:-$1}"
 
 [ ! -f "$file" ] && echo "Provide file to tag." && err
 
