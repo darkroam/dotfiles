@@ -123,7 +123,7 @@ coreutils, findutils, grep, sed, awk, util-linux (`setsid`, `lsblk`), procps
   `xrandr`, `xset`, `xdotool`, `xdpyinfo`, `xclip`, `xprop`, `setxkbmap`, and
   `xkblayout-state`, plus `notify-send` from libnotify
 - `fcitx5` for the selected input method and `xcape` for Caps-as-Escape
-- `firefox` or another browser assigned to `BROWSER`
+- `microsoft-edge` as the browser assigned to `BROWSER`
 - `highlight`, `bat` or `batcat`, `fd`, `ripgrep`, `unzip`, `unrar`, and `w3m`
   for FZF and LF previews
 
@@ -375,7 +375,7 @@ Not adopting under the current configuration decisions:
   `remaps` startup, display-switch, and DWM manual entry points already cover
   the global X keyboard mapping without a persistent udev monitor or repeated
   `xcape` restarts.
-- [x] Do not restore Tor wrapping or Voidrice-specific Firefox, Neovim, and
+- [x] Do not restore Tor wrapping or Voidrice-specific browser, Neovim, and
   Python configuration. They are outside the current repository's intended
   scope.
 - [x] Do not adopt Voidrice's `xdg-terminal-exec` unchanged. It only wraps
