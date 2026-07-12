@@ -1,0 +1,55 @@
+#!/bin/sh
+
+# View the cached forecast, query another location, or copy a plain-text report.
+
+report="${XDG_CACHE_HOME:-$HOME/.cache}/weatherreport"
+url="${WTTRURL:-wttr.in}"
+
+notify() {
+	if command -v notify-send >/dev/null 2>&1; then
+		notify-send "$1" "$2"
+	else
+		printf '%s\n' "$1${2:+: $2}" >&2
+	fi
+}
+
+fetch() {
+	curl -sfm 5 "$url/$1"
+}
+
+case "$1" in
+	cp)
+		if [ -n "$2" ]; then
+			data="$(fetch "$2?T")" || {
+				notify "Failed to get weather forecast" "Check the location and network connection."
+				exit 1
+			}
+		else
+			[ -r "$report" ] || {
+				notify "No cached weather forecast" "Run the forecast status module first."
+				exit 1
+			}
+			data="$(sed 's/\x1b\[[^m]*m//g' "$report")"
+		fi
+		command -v xclip >/dev/null 2>&1 || {
+			notify "Cannot copy weather forecast" "xclip is unavailable."
+			exit 1
+		}
+		printf '%s\n' "$data" | xclip -selection clipboard &&
+			notify "Weather forecast copied" "${2:-${LOCATION:-cached forecast}}"
+		;;
+	'')
+		[ -r "$report" ] || {
+			notify "No cached weather forecast" "Run the forecast status module first."
+			exit 1
+		}
+		less -S "$report"
+		;;
+	*)
+		data="$(fetch "$1")" || {
+			notify "Failed to get weather forecast" "Check the location and network connection."
+			exit 1
+		}
+		printf '%s\n' "$data" | less -S
+		;;
+esac

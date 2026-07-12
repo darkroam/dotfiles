@@ -336,6 +336,9 @@ the current cross-distribution, optional-dependency behavior.
 - [x] Harden `samedir` with Voidrice's active-window process-tree lookup while
   retaining the existing command name. It now handles shell and LF windows,
   skips Git subprocesses, and falls back to the current working directory.
+- [x] Replace the stale weather alias with `weath`, which reads the forecast
+  cache from the same XDG cache path as `sb-forecast`, supports temporary
+  location queries, and can copy a plain-text report.
 - [ ] Deferred: migrate from `sxiv` to `nsxiv` together with the pending
   `displayselect` work. Install `nsxiv` first, then test the MIME handler,
   key-handler behavior, desktop entry, LF image flow, and image viewing in an
@@ -349,6 +352,14 @@ the current cross-distribution, optional-dependency behavior.
   `sb-brightness`. This machine exposes no standard `/sys/class/backlight`
   device and has no selected brightness backend; reconcile `xlight`, the
   battery-module scroll actions, and any status display after that decision.
+- [ ] Deferred: expand MPV IPC socket coverage beyond shell-launched instances.
+  Voidrice's Lua solution is an uninitialized submodule and cannot be reviewed
+  here; if global pause control becomes necessary, use a small tracked wrapper
+  and migrate direct MPV launchers together.
+- [ ] Deferred: evaluate a market-ticker status module only when specific
+  symbols, a maintained data source, and an acceptable network update policy
+  are chosen. Do not adopt Voidrice's Bash parser or its single external
+  `terminal-stocks.dev` dependency unchanged.
 
 Not adopting under the current configuration decisions:
 
