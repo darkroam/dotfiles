@@ -2,7 +2,9 @@
 
 Personal Linux configuration managed as a bare Git repository. Tracked files
 are intended to work from `$HOME`; untracked files are deliberately outside the
-repository. Last reviewed: 2026-07-12.
+repository.
+
+Last reviewed: 2026-07-12.
 
 ## Repository Usage
 
@@ -14,8 +16,7 @@ alias c='/usr/bin/git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
 
 Use `c status`, `c diff`, `c add <path>`, and `c commit` for configuration
 changes. Zsh and Bash provide completion for `c`; `c diff <Tab>` only offers
-files that currently have diffs. The remote is
-`git@github.com:darkroam/dotfiles.git`.
+files that currently have diffs.
 
 ## Installation
 
