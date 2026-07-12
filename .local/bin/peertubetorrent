@@ -3,7 +3,25 @@
 # first argument is the video link, second is the quality (360, 480 or 1080)
 # 13/07/20 - Arthur Bais
 
-instance=$(echo "$1" | sed "s|/w.\+||")
-vidid=$(echo "$1" | sed "s|.\+/||")
-link=$(curl -s "$instance/api/v1/videos/$vidid" | grep -o "$instance/download/torrents/.\{37\}$2.torrent")
+url="${1%/}"
+quality="${2:-480}"
+
+case "$url" in
+	http://*|https://*) ;;
+	*) exit 1 ;;
+esac
+
+case "$quality" in
+	""|*[!0-9]*) exit 1 ;;
+esac
+
+instance="$(printf '%s\n' "$url" | sed -E 's#^(https?://[^/]+).*$#\1#')"
+vidid="${url##*/}"
+vidid="${vidid%%\?*}"
+vidid="${vidid%%\#*}"
+[ -n "$vidid" ] || exit 1
+
+link="$(curl -fsSL "$instance/api/v1/videos/$vidid" | grep -o "$instance/download/torrents/.\{37\}$quality.torrent" | head -n 1)" || exit 1
+[ -n "$link" ] || exit 1
+
 transadd "$link"
