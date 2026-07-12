@@ -276,6 +276,9 @@ Completed:
 - Reviewed display, mount, and brightness helpers. Android MTP mounting now
   retries only after the initial authorization failure, and `xlight` handles
   an absent saved-brightness file safely.
+- Unified URL wallpaper selection in `dmenuhandler` with `setbg`; successful
+  downloads now refresh the wallpaper and optional wal colors, while failed
+  downloads preserve the current desktop state.
 - Checked status modules in the current environment. CPU temperature stays
   blank because the system exposes no CPU thermal sensor; NVMe temperature is
   intentionally not shown as CPU temperature.
