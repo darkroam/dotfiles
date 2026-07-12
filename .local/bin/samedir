@@ -2,9 +2,29 @@
 
 # Open a terminal window in the same directory as the currently active window.
 
-PID=$(xprop -id "$(xprop -root | xprop -root | sed -n "/_NET_ACTIVE_WINDOW/ s/^.*# // p")" | sed -n "/PID/ s/^.*= // p")
-PID="$(pstree -lpA "$PID")"
-PID="${PID##*"${SHELL##*/}"(}"
-PID="${PID%%)*}"
-cd "$(readlink /proc/"$PID"/cwd)" || return 1
-"$TERMINAL"
+window_id="$(xprop -root _NET_ACTIVE_WINDOW 2>/dev/null | sed -n '/_NET_ACTIVE_WINDOW/ s/^.*# //p')"
+window_pid="$(xprop -id "$window_id" _NET_WM_PID 2>/dev/null | sed -n '/_NET_WM_PID/ s/^.*= //p')"
+cwd="$PWD"
+
+if [ -n "$window_pid" ]; then
+	pid_list="$(pstree -lpATna "$window_pid" 2>/dev/null | sed -En 's/.*,([0-9]+).*/\1/p' | tac)"
+	for pid in $pid_list; do
+		cmdline="$(ps -o args= -p "$pid" 2>/dev/null)"
+		group_pid="$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')"
+		group_command="$(ps -o comm= -p "$group_pid" 2>/dev/null)"
+		candidate="$(readlink "/proc/$pid/cwd" 2>/dev/null)"
+
+		case "$cmdline" in
+			'lf -server') continue ;;
+			"${SHELL##*/}"|'lf'|'lf '*) cwd="$candidate"; break ;;
+		esac
+		[ "$group_command" = git ] && continue
+		[ -d "$candidate" ] && [ "$candidate" != "$HOME" ] && [ "$candidate" != / ] && {
+			cwd="$candidate"
+			break
+		}
+	done
+fi
+
+[ -d "$cwd" ] && cd "$cwd" || exit 1
+exec "$TERMINAL"
