@@ -3,7 +3,7 @@
 usage ()
 {
     printf "Usage : noisereduce <input video file> <output video file>\n"
-    exit
+    exit 1
 }
 
 # Tests for requirements
@@ -18,7 +18,7 @@ fi
 if [ ! -e "$1" ]
 then
     printf "File not found: %s\n" "$1"
-    exit
+    exit 1
 fi
 
 if [ -e "$2" ]
