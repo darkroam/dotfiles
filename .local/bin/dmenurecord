@@ -140,5 +140,9 @@ case "$1" in
 	video) video;;
 	*selected) videoselected;;
 	kill) killrecording;;
-	*) ([ -f /tmp/recordingpid ] && asktoend && exit) || askrecording;;
+	*) if [ -f /tmp/recordingpid ]; then
+		asktoend
+	else
+		askrecording
+	fi ;;
 esac
