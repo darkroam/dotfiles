@@ -12,7 +12,7 @@ download() {
 	fi
 }
 
-case "$(printf "Copy URL\\nsxiv\\nsetbg\\nPDF\\nbrowser\\nlynx\\nvim\\nmpv\\nmpv loop\\nmpv float\\nqueue download\\nqueue yt-dlp\\nqueue yt-dlp audio" | dmenu -i -p "Open it with?")" in
+case "$(printf "Copy URL\\nnsxiv\\nsetbg\\nPDF\\nbrowser\\nlynx\\nvim\\nmpv\\nmpv loop\\nmpv float\\nqueue download\\nqueue yt-dlp\\nqueue yt-dlp audio" | dmenu -i -p "Open it with?")" in
 	"Copy URL") echo "$feed" | xclip -selection clipboard ;;
 	mpv) setsid -f mpv -quiet "$feed" >/dev/null 2>&1 ;;
 	"mpv loop") setsid -f mpv -quiet --loop "$feed" >/dev/null 2>&1 ;;
@@ -21,7 +21,7 @@ case "$(printf "Copy URL\\nsxiv\\nsetbg\\nPDF\\nbrowser\\nlynx\\nvim\\nmpv\\nmpv
 	"queue yt-dlp audio") qndl "$feed" 'yt-dlp --embed-metadata -icx -f bestaudio/best' >/dev/null 2>&1 ;;
 	"queue download") qndl "$feed" 'curl -LO' >/dev/null 2>&1 ;;
 	PDF) download "$feed" && zathura "$temp" >/dev/null 2>&1 ;;
-	sxiv) download "$feed" && sxiv -a "$temp" >/dev/null 2>&1 ;;
+	nsxiv) download "$feed" && nsxiv -a "$temp" >/dev/null 2>&1 ;;
 	vim) download "$feed" && setsid -f "$TERMINAL" -e "$EDITOR" "$temp" >/dev/null 2>&1 ;;
 	setbg)
 		cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}"

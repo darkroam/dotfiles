@@ -68,7 +68,7 @@ util-linux (`setsid`, `lsblk`), procps (`pgrep`, `pkill`, `pidof`, `ps`),
 | Software or command | Used for |
 | --- | --- |
 | `lf`, `ueberzug`, `atool`, `mimeopen`, `vidir` | File manager, previews, archive/MIME workflows |
-| `sxiv`, `zathura`, `mpv`, `gimp` | Image, PDF, video, and graphic handlers |
+| `nsxiv`, `zathura`, `mpv`, `gimp` | Image, PDF, video, and graphic handlers |
 | ImageMagick (`display`, `convert`), `mediainfo`, `ffmpegthumbnailer` | LF image/video previews |
 | `pdftoppm`, `pdftotext`, `pdfinfo`, `odt2txt` | Document previews and `getbib` |
 | `gpg`, `man`, `col`, `xdg-open` | Encryption, manuals, formatted text, desktop opening |
@@ -77,7 +77,7 @@ util-linux (`setsid`, `lsblk`), procps (`pgrep`, `pkill`, `pidof`, `ps`),
 | `timedatectl`, or `chronyc` or `ntpdate` | OTP clock synchronization check |
 | WPS Office and `wps-office-prometheus.desktop` | Configured office MIME defaults |
 
-Desktop entries invoke `st`, `lfub`, `sxiv`, `neomutt`, `zathura`, `nvim`,
+Desktop entries invoke `st`, `lfub`, `nsxiv`, `neomutt`, `zathura`, `nvim`,
 `rssadd`, `transadd`, and `mpv`; install each command when using its entry.
 
 Several DWM bindings call tracked local helpers rather than separately packaged
@@ -110,7 +110,8 @@ programs: `dmenuunicode`, `dmenumount`, `dmenuumount`, `dmenurecord`,
 | `dwmblocks` | Renders status modules and receives their real-time signals |
 | Outbound HTTPS to `wttr.in` | Forecast and moon-phase modules |
 | Outbound HTTPS data sources | Doppler and price modules when enabled |
-| `urlscan`, `youtube-viewer` | Configured Newsboat URL/video macros |
+| `urlscan` | Configured Newsboat URL-selection macro |
+| `youtube-viewer` | Lowest-priority optional Newsboat video macro; normal RSS reading and video handling use the existing browser, `mpv`, `yt-dlp`, and `linkhandler`, so it is excluded from the Debian audit |
 
 Package status modules require one of APT, pacman, XBPS, or Portage. APT check
 scripts also use `sudo`.
@@ -122,7 +123,8 @@ scripts also use `sudo`.
 | `yt-dlp`, `curl`, `tsp`, `entr` | Queued downloads and RSS queue monitoring |
 | `transmission-daemon`, `transmission-remote`, `transmission-show`, `tremc` | Torrent helpers and status module |
 | `lynx` | Text-browser option in `dmenuhandler` |
-| `urlview`, Facebook PathPicker (`fpp`) | Configured tmux URL/path bindings |
+| `urlview` | Configured tmux URL selection binding |
+| Facebook PathPicker (`fpp`) | Lowest-priority optional tmux path-selection binding; excluded from the Debian audit and not required for normal deployment |
 
 ## Compilation, Typesetting, and Data Helpers
 
@@ -158,5 +160,5 @@ passwordless sudo rule or a manual check.
 ## Local Verification Record
 
 This is not a deployment requirement. On the last review the current machine
-lacked `mpc`, `sxiv`, `nmtui`, `cal`, `calcurse`, and `xbacklight`; the tracked
+lacked `mpc`, `nmtui`, `cal`, `calcurse`, and `xbacklight`; the tracked
 features remain configured and require the corresponding command above.

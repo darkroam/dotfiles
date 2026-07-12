@@ -66,7 +66,7 @@ alias \
 	e="emacs" \
 	v="$EDITOR" \
 	calcurse='calcurse -D ~/.config/calcurse' \
-	x='sxiv -ft *' \
+	x='nsxiv -ft *' \
 	z="zathura"
 
 # Package management. All aliases use the same p-prefix across distributions:

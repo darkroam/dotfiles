@@ -18,7 +18,7 @@ configuration lives below `.config` or `.local`.
 | X11 session | `.config/x11/` | X startup, input method, compositor, Xresources, wallpaper, remaps |
 | Desktop appearance | `.config/fontconfig/`, `.config/gtk-*`, `.config/dunst/` | Fonts, GTK appearance, notifications |
 | Audio and media | `.config/mpd/`, `.config/ncmpcpp/`, `.config/mpv/`, `.config/alsa/` | MPD clients, MPV, retained ALSA fallback |
-| File and document tools | `.config/lf/`, `.config/sxiv/`, `.config/zathura/`, `.config/mimeapps.list` | File manager, previews, MIME handlers |
+| File and document tools | `.config/lf/`, `.config/nsxiv/`, `.config/zathura/`, `.config/mimeapps.list` | File manager, previews, MIME handlers |
 | User commands | `.local/bin/` | Interactive helpers, status modules, cron helpers |
 | LARBS runtime resources | `.local/share/larbs/` | Retained upstream runtime data, keyboard map, Unicode data, and helper text |
 | Project documentation | `.local/share/docs/` | Project, planning, and end-user documentation |

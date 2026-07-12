@@ -6,7 +6,7 @@ runtime dependency and preserve optional-dependency behavior.
 - [ ] Review remaining configuration files for obsolete settings and
   distribution-specific assumptions without removing trusted personal values.
 - [ ] Test the interactive X11 paths after installing their dependencies:
-  `nmtui`, `sxiv`, calendar, brightness, screenshots, OTP, MTP/CIFS mounts,
+  `nmtui`, `nsxiv`, calendar, brightness, screenshots, OTP, MTP/CIFS mounts,
   torrents, recording selection, and RSS download queue.
 - [ ] Recheck dependencies after installation: `mpc`, NetworkManager, image
   and preview tools, task-spooler, Transmission, media metadata tools, and the

@@ -8,9 +8,6 @@ is available; they are not defects in the normal configuration.
 - [ ] `displayselect`: use exact output-name filtering and set the selected
   primary output with `xrandr --primary`. Test the complete layout flow in a
   real multi-monitor X11 session before keeping a change.
-- [ ] `nsxiv` migration: install it first, then test MIME handling, key-handler
-  behavior, desktop entry, LF image flow, and normal X11 viewing. Discuss it
-  together with display work.
 
 ## Documents
 
