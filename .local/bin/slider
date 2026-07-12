@@ -78,7 +78,7 @@ prepfile="$prepdir/$(basename "$file").prep"
 mkdir -p "$prepdir"
 
 {
-while read -r x;
+while IFS= read -r x || [ -n "$x" ];
 do
 	# Get the time from the first column.
 	time="${x%%	*}"
