@@ -20,7 +20,8 @@ configuration lives below `.config` or `.local`.
 | Audio and media | `.config/mpd/`, `.config/ncmpcpp/`, `.config/mpv/`, `.config/alsa/` | MPD clients, MPV, retained ALSA fallback |
 | File and document tools | `.config/lf/`, `.config/sxiv/`, `.config/zathura/`, `.config/mimeapps.list` | File manager, previews, MIME handlers |
 | User commands | `.local/bin/` | Interactive helpers, status modules, cron helpers |
-| LARBS resources and docs | `.local/share/larbs/` | Retained upstream resources, installation data, project documentation |
+| LARBS runtime resources | `.local/share/larbs/` | Retained upstream runtime data, keyboard map, Unicode data, and helper text |
+| Project documentation | `.local/share/docs/` | Project, planning, and end-user documentation |
 | System templates | `.local/share/sys-etc/` | Examples to copy and adapt, never automatically installed |
 | Per-machine extension points | `*.local` files | Untracked overrides loaded only when present |
 
@@ -64,4 +65,5 @@ files when making a dotfile-only change. System templates below
 `.local/share/sys-etc/` are examples, not active system configuration.
 
 For current work, completed work, and paused work, use
-[TODO](todo.md), [history](todo-history.md), and [suspended items](suspended.md).
+[TODO](../planning/todo.md), [history](../planning/history.md), and
+[suspended items](../planning/suspended.md).

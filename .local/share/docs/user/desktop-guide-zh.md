@@ -94,7 +94,7 @@ DWM 把窗口按最近操作顺序组织为栈。`Mod+Enter` 打开 `st`，`Mod+
 ## 文件、剪贴板与文档
 
 LF 是文件管理器，`lfub` 是统一启动包装。其预览依赖见
-[依赖清单](dependencies.md)。图形程序通常使用 `Ctrl+C`/`Ctrl+V`；终端复制粘贴
+[依赖清单](../project/dependencies.md)。图形程序通常使用 `Ctrl+C`/`Ctrl+V`；终端复制粘贴
 由 `st` 自身规则决定。Neovim 配置默认接入系统剪贴板。
 
 `compiler` 和 `opout` 处理文档编译和打开；支持的格式与程序在依赖文档中列出。

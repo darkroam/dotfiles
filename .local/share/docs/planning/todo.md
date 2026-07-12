@@ -22,4 +22,4 @@ runtime dependency and preserve optional-dependency behavior.
   changes.
 
 For intentionally paused work, see [suspended items](suspended.md). Completed
-items are recorded in [TODO history](todo-history.md).
+items are recorded in [TODO history](history.md).

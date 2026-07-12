@@ -31,7 +31,7 @@ files from `c status`. Review the installer before using it on a machine with
 existing configuration.
 
 Install the required programs before expecting every optional feature to work:
-[full dependency inventory](.local/share/larbs/doc/dependencies.md).
+[full dependency inventory](.local/share/docs/project/dependencies.md).
 
 ## Startup Flow
 
@@ -66,23 +66,23 @@ The tracked root entry points are links:
 
 ## Documentation
 
-Maintenance documentation lives with the retained LARBS resources in
-`.local/share/larbs/doc/`:
+Maintenance documentation lives in `.local/share/docs/`; retained LARBS
+runtime resources remain in `.local/share/larbs/`:
 
-- [Architecture and design](.local/share/larbs/doc/architecture.md): directory
+- [Architecture and design](.local/share/docs/project/architecture.md): directory
   map, load order, optional-feature model, and ownership boundaries.
-- [Dependencies](.local/share/larbs/doc/dependencies.md): complete
+- [Dependencies](.local/share/docs/project/dependencies.md): complete
   command-oriented installation inventory for a new machine.
-- [Maintenance policy](.local/share/larbs/doc/maintenance-policy.md): project
+- [Maintenance policy](.local/share/docs/project/maintenance-policy.md): project
   constraints plus accepted and rejected design directions.
-- [Current TODO](.local/share/larbs/doc/todo.md): active work only.
-- [Suspended items](.local/share/larbs/doc/suspended.md): deferred work and the
+- [Current TODO](.local/share/docs/planning/todo.md): active work only.
+- [Suspended items](.local/share/docs/planning/suspended.md): deferred work and the
   conditions required to resume it.
-- [TODO history](.local/share/larbs/doc/todo-history.md): completed review and
+- [TODO history](.local/share/docs/planning/history.md): completed review and
   implementation record.
-- [LARBS guide in Chinese](.local/share/larbs/doc/larbs-guide-zh.md): a
+- [LARBS guide in Chinese](.local/share/docs/user/desktop-guide-zh.md): a
   localized guide based on this repository's current behavior.
-- [Chinese keybinding cheat sheet](.local/share/larbs/doc/keybindings-zh.md):
+- [Chinese keybinding cheat sheet](.local/share/docs/user/keybindings-zh.md):
   concise DWM and media-key reference.
 
 The DWM `Mod+F1` binding still opens the upstream installed guide at

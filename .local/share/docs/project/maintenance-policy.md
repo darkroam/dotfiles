@@ -51,5 +51,5 @@
 - Blindly importing any upstream DWM keybinding or user guide: this repository
   documents its own configured behavior.
 
-Review history is in [todo-history.md](todo-history.md); deferred proposals
-are in [suspended.md](suspended.md).
+Review history is in [history.md](../planning/history.md); deferred proposals
+are in [suspended.md](../planning/suspended.md).
