@@ -342,6 +342,10 @@ the current cross-distribution, optional-dependency behavior.
   local source at `~/src/dwmblocks` is synchronous, but the active forecast
   module already has a two-second request limit; do not copy Voidrice's
   indefinite background retries into the current setup.
+- [ ] Deferred: unify brightness controls before considering Voidrice's
+  `sb-brightness`. This machine exposes no standard `/sys/class/backlight`
+  device and has no selected brightness backend; reconcile `xlight`, the
+  battery-module scroll actions, and any status display after that decision.
 
 Not adopting under the current configuration decisions:
 
@@ -350,6 +354,10 @@ Not adopting under the current configuration decisions:
 - [x] Do not replace the existing mount helpers with Voidrice's Bash-heavy
   `mounter`/`unmounter` scripts. Their LUKS assumptions and dependencies do
   not match every target system.
+- [x] Do not add Voidrice's `remapd` device-monitor daemon. The current
+  `remaps` startup, display-switch, and DWM manual entry points already cover
+  the global X keyboard mapping without a persistent udev monitor or repeated
+  `xcape` restarts.
 - [x] Do not restore Tor wrapping or Voidrice-specific Firefox, Neovim, and
   Python configuration. They are outside the current repository's intended
   scope.
