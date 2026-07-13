@@ -65,9 +65,10 @@ alias \
 	sdn="sudo shutdown -h now" \
 	e="emacs" \
 	v="$EDITOR" \
-	calcurse='calcurse -D ~/.config/calcurse' \
-	x='nsxiv -ft *' \
-	z="zathura"
+	calcurse='calcurse -D ~/.config/calcurse' 
+#	calcurse='calcurse -D ~/.config/calcurse' \
+#	x='nsxiv -ft *' \
+#	z="zathura"
 
 # Shared Git helpers. Keep gs for the system Ghostscript command.
 alias \
