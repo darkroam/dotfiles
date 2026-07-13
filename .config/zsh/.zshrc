@@ -12,7 +12,6 @@ esac
 
 [ -f "$HOME/.config/shell/shortcutrc" ] && source "$HOME/.config/shell/shortcutrc" # Load shortcut aliases
 [ -f "$HOME/.config/shell/zshnameddirrc" ] && source "$HOME/.config/shell/zshnameddirrc"
-[ -f "$HOME/.config/shell/aliasrc" ] && source "$HOME/.config/shell/aliasrc"
 export GOPATH="$HOME/Project/go"
 
 # Set name of the theme to load --- if set to "random", it will
@@ -98,6 +97,7 @@ plugins=(
 bindkey '^n' autosuggest-accept
 
 source $ZSH/oh-my-zsh.sh
+[ -f "$HOME/.config/shell/aliasrc" ] && source "$HOME/.config/shell/aliasrc"
 
 # docker
 attach() {

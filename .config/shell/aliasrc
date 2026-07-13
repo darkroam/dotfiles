@@ -69,6 +69,122 @@ alias \
 	x='nsxiv -ft *' \
 	z="zathura"
 
+# Shared Git helpers. Keep gs for the system Ghostscript command.
+alias \
+	gco='git checkout' \
+	gd='git --no-pager diff' \
+	gst='git --no-pager status' \
+	gss='git --no-pager status -s' \
+	gsh='git --no-pager show' \
+	gpt='git push origin --tags'
+
+unalias gam 2>/dev/null || true
+
+gpo() {
+	local branch
+	branch=$(git symbolic-ref --short -q HEAD) || return 1
+	git push origin "$branch"
+}
+
+gpl() {
+	local branch
+	branch=$(git symbolic-ref --short -q HEAD) || return 1
+	git pull origin "$branch" --ff-only
+}
+
+glt() {
+	git tag -n --sort=taggerdate | tail -n "${1:-10}"
+}
+
+gat() {
+	[ "$#" -eq 2 ] || return 2
+	git tag -a "$1" -m "$2"
+}
+
+gam() {
+	git add --all && git commit -m "$*"
+}
+
+gitlog() {
+	[ -n "${1:-}" ] || return 2
+	git --no-pager log --date=format:'%Y-%m-%d %H:%M' --pretty="tformat:$1" --graph -n "${2:-10}"
+}
+
+gll() {
+	gitlog "%C(${gitHashColor:-magenta})%h %C(${gitContentColor:-cyan})%s%Creset" "${1:-10}"
+}
+
+glll() {
+	gitlog "%C(${gitHashColor:-magenta})%h %C(${gitDateColor:-yellow})%cd %C(${gitAuthorColor:-blue})%cn: %C(${gitContentColor:-cyan})%s%Creset" "${1:-10}"
+}
+
+# Mirror the Git helpers above for the bare configuration repository.
+cfg_git() {
+	/usr/bin/git --git-dir="$HOME/.cfg/" --work-tree="$HOME" "$@"
+}
+
+cgco() {
+	cfg_git checkout "$@"
+}
+
+cgpo() {
+	local branch
+	branch=$(cfg_git symbolic-ref --short -q HEAD) || return 1
+	cfg_git push origin "$branch"
+}
+
+cgpl() {
+	local branch
+	branch=$(cfg_git symbolic-ref --short -q HEAD) || return 1
+	cfg_git pull origin "$branch" --ff-only
+}
+
+cgd() {
+	cfg_git --no-pager diff "$@"
+}
+
+cgst() {
+	cfg_git --no-pager status "$@"
+}
+
+cgss() {
+	cfg_git --no-pager status -s "$@"
+}
+
+cgsh() {
+	cfg_git --no-pager show "$@"
+}
+
+cgpt() {
+	cfg_git push origin --tags "$@"
+}
+
+cglt() {
+	cfg_git tag -n --sort=taggerdate | tail -n "${1:-10}"
+}
+
+cgat() {
+	[ "$#" -eq 2 ] || return 2
+	cfg_git tag -a "$1" -m "$2"
+}
+
+cgam() {
+	cfg_git add --all && cfg_git commit -m "$*"
+}
+
+cgitlog() {
+	[ -n "${1:-}" ] || return 2
+	cfg_git --no-pager log --date=format:'%Y-%m-%d %H:%M' --pretty="tformat:$1" --graph -n "${2:-10}"
+}
+
+cgll() {
+	cgitlog "%C(${gitHashColor:-magenta})%h %C(${gitContentColor:-cyan})%s%Creset" "${1:-10}"
+}
+
+cglll() {
+	cgitlog "%C(${gitHashColor:-magenta})%h %C(${gitDateColor:-yellow})%cd %C(${gitAuthorColor:-blue})%cn: %C(${gitContentColor:-cyan})%s%Creset" "${1:-10}"
+}
+
 # Package management. All aliases use the same p-prefix across distributions:
 # p: manager, pu: update, pi: install, pr: remove, pse: search,
 # pp: package information, pl: installed packages, pc: cleanup.

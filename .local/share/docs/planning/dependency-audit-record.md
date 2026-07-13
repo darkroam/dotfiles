@@ -12,7 +12,7 @@
 | `.profile`、`.zprofile`、`.xinitrc`、`.xprofile`、`.asoundrc`、`.gtkrc-2.0` | 无；均为指向规范配置的兼容链接 | 不适用 | 不适用 | 不适用 | 不适用 | 通过；目标文件将在所属批次审计 |
 | `.gitignore` | 无 | 不适用 | 不适用 | 不适用 | 不适用 | 通过 |
 | `.bashrc`、`.config/zsh/.zshrc` | `bash`、`zsh`、`stty`、`tput`、`git`、Bash/Git completion、`fzf`、`groff` | 必需或条件可选 | 已安装；Bash 补全文件可读；`~/.fzf.bash` 缺失但已有条件加载 | Shell、源代码管理与开发 | 待核对 | 已验证，`bash -n`、`zsh -n` 通过；`c` 在两种 shell 中均映射到完整 Git 补全，`diff` 无专属候选限制 |
-| `.gitconfig` | `git`、`vim`、`less` | 必需 | 已安装；`git`、`less` 由 Debian 软件包提供，`vim` 可执行 | Shell、源代码管理与开发 | 待核对 | 已验证，待 `progs.csv` 全量迁移时核对说明 |
+| `.gitconfig` | `git`、`vim`、`less` | 必需 | 已安装；`git`、`less` 由 Debian 软件包提供，`vim` 可执行 | Shell、源代码管理与开发 | 待核对 | 已验证；默认 `log.date` 使用 `%Y/%m/%d %H:%M:%S`，待 `progs.csv` 全量迁移时核对说明 |
 | `.npmrc` | `npm` | 必需（使用 npm 时） | 已安装；当前由 NVM 提供，非 APT 软件包 | Shell、源代码管理与开发 | 待核对 | 已验证，待 `progs.csv` 全量迁移时核对说明 |
 | `.config/shell/profile` | `find`、`nvim`、`st`、`microsoft-edge`、`zathura`、`lfub`、`dwm`、`dwmblocks`、`highlight`、`shortcuts`、`dmenupass`、Qt GTK 平台主题 | 必需或已启用默认功能 | 已安装；Qt5/Qt6 GTK 平台主题由 `qt5-gtk-platformtheme`、`qt6-gtk-platformtheme` 提供 | Shell、源代码管理与开发；X11 桌面与输入；文件、文档与桌面处理 | 待核对 | 已验证，`sh -n` 通过 |
 | `.config/shell/zprofile` | `zsh`、`sudo`、`loadkeys`、`startx`、Xorg、`tty`、`pgrep`、`ttymaps.kmap` | 必需（登录与本地 X11 启动时） | 已安装；`loadkeys` 由 `kbd`、`startx` 由 `xinit`、Xorg 由 `xserver-xorg-core` 提供；键盘映射可读 | Shell、源代码管理与开发；X11 桌面与输入 | 待核对 | 已验证，`zsh -n` 通过 |
@@ -30,6 +30,7 @@
 | `.config/shell/aliasrc` | `transmission-remote` | 可选种子控制别名 | 已安装，Debian 软件包 `transmission-cli` | 下载、种子与文本浏览 | 待核对 | 已验证；守护进程已在种子脚本批次复查，`tremc` 已降为最低优先级可选项 |
 | `.config/shell/aliasrc`、`.config/newsboat/config` | `youtube-viewer` | 最低优先级可选视频别名及 Newsboat 宏 | 不检查安装状态 | 状态栏、RSS、邮件、天气与任务队列 | 待核对 | 代码完备性已验证：仅由可选 Newsboat 视频宏和别名调用；常规流程已有浏览器、`mpv`、`yt-dlp` 与 `linkhandler`，本轮不安装或运行验证 |
 | `.config/shell/aliasrc` | `calcurse` | 可选日历别名和状态栏操作 | 已安装，Debian 软件包 `calcurse` | 状态栏、RSS、邮件、天气与任务队列 | 待核对 | 已验证 |
+| `.config/shell/aliasrc`、`.config/shell/profile` | `git` | Bash/Zsh 共用 Git 与 bare 配置仓库快捷命令、日志格式和交互认证设置 | 已安装 | Shell、源代码管理与开发 | 不存在 | 已验证；`gst` 保留 `gs` 的 Ghostscript 命令名，`cg*` 通过 `cfg_git` 固定使用 bare 配置仓库，Zsh 在 Oh My Zsh 后加载共享别名 |
 | 图像查看链路（`.config/shell/aliasrc`、LF、桌面条目与处理脚本） | `nsxiv` | 已批准整体替换当前 `sxiv` 图像查看链路 | 已安装，Debian 软件包 `nsxiv` | 文件、文档与桌面处理 | `sxiv` 行已迁移为历史替代 | 已迁移配置目录、调用点、桌面条目、帮助文本和项目文档；待 X11 图形流程复查 |
 | `.config/shell/aliasrc` | `lazygit` | 可选 Git TUI 别名 | 已安装，Debian 软件包 `lazygit` | Shell、源代码管理与开发 | 不存在 | 已验证；后续需补入 `dependencies.md` |
 | `.config/shell/aliasrc` | 本地 `cc-switch` 包装 | 可选自定义别名 | 已安装于 `~/.local/bin/cc-switch` | Shell、源代码管理与开发 | 不存在 | 已验证；非外部软件包 |

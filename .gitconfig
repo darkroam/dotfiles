@@ -153,3 +153,5 @@
 	enabled = true
 [status]
 	submodulesummary = 1
+[log]
+	date = format:%Y/%m/%d %H:%M:%S

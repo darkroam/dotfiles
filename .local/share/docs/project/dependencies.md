@@ -9,7 +9,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`）、procps（`pgrep`、`pkil
 
 | 软件或命令 | 用途 |
 | --- | --- |
-| `git` | bare 配置仓库和 `c` 命令 |
+| `git` | bare 配置仓库、`c` 命令和 Bash/Zsh 共用 Git 快捷命令 |
 | `zsh`, `bash` | 交互式和 POSIX shell 支持 |
 | `python3` 和 `python` | 既有辅助脚本和插件工具 |
 | `vim` 或 `nvim` | 默认编辑器和桌面处理器 |

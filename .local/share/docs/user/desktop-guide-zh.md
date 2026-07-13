@@ -22,6 +22,14 @@
 日常终端使用 `vim`、`nvim`、`lf`、`tmux` 和 FZF。`c` 是配置库专用 Git 命令：用
 `c status` 查看已跟踪改动，`c diff` 检查差异，确认后再 `c add` 和提交。
 
+共享 Git 快捷命令包括 `gco`、`gpo`、`gpl`、`gd`、`gst`、`gss`、`gsh`、`gpt`、`glt`、
+`gat`、`gam`、`gll` 和 `glll`。`gst` 是 Git 状态，`gs` 保留给系统 Ghostscript 命令；
+`gll`、`glll` 分别显示简要和带日期/作者的彩色日志，可通过 `gitHashColor`、
+`gitContentColor`、`gitDateColor`、`gitAuthorColor` 调整颜色。
+
+同名的 `cg*` 函数始终作用于配置仓库，例如 `cgst`、`cgd`、`cgll`、`cgam`；它们不受当前
+目录 Git 仓库影响。`cgpo`、`cgpl` 与普通仓库对应命令一样，要求当前分支不是 detached HEAD。
+
 在 Bash 或 Zsh 中输入 `c` 后按 Tab，会获得与 `git` 相同的子命令、选项、引用和路径补全。
 
 安装 `fzf` 后，Zsh 的 Tab 会使用 `fzf-tab` 交互式筛选候选；未安装时自动保留原生补全。

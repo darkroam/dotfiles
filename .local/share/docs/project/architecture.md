@@ -44,6 +44,13 @@ POSIX Shell；`profile.local` 和 `aliasrc.local` 是唯一预期的每机器扩
 `c` 的 Bash 与 Zsh 补全都映射至 Git 补全，并在补全期间设置 bare 仓库环境；不得为某个
 子命令保留比 Git 原生行为更窄的候选项。
 
+共享 Git 快捷命令由 `aliasrc` 提供，并在 Oh My Zsh 初始化后加载，以覆盖其同名 Git 别名；
+不得占用非 Git 的 `gs`，Git 状态使用 `gst`。`.gitconfig` 保存 Git 默认日志日期格式，
+`profile` 设置允许交互认证的 `GIT_TERMINAL_PROMPT`。
+
+`cfg_git` 是仅供 `cg*` 函数使用的 bare 仓库包装器。`cg*` 必须通过它调用 `/usr/bin/git`，
+从而不依赖 alias 展开，并始终使用 `$HOME/.cfg` 作为 Git 目录、`$HOME` 作为工作树。
+
 当 `fzf` 可用时，Zsh 通过 zplug 在 `compinit` 后加载 `fzf-tab`，以交互式选择补全候选；
 缺失 `fzf` 时不加载该插件，保留原生 Tab 行为。
 
