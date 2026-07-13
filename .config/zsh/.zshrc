@@ -105,8 +105,8 @@ attach() {
 }
 
 git_set_proxy() {
-  git config --global http.proxy 'http://127.0.0.1:10080'
-  git config --global https.proxy 'http://127.0.0.1:10080'
+  git config --global http.proxy 'http://127.0.0.1:7897'
+  git config --global https.proxy 'http://127.0.0.1:7897'
 }
 
 git_unset_proxy() {
@@ -125,13 +125,16 @@ if [ "$(uname)" = "Darwin" ]; then
 fi
 
 setproxy() {
-  export ALL_PROXY=http://127.0.0.1:10080
-  #export ALL_PROXY=socks5://127.0.0.1:1080
-  export ALL_PROXY=http://192.168.31.217:7890
+  export http_proxy='http://127.0.0.1:7897'
+  export https_proxy='http://127.0.0.1:7897'
+  export all_proxy='socks5://127.0.0.1:7897'
+  export HTTP_PROXY="$http_proxy"
+  export HTTPS_PROXY="$https_proxy"
+  export ALL_PROXY="$all_proxy"
 }
 
 unsetproxy() {
-  unset ALL_PROXY
+  unset http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY
 }
 
 
