@@ -29,6 +29,7 @@
 
 # ── Application Data & Config ────────────────────────────────
 .cfg
+.local/share/xdisplay-transition-*/
 .gnupg
 .docker/
 .gem/

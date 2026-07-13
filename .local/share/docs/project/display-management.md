@@ -18,8 +18,8 @@
 
 复查同时发现，拔出后 innogpu 可能把 HDMI 报为 `disconnected`，却继续保留其几何和扩展后的
 framebuffer；当前脚本尚未清理这种残留状态。因此物理热切换已可用，但 RandR 状态不能称为
-完全收敛。旧的 udev 热插拔脚本仍留在系统中，但其规则无法匹配当前 DRM 属性，不属于现行
-设计。旧的 `.local/share/doc/xdisplay.md` 说明已被本报告取代。
+完全收敛。旧 udev 规则、它调用的 hybrid 脚本和不参与加载的 Xorg 历史备份已移入临时隔离
+目录，不再留在活动路径。旧的 `.local/share/doc/xdisplay.md` 说明已被本报告取代。
 
 ## 本机硬件与内核层
 
@@ -106,7 +106,7 @@ watcher 不执行它们。
 | `innogpu-repair-dri-nodes.service` | `/etc/systemd/system/`，`enabled` 且 `active (exited)`，结果为 success | `oneshot` 服务，在 innogpu 已加载后、显示管理器前修复缺失的 DRI/fbdev 设备节点；它是本机 Xorg 设备节点的启动修复，不负责布局 |
 | `systemd-logind` | `active`；`/etc/systemd/logind.conf` 设置 `HandleLidSwitchExternalPower=ignore` | 为 Xorg 持有会话和 DRM fd，并处理合盖睡眠策略。接电时忽略合盖；docked 默认忽略；普通非 docked 且未接电源时回退默认 suspend |
 | systemd user services | `.config/systemd/user/` | 没有 `xdisplay`、`xrandr` 或显示监控服务；PipeWire 等用户服务与显示布局无直接所有权关系 |
-| `95-display-hotplug.rules` | `/etc/udev/rules.d/` | 遗留规则匹配 `ATTR{connector_status}`，但本机 connector 实际属性是 `ATTR{status}`，因此当前不会触发旧脚本 |
+| `95-display-hotplug.rules` | 已从 `/etc/udev/rules.d/` 移入临时隔离目录并 reload rules | 遗留规则使用不存在的 `ATTR{connector_status}` 且硬编码会话；当前活动规则路径已不存在 |
 
 审计时本机为接电、盖子关闭状态。当前已验证的合盖结论适用于这一路径；未接电且未被 logind
 判定为 docked 时，系统可能先挂起，不能把接电测试结果直接外推到该场景。
@@ -116,19 +116,32 @@ watcher 不执行它们。
 | 路径 | 现状 | 结论 |
 | --- | --- | --- |
 | `.local/bin/innogpu-restore-dp1-mode-x11` | 由 `XDISPLAY_RESTORE_COMMAND` 可选调用，写死 `DP-1`/`eDP-1` 和 `1920x1200R` modeline | 本机内屏无可用模式时的有界恢复钩子；硬件专用，不跟踪 |
-| `.local/bin/xdisplay-hybrid.sh` | 旧 udev 规则意图调用；硬编码 `eDP-1`，无共享锁，并直接调用 `xrandr` | 当前因规则属性错误而不触发；若将规则修正，它会与 watcher 竞争，不能直接重新启用 |
-| `/etc/udev/rules.d/95-display-hotplug.rules` | 硬编码 `DISPLAY` 和固定的用户 Xauthority 路径，并使用不存在的 `connector_status` 属性 | 系统级遗留配置，不在配置仓库内；当前无效，也不能作为跨设备部署内容 |
+| `.local/share/xdisplay-transition-20260714/home/.local/bin/xdisplay-hybrid.sh` | 旧 udev helper 的隔离副本；原 `.local/bin/` 路径已不存在 | 硬编码 `eDP-1`、无共享锁并直接调用 `xrandr`，只为回退保留，不能重新启用 |
+| `.local/share/xdisplay-transition-20260714/system/etc/udev/rules.d/95-display-hotplug.rules` | 旧规则的隔离副本；原 `/etc/udev/rules.d/` 路径已不存在 | 硬编码会话并使用不存在的属性，只为回退保留，不属于跨设备配置 |
 
 发现未跟踪代码时仍遵循维护策略：只有具备明确运行必要性、跨设备复用价值、足够效率和可维护
-结构时才考虑跟踪。上述三个条目均不满足通用跟踪条件；其中恢复钩子保留为显式可选注入，
-udev 链路则不再扩展。
+结构时才考虑跟踪。恢复钩子仍保留为显式可选注入；旧 udev/hybrid 链路只存在于被 Git 忽略的
+临时隔离目录，不再扩展。
+
+## 阶段 1 隔离结果
+
+`~/.local/share/xdisplay-transition-20260714/` 保存恢复说明、原路径/UID/GID/mode/链接目标、
+sha256 清单和活动配置快照。它由 `.gitignore` 明确排除，不属于仓库部署内容。已经隔离：
+
+- 四字节且无引用的 `.config/x11/xinit`；
+- 旧 `.local/bin/xdisplay-hybrid.sh` 与对应 udev 规则；
+- `/etc/X11/` 下 12 份不参与加载的 `*.before-*` 历史备份。
+
+活动 Xorg 三份配置、logind 配置、innogpu service 及启用链接、modprobe、modules-load、ld.so
+配置和本机内屏恢复 helper 均只备份、不移动。隔离后确认 logind active，innogpu service 仍为
+enabled、active (exited)、success，Xorg/DWM 和唯一的 `xdisplay.sh --watch` 正常运行。
 
 ## 验证结果与维护约束
 
 - 已完成：本机 X11 会话中的外接显示器热插入、拔出和用户可见布局切换。
 - 已完成：内屏候选识别、开合盖布局、手动 `displayselect` 与 watcher 的共享锁行为。
 - 已发现：拔出后可能残留带几何的 disconnected 输出和扩展 framebuffer；清理逻辑单独列入 TODO。
-- 已确认：旧 udev 规则不会匹配本机 DRM 属性，未参与当前热插拔行为。
+- 已确认：旧 udev 规则不会匹配本机 DRM 属性；现已从活动路径隔离并 reload rules。
 - 新设备只应配置必要的 `XDISPLAY_INTERNAL_OUTPUTS` 候选；外接输出保持动态识别。
 - 目标方案将把本机候选和恢复逻辑迁入单一未跟踪适配器；迁移完成前，上述环境变量仍是当前接口。
 - 不要把 watcher 改为 systemd user service，除非同时明确传递图形会话环境并重新验证登录、D-Bus

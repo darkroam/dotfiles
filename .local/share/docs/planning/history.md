@@ -2,6 +2,11 @@
 
 ## 最近记录的变更
 
+- [x] `ef104b6`：完成跨设备 X11 显示管理重构计划和单设备适配器开发指引。阶段 1 随后建立
+  `.local/share/xdisplay-transition-20260714/` 恢复边界，隔离无效 udev/hybrid 链路、四字节
+  `xinit` 和 12 份 Xorg 历史备份；活动显示配置、服务和 watcher 复查正常，已知 stale
+  framebuffer 缺陷原样保留给后续阶段修复。
+
 - [x] 完成本机 X11 显示管理分析和实机验证：`xdisplay.sh --watch` 已确认可处理外接显示器
   热插入、拔出、开合盖和手动布局互斥；新增 `project/display-management.md` 记录内核、X11、
   DWM、systemd/udev 与硬件专用恢复钩子的边界。旧的 `.local/share/doc/xdisplay.md` 已删除；
