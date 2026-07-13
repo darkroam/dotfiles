@@ -28,7 +28,8 @@ apply_lock=$runtime_dir/xdisplay-$user_id.apply.lock
 watch_lock=$runtime_dir/xdisplay-$user_id.watch.lock
 FAST_WINDOW_CHECKS=10
 FAST_QUERY_INTERVAL=2
-HARDWARE_PROBE_TICKS=20
+PENDING_PROBE_TICKS=10
+HARDWARE_PROBE_TICKS=120
 STABLE_POLL_TICKS=1
 
 exec 8>"$apply_lock"
@@ -137,12 +138,11 @@ topology_signature() {
                 }
                 next
             }
-            selected && $1 ~ /^[0-9][^ \t]*x[0-9]/ {
-                modes[selected] = modes[selected] $1 ";"
-            }
+            selected && $1 ~ /^[0-9][^ \t]*x[0-9]/ &&
+                mode[selected] == "" { mode[selected] = $1 }
             END {
                 for (i = 1; i <= count; i++)
-                    printf "%s:%s,", name[i], modes[i]
+                    printf "%s:%s,", name[i], mode[i]
             }
         '
 }
@@ -214,6 +214,26 @@ verify_active_outputs() {
         output_active "$output" || { IFS=$old_ifs; return 1; }
     done
     IFS=$old_ifs
+}
+
+snapshot_has_pending_outputs() {
+    lid=$1
+    outputs=$(connected_outputs)
+    internal=$(internal_output "$outputs")
+    old_ifs=$IFS
+    IFS='
+'
+    for output in $outputs; do
+        if [ "$lid" = closed ] && [ "$output" = "$internal" ]; then
+            continue
+        fi
+        if ! output_active "$output" && ! output_ready "$output"; then
+            IFS=$old_ifs
+            return 0
+        fi
+    done
+    IFS=$old_ifs
+    return 1
 }
 
 output_right_of() {
@@ -514,31 +534,48 @@ watch_displays() {
     poll_ticks=0
     fast_checks=0
     hardware_probe_ticks=$HARDWARE_PROBE_TICKS
+    pending_outputs=0
+    probe_pending=0
 
     while :; do
         current_lid=$(lid_state)
         current_drm=$(drm_signature)
-        force_probe=0
+        force_probe=$probe_pending
+        lid_closing=0
         if [ "$current_lid" != "$observed_lid" ]; then
+            if [ "$observed_lid" = open ] && [ "$current_lid" = closed ]; then
+                lid_closing=1
+            fi
             fast_checks=$FAST_WINDOW_CHECKS
             poll_ticks=0
         fi
         if [ "$current_drm" != "$observed_drm" ]; then
             force_probe=1
+            probe_pending=1
             fast_checks=$FAST_WINDOW_CHECKS
             poll_ticks=0
         fi
 
         if [ "$poll_ticks" -le 0 ]; then
             snapshot_option=--current
-            if [ "$force_probe" -eq 1 ] ||
-                [ "$hardware_probe_ticks" -ge "$HARDWARE_PROBE_TICKS" ] ||
-                { [ "$fast_checks" -gt 0 ] &&
-                    [ $((fast_checks % FAST_QUERY_INTERVAL)) -eq 0 ]; }; then
-                snapshot_option=--query
-                hardware_probe_ticks=0
+            pending_layout=0
+            if [ "$observed_key" != "$applied_key" ] ||
+                [ "$pending_outputs" -eq 1 ]; then
+                pending_layout=1
+            fi
+            if [ "$lid_closing" -eq 0 ]; then
+                if [ "$force_probe" -eq 1 ] ||
+                    [ "$hardware_probe_ticks" -ge "$HARDWARE_PROBE_TICKS" ] ||
+                    { [ "$pending_layout" -eq 1 ] &&
+                        [ "$hardware_probe_ticks" -ge "$PENDING_PROBE_TICKS" ]; } ||
+                    { [ "$fast_checks" -gt 0 ] &&
+                        [ $((fast_checks % FAST_QUERY_INTERVAL)) -eq 0 ]; }; then
+                    snapshot_option=--query
+                    hardware_probe_ticks=0
+                fi
             fi
             if read_snapshot "$snapshot_option"; then
+                [ "$snapshot_option" = --query ] && probe_pending=0
                 current_key=$current_lid\|$(topology_signature)
                 if [ "$current_key" != "$observed_key" ]; then
                     observed_key=$current_key
@@ -547,6 +584,14 @@ watch_displays() {
                 if [ "$current_key" != "$applied_key" ]; then
                     if apply_display_config "$current_lid"; then
                         applied_key=$current_lid\|$(topology_signature)
+                        observed_key=$applied_key
+                        if snapshot_has_pending_outputs "$current_lid"; then
+                            pending_outputs=1
+                        else
+                            pending_outputs=0
+                            fast_checks=0
+                            hardware_probe_ticks=0
+                        fi
                     fi
                 fi
             fi

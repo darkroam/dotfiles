@@ -10,6 +10,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`）、procps（`pgre
 | 软件或命令 | 用途 |
 | --- | --- |
 | `git` | bare 配置仓库、`c` 命令和 Bash/Zsh 共用 Git 快捷命令 |
+| `lazygit` | 可选 Git TUI 别名 |
 | `zsh`, `bash` | 交互式和 POSIX shell 支持 |
 | `python3` 和 `python` | 既有辅助脚本和插件工具 |
 | `vim` 或 `nvim` | 默认编辑器和桌面处理器 |
@@ -28,7 +29,8 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`）、procps（`pgre
 | 软件或命令 | 用途 |
 | --- | --- |
 | Xorg/Xinit, `dbus-launch`, `dbus-update-activation-environment` | X11 会话启动 |
-| `dwm`, `dwmblocks`, `st`, `dmenu`, `slock` | 窗口管理器、状态栏、终端、启动器和锁屏；从 `~/src/` 单独构建 |
+| `dwm`, `dwmblocks`, `st`, `dmenu` | 窗口管理器、状态栏、终端和启动器；从 `~/src/` 单独构建 |
+| `slock` | 系统安装的 X11 锁屏程序；不属于本机四个 `~/src/` 源码目录 |
 | `dunst`, `picom`, `unclutter`, `xwallpaper` | 通知、合成器、鼠标隐藏和壁纸 |
 | `xrdb`, `xrandr`, `xset`, `xdotool`, `xdpyinfo`, `xclip`, `xprop`, `setxkbmap` | Xresources、显示、输入、剪贴板和辅助脚本 |
 | `xkblayout-state` | 可选键盘布局状态命令；上游来源：<https://github.com/nonpop/xkblayout-state>。缺失时 `sb-kbselect` 回退到 `setxkbmap`。 |

@@ -4,7 +4,7 @@ Personal Linux configuration managed as a bare Git repository. Tracked files
 are intended to work from `$HOME`; untracked files are deliberately outside the
 repository.
 
-Last reviewed: 2026-07-12.
+Last reviewed: 2026-07-14.
 
 ## Repository Usage
 
@@ -72,6 +72,9 @@ runtime resources remain in `.local/share/larbs/`:
 
 - [Architecture and design](.local/share/docs/project/architecture.md): directory
   map, load order, optional-feature model, and ownership boundaries.
+- [Display management analysis](.local/share/docs/project/display-management.md):
+  current X11 display-switching relationships, system-service boundaries, and
+  retained device-local hooks.
 - [Dependencies](.local/share/docs/project/dependencies.md): complete
   command-oriented installation inventory for a new machine.
 - [Maintenance policy](.local/share/docs/project/maintenance-policy.md): project

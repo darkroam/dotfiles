@@ -2,6 +2,11 @@
 
 ## 最近记录的变更
 
+- [x] 完成本机 X11 显示管理分析和实机验证：`xdisplay.sh --watch` 已确认可处理外接显示器
+  热插入、拔出、开合盖和手动布局互斥；新增 `project/display-management.md` 记录内核、X11、
+  DWM、systemd/udev 与硬件专用恢复钩子的边界。旧的 `.local/share/doc/xdisplay.md` 已删除；
+  拔屏后的 innogpu 残留 framebuffer 作为新发现的独立问题转入活动 TODO。
+
 - [x] 将 `architecture.md` 重写为 Codex/开发者设计文档，将 `desktop-guide-zh.md` 重写为
   自洽的用户操作指南。两者均使用十个依赖布局（layout）；维护策略固定了不同读者和内容边界。
   全库文档检查通过术语、链接、路径、布局（layout）覆盖和文档关系验证。
