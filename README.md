@@ -75,6 +75,10 @@ runtime resources remain in `.local/share/larbs/`:
 - [Display management analysis](.local/share/docs/project/display-management.md):
   current X11 display-switching relationships, system-service boundaries, and
   retained device-local hooks.
+- [Display redesign plan](.local/share/docs/planning/display-management-redesign.md):
+  staged implementation, migration quarantine, validation matrix, and rollback.
+- [Display device adapter guide](.local/share/docs/project/display-device-adapter.md):
+  the planned single-file extension contract for nonstandard hardware.
 - [Dependencies](.local/share/docs/project/dependencies.md): complete
   command-oriented installation inventory for a new machine.
 - [Maintenance policy](.local/share/docs/project/maintenance-policy.md): project

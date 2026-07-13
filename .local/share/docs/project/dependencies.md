@@ -21,6 +21,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`）、procps（`pgre
 | `jq`, Docker (`docker`) | Zsh `json()` 剪贴板格式化和已配置 Docker 插件/`attach()` 辅助命令 |
 | `unzip`, `unrar` | 使用相应归档类型时的归档预览辅助工具 |
 | `w3m` | `fzf_preview` 的可选 HTML 预览；缺失时仍可进行纯文本预览 |
+| ShellCheck (`shellcheck`) | 可选的 POSIX Shell 维护审计；不属于运行时依赖 |
 | Oh My Zsh；`zsh-autosuggestions`、`zsh-syntax-highlighting`、`zsh-history-substring-search`、`zsh-completions`、`fzf-tab` | 已配置的 Zsh 框架和插件；`fzf-tab` 仅在存在 `fzf` 时加载 |
 | Bash 补全包和 Git 补全脚本 | `c` 与 Git 的 Bash 完整补全；Zsh 使用其内建 Git 补全 |
 
@@ -92,7 +93,12 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`）、procps（`pgre
 
 | 软件或命令 | 用途 |
 | --- | --- |
-| `arandr`, `xrandr`, `flock`, `bc`, `dmenu`, `dunst`, `xwallpaper` | `displayselect` 与 `xdisplay.sh`；缺少 `xrandr`/`flock` 时拒绝运行，选择手动布局时缺少 `arandr` 会提示安装 |
+| `xrandr`, `flock` | `xdisplay.sh` 与 `displayselect` 的基础显示布局和互斥；缺少任一命令时拒绝运行 |
+| `dmenu`, `bc` | `displayselect` 的选择界面和双屏镜像缩放计算 |
+| `arandr` | `displayselect` 的可选手动布局界面；选中该路径但缺少命令时提示安装 |
+| `dunst`, `xwallpaper` | 手动布局后的可选通知与壁纸刷新；不属于自动 watcher 的基础依赖 |
+| `cvt` | 仅在非标准面板确需自定义 modeline 时使用的可选设备适配开发工具 |
+| `systemd-analyze`, `udevadm` | 可选的 logind 合并配置检查和显示迁移规则维护工具；不属于 watcher 运行依赖 |
 | NetworkManager：`nmtui`、`nmcli` | 网络状态栏菜单和交互式连接设置 |
 | `xbacklight` | 亮度键和状态栏滚轮动作 |
 | `lm-sensors` | 硬件导出 CPU 传感器时的 CPU 温度模块 |

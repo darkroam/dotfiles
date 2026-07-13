@@ -111,6 +111,10 @@ innogpu 当前可能让已拔出的输出保持 `disconnected` 几何和扩展 f
 
 本机硬件、systemd/udev 边界、遗留链路和实机验证结论见
 [`display-management.md`](display-management.md)。该报告记录设备事实，不改变本节的跨设备设计约束。
+显示管理的目标状态、设备边界和分阶段实施顺序见
+[`display-management-redesign.md`](../planning/display-management-redesign.md)，设备专用实现必须遵循
+[`display-device-adapter.md`](display-device-adapter.md) 的单适配器契约。重构完成前，本文前述
+`XDISPLAY_*` 变量仍描述当前运行接口，不能提前按目标状态解释。
 
 ## 状态栏、通信与网络服务
 

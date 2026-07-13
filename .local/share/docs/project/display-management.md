@@ -4,6 +4,12 @@
 系统级参与者和遗留边界；日常操作见 `../user/desktop-guide-zh.md`，通用设计约束见
 `architecture.md`。
 
+本文只描述当前已运行的实现。尚未生效的目标状态、隔离清单、验证矩阵和分阶段回退见
+[`../planning/display-management-redesign.md`](../planning/display-management-redesign.md)；
+计划采用的单设备扩展接口见
+[`display-device-adapter.md`](display-device-adapter.md)。在计划进入对应阶段前，不能把目标接口
+当作当前配置使用。
+
 ## 结论
 
 当前受支持的自动显示管理由 X11 会话中的 `xdisplay.sh --watch` 完成，不依赖 udev
@@ -124,6 +130,7 @@ udev 链路则不再扩展。
 - 已发现：拔出后可能残留带几何的 disconnected 输出和扩展 framebuffer；清理逻辑单独列入 TODO。
 - 已确认：旧 udev 规则不会匹配本机 DRM 属性，未参与当前热插拔行为。
 - 新设备只应配置必要的 `XDISPLAY_INTERNAL_OUTPUTS` 候选；外接输出保持动态识别。
+- 目标方案将把本机候选和恢复逻辑迁入单一未跟踪适配器；迁移完成前，上述环境变量仍是当前接口。
 - 不要把 watcher 改为 systemd user service，除非同时明确传递图形会话环境并重新验证登录、D-Bus
   和 X 授权边界。
 - 修改本链路时，同时更新 `architecture.md`、用户指南、依赖清单和本报告，并在真实 X11

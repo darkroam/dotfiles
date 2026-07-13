@@ -3,8 +3,8 @@
 这里只保留活动工作。修改已跟踪文件前，先检查其运行依赖并保持可选依赖行为。
 
 - [ ] 检查其余配置文件是否包含过时设置或发行版专属假设，但不删除可信个人设置。
-- [ ] 修正 `xdisplay.sh` 的单输出收敛：innogpu 可能让已拔出的 HDMI 保持
-  `disconnected <mode>+<x>+<y>`，当前脚本未关闭该残留输出，framebuffer 因而没有收缩。
+- [ ] 按[显示管理重构计划](display-management-redesign.md)分阶段统一状态解析、设备个性化、
+  自动布局和残留 framebuffer 清理；每一阶段单独验证、提交和回退。
 - [ ] 在安装依赖后测试交互式 X11 路径：`nmtui`、`nsxiv`、日历、亮度、截图、OTP、
   CIFS 挂载、种子、录制选择和 RSS 下载队列。
 - [ ] 安装后复查依赖：`mpc`、NetworkManager、图像和预览工具、task-spooler、
