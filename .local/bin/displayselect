@@ -4,6 +4,35 @@
 # displays and lets user select one to use. User may also select "manual
 # selection" which opens arandr.
 
+missing_command() {
+    message="displayselect requires $1. Install it before using this feature."
+    printf '%s\n' "$message" >&2
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send "Display configuration unavailable" "$message"
+    fi
+}
+
+if ! command -v xrandr >/dev/null 2>&1; then
+    missing_command xrandr
+    exit 127
+fi
+
+if ! command -v flock >/dev/null 2>&1; then
+    missing_command flock
+    exit 127
+fi
+
+runtime_dir=${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}
+user_id=${UID:-$(id -u)}
+exec 8>"$runtime_dir/xdisplay-$user_id.apply.lock"
+if ! flock -w 30 8; then
+    message="Another display configuration is still in progress."
+    printf '%s\n' "$message" >&2
+    command -v notify-send >/dev/null 2>&1 &&
+        notify-send "Display configuration unavailable" "$message"
+    exit 75
+fi
+
 twoscreen() { # If multi-monitor is selected and there are two screens.
 
     mirror=$(printf "no\\nyes" | dmenu -i -p "Mirror displays?")
@@ -11,7 +40,7 @@ twoscreen() { # If multi-monitor is selected and there are two screens.
     # version for the internal display
     if [ "$mirror" = "yes" ]; then
         external=$(echo "$screens" | dmenu -i -p "Optimize resolution for:")
-        internal=$(echo "$screens" | grep -v "$external")
+        internal=$(printf '%s\n' "$screens" | awk -v output="$external" '$1 != output')
 
         res_external=$(xrandr --query | sed -n "/^$external/,/\+/p" | \
             tail -n 1 | awk '{print $1}')
@@ -32,18 +61,19 @@ twoscreen() { # If multi-monitor is selected and there are two screens.
     else
 
         primary=$(echo "$screens" | dmenu -i -p "Select primary display:")
-        secondary=$(echo "$screens" | grep -v "$primary")
+        secondary=$(printf '%s\n' "$screens" | awk -v output="$primary" '$1 != output')
         direction=$(printf "left\\nright" | dmenu -i -p "What side of $primary should $secondary be on?")
-        xrandr --output "$primary" --auto --scale 1.0x1.0 --output "$secondary" --"$direction"-of "$primary" --auto --scale 1.0x1.0
+        xrandr --output "$primary" --primary --auto --scale 1.0x1.0 \
+            --output "$secondary" --"$direction"-of "$primary" --auto --scale 1.0x1.0
     fi
     }
 
 morescreen() { # If multi-monitor is selected and there are more than two screens.
 	primary=$(echo "$screens" | dmenu -i -p "Select primary display:")
-	secondary=$(echo "$screens" | grep -v "$primary" | dmenu -i -p "Select secondary display:")
+	secondary=$(printf '%s\n' "$screens" | awk -v output="$primary" '$1 != output' | dmenu -i -p "Select secondary display:")
 	direction=$(printf "left\\nright" | dmenu -i -p "What side of $primary should $secondary be on?")
-	tertiary=$(echo "$screens" | grep -v "$primary" | grep -v "$secondary" | dmenu -i -p "Select third display:")
-	xrandr --output "$primary" --auto --output "$secondary" --"$direction"-of "$primary" --auto --output "$tertiary" --"$(printf "left\\nright" | grep -v "$direction")"-of "$primary" --auto
+	tertiary=$(printf '%s\n' "$screens" | awk -v first="$primary" -v second="$secondary" '$1 != first && $1 != second' | dmenu -i -p "Select third display:")
+	xrandr --output "$primary" --primary --auto --output "$secondary" --"$direction"-of "$primary" --auto --output "$tertiary" --"$(printf "left\\nright" | grep -v "$direction")"-of "$primary" --auto
 	}
 
 multimon() { # Multi-monitor handler.
@@ -53,31 +83,74 @@ multimon() { # Multi-monitor handler.
 	esac ;}
 
 onescreen() { # If only one output available or chosen.
-	xrandr --output "$1" --auto --scale 1.0x1.0 $(echo "$allposs" | grep -v "\b$1" | awk '{print "--output", $1, "--off"}' | paste -sd ' ' -)
+	xrandr --output "$1" --primary --auto --scale 1.0x1.0 $(printf '%s\n' "$allposs" | awk -v output="$1" '$1 != output {print "--output", $1, "--off"}' | paste -sd ' ' -)
+	}
+
+release_layout_lock() {
+	flock -u 8
+	exec 8>&-
 	}
 
 postrun() { # Stuff to run to clean up.
+	release_layout_lock
 	setbg		# Fix background if screen size/arangement has changed.
 	remaps		# Re-remap keys if keyboard added (for laptop bases)
 	{ killall dunst ; setsid -f dunst ;} >/dev/null 2>&1 # Restart dunst to ensure proper location on screen
 	}
 
 # Get all possible displays
-allposs=$(xrandr -q | grep "connected")
+allposs=$(xrandr -q | awk '$2 == "connected" || $2 == "disconnected"')
 
 # Get all connected screens.
-screens=$(echo "$allposs" | awk '/ connected/ {print $1}')
+screens=$(printf '%s\n' "$allposs" | awk '$2 == "connected" {print $1}')
+screen_count=$(printf '%s\n' "$screens" |
+	awk 'NF { count++ } END { print count + 0 }')
 
-# If there's only one screen
-[ "$(echo "$screens" | wc -l)" -lt 2 ] &&
-	{ onescreen "$screens"; postrun; notify-send "💻 Only one screen detected." "Using it in its optimal settings...";  exit ;}
+case "$screen_count" in
+	0)
+		message="No connected displays were detected."
+		printf '%s\n' "$message" >&2
+		command -v notify-send >/dev/null 2>&1 &&
+			notify-send "Display configuration unavailable" "$message"
+		release_layout_lock
+		exit 1
+		;;
+	1)
+		onescreen "$screens" || {
+			result=$?
+			release_layout_lock
+			exit "$result"
+		}
+		postrun
+		command -v notify-send >/dev/null 2>&1 &&
+			notify-send "💻 Only one screen detected." "Using it in its optimal settings..."
+		exit
+		;;
+esac
 
 # Get user choice including multi-monitor and manual selection:
-chosen=$(printf "%s\\nmulti-monitor\\nmanual selection" "$screens" | dmenu -i -p "Select display arangement:") &&
+if ! chosen=$(printf "%s\\nmulti-monitor\\nmanual selection" "$screens" |
+	dmenu -i -p "Select display arangement:") || [ -z "$chosen" ]; then
+	release_layout_lock
+	exit 1
+fi
+
 case "$chosen" in
-	"manual selection") arandr ; exit ;;
+	"manual selection")
+		if ! command -v arandr >/dev/null 2>&1; then
+			missing_command arandr
+			exit 127
+		fi
+		arandr
+		release_layout_lock
+		exit
+		;;
 	"multi-monitor") multimon ;;
 	*) onescreen "$chosen" ;;
-esac
+esac || {
+	result=$?
+	release_layout_lock
+	exit "$result"
+}
 
 postrun

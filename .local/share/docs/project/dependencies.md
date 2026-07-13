@@ -2,7 +2,7 @@
 
 这是面向全新 Linux 安装的完整命令清单。安装适用组可启用全部已跟踪功能；发行版包名不同，
 命令名是稳定参考。基础环境还假定具备 GNU/Linux `sh`、`bash`、GNU coreutils、findutils、
-grep、sed、awk、util-linux（`setsid`、`lsblk`）、procps（`pgrep`、`pkill`、`pidof`、`ps`）、
+grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`）、procps（`pgrep`、`pkill`、`pidof`、`ps`）、
 `file` 和 `sudo`。
 
 ## Shell、源代码管理与开发
@@ -90,7 +90,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`）、procps（`pgrep`、`pkil
 
 | 软件或命令 | 用途 |
 | --- | --- |
-| `arandr`, `xrandr`, `bc`, `dmenu`, `dunst`, `xwallpaper` | `displayselect` |
+| `arandr`, `xrandr`, `flock`, `bc`, `dmenu`, `dunst`, `xwallpaper` | `displayselect` 与 `xdisplay.sh`；缺少 `xrandr`/`flock` 时拒绝运行，选择手动布局时缺少 `arandr` 会提示安装 |
 | NetworkManager：`nmtui`、`nmcli` | 网络状态栏菜单和交互式连接设置 |
 | `xbacklight` | 亮度键和状态栏滚轮动作 |
 | `lm-sensors` | 硬件导出 CPU 传感器时的 CPU 温度模块 |

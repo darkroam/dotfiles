@@ -84,7 +84,22 @@ unclutter，但不得启动 PipeWire 服务。`~/src/` 的 DWM、DWMBlocks、dme
 ## 显示、网络、挂载与系统控制
 
 负责显示选择、重映射、亮度、锁屏/会话操作、NetworkManager 入口和挂载工具。硬件特定
-路径必须条件化。Android MTP 在 Debian 的 `simple-mtpfs` 接口尚无经过验证的兼容替代，
+路径必须条件化。`displayselect` 只负责交互式 RandR 布局；`xdisplay.sh` 在 X11 会话中读取
+盖子状态，普通执行时立即对齐布局，`--watch` 以盖子状态和 RandR 快照签名变化触发处理。
+盖子状态和 DRM sysfs 状态每 0.5 秒读取；RandR 稳定时每 1 秒读取一次，变化后在 5 秒快速窗口内每 0.5 秒读取，
+因此可覆盖启动时外屏或驱动延迟出现的情况，同时限制稳定期唤醒。`xrandr --query` 仅在
+DRM 状态变化、快速窗口每秒一次及 10 秒兜底时主动探测硬件；盖子变化先使用缓存状态立即处理，
+其他检查和布局验证使用
+`xrandr --current`，避免持续 EDID 探测给驱动施压。每轮只消费一份快照，
+布局结果验证成功后才提交新拓扑签名。它不硬编码外接输出名，
+以内屏标准前缀识别内屏；非标准或驱动变化的名称必须由 `XDISPLAY_INTERNAL_OUTPUTS` 显式列出，无法识别时
+对多屏尝试镜像回退，镜像失败时必须保留布局并重试。合盖切换必须先准备外屏主输出，再关闭内屏，
+已激活输出不得无条件重跑 `--auto`。硬件专用内屏恢复通过 `XDISPLAY_RESTORE_COMMAND`
+注入未跟踪的本机命令，只允许在共享锁内执行有界短时尝试；后续重试由 watcher 调度，
+不能让辅助脚本的内部休眠长期阻塞通用布局流程。当前 innogpu 恢复命令写死 modeline 与设备候选，
+不属于可跨设备复用的仓库代码。
+watcher 使用单实例锁，并与 `displayselect` 共用布局锁；仓库跟踪的启动入口是 `xprofile`，
+布局已满足时不得重复 modeset。Android MTP 在 Debian 的 `simple-mtpfs` 接口尚无经过验证的兼容替代，
 不得未经接口测试替换。
 
 ## 状态栏、通信与网络服务

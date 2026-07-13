@@ -69,7 +69,13 @@ case "$IM_NAME" in
 	ibus) "$IM_COMMAND" daemon -drx ;;
 esac
 
-command -v xdisplay.sh >/dev/null 2>&1 && xdisplay.sh &
+# Set this only when a driver uses nonstandard or changing names for the internal panel.
+export XDISPLAY_INTERNAL_OUTPUTS="eDP-1 DP-1"
+if command -v innogpu-restore-dp1-mode-x11 >/dev/null 2>&1; then
+	XDISPLAY_RESTORE_COMMAND=${XDISPLAY_RESTORE_COMMAND:-innogpu-restore-dp1-mode-x11}
+	export XDISPLAY_RESTORE_COMMAND
+fi
+command -v xdisplay.sh >/dev/null 2>&1 && xdisplay.sh --watch &
 picom_cmd="${PICOM_BIN:-$(command -v picom 2>/dev/null)}"
 if [ -n "$picom_cmd" ] && [ -x "$picom_cmd" ]; then
 	mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}"
