@@ -18,7 +18,7 @@
 
 | 层级 | 规范路径 | 职责 |
 | --- | --- | --- |
-| Shell | `.config/shell/`、`.config/zsh/`、`.bashrc` | XDG 环境、PATH、别名、补全和包管理命令 |
+| Shell | `.config/shell/`、`.config/zsh/`、`.config/tmux/`、`.bashrc` | XDG 环境、PATH、别名、补全、Tmux 和包管理命令 |
 | X11 会话 | `.config/x11/`、根 profile 链接 | 会话环境、输入法、Xresources 和会话自启动 |
 | 桌面程序 | `~/src/{dwm,dwmblocks,dmenu,st}` | 单独维护、编译和安装的桌面程序 |
 | 用户辅助命令 | `.local/bin/` | 被 shell、DWM、MIME、状态栏和 cron 调用的命令 |
@@ -43,6 +43,9 @@ POSIX Shell；`profile.local` 和 `aliasrc.local` 是唯一预期的每机器扩
 
 `c` 的 Bash 与 Zsh 补全都映射至 Git 补全，并在补全期间设置 bare 仓库环境；不得为某个
 子命令保留比 Git 原生行为更窄的候选项。
+
+Tmux 的规范配置是 `.config/tmux/tmux.conf` 及其 `.local` 覆盖文件；不保留根目录
+`.tmux.conf` 兼容副本，以便 Tmux 按 XDG 路径加载配置。
 
 ## X11 桌面与输入
 

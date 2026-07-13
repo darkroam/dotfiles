@@ -36,10 +36,10 @@
 | `.config/shell/aliasrc` | APT 分支 | 当前 Debian 包管理 | 已安装 | Shell、源代码管理与开发 | 待核对 | 已验证，`sh -n` 通过；pacman、XBPS、Portage 分支留作语法检查 |
 | `.fbtermrc` | `fbterm` | 必需（使用 FbTerm 时） | 已安装，Debian 软件包 `fbterm` | 外观、字体与壁纸 | 不存在 | 已验证 |
 | `.fbtermrc` | Hack、Fira Code、JetBrains Mono、Noto Sans Mono CJK SC、Sarasa Mono SC、Noto Sans CJK SC | 回退字体链 | 已安装并可被 Fontconfig 解析；Noto Sans Mono CJK SC 由 Debian `fonts-noto-cjk` 提供 | 外观、字体与壁纸 | 待核对 | 已验证；以仓库既有等宽中文字体替换缺失的 Maple Mono CN |
-| `.tmux.conf`、`.tmux.conf.local` | `tmux` | 必需（使用 Tmux 时） | 已安装，Debian 软件包 `tmux` | Shell、源代码管理与开发 | 待核对 | 命令已验证；当前沙箱禁止 Tmux Unix 套接字操作，运行加载需在正常用户会话复查 |
-| `.tmux.conf` | `urlview` | 可选 URL 选择绑定 | 已安装，Debian 软件包 `urlview` | 下载、种子与文本浏览 | 待核对 | 已验证 |
-| `.tmux.conf` | Facebook PathPicker `fpp` | 最低优先级可选路径选择绑定 | 不检查安装状态 | 下载、种子与文本浏览 | 待核对 | 代码完备性已验证：绑定调用 `_fpp`，helper 对 `fpp` 使用 `|| true`；本轮不安装或运行验证 |
-| `.tmux.conf` | `xclip`、`xsel` | X11 剪贴板绑定 | `xclip` 已安装；`xsel` 缺失，但配置会在无 `xsel` 时回退到 `xclip` | Shell、源代码管理与开发 | 待核对 | 已验证；不要求安装 `xsel` |
+| `.config/tmux/tmux.conf`、`.config/tmux/tmux.conf.local` | `tmux` | 必需（使用 Tmux 时） | 已安装，Debian 软件包 `tmux` | Shell、源代码管理与开发 | 待核对 | 命令已验证；配置已迁移至 Tmux 支持的 XDG 路径，当前沙箱禁止 Tmux Unix 套接字操作，运行加载需在正常用户会话复查 |
+| `.config/tmux/tmux.conf` | `urlview` | 可选 URL 选择绑定 | 已安装，Debian 软件包 `urlview` | 下载、种子与文本浏览 | 待核对 | 已验证 |
+| `.config/tmux/tmux.conf` | Facebook PathPicker `fpp` | 最低优先级可选路径选择绑定 | 不检查安装状态 | 下载、种子与文本浏览 | 待核对 | 代码完备性已验证：绑定调用 `_fpp`，helper 对 `fpp` 使用 `|| true`；本轮不安装或运行验证 |
+| `.config/tmux/tmux.conf` | `xclip`、`xsel` | X11 剪贴板绑定 | `xclip` 已安装；`xsel` 缺失，但配置会在无 `xsel` 时回退到 `xclip` | Shell、源代码管理与开发 | 待核对 | 已验证；不要求安装 `xsel` |
 | `.config/mpd/mpd.conf`、`.config/ncmpcpp/config`、`.config/ncmpcpp/bindings`、`.local/bin/statusbar/sb-music`、`.local/bin/statusbar/sb-mpdup`、`.local/bin/sysact` | `mpd`、`mpc`、`ncmpcpp` | 已启用的本地音乐服务、控制客户端与终端界面 | 均已安装；`mpc` 不支持 `--version`，但可执行 | 音频、音乐、录制与视频 | 待核对 | 静态配置与关联脚本的 `sh -n` 检查通过；当前沙箱无权连接用户 D-Bus，`mpc status` 与 MPD 用户服务实际运行状态需在正常登录会话复查 |
 | `.config/mpv/input.conf`、`.config/lf/lfrc`、`.local/bin/pauseallmpv`、`.local/bin/linkhandler`、`.local/bin/dmenuhandler` | `mpv`、`socat`、`ffmpeg`、`zathura`、`yt-dlp` | 已启用的媒体播放、MPV IPC、转码与文档查看 | 均已安装 | 音频、音乐、录制与视频；文件、文档与桌面处理 | 待核对 | 关联 Shell 脚本语法通过；图形交互与 MPV IPC 需在 X11 会话复查 |
 | `.local/bin/qndl`、Newsboat 与 dmenu 下载队列入口、`.local/bin/statusbar/sb-tasks` | `tsp` | 已启用的后台下载队列与任务状态栏模块 | 已安装；Debian 包为 `task-spooler` | 下载、种子与文本浏览 | 待核对 | 可执行；`qndl` 与状态栏模块的 Shell 语法检查通过。实际队列任务需在正常用户会话按需复查 |

@@ -24,6 +24,9 @@
 
 在 Bash 或 Zsh 中输入 `c` 后按 Tab，会获得与 `git` 相同的子命令、选项、引用和路径补全。
 
+Tmux 从 `${XDG_CONFIG_HOME:-$HOME/.config}/tmux/tmux.conf` 加载配置，个人覆盖写入同目录的
+`tmux.conf.local`。运行 `ref` 重新生成快捷方式后，`cft` 可打开该文件。
+
 常用软件安装、更新、删除和查询使用 `p` 前缀别名，例如 `pu`、`pi`、`pr`。不同发行版
 会选择对应包管理器。个人机器差异放进未跟踪的 `profile.local` 或 `aliasrc.local`，不要
 修改公共配置来保存账户、令牌或设备专属路径。

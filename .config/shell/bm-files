@@ -24,7 +24,7 @@ cfX	${XDG_CONFIG_HOME:-$HOME/.config}/nsxiv/exec/key-handler	# nsxiv (image view
 
 # Add by users
 
-cft	${XDG_CONFIG_HOME:-$HOME/.config}/tmux/.tmux.conf
+cft	${XDG_CONFIG_HOME:-$HOME/.config}/tmux/tmux.conf
 #bw	${XDG_CONFIG_HOME:-$HOME/.config}/bookmarks
 #cfk	${XDG_CONFIG_HOME:-$HOME/.config}/sxhkd/sxhkdrc
 #cfi	${XDG_CONFIG_HOME:-$HOME/.config}/i3/config

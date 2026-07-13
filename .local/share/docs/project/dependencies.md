@@ -13,7 +13,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`）、procps（`pgrep`、`pkil
 | `zsh`, `bash` | 交互式和 POSIX shell 支持 |
 | `python3` 和 `python` | 既有辅助脚本和插件工具 |
 | `vim` 或 `nvim` | 默认编辑器和桌面处理器 |
-| `tmux`, `less`, `fzf` | 终端工作流 |
+| `tmux`, `less`, `fzf` | 终端工作流；Tmux 配置位于 `.config/tmux/tmux.conf` |
 | `curl`, `wget` | 安装器、下载和网络辅助工具 |
 | `node`, `npm` | Neovim 和开发工具 |
 | `highlight`、`bat` 或 `batcat`、`fd` 或 Debian 的 `fdfind`（`fd-find`）、`ripgrep` | FZF 和 LF 预览/搜索支持 |
