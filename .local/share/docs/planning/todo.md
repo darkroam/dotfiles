@@ -1,25 +1,16 @@
-# Current TODO
+# 当前待办
 
-Only active work belongs here. Before changing a tracked file, inspect its
-runtime dependency and preserve optional-dependency behavior.
+这里只保留活动工作。修改已跟踪文件前，先检查其运行依赖并保持可选依赖行为。
 
-- [ ] Review remaining configuration files for obsolete settings and
-  distribution-specific assumptions without removing trusted personal values.
-- [ ] Test the interactive X11 paths after installing their dependencies:
-  `nmtui`, `nsxiv`, calendar, brightness, screenshots, OTP, MTP/CIFS mounts,
-  torrents, recording selection, and RSS download queue.
-- [ ] Recheck dependencies after installation: `mpc`, NetworkManager, image
-  and preview tools, task-spooler, Transmission, media metadata tools, and the
-  required compiler toolchains.
-- [ ] Decide whether retained ALSA fallback files can be removed after a
-  sustained PipeWire-only test.
-- [ ] Recheck cron scheduling and the sudo policy before enabling unattended
-  package checks.
-- [ ] Decide whether to rewrite published Git history to remove historical
-  author/committer email metadata and the old tracked `.gitconfig` identity.
-  This requires a coordinated force-push and must not be done casually.
-- [ ] Update `dependencies.md` whenever a tracked feature or required command
-  changes.
+- [ ] 检查其余配置文件是否包含过时设置或发行版专属假设，但不删除可信个人设置。
+- [ ] 在安装依赖后测试交互式 X11 路径：`nmtui`、`nsxiv`、日历、亮度、截图、OTP、
+  MTP/CIFS 挂载、种子、录制选择和 RSS 下载队列。
+- [ ] 安装后复查依赖：`mpc`、NetworkManager、图像和预览工具、task-spooler、
+  Transmission、媒体元数据工具和需要的编译工具链。
+- [ ] 在持续 PipeWire-only 测试后，决定是否可以移除保留的 ALSA 回退文件。
+- [ ] 启用无人值守包检查前，复查 cron 调度和 sudo 策略。
+- [ ] 决定是否重写已发布 Git 历史，以移除历史作者/提交者邮箱元数据和旧跟踪
+  `.gitconfig` 身份。此操作需要协调 force-push，不能轻率执行。
+- [ ] 已跟踪功能或所需命令变化时，更新 `dependencies.md`。
 
-For intentionally paused work, see [suspended items](suspended.md). Completed
-items are recorded in [TODO history](history.md).
+有意挂起的工作见[挂起项](suspended.md)，已完成项目记录在[待办历史](history.md)。

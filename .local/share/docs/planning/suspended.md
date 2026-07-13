@@ -1,31 +1,24 @@
-# Suspended Items
+# 挂起项
 
-These items are deliberately not active. Resume only when the stated condition
-is available; they are not defects in the normal configuration.
+这些项目有意不处于活动状态。仅在满足列出的恢复条件时重新开始；它们不是正常配置的缺陷。
 
-## X11 Display and Images
+## X11 显示与图像
 
-- [ ] `displayselect`: use exact output-name filtering and set the selected
-  primary output with `xrandr --primary`. Test the complete layout flow in a
-  real multi-monitor X11 session before keeping a change.
+- [ ] `displayselect`：使用精确输出名称过滤，并用 `xrandr --primary` 设置选定主输出。
+  在保留改动前，必须在真实多显示器 X11 会话测试完整布局流程。
 
-## Documents
+## 文档
 
-- [ ] Improve `opout` PDF discovery only after deciding how compilers that use
-  root files or external output directories should be searched.
-- [ ] Evaluate optional `latexmk` only after installing the TeX toolchain and
-  choosing an output-directory policy compatible with `compiler` and `opout`.
+- [ ] 仅在决定使用根文件或外部输出目录的编译器应如何搜索后，改进 `opout` 的 PDF 发现。
+- [ ] 仅在安装 TeX 工具链并选择与 `compiler`、`opout` 兼容的输出目录策略后，评估可选
+  `latexmk`。
 
-## Status and Hardware
+## 状态与硬件
 
-- [ ] Consider asynchronous DWMBlocks network modules only if more network
-  blocks are enabled or the current two-second forecast bound causes observed
-  lag. Do not copy upstream indefinite retries.
-- [ ] Unify brightness controls when a usable backend is selected. This machine
-  exposes no standard `/sys/class/backlight` device; reconcile `xlight`,
-  `xbacklight`, and status-bar actions then.
-- [ ] Add global MPV IPC coverage only when pause control must include
-  non-shell launches. Use a small tracked wrapper rather than the unreviewable
-  upstream Lua submodule.
-- [ ] Consider a market ticker only with selected symbols, a maintained source,
-  and an acceptable network update policy.
+- [ ] 仅在启用更多网络模块或当前两秒天气查询确实造成卡顿时，考虑异步 DWMBlocks 网络模块；
+  不复制上游无限重试。
+- [ ] 选定可用后端后统一亮度控制。本机没有标准 `/sys/class/backlight` 设备；届时协调
+  `xlight`、`xbacklight` 和状态栏动作。
+- [ ] 仅在暂停控制必须覆盖非 shell 启动的 MPV 时，加入全局 MPV IPC；使用小型跟踪包装器，
+  不采用未经审查的上游 Lua 子模块。
+- [ ] 仅在选择符号、维护数据源和可接受网络更新策略后，考虑市场行情模块。

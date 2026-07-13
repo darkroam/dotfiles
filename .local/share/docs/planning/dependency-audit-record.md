@@ -7,7 +7,7 @@
 
 ## 第一批：根目录兼容入口与 FbTerm 配置
 
-| 来源文件 | 依赖 | 要求级别 | 安装状态 | dependencies layout | `progs.csv` 状态 | 处理结果 |
+| 来源文件 | 依赖 | 要求级别 | 安装状态 | 依赖布局（layout） | `progs.csv` 状态 | 处理结果 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `.profile`、`.zprofile`、`.xinitrc`、`.xprofile`、`.asoundrc`、`.gtkrc-2.0` | 无；均为指向规范配置的兼容链接 | 不适用 | 不适用 | 不适用 | 不适用 | 通过；目标文件将在所属批次审计 |
 | `.gitignore` | 无 | 不适用 | 不适用 | 不适用 | 不适用 | 通过 |
@@ -87,10 +87,10 @@
 | `.local/bin/install-ohmyz.sh` | `zsh`、`git`、`chsh`、网络 | Oh My Zsh 安装器 | 均已安装 | Shell、源代码管理与开发 | 待核对 | `sh -n` 通过；脚本会联网克隆上游仓库，安装行为本轮不执行 |
 | `.local/bin/getbib` | `pdfinfo`、`pdftotext`、`curl` | 从 PDF/DOI 获取 Crossref BibTeX 条目 | 均已安装 | 文件、文档与桌面处理 | 待核对 | `sh -n` 通过；实际 Crossref 网络请求不在本轮执行 |
 | `.local/bin/compiler`、`.local/bin/texclear` | 核心 POSIX 工具及按源文件类型选择的编译/排版工具链 | 文档、代码与演示文稿编译及 TeX 构建清理 | 核心工具已安装；完整工具链安装状态暂不逐项验证 | 编译、排版与数据辅助 | 待核对 | `sh -n` 通过；TeX 与多语言工具链的运行验证保留到确定实际启用范围后进行，不在本批次自动安装 |
-| `.config/lf/icons`、`.config/newsboat/urls`、`.config/shell/bm-dirs`、`.config/shell/bm-files`、`.config/wal/templates/*`、`.local/patch/*`、`.local/share/larbs/{LICENSE,chars/,emoji,getkeys/,ttymaps.kmap}` | 无新增运行依赖 | 图标、书签、模板、补丁、帮助与数据资源 | 不适用 | 对应功能所属 layout | 待核对或历史来源 | 通过；运行入口和外部命令已在所属配置或脚本批次审计 |
+| `.config/lf/icons`、`.config/newsboat/urls`、`.config/shell/bm-dirs`、`.config/shell/bm-files`、`.config/wal/templates/*`、`.local/patch/*`、`.local/share/larbs/{LICENSE,chars/,emoji,getkeys/,ttymaps.kmap}` | 无新增运行依赖 | 图标、书签、模板、补丁、帮助与数据资源 | 不适用 | 对应功能所属布局（layout） | 待核对或历史来源 | 通过；运行入口和外部命令已在所属配置或脚本批次审计 |
 | `.local/bin/prompt`、`.local/bin/tutorialvids`、`.local/bin/queueandnotify`、`.local/bin/td-toggle`、`.local/bin/transadd` | `dmenu`、`mpv`、`curl`、`tsp`、Transmission、`notify-send`、本地 `ifinstalled` | 通用确认、教程视频、下载队列与种子管理入口 | 均已在所属批次验证 | 下载、种子与文本浏览；音频、音乐、录制与视频；X11 桌面与输入 | 待核对 | 已纳入全量 Shell 语法检查；不新增依赖 |
 | `.local/share/sys-etc/{portage/make.conf.template,systemd/network/wireless.network.template,wpa_supplicant/wpa_supplicant.conf.template}` | Portage、systemd-networkd、`wpa_supplicant` | 非 Debian 系统服务模板 | 仅模板，不部署或安装 | 模板与计划工作 | 历史或仅模板 | 通过；按本轮 Debian 范围仅做格式与路径审阅，不验证其他发行版运行时 |
 | `README.md`、`.local/share/docs/**`、`.local/share/larbs/progs.csv`、`.local/bin/cron/README.md` | 无直接运行时依赖；内容包含项目依赖说明 | 项目说明、计划与历史数据 | 不适用 | 文档与规划 | 第二至四阶段处理 | 第一阶段不把文档文字当作运行配置；`progs.csv` 迁移、依赖清单完整性和用户/架构文档对齐按后续阶段执行 |
-| `dependencies.md` 第三阶段反向检索 | `pactl`、`pamixer`、`abook`、`profanity` | 旧依赖清单条目 | 无已跟踪运行时引用 | 对应 layout | 不适用 | 已从活跃必需项移除；PipeWire 条目更正为不宣称提供 `pactl`，当前 `pulsemixer` 为已配置混音器 |
-| `dependencies.md` 第三阶段反向检索 | `w3m`、`xkblayout-state`、`geoiplookup`、`synclient`、`screenkey` | 条件回退、可隐藏模块或外部 DWM 参考 | 不要求安装 | 对应 layout | 不适用 | 已明确标注条件行为或仅外部源码用途；不阻塞 Debian 部署审计 |
-| `desktop-guide-zh.md`、`architecture.md` 第四阶段对齐 | 十个 `dependencies.md` layout | 用户与维护文档结构 | 不适用 | 文档与规划 | 不适用 | 已为每个 layout 增加独立章节；保留原有启动流程、上游差异、工作流与维护边界 |
+| `dependencies.md` 第三阶段反向检索 | `pactl`、`pamixer`、`abook`、`profanity` | 旧依赖清单条目 | 无已跟踪运行时引用 | 对应布局（layout） | 不适用 | 已从活跃必需项移除；PipeWire 条目更正为不宣称提供 `pactl`，当前 `pulsemixer` 为已配置混音器 |
+| `dependencies.md` 第三阶段反向检索 | `w3m`、`xkblayout-state`、`geoiplookup`、`synclient`、`screenkey` | 条件回退、可隐藏模块或外部 DWM 参考 | 不要求安装 | 对应布局（layout） | 不适用 | 已明确标注条件行为或仅外部源码用途；不阻塞 Debian 部署审计 |
+| `desktop-guide-zh.md`、`architecture.md` 第四阶段对齐 | `dependencies.md` 的十个布局（layout） | 用户与维护文档结构 | 不适用 | 文档与规划 | 不适用 | 已为每个布局（layout）增加独立章节；保留原有启动流程、上游差异、工作流与维护边界 |

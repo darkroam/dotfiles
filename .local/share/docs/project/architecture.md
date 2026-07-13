@@ -1,151 +1,105 @@
-# Architecture and Design
+# 架构与设计
 
-## Purpose and Audience
+## 目的与读者
 
-This document is for Codex and maintainers. It explains the design of the
-tracked dotfiles so changes can preserve ownership boundaries, startup order,
-cross-distribution behavior, and document consistency. It is not a desktop
-operation manual; user tasks belong in `../user/desktop-guide-zh.md`.
+本文面向 Codex 和维护者，说明已跟踪配置的结构、职责、运行关系、设计决策和维护边界。
+它不是桌面操作手册；用户使用方法见 `../user/desktop-guide-zh.md`。
 
-## Repository Contract
+## 仓库约定
 
-The repository is bare at `$HOME/.cfg` with `$HOME` as its work tree. The `c`
-alias is the canonical Git entry point. Only reusable home-directory
-configuration is tracked. Credentials, browser state, caches, build products,
-hardware state, and `*.local` per-machine overrides are deliberately outside
-the repository.
+仓库是位于 `$HOME/.cfg`、工作树为 `$HOME` 的 bare Git 仓库，`c` 是规范 Git 入口。
+只跟踪可复用的 home 配置；凭据、浏览器状态、缓存、构建产物、硬件状态和 `*.local`
+每机器覆盖文件有意排除在仓库外。
 
-Root dotfiles are compatibility links. Canonical content belongs under
-`.config` or `.local`; do not replace a root link with a duplicate file merely
-to make a local edit easier.
+根目录 dotfile 是兼容链接。规范内容应位于 `.config` 或 `.local`；不得为了本机编辑方便
+而用重复文件替代根链接。
 
-## Topology and Runtime Relations
+## 目录与运行关系
 
-| Layer | Canonical paths | Produces or owns |
+| 层级 | 规范路径 | 职责 |
 | --- | --- | --- |
-| Shell | `.config/shell/`, `.config/zsh/`, `.bashrc` | XDG environment, PATH, aliases, completion, package commands |
-| X11 session | `.config/x11/`, root profile links | Login/session environment, input method, Xresources, session autostarts |
-| Desktop programs | `~/src/{dwm,dwmblocks,dmenu,st}` | Separately maintained and compiled window-manager programs |
-| User helpers | `.local/bin/` | Commands called by shell aliases, DWM bindings, MIME entries, status modules, cron |
-| Runtime data | `.local/share/larbs/` | Keyboard map, Unicode data, helper text retained for compatible helpers |
-| Project documents | `.local/share/docs/` | Dependency model, maintenance rules, plans, history, user material |
-| System samples | `.local/share/sys-etc/` | Inactive templates that require explicit copy and adaptation |
+| Shell | `.config/shell/`、`.config/zsh/`、`.bashrc` | XDG 环境、PATH、别名、补全和包管理命令 |
+| X11 会话 | `.config/x11/`、根 profile 链接 | 会话环境、输入法、Xresources 和会话自启动 |
+| 桌面程序 | `~/src/{dwm,dwmblocks,dmenu,st}` | 单独维护、编译和安装的桌面程序 |
+| 用户辅助命令 | `.local/bin/` | 被 shell、DWM、MIME、状态栏和 cron 调用的命令 |
+| 运行数据 | `.local/share/larbs/` | 键盘映射、Unicode 数据和兼容帮助文本 |
+| 项目文档 | `.local/share/docs/` | 依赖、约束、计划、历史和用户资料 |
+| 系统示例 | `.local/share/sys-etc/` | 必须显式复制并调整的未激活模板 |
 
-The normal X11 relation is: login shell loads the canonical shell profile;
-`startx` loads `.xinitrc`; the X session loads `xprofile`; `xprofile` loads
-resources and starts only session-owned programs; `.xinitrc` starts
-`ssh-agent dwm`. PipeWire, pipewire-pulse, and WirePlumber are intentionally
-outside this chain because their owner is the systemd user service manager.
+正常 X11 链路是：登录 shell 加载 shell profile；`startx` 加载 `.xinitrc`；X 会话加载
+`xprofile`；`xprofile` 加载资源并启动会话负责的程序；`.xinitrc` 启动 `ssh-agent dwm`。
+PipeWire、pipewire-pulse 和 WirePlumber 不在此链中，因为它们由 systemd 用户服务负责。
 
-## Layout Model
+## 布局（layout）模型
 
-`dependencies.md` is the authoritative layout model. Every new dependency,
-script, document reference, and user-visible capability must belong to one of
-the following layouts before it is added. A layout is an ownership boundary,
-not a package-installation group.
+`dependencies.md` 是权威布局（layout）模型。新增依赖、脚本、文档引用和用户可见能力都必须先
+归属一个布局（layout）。布局（layout）是职责边界，不是软件包安装清单。
 
-## Shell, Source Control, and Development
+## Shell、源代码管理与开发
 
-Owns shell initialization, aliases, completion, editor selection, FZF, and
-the bare-repository workflow. `.config/shell/profile` establishes shared
-environment defaults; `aliasrc` provides commands and package-manager
-branches; `.config/zsh/.zshrc` adds Zsh-specific frameworks and completion.
+负责 shell 初始化、别名、补全、编辑器、FZF 和 bare 仓库工作流。`profile` 提供共享环境，
+`aliasrc` 提供命令和包管理分支，`.zshrc` 承担 Zsh 专属框架和补全。共享辅助脚本优先
+POSIX Shell；`profile.local` 和 `aliasrc.local` 是唯一预期的每机器扩展点。
 
-Keep shared helpers POSIX-compatible where possible. Zsh-only behavior stays
-in `.config/zsh/`. Package aliases describe common operations, while each
-distribution branch owns its own package-manager syntax. `profile.local` and
-`aliasrc.local` are the only intended per-machine extension points.
+## X11 桌面与输入
 
-## X11 Desktop and Input
+负责会话启动、输入法选择、键盘重映射、合成器、Xresources 和 X11 辅助工具。`xprofile`
+是唯一输入法决策点，必须从所选引擎导出全部环境变量。它可启动 Dunst、Picom、MPD 和
+unclutter，但不得启动 PipeWire 服务。`~/src/` 的 DWM、DWMBlocks、dmenu、st、slock
+源码不属于本仓库的修改范围。
 
-Owns session startup, input-method selection, key remapping, compositor
-startup, Xresources loading, and X11 helper integration. `xprofile` is the
-single input-method decision point and must export all related environment
-variables from the selected engine. It may start Dunst, Picom, MPD, and
-unclutter when available, but must not start PipeWire services.
+## 外观、字体与壁纸
 
-DWM, DWMBlocks, dmenu, st, and slock are external source trees under `~/src/`.
-This repository may configure commands they invoke, but must not modify their
-source or generated build output as part of a dotfiles change.
+负责 Fontconfig、GTK、Dunst、Xresources、wal 模板和 `setbg`。静态颜色与字体回退是基础
+状态；壁纸和 pywal 是覆盖层，缺少图片或 `wal` 时必须恢复默认，不能留下陈旧生成颜色。
 
-## Appearance, Fonts, and Wallpaper
+## 音频、音乐、录制与视频
 
-Owns Fontconfig, GTK settings, Dunst appearance, Xresources, wal templates,
-and `setbg`. Static colors and configured font fallbacks are the base state.
-Wallpaper and pywal are overlays: absence of an image or `wal` must restore
-defaults instead of leaving stale generated colors or preventing login.
+负责 ALSA 回退、MPD/Ncmpcpp/MPV 配置以及录制、处理、缩略图、标签和幻灯片辅助工具。
+它消费 PipeWire 兼容音频栈，不启动该栈。摄像头、捕获硬件和 MPD 服务均是运行条件，
+不能被配置改动静默假设。
 
-## Audio, Music, Recording, and Video
+## 文件、文档、密码与桌面处理
 
-Owns ALSA fallback configuration, MPD/Ncmpcpp/MPV settings, and media helpers
-for recording, processing, thumbnails, tags, and slideshows. It consumes the
-system audio stack through PipeWire-compatible interfaces. Hardware capture,
-webcams, and an active MPD service are runtime conditions, not assumptions a
-configuration edit may silently make.
+负责 LF、预览器、nsxiv、Zathura、MIME、桌面入口、文档工具和密码/OTP 工具。MIME 和 LF
+处理器形成依赖链：新增处理器必须同时处理命令、必要桌面入口、依赖文档和可选缺失行为。
+邮件账户、密码库内容和个人文档保持未跟踪。
 
-## Files, Documents, Passwords, and Desktop Handlers
+## 显示、网络、挂载与系统控制
 
-Owns LF, preview scripts, nsxiv, Zathura, MIME defaults, desktop entries,
-document helpers, and password/OTP helpers. MIME entries and LF handlers form
-a dependency chain: a new handler requires its command, desktop entry where
-needed, dependency documentation, and a non-breaking behavior when optional.
+负责显示选择、重映射、亮度、锁屏/会话操作、NetworkManager 入口和挂载工具。硬件特定
+路径必须条件化。Android MTP 在 Debian 的 `simple-mtpfs` 接口尚无经过验证的兼容替代，
+不得未经接口测试替换。
 
-Mail accounts, password-store contents, and personal documents remain
-untracked. A helper may refer to those locations but must not require their
-contents to make the shell or desktop session load.
+## 状态栏、通信与网络服务
 
-## Display, Network, Mounting, and System Control
+负责 DWMBlocks 模块、RSS 刷新、邮件/任务/种子状态和有限网络查询。模块必须隔离：缺少
+命令只能隐藏或降级该模块，不能阻塞整条状态栏，也不能引入无限重试的网络守护进程。
 
-Owns display selection, remapping, brightness, lock/session actions,
-NetworkManager entry points, and mount helpers. Treat hardware-specific paths
-as conditional. In particular, Android MTP remains a documented Debian
-hangup because the tracked `simple-mtpfs` interface has no verified compatible
-package replacement; do not substitute another tool without an interface test.
+## 下载、种子与文本浏览
 
-## Status Bar, Communication, and Network Services
+负责 task-spooler 队列、Newsboat 动作、链接处理、Transmission 和终端文本浏览。Tremc、
+FPP、youtube-viewer 等可选集成必须有保护和回退说明，并保持 Transmission 守护进程与
+客户端边界清晰。
 
-Owns DWMBlocks modules, RSS refresh, mail/task/torrent indicators, and bounded
-network lookups. Modules are isolated processes: an unavailable command must
-hide or degrade only that module. A status module must not introduce a daemon
-or network retry loop that blocks the bar.
+## 编译、排版与数据辅助
 
-## Downloads, Torrents, and Text Browsing
+负责 `compiler`、`getbib`、`texclear` 和按文件格式选择的工具链。工具链是功能范围，
+不是无条件基础依赖；TeX 和多语言工具链的实际支持范围仍待决定。
 
-Owns task-spooler download queues, Newsboat actions, link handling,
-Transmission helpers, and terminal text browsing. Optional integrations such
-as Tremc, FPP, and youtube-viewer need explicit guards and documented fallback
-behavior. The daemon/client boundary for Transmission must remain clear.
+## 模板与计划工作
 
-## Compilation, Typesetting, and Data Helpers
+负责系统模板和 cron 辅助命令。模板绝不是生效配置；cron 需要明确的显示、用户 D-Bus
+环境和经过审查的 sudo 策略，不能因文档存在就自动启用。
 
-Owns `compiler`, `getbib`, `texclear`, and source-format toolchains. The
-compiler selects a command by input extension, so toolchains are feature
-scoped rather than a single unconditional base requirement. TeX and broader
-language-toolchain validation remain deferred until the actively supported
-formats and output policy are decided.
+## 设计与维护规则
 
-## Templates and Scheduled Work
+- 优先使用现有布局（layout）职责，不随意新增抽象或文件。
+- 除非配置确实无效、不安全或无效能，否则保留可信个人设置。
+- 可选程序不得破坏 shell、X11 或无关状态栏模块。
+- 跨发行版设计使用稳定命令名；各发行版提供者在审计中单独映射。
+- 修改 `.local/share/docs/` 后必须执行 `maintenance-policy.md` 规定的全库文档一致性检查。
+- `dependencies.md` 定义能力，本文定义职责与关系，用户指南定义操作；三者不得互相重复。
 
-Owns inactive templates and cron helpers. Templates are never live system
-configuration. Cron jobs require an explicit display, user D-Bus environment,
-and reviewed sudo policy. Do not turn a documented sample into an autostarted
-service without a separate design decision.
-
-## Design and Maintenance Rules
-
-- Prefer existing layout ownership over adding a new abstraction or file.
-- Preserve trusted personal settings unless they are demonstrably invalid,
-  unsafe, or ineffective.
-- Optional programs must not break shell startup, X11 startup, or unrelated
-  status modules.
-- Keep package names out of cross-distribution design decisions; document
-  stable commands and map providers during each distribution audit.
-- Every documentation change under `.local/share/docs/` requires the full
-  consistency review defined in `maintenance-policy.md`.
-- `dependencies.md` defines capabilities; this file defines ownership and
-  relationships; the user guide defines operations. Do not duplicate one
-  document's role into another.
-
-For active work, completed work, and paused work, use
-[TODO](../planning/todo.md), [history](../planning/history.md), and
-[suspended items](../planning/suspended.md).
+活动、已完成和挂起工作分别见 [TODO](../planning/todo.md)、[历史](../planning/history.md)
+和[挂起项](../planning/suspended.md)。
