@@ -198,8 +198,20 @@ zplug load
 
 
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-export FZF_DEFAULT_COMMAND='fd --hidden --follow -E ".git" -E "node_modules" . /etc /home'
 export FZF_DEFAULT_OPTS='--height 90% --layout=reverse --bind=alt-j:down,alt-k:up,alt-i:toggle+down --border --preview "echo {} | ~/.local/bin/fzf_preview" --preview-window=down'
+
+# Debian packages fd as fdfind; prefer either implementation and let FZF use
+# its built-in finder if neither is available.
+if command -v fd >/dev/null 2>&1; then
+  export FZF_FD_COMMAND=fd
+elif command -v fdfind >/dev/null 2>&1; then
+  export FZF_FD_COMMAND=fdfind
+else
+  unset FZF_FD_COMMAND
+fi
+
+[ -n "${FZF_FD_COMMAND:-}" ] &&
+  export FZF_DEFAULT_COMMAND="$FZF_FD_COMMAND --hidden --follow -E .git -E node_modules . /etc /home"
 
 # use fzf in bash and zsh
 # Use ~~ as the trigger sequence instead of the default **
@@ -212,14 +224,16 @@ export FZF_DEFAULT_OPTS='--height 90% --layout=reverse --bind=alt-j:down,alt-k:u
 # command for listing path candidates.
 # - The first argument to the function ($1) is the base path to start traversal
 # - See the source code (completion.{bash,zsh}) for the details.
-_fzf_compgen_path() {
-  fd --hidden --follow -E ".git" -E "node_modules" . /etc /home
-}
+if [ -n "${FZF_FD_COMMAND:-}" ]; then
+	_fzf_compgen_path() {
+		command "$FZF_FD_COMMAND" --hidden --follow -E .git -E node_modules . /etc /home
+	}
 
-# Use fd to generate the list for directory completion
-_fzf_compgen_dir() {
-  fd --type d --hidden --follow -E ".git" -E "node_modules" . /etc /home
-}
+	# Use fd or Debian's fdfind to generate the list for directory completion.
+	_fzf_compgen_dir() {
+		command "$FZF_FD_COMMAND" --type d --hidden --follow -E .git -E node_modules . /etc /home
+	}
+fi
 
 # zsh completion system
 setopt complete_aliases

@@ -18,8 +18,10 @@ util-linux (`setsid`, `lsblk`), procps (`pgrep`, `pkill`, `pidof`, `ps`),
 | `tmux`, `less`, `fzf` | Terminal workflow |
 | `curl`, `wget` | Installer, downloads, network helpers |
 | `node`, `npm` | Neovim and development tooling |
-| `highlight`, `bat` or `batcat`, `fd`, `ripgrep` | FZF and LF preview/search support |
-| `unzip`, `unrar`, `w3m` | Archive and text-preview helpers |
+| `highlight`, `bat` or `batcat`, `fd` or Debian `fdfind` (`fd-find`), `ripgrep` | FZF and LF preview/search support |
+| `jq`, Docker (`docker`) | Zsh `json()` clipboard formatter and configured Docker plugin/`attach()` helper |
+| `unzip`, `unrar` | Archive-preview helpers when those archive types are used |
+| `w3m` | Optional HTML preview in `fzf_preview`; plain-text preview remains available without it |
 | Oh My Zsh; `zsh-autosuggestions`, `zsh-syntax-highlighting`, `zsh-history-substring-search`, `zsh-completions` | Configured Zsh framework and plugins |
 | Bash completion package and Git completion script | Bash completion for `c` and Git |
 
@@ -31,7 +33,7 @@ util-linux (`setsid`, `lsblk`), procps (`pgrep`, `pkill`, `pidof`, `ps`),
 | `dwm`, `dwmblocks`, `st`, `dmenu`, `slock` | Window manager, bar, terminal, launcher, lock screen; build separately from `~/src/` |
 | `dunst`, `picom`, `unclutter`, `xwallpaper` | Notifications, compositor, pointer hiding, wallpaper |
 | `xrdb`, `xrandr`, `xset`, `xdotool`, `xdpyinfo`, `xclip`, `xprop`, `setxkbmap` | Xresources, display, input, clipboard, and helper scripts |
-| `xkblayout-state` | Keyboard-layout status module; upstream source: <https://github.com/nonpop/xkblayout-state> |
+| `xkblayout-state` | Optional keyboard-layout status command; upstream source: <https://github.com/nonpop/xkblayout-state>. `sb-kbselect` falls back to `setxkbmap` when it is absent. |
 | `notify-send` (libnotify) | Desktop notifications |
 | `fcitx5` | Preferred configured input method; `fcitx` or `ibus` are fallbacks |
 | `xcape` | Caps-as-Escape / modifier remapping when enabled |
@@ -52,10 +54,10 @@ util-linux (`setsid`, `lsblk`), procps (`pgrep`, `pkill`, `pidof`, `ps`),
 
 | Software or command | Used for |
 | --- | --- |
-| PipeWire, `pipewire-pulse`, WirePlumber, `wpctl`, `pactl` | Default audio stack and volume controls; `pipewire-pulse` provides PulseAudio-compatible `pactl` |
+| PipeWire, `pipewire-pulse`, WirePlumber, `wpctl` | Default audio stack and volume controls; `pipewire-pulse` provides the PulseAudio-compatible server for applications that need it |
 | ALSA libraries and utilities | Retained ALSA configuration and ALSA capture input |
 | `mpd`, `mpc`, `ncmpcpp` | Music daemon, control client, terminal UI |
-| `pamixer`, `pulsemixer` | Audio helpers and interactive mixer |
+| `pulsemixer` | Configured interactive audio mixer |
 | `mpv`, `socat`, `ffmpeg` | Video playback, MPV IPC helpers, recording/transcoding |
 | `slop` | Selected-area recording |
 | V4L2 webcam device | Webcam recording path |
@@ -73,7 +75,7 @@ util-linux (`setsid`, `lsblk`), procps (`pgrep`, `pkill`, `pidof`, `ps`),
 | ImageMagick (`display`, `convert`), `mediainfo`, `ffmpegthumbnailer` | LF image/video previews |
 | `pdftoppm`, `pdftotext`, `pdfinfo`, `odt2txt` | Document previews and `getbib` |
 | `gpg`, `man`, `col`, `xdg-open` | Encryption, manuals, formatted text, desktop opening |
-| `neomutt`, `newsboat`, `abook`, `profanity` | Mail, RSS, contacts, and the DWM chat launcher |
+| `neomutt`, `newsboat` | Configured mail and RSS clients |
 | `pass`, `pass-otp`, `zbarimg`, `maim`, `xclip`, `dmenu` | Password store, OTP, QR, screenshot, and menu helpers |
 | `timedatectl`, or `chronyc` or `ntpdate` | OTP clock synchronization check |
 | WPS Office and `wps-office-prometheus.desktop` | Configured office MIME defaults |
@@ -98,8 +100,8 @@ programs: `dmenuunicode`, `dmenumount`, `dmenuumount`, `dmenurecord`,
 | `cifs-utils`, `smbclient`, `avahi-browse`, Avahi daemon | CIFS discovery and mount helpers |
 | systemd (`loginctl`, `systemctl`), `pstree`, `slock` | `sysact` lock/session control |
 | `geoiplookup` | Optional IP-location status module |
-| `synclient` and an X11 Synaptics touchpad driver | DWM touchpad toggle hardware keys |
-| `screenkey` | Optional `Mod+ScrollLock` keypress overlay |
+| `synclient` and an X11 Synaptics touchpad driver | Optional dependency retained for separately built DWM touchpad-toggle code; no tracked dotfiles runtime call |
+| `screenkey` | Optional keypress overlay retained for separately built DWM bindings; no tracked dotfiles runtime call |
 
 ## Status Bar, Communication, and Network Services
 
@@ -161,6 +163,71 @@ passwordless sudo rule or a manual check.
 
 ## Local Verification Record
 
-This is not a deployment requirement. On the last review the current machine
-lacked `mpc`, `nmtui`, `cal`, `calcurse`, and `xbacklight`; the tracked
-features remain configured and require the corresponding command above.
+This is not a deployment requirement. Current Debian verification status is
+maintained in `planning/dependency-audit-record.md`; do not treat old package
+snapshots as a current requirement list.
+
+## LARBS Migration Reference
+
+The following source-package records were migrated from `larbs/progs.csv`.
+They preserve the original purpose while distinguishing active configuration
+from old LARBS/Arch/Void assumptions.
+
+### X11, Fonts, and Earlier Desktop Choices
+
+| Source record(s) | Original purpose | Current disposition |
+| --- | --- | --- |
+| `xorg-server`, `xorg-xinit`, `xorg-minimal` | Graphical server and startup | Active requirement, represented by Xorg/Xinit in the X11 layout; source names are distribution-specific. |
+| `xorg-xwininfo` | Query window information | Historical source entry; tracked helpers use active `xprop` instead. |
+| `libxft-bgra` | Color emoji rendering in suckless software | Historical source-build dependency; keep only when the separately built DWM/ST sources require that patch. |
+| `xorg-fonts`, `ttf-inconsolata`, `nerd-fonts-inconsolata`, `ttf-linux-libertine` | LARBS fonts and symbols | Superseded by the tracked Fontconfig/GTK font choices: Linux Libertine, Noto CJK, Noto Color Emoji, and FontAwesome. |
+| `libX11-devel`, `libXft-devel`, `gcr-devel`, `fontconfig-devel` | Build dependencies | Historical Arch/Void development-package names for separately built programs; not a current dotfiles runtime dependency. |
+| `i3-gaps` | Earlier window manager | Historical; the active session starts DWM. |
+| `ranger-git` | Earlier terminal file manager | Historical; LF is the configured file manager. Ranger help data is retained only as reference. |
+| `arandr` | Screen-layout UI | Active `displayselect` manual-layout dependency. |
+| `bc` | Calculator and arithmetic | Active calculator alias and display-layout arithmetic helper. |
+| `calcurse` | Terminal calendar | Active alias and status-bar calendar helper. |
+| `xcompmgr` | Transparency/compositing | Optional fallback path in `xprofile`; Picom is the active compositor. |
+| `xorg-xprop`, `xprop` | Window property query | Active `samedir` helper dependency. |
+| `dosfstools`, `exfat-utils` | DOS/FAT filesystem management | Historical package entries; current mount helpers use system `mount`/`lsblk` and do not format filesystems. |
+| `libnotify` | Desktop notifications | Active `notify-send` provider, represented in the X11 layout. |
+| `dbus` | Inter-process communication | Active X11 session requirement, represented by `dbus-launch` and D-Bus activation tools. |
+| `dunst` | Notification daemon | Active notification service. |
+| `sxiv` | Image viewing | Replaced throughout the tracked configuration by `nsxiv`. |
+| `xwallpaper` | Wallpaper setting | Active `setbg` backend. |
+| `ffmpeg` | Command-line video/audio processing | Active playback, recording, thumbnail, slideshow, and media-processing dependency. |
+| `gnome-keyring` | System keyring | Historical entry; no tracked configuration calls it. |
+
+### Media, Files, Shell, and Status Sources
+
+| Source record(s) | Original purpose | Current disposition |
+| --- | --- | --- |
+| `gtk-theme-arc-gruvbox-git` | Dark GTK theme | Historical Arch package name; the tracked appearance uses the installed Arc theme. |
+| `neovim` | Improved Vim editor | Active editor, represented by `vim`/`nvim` in the Shell layout. |
+| `i3blocks` | Earlier status bar | Historical; the active status bar is DWMBlocks. |
+| `mpd`, `mpc`, `mpv`, `ncmpcpp` | Music daemon, control, playback, and terminal UI | Active audio and music dependencies. |
+| `newsboat` | Terminal RSS client | Active RSS client and status-bar integration. |
+| `brave-bin` | Earlier browser | Historical; `BROWSER` is currently Microsoft Edge. |
+| `noto-fonts-emoji` | Emoji font | Active requirement, represented by Noto Color Emoji. |
+| `font-symbola` | Unicode and emoji symbols | Historical font alternative; FontAwesome and Noto Color Emoji are the current configured icon fonts. |
+| `ntfs-3g` | NTFS access | Optional filesystem support; no tracked helper invokes it directly, and current kernels may instead provide NTFS3. |
+| `alsa-utils` | ALSA interface tools | Optional utility package; retained ALSA configuration and capture paths require the ALSA stack, not a specific `alsa-utils` command. |
+| `sc-im` | Terminal spreadsheet manager | Historical optional application; `localc`/WPS MIME handlers are current spreadsheet paths. |
+| `maim`, `socat`, `tmux`, `unclutter` | Screenshots, MPV IPC, terminal multiplexing, pointer hiding | Active dependencies in their respective layouts. |
+| `unclutter-xfixes` | Pointer hiding | Historical alternative; the active command is `unclutter`. |
+| `unrar`, `unzip` | Archive extraction | Active LF/FZF archive-preview and extraction helpers. |
+| `lynx` | Text browser | Active dmenu, LF, and Newsboat text-browser option. |
+| `xcape`, `xclip`, `xdotool`, `xorg-xdpyinfo`, `xdpyinfo` | Key remapping, clipboard, window action, screen query | Active X11 helper dependencies; `xorg-xdpyinfo` is a historical source name. |
+| `youtube-dl` | Video download | Replaced by active `yt-dlp`. |
+| `zathura` | Vim-like PDF viewer | Active document viewer. |
+| `zathura-pdf-mupdf` | Zathura PDF backend | Historical backend-specific entry; current configuration requires Zathura with a distribution-provided PDF backend, not MuPDF specifically. |
+| `python-ueberzug` | Terminal image previews | Active preview capability represented by the current `ueberzug` command; the source package name is historical. |
+| `poppler` | PDF manipulation and previews | Active PDF preview/tool capability represented by `pdftoppm`, `pdftotext`, and `pdfinfo`. |
+| `mediainfo`, `atool`, `fzf`, `highlight`, `xorg-xbacklight` | Media info, archive handling, fuzzy finding, highlighting, brightness | Active dependencies; `xorg-xbacklight` maps to current `xbacklight`. |
+| `zsh-syntax-highlighting` | Fish-like shell highlighting | Active configured Oh My Zsh/zplug plugin. |
+| `task-spooler`, `ts` | Background command queue | Active `tsp` queue dependency; `ts` is the historical command/package spelling. |
+| `simple-mtpfs` (both source rows) | Android phone mounting | Active script reference but suspended on Debian because no compatible packaged `simple-mtpfs` is available. |
+| `setxkbmap`, `xset` | Keyboard layout and X repeat settings | Active X11 input helpers. |
+| `xmodmap`, `xsetroot` | Earlier keyboard/status-root handling | Historical; remapping uses `setxkbmap` and status output is managed by DWMBlocks. |
+| Luke Smith `dwmblocks`, `dmenu`, `st`, `dwm` Git URLs | Status bar, launcher, terminal, window manager | Historical upstream source references. Current separately built local sources live under `~/src/`; the active runtime commands are documented in the X11 layout. |
+| `slock` | Screen lock | Active `sysact` lock dependency. |

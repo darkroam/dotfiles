@@ -100,6 +100,71 @@ LF 是文件管理器，`lfub` 是统一启动包装。其预览依赖见
 `compiler` 和 `opout` 处理文档编译和打开；支持的格式与程序在依赖文档中列出。
 TeX 的 `latexmk` 工作流和复杂 PDF 输出目录尚未决定，因此不应假定其已启用。
 
+## 依赖布局参考
+
+以下章节以 [依赖清单](../project/dependencies.md) 的 layout 为准；它说明某项功能
+属于哪里、正常使用时的入口，以及哪些能力只是可选或挂起。
+
+### Shell、源代码管理与开发
+
+登录 shell 从 `.config/shell/`、`.config/zsh/` 与 `.bashrc` 读取环境、别名、补全和
+书签。`c` 是本仓库的 Git 命令；Zsh 的 FZF 搜索会使用 `fd` 或 Debian 的 `fdfind`。
+Oh My Zsh、zplug、NVM 和 Bun 均是条件加载，缺失的本地扩展不应阻止 shell 启动。
+
+### X11 桌面与输入
+
+`.config/x11/xinitrc` 与 `xprofile` 建立 X11 会话、输入法、Xresources、重映射、通知和
+合成器。`fcitx5` 是首选输入法；`xkblayout-state` 缺失时键盘状态栏回退到 `setxkbmap`。
+DWM、dmenu、st、slock 和 DWMBlocks 是另行编译安装的本地程序。
+
+### 外观、字体与壁纸
+
+Fontconfig、GTK、Dunst、Xresources 和 `setbg` 组成静态外观。Arc、Linux Libertine、Noto
+CJK、Noto Color Emoji 与 FontAwesome 是当前字体/主题选择。`wal` 仅在设壁纸后生成覆盖色；
+没有壁纸或 `wal` 时仍保持静态默认配色。
+
+### 音频、音乐、录制与视频
+
+PipeWire、pipewire-pulse 和 WirePlumber 由 systemd 用户服务管理；音量使用 `wpctl` 和
+`pulsemixer`。MPD、MPC、Ncmpcpp 提供音乐服务与终端控制，MPV/FFmpeg/Sox/Slop 用于播放、
+录制和媒体处理。硬件摄像头与 ALSA 捕获是否可用取决于当前设备。
+
+### 文件、文档、密码与桌面处理
+
+LF、`lfub`、Ueberzug、nsxiv、Zathura 和 MIME 桌面入口处理文件浏览。预览工具按格式调用，
+例如 Atool、Poppler、MediaInfo、FFmpegthumbnailer、ODT2TXT 与 ImageMagick。密码与 OTP
+入口使用 `pass`、`pass-otp`、Maim 和 Zbar；实际密码库内容不属于本仓库。
+
+### 显示、网络、挂载与系统控制
+
+`displayselect` 使用 Xrandr/Arandr，`sysact` 处理锁屏和会话操作，NetworkManager 的 `nmtui`
+负责交互联网。USB 挂载使用系统 `mount`/`lsblk`，CIFS 使用 Avahi、Samba 客户端和 CIFS 工具。
+Android `simple-mtpfs` 在当前 Debian 没有兼容包，因此该路径保持挂起。
+
+### 状态栏、通信与网络服务
+
+`~/.local/bin/statusbar/` 中的脚本由 DWMBlocks 调度。日历、网络、RSS、邮件、任务队列、
+种子和天气模块均可独立失效；`geoiplookup` 缺失时定位模块会隐藏。邮件账户配置不被跟踪，
+状态栏只调用已安装的 `mw`、Neomutt 与 Mbsync。
+
+### 下载、种子与文本浏览
+
+`qndl` 使用 `tsp` 排队下载，Newsboat 可调用 `yt-dlp`、Lynx、Urlscan 和本地链接处理器。
+Transmission 守护进程、远程客户端和状态栏模块是标准种子路径；`tremc` 是最低优先级可选
+终端界面，缺失时 `torrent` 会提示使用 Web 界面或 `transmission-remote`。
+
+### 编译、排版与数据辅助
+
+`compiler` 按源文件后缀选择 TeX、Groff、Markdown、Org、R 或语言工具链；完整 TeX/多语言
+工具链尚未按实际需求确认。`getbib` 使用 Poppler 与 Crossref，`texclear` 只清理构建副产物。
+不要假定所有编译器都会随基础桌面安装。
+
+### 模板与计划工作
+
+`.local/share/sys-etc/` 下的 Portage、systemd-networkd 与 wpa_supplicant 文件只是模板，绝不
+自动部署。cron 示例需要用户 D-Bus、显示环境和明确的 sudo 策略；在确认前不要启用无人值守
+更新。
+
 ## 配置与更新
 
 将常用配置修改限制在本仓库已跟踪文件中。使用 `c status`、`c diff` 审查，使用
