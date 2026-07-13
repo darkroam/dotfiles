@@ -23,6 +23,12 @@
   consistency review before commit. Verify terminology is uniform, internal
   links resolve, documented directory structure matches tracked paths, and
   relationships and responsibilities between documents remain valid.
+- `project/architecture.md` is a self-contained Codex/developer design
+  document: structure, ownership, runtime relationships, decisions, and
+  maintenance boundaries only. `user/desktop-guide-zh.md` is a self-contained
+  user operation document: installation, daily use, personalization, and
+  troubleshooting only. Both follow the `dependencies.md` layouts, but neither
+  may require the other to be understood or duplicate the other's role.
 - Inspect and discuss a behavior change before applying it; verify and commit
   only after approval.
 

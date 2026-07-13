@@ -1,141 +1,151 @@
 # Architecture and Design
 
-## Scope
+## Purpose and Audience
 
-This is a bare Git repository at `$HOME/.cfg` whose work tree is `$HOME`.
-Only tracked configuration belongs to the project; device state, caches,
-credentials, build products, and per-machine overrides remain untracked.
+This document is for Codex and maintainers. It explains the design of the
+tracked dotfiles so changes can preserve ownership boundaries, startup order,
+cross-distribution behavior, and document consistency. It is not a desktop
+operation manual; user tasks belong in `../user/desktop-guide-zh.md`.
 
-The central command is `c`, an alias for Git with the bare repository and home
-work tree. Root-level dotfiles are compatibility entry points. Their canonical
-configuration lives below `.config` or `.local`.
+## Repository Contract
 
-## Layout
+The repository is bare at `$HOME/.cfg` with `$HOME` as its work tree. The `c`
+alias is the canonical Git entry point. Only reusable home-directory
+configuration is tracked. Credentials, browser state, caches, build products,
+hardware state, and `*.local` per-machine overrides are deliberately outside
+the repository.
 
-| Area | Canonical location | Responsibility |
+Root dotfiles are compatibility links. Canonical content belongs under
+`.config` or `.local`; do not replace a root link with a duplicate file merely
+to make a local edit easier.
+
+## Topology and Runtime Relations
+
+| Layer | Canonical paths | Produces or owns |
 | --- | --- | --- |
-| Shell | `.config/shell/`, `.config/zsh/`, `.bashrc` | Environment, aliases, package commands, history, bookmarks, completion |
-| X11 session | `.config/x11/` | X startup, input method, compositor, Xresources, wallpaper, remaps |
-| Desktop appearance | `.config/fontconfig/`, `.config/gtk-*`, `.config/dunst/` | Fonts, GTK appearance, notifications |
-| Audio and media | `.config/mpd/`, `.config/ncmpcpp/`, `.config/mpv/`, `.config/alsa/` | MPD clients, MPV, retained ALSA fallback |
-| File and document tools | `.config/lf/`, `.config/nsxiv/`, `.config/zathura/`, `.config/mimeapps.list` | File manager, previews, MIME handlers |
-| User commands | `.local/bin/` | Interactive helpers, status modules, cron helpers |
-| LARBS runtime resources | `.local/share/larbs/` | Retained upstream runtime data, keyboard map, Unicode data, and helper text |
-| Project documentation | `.local/share/docs/` | Project, planning, and end-user documentation |
-| System templates | `.local/share/sys-etc/` | Examples to copy and adapt, never automatically installed |
-| Per-machine extension points | `*.local` files | Untracked overrides loaded only when present |
+| Shell | `.config/shell/`, `.config/zsh/`, `.bashrc` | XDG environment, PATH, aliases, completion, package commands |
+| X11 session | `.config/x11/`, root profile links | Login/session environment, input method, Xresources, session autostarts |
+| Desktop programs | `~/src/{dwm,dwmblocks,dmenu,st}` | Separately maintained and compiled window-manager programs |
+| User helpers | `.local/bin/` | Commands called by shell aliases, DWM bindings, MIME entries, status modules, cron |
+| Runtime data | `.local/share/larbs/` | Keyboard map, Unicode data, helper text retained for compatible helpers |
+| Project documents | `.local/share/docs/` | Dependency model, maintenance rules, plans, history, user material |
+| System samples | `.local/share/sys-etc/` | Inactive templates that require explicit copy and adaptation |
 
-## Dependency Layouts
+The normal X11 relation is: login shell loads the canonical shell profile;
+`startx` loads `.xinitrc`; the X session loads `xprofile`; `xprofile` loads
+resources and starts only session-owned programs; `.xinitrc` starts
+`ssh-agent dwm`. PipeWire, pipewire-pulse, and WirePlumber are intentionally
+outside this chain because their owner is the systemd user service manager.
 
-`dependencies.md` is the authoritative dependency model. The following
-sections give each layout an ownership boundary so a dependency is not added
-merely because it existed in earlier LARBS material.
+## Layout Model
 
-### Shell, Source Control, and Development
+`dependencies.md` is the authoritative layout model. Every new dependency,
+script, document reference, and user-visible capability must belong to one of
+the following layouts before it is added. A layout is an ownership boundary,
+not a package-installation group.
 
-Owns `.config/shell/`, `.config/zsh/`, `.bashrc`, `.gitconfig`, `.npmrc`, and
-shell-facing helpers. It provides the bare-repository `c` workflow, completion,
-editor selection, package aliases, FZF search, and conditional development
-runtimes. User-specific extensions remain untracked `*.local` files.
+## Shell, Source Control, and Development
 
-### X11 Desktop and Input
+Owns shell initialization, aliases, completion, editor selection, FZF, and
+the bare-repository workflow. `.config/shell/profile` establishes shared
+environment defaults; `aliasrc` provides commands and package-manager
+branches; `.config/zsh/.zshrc` adds Zsh-specific frameworks and completion.
 
-Owns `.config/x11/`, root compatibility links, and the X11-facing portions of
-`.local/bin/`. It starts the session, selects an input method, loads resources,
-and starts only session-owned programs. PipeWire is deliberately outside this
-layout's startup ownership because systemd user services own it.
+Keep shared helpers POSIX-compatible where possible. Zsh-only behavior stays
+in `.config/zsh/`. Package aliases describe common operations, while each
+distribution branch owns its own package-manager syntax. `profile.local` and
+`aliasrc.local` are the only intended per-machine extension points.
 
-### Appearance, Fonts, and Wallpaper
+## X11 Desktop and Input
 
-Owns Fontconfig, GTK, Dunst, Xresources, wal templates, and the wallpaper path
-in `setbg`. Static defaults are authoritative; wallpaper and pywal may overlay
-them but must never be prerequisites for a usable session.
+Owns session startup, input-method selection, key remapping, compositor
+startup, Xresources loading, and X11 helper integration. `xprofile` is the
+single input-method decision point and must export all related environment
+variables from the selected engine. It may start Dunst, Picom, MPD, and
+unclutter when available, but must not start PipeWire services.
 
-### Audio, Music, Recording, and Video
+DWM, DWMBlocks, dmenu, st, and slock are external source trees under `~/src/`.
+This repository may configure commands they invoke, but must not modify their
+source or generated build output as part of a dotfiles change.
 
-Owns MPD/Ncmpcpp/MPV configuration and media helpers such as recording,
-thumbnailing, noise reduction, tagging, and slideshows. The layout consumes
-the system audio stack rather than starting it, and hardware capture paths are
-runtime capabilities rather than unconditional deployment requirements.
+## Appearance, Fonts, and Wallpaper
 
-### Files, Documents, Passwords, and Desktop Handlers
+Owns Fontconfig, GTK settings, Dunst appearance, Xresources, wal templates,
+and `setbg`. Static colors and configured font fallbacks are the base state.
+Wallpaper and pywal are overlays: absence of an image or `wal` must restore
+defaults instead of leaving stale generated colors or preventing login.
 
-Owns LF, nsxiv, Zathura, MIME defaults, desktop entries, previews, document
-helpers, password/OTP helpers, and their data files. It may invoke an external
-viewer by MIME type, but credentials, mail accounts, and user content remain
-outside the repository.
+## Audio, Music, Recording, and Video
 
-### Display, Network, Mounting, and System Control
+Owns ALSA fallback configuration, MPD/Ncmpcpp/MPV settings, and media helpers
+for recording, processing, thumbnails, tags, and slideshows. It consumes the
+system audio stack through PipeWire-compatible interfaces. Hardware capture,
+webcams, and an active MPD service are runtime conditions, not assumptions a
+configuration edit may silently make.
 
-Owns display selection, remapping, brightness, session controls, mounting and
-NetworkManager entry points. It distinguishes ordinary system tools from
-device-specific paths: the Android MTP helper is suspended on Debian rather
-than silently substituted with an unverified implementation.
+## Files, Documents, Passwords, and Desktop Handlers
 
-### Status Bar, Communication, and Network Services
+Owns LF, preview scripts, nsxiv, Zathura, MIME defaults, desktop entries,
+document helpers, and password/OTP helpers. MIME entries and LF handlers form
+a dependency chain: a new handler requires its command, desktop entry where
+needed, dependency documentation, and a non-breaking behavior when optional.
 
-Owns DWMBlocks module scripts, RSS refresh, mail/task/torrent indicators, and
-bounded network lookups. Individual modules must fail independently; a missing
-optional command hides only its own module rather than breaking the bar.
+Mail accounts, password-store contents, and personal documents remain
+untracked. A helper may refer to those locations but must not require their
+contents to make the shell or desktop session load.
 
-### Downloads, Torrents, and Text Browsing
+## Display, Network, Mounting, and System Control
 
-Owns queueing, RSS download actions, Linkhandler, Transmission helpers, and
-terminal text browsing. Optional interfaces such as Tremc, FPP, and
-youtube-viewer are explicitly guarded so they do not become base requirements.
+Owns display selection, remapping, brightness, lock/session actions,
+NetworkManager entry points, and mount helpers. Treat hardware-specific paths
+as conditional. In particular, Android MTP remains a documented Debian
+hangup because the tracked `simple-mtpfs` interface has no verified compatible
+package replacement; do not substitute another tool without an interface test.
 
-### Compilation, Typesetting, and Data Helpers
+## Status Bar, Communication, and Network Services
 
-Owns `compiler`, `getbib`, `texclear`, and their source-format toolchains. The
-scripts select tools by file type; installing or validating the full TeX and
-multi-language stack is intentionally deferred until the actively required
-formats are agreed.
+Owns DWMBlocks modules, RSS refresh, mail/task/torrent indicators, and bounded
+network lookups. Modules are isolated processes: an unavailable command must
+hide or degrade only that module. A status module must not introduce a daemon
+or network retry loop that blocks the bar.
 
-### Templates and Scheduled Work
+## Downloads, Torrents, and Text Browsing
 
-Owns system examples under `.local/share/sys-etc/` and cron helpers. Templates
-are never live configuration; scheduled work requires an explicit environment,
-user D-Bus access, and a reviewed sudo policy.
+Owns task-spooler download queues, Newsboat actions, link handling,
+Transmission helpers, and terminal text browsing. Optional integrations such
+as Tremc, FPP, and youtube-viewer need explicit guards and documented fallback
+behavior. The daemon/client boundary for Transmission must remain clear.
 
-## Load Order
+## Compilation, Typesetting, and Data Helpers
 
-1. Login shells load `.profile` or `.zprofile`, which point to
-   `.config/shell/`. These establish XDG locations, program defaults, and
-   `$PATH`.
-2. `startx` loads `.xinitrc`, then `.config/x11/xprofile`; display managers
-   load the root `.xprofile` link directly.
-3. `xprofile` adds `.local/bin` if needed, selects one input-method engine,
-   loads static Xresources, optionally overlays pywal colors, starts remaps,
-   wallpaper handling, compositor, MPD, Dunst, and unclutter.
-4. `.xinitrc` finally starts `ssh-agent dwm`.
-5. DWM and DWMBlocks are separate source repositories under `~/src/`; this
-   repository configures the commands they invoke but does not build them.
+Owns `compiler`, `getbib`, `texclear`, and source-format toolchains. The
+compiler selects a command by input extension, so toolchains are feature
+scoped rather than a single unconditional base requirement. TeX and broader
+language-toolchain validation remain deferred until the actively supported
+formats and output policy are decided.
 
-## Design Decisions
+## Templates and Scheduled Work
 
-- **XDG-first, compatibility links retained.** Canonical files are organized
-  under `.config`; root links remain where programs expect them.
-- **Cross-distribution shell behavior.** Package aliases use a common `p`
-  prefix and detect APT, pacman, XBPS, or Portage. Documentation names commands
-  rather than distribution-specific package names.
-- **Optional dependencies must fail quietly.** Missing optional programs must
-  not break a normal login, X startup, or status bar.
-- **PipeWire is service-owned.** PipeWire, pipewire-pulse, and WirePlumber are
-  systemd user services; X startup does not launch them.
-- **Wallpaper and pywal are independent.** Static Xresources, Dunst, and
-  Zathura defaults work without `wal` or a configured wallpaper. `setbg`
-  augments them when wallpaper and pywal are available.
-- **Personal overrides stay local.** `aliasrc.local` and `profile.local` are
-  intentionally optional and untracked, so different devices can diverge
-  without polluting the common configuration.
+Owns inactive templates and cron helpers. Templates are never live system
+configuration. Cron jobs require an explicit display, user D-Bus environment,
+and reviewed sudo policy. Do not turn a documented sample into an autostarted
+service without a separate design decision.
 
-## Ownership Boundaries
+## Design and Maintenance Rules
 
-`~/src/dwm`, `~/src/dwmblocks`, `~/src/dmenu`, and `~/src/st` are maintained,
-compiled, and installed separately. Do not change their source or generated
-files when making a dotfile-only change. System templates below
-`.local/share/sys-etc/` are examples, not active system configuration.
+- Prefer existing layout ownership over adding a new abstraction or file.
+- Preserve trusted personal settings unless they are demonstrably invalid,
+  unsafe, or ineffective.
+- Optional programs must not break shell startup, X11 startup, or unrelated
+  status modules.
+- Keep package names out of cross-distribution design decisions; document
+  stable commands and map providers during each distribution audit.
+- Every documentation change under `.local/share/docs/` requires the full
+  consistency review defined in `maintenance-policy.md`.
+- `dependencies.md` defines capabilities; this file defines ownership and
+  relationships; the user guide defines operations. Do not duplicate one
+  document's role into another.
 
-For current work, completed work, and paused work, use
+For active work, completed work, and paused work, use
 [TODO](../planning/todo.md), [history](../planning/history.md), and
 [suspended items](../planning/suspended.md).

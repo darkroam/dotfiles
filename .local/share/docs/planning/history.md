@@ -2,6 +2,12 @@
 
 ## Recent Documented Changes
 
+- [x] Rewrote `architecture.md` as the Codex/developer design document and
+  `desktop-guide-zh.md` as the self-contained user operation guide. Both now
+  use the ten dependency layouts; maintenance policy fixes their distinct
+  audience and content boundaries. Repository-wide documentation checks passed
+  for terminology, links, paths, layout coverage, and document relationships.
+
 - [x] Static credential scanning found no private keys or high-confidence token
   patterns in the current tree or reachable history. The tracked Git identity
   and existing historical author metadata are intentionally retained.
