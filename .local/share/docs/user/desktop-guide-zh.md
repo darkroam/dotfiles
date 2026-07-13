@@ -24,6 +24,8 @@
 
 在 Bash 或 Zsh 中输入 `c` 后按 Tab，会获得与 `git` 相同的子命令、选项、引用和路径补全。
 
+安装 `fzf` 后，Zsh 的 Tab 会使用 `fzf-tab` 交互式筛选候选；未安装时自动保留原生补全。
+
 Tmux 从 `${XDG_CONFIG_HOME:-$HOME/.config}/tmux/tmux.conf` 加载配置，个人覆盖写入同目录的
 `tmux.conf.local`。运行 `ref` 重新生成快捷方式后，`cft` 可打开该文件。
 

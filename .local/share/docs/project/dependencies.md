@@ -20,7 +20,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`）、procps（`pgrep`、`pkil
 | `jq`, Docker (`docker`) | Zsh `json()` 剪贴板格式化和已配置 Docker 插件/`attach()` 辅助命令 |
 | `unzip`, `unrar` | 使用相应归档类型时的归档预览辅助工具 |
 | `w3m` | `fzf_preview` 的可选 HTML 预览；缺失时仍可进行纯文本预览 |
-| Oh My Zsh; `zsh-autosuggestions`, `zsh-syntax-highlighting`, `zsh-history-substring-search`, `zsh-completions` | 已配置的 Zsh 框架和插件 |
+| Oh My Zsh；`zsh-autosuggestions`、`zsh-syntax-highlighting`、`zsh-history-substring-search`、`zsh-completions`、`fzf-tab` | 已配置的 Zsh 框架和插件；`fzf-tab` 仅在存在 `fzf` 时加载 |
 | Bash 补全包和 Git 补全脚本 | `c` 与 Git 的 Bash 完整补全；Zsh 使用其内建 Git 补全 |
 
 ## X11 桌面与输入

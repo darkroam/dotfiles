@@ -44,6 +44,9 @@ POSIX Shell；`profile.local` 和 `aliasrc.local` 是唯一预期的每机器扩
 `c` 的 Bash 与 Zsh 补全都映射至 Git 补全，并在补全期间设置 bare 仓库环境；不得为某个
 子命令保留比 Git 原生行为更窄的候选项。
 
+当 `fzf` 可用时，Zsh 通过 zplug 在 `compinit` 后加载 `fzf-tab`，以交互式选择补全候选；
+缺失 `fzf` 时不加载该插件，保留原生 Tab 行为。
+
 Tmux 的规范配置是 `.config/tmux/tmux.conf` 及其 `.local` 覆盖文件；不保留根目录
 `.tmux.conf` 兼容副本，以便 Tmux 按 XDG 路径加载配置。
 
