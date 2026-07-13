@@ -11,4 +11,4 @@ addr="$(curl -fsS --max-time 2 https://ifconfig.me)" || exit 0
 country="$(geoiplookup "$addr" | sed 's/.*, //')"
 [ -n "$country" ] || exit 0
 
-grep -F "flag: $country" "${XDG_DATA_HOME:-$HOME/.local/share}/larbs/emoji" | sed "s/flag: //;s/;.*//"
+grep -F "flag: $country" "${XDG_DATA_HOME:-$HOME/.local/share}/larbs/chars/emoji" | sed "s/flag: //;s/;.*//"

@@ -77,6 +77,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`）、procps（`pgrep`、`pkil
 | `pass`, `pass-otp`, `zbarimg`, `maim`, `xclip`, `dmenu` | 密码库、OTP、二维码、截图和菜单辅助工具 |
 | `timedatectl`、`chronyc` 或 `ntpdate` | OTP 时钟同步检查 |
 | WPS Office 和 `wps-office-prometheus.desktop` | 已配置办公 MIME 默认项 |
+| `clash-verge` 和 `Clash Verge.desktop` | `clash`、`clash-verge` URI 方案处理器；仅在使用相应链接时需要 |
 
 桌面入口会调用 `st`、`lfub`、`nsxiv`、`neomutt`、`zathura`、`nvim`、`rssadd`、
 `transadd` 和 `mpv`；使用相应入口时应安装对应命令。
