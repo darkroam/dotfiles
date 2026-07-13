@@ -244,21 +244,15 @@ _c_git() {
 	local GIT_DIR="$HOME/.cfg/"
 	local GIT_WORK_TREE="$HOME"
 	export GIT_DIR GIT_WORK_TREE
-	if (( CURRENT >= 2 )) && [[ $words[2] == diff ]]; then
-		local -a changed_files
-		changed_files=(${(f)"$(git diff --name-only --no-color)"})
-		(( ${#changed_files} )) && _describe -t changed-files 'changed file' changed_files
-		return
-	fi
 	saved_words=("${words[@]}")
 	words=(git "${saved_words[@]:1}")
 	_git
-	local status=$?
+	local completion_status=$?
 	words=("${saved_words[@]}")
 	CURRENT=$saved_current
-	return $status
+	return $completion_status
 }
-compdef _c_git c
+compdef _c_git c=git
 
 export NVM_DIR="$HOME/.config/nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm

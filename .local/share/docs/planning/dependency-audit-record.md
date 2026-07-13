@@ -11,7 +11,7 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | `.profile`、`.zprofile`、`.xinitrc`、`.xprofile`、`.asoundrc`、`.gtkrc-2.0` | 无；均为指向规范配置的兼容链接 | 不适用 | 不适用 | 不适用 | 不适用 | 通过；目标文件将在所属批次审计 |
 | `.gitignore` | 无 | 不适用 | 不适用 | 不适用 | 不适用 | 通过 |
-| `.bashrc` | `bash`、`stty`、`tput`、`git`、Bash/Git completion、`fzf`、`groff` | 必需或条件可选 | 已安装；补全文件可读；`~/.fzf.bash` 缺失但已有条件加载 | Shell、源代码管理与开发 | 待核对 | 已验证，`bash -n` 通过 |
+| `.bashrc`、`.config/zsh/.zshrc` | `bash`、`zsh`、`stty`、`tput`、`git`、Bash/Git completion、`fzf`、`groff` | 必需或条件可选 | 已安装；Bash 补全文件可读；`~/.fzf.bash` 缺失但已有条件加载 | Shell、源代码管理与开发 | 待核对 | 已验证，`bash -n`、`zsh -n` 通过；`c` 在两种 shell 中均映射到完整 Git 补全，`diff` 无专属候选限制 |
 | `.gitconfig` | `git`、`vim`、`less` | 必需 | 已安装；`git`、`less` 由 Debian 软件包提供，`vim` 可执行 | Shell、源代码管理与开发 | 待核对 | 已验证，待 `progs.csv` 全量迁移时核对说明 |
 | `.npmrc` | `npm` | 必需（使用 npm 时） | 已安装；当前由 NVM 提供，非 APT 软件包 | Shell、源代码管理与开发 | 待核对 | 已验证，待 `progs.csv` 全量迁移时核对说明 |
 | `.config/shell/profile` | `find`、`nvim`、`st`、`microsoft-edge`、`zathura`、`lfub`、`dwm`、`dwmblocks`、`highlight`、`shortcuts`、`dmenupass`、Qt GTK 平台主题 | 必需或已启用默认功能 | 已安装；Qt5/Qt6 GTK 平台主题由 `qt5-gtk-platformtheme`、`qt6-gtk-platformtheme` 提供 | Shell、源代码管理与开发；X11 桌面与输入；文件、文档与桌面处理 | 待核对 | 已验证，`sh -n` 通过 |

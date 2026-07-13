@@ -41,6 +41,9 @@ PipeWire、pipewire-pulse 和 WirePlumber 不在此链中，因为它们由 syst
 `aliasrc` 提供命令和包管理分支，`.zshrc` 承担 Zsh 专属框架和补全。共享辅助脚本优先
 POSIX Shell；`profile.local` 和 `aliasrc.local` 是唯一预期的每机器扩展点。
 
+`c` 的 Bash 与 Zsh 补全都映射至 Git 补全，并在补全期间设置 bare 仓库环境；不得为某个
+子命令保留比 Git 原生行为更窄的候选项。
+
 ## X11 桌面与输入
 
 负责会话启动、输入法选择、键盘重映射、合成器、Xresources 和 X11 辅助工具。`xprofile`

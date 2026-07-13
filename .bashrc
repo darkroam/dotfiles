@@ -15,22 +15,12 @@ if [ -r /usr/share/bash-completion/completions/git ]; then
 	. /usr/share/bash-completion/completions/git
 	_c_git_complete() {
 		local -a saved_words=("${COMP_WORDS[@]}")
-		local current_word=${COMP_WORDS[COMP_CWORD]}
 		local saved_cword=$COMP_CWORD
 		local saved_line=$COMP_LINE
 		local saved_point=$COMP_POINT
 		local GIT_DIR="$HOME/.cfg/"
 		local GIT_WORK_TREE="$HOME"
 		export GIT_DIR GIT_WORK_TREE
-		if [[ ${saved_words[1]} == diff ]]; then
-			local -a changed_files
-			mapfile -t changed_files < <(git diff --name-only --no-color)
-			COMPREPLY=()
-			for file in "${changed_files[@]}"; do
-				[[ $file == "$current_word"* ]] && COMPREPLY+=("$file")
-			done
-			return
-		fi
 		COMP_WORDS=(git "${saved_words[@]:1}")
 		COMP_LINE="git${saved_line#c}"
 		COMP_POINT=$(( saved_point + 2 ))
