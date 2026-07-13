@@ -84,16 +84,22 @@ unclutter，但不得启动 PipeWire 服务。`~/src/` 的 DWM、DWMBlocks、dme
 ## 显示、网络、挂载与系统控制
 
 负责显示选择、重映射、亮度、锁屏/会话操作、NetworkManager 入口和挂载工具。硬件特定
-路径必须条件化。`displayselect` 只负责交互式 RandR 布局；`xdisplay.sh` 在 X11 会话中读取
-盖子状态，普通执行时立即对齐布局，`--watch` 以盖子状态和 RandR 快照签名变化触发处理。
+路径必须条件化。`displayselect` 只负责交互式 RandR 布局；`xdisplay.sh` 无参数或使用
+`--apply` 时立即对齐布局，`--watch` 在 X11 会话中监测，`--status` 只读取并解释当前状态。
+每份原始 RandR 快照只由一个 POSIX awk 过程解析一次，形成固定 TSV 状态：输出连接、primary、
+geometry、宽高坐标、首个模式、active、stale 和 pending。geometry 支持正负坐标，active 不以
+`connected` 为前提，因此可以观察 innogpu 的 disconnected geometry。
+
+物理拓扑签名包含 lid 是否存在及其状态、所有输出的连接状态和首个模式，不包含 primary、坐标
+或缩放。阶段 2 的 `health` 只报告 stale、pending、无连接输出或基础 ready；完整自动布局收敛
+健康和退避仍属于阶段 4。
 盖子状态和 DRM sysfs 状态每 0.5 秒读取；RandR 稳定时每 1 秒读取一次，变化后在 5 秒快速窗口内每 0.5 秒读取，
 因此可覆盖启动时外屏或驱动延迟出现的情况，同时限制稳定期唤醒。`xrandr --query` 仅在
 DRM 状态变化、开盖、失败恢复和 60 秒兜底时主动探测硬件；合盖首次先使用缓存状态立即处理，
 其他检查和布局验证使用
 `xrandr --current`，避免持续 EDID 探测给驱动施压。合盖首次只消费缓存快照，成功后立即结束
 快速探测；失败或模式未就绪时，快速窗口每秒探测一次，之后每 5 秒重试。稳定布局的主动探测
-仅作 60 秒兜底。每轮只消费一份快照，布局结果验证成功后才提交由输出名和首个可用模式组成的
-拓扑签名。它不硬编码外接输出名，
+仅作 60 秒兜底。每轮只消费一份快照，布局结果验证成功后才提交物理拓扑签名。它不硬编码外接输出名，
 以内屏标准前缀识别内屏；非标准或驱动变化的名称必须由 `XDISPLAY_INTERNAL_OUTPUTS` 显式列出，无法识别时
 对多屏尝试镜像回退；失败时不得提交成功状态并应继续重试，但 RandR 不提供事务回滚，不能保证
 先前布局完全保留。合盖切换必须先准备外屏主输出，再关闭内屏，
@@ -101,9 +107,15 @@ DRM 状态变化、开盖、失败恢复和 60 秒兜底时主动探测硬件；
 注入未跟踪的本机命令，只允许在共享锁内执行有界短时尝试；后续重试由 watcher 调度，
 不能让辅助脚本的内部休眠长期阻塞通用布局流程。当前 innogpu 恢复命令写死 modeline 与设备候选，
 不属于可跨设备复用的仓库代码。
-watcher 使用单实例锁，并与 `displayselect` 共用布局锁；仓库跟踪的启动入口是 `xprofile`，
-布局已满足时不得重复 modeset。Android MTP 在 Debian 的 `simple-mtpfs` 接口尚无经过验证的兼容替代，
-不得未经接口测试替换。
+锁前缀由 UID 和规范化后的 X server `DISPLAY` 组成，`:0` 与 `:0.0` 共用锁，不同 X server
+互不影响。有效 `XDG_RUNTIME_DIR` 必须归当前 UID 所有、权限为 `0700`；fallback 使用绝对
+`TMPDIR` 或 `/tmp` 下归当前 UID 所有的非符号链接私有目录。watcher 使用有界单实例锁，并与
+`displayselect` 共用 apply lock；连续 6 次 RandR 快照失败后退出，HUP、INT、TERM 和正常退出
+只清理本代 generation。新 watcher 启动时清除无法验证的旧 manual marker；阶段 2 尚不写 marker。
+
+`XDISPLAY_TEST_MODE=1` 只允许测试把 `/proc` 和 `/sys` 观测根指向 fixture，默认路径不受影响。
+仓库跟踪的启动入口仍是 `xprofile`，布局已满足时不得重复 modeset。Android MTP 在 Debian 的
+`simple-mtpfs` 接口尚无经过验证的兼容替代，不得未经接口测试替换。
 
 innogpu 当前可能让已拔出的输出保持 `disconnected` 几何和扩展 framebuffer。单输出成功条件
 尚未覆盖这个状态，清理逻辑是活动 TODO；用户可见热切换验证通过不等于 RandR framebuffer

@@ -22,9 +22,100 @@ if ! command -v flock >/dev/null 2>&1; then
     exit 127
 fi
 
-runtime_dir=${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}
 user_id=${UID:-$(id -u)}
-exec 8>"$runtime_dir/xdisplay-$user_id.apply.lock"
+case "$user_id" in
+    ''|*[!0-9]*)
+        printf 'displayselect cannot determine a valid numeric user ID.\n' >&2
+        exit 1
+        ;;
+esac
+
+runtime_dir=
+if [ -n "${XDG_RUNTIME_DIR:-}" ] &&
+    [ -d "$XDG_RUNTIME_DIR" ] &&
+    [ ! -L "$XDG_RUNTIME_DIR" ] &&
+    [ -w "$XDG_RUNTIME_DIR" ] &&
+    [ -x "$XDG_RUNTIME_DIR" ] &&
+    [ "$(stat -c '%u' "$XDG_RUNTIME_DIR" 2>/dev/null)" = "$user_id" ] &&
+    [ "$(stat -c '%a' "$XDG_RUNTIME_DIR" 2>/dev/null)" = 700 ]; then
+    runtime_dir=$XDG_RUNTIME_DIR
+else
+    runtime_base=${TMPDIR:-/tmp}
+    case "$runtime_base" in
+        /*) ;;
+        *) runtime_base=/tmp ;;
+    esac
+    if [ ! -d "$runtime_base" ] ||
+        [ ! -w "$runtime_base" ] ||
+        [ ! -x "$runtime_base" ]; then
+        runtime_base=/tmp
+    fi
+    if [ ! -d "$runtime_base" ] ||
+        [ ! -w "$runtime_base" ] ||
+        [ ! -x "$runtime_base" ]; then
+        printf 'displayselect cannot find a usable runtime directory.\n' >&2
+        exit 1
+    fi
+
+    runtime_dir=$runtime_base/xdisplay-$user_id
+    if [ -L "$runtime_dir" ]; then
+        printf 'displayselect refuses a symlinked runtime directory.\n' >&2
+        exit 1
+    fi
+    if ! (umask 077 && mkdir -p "$runtime_dir"); then
+        printf 'displayselect cannot create a private runtime directory.\n' >&2
+        exit 1
+    fi
+    if [ -L "$runtime_dir" ] || [ ! -d "$runtime_dir" ]; then
+        printf 'displayselect refuses an unsafe runtime directory.\n' >&2
+        exit 1
+    fi
+    if [ "$(stat -c '%u' "$runtime_dir" 2>/dev/null)" != "$user_id" ]; then
+        printf 'displayselect runtime directory has the wrong owner.\n' >&2
+        exit 1
+    fi
+
+    if [ "$(stat -c '%a' "$runtime_dir" 2>/dev/null)" != 700 ]; then
+        chmod 700 "$runtime_dir" 2>/dev/null || {
+            printf 'displayselect cannot secure its private runtime directory.\n' >&2
+            exit 1
+        }
+    fi
+    if [ "$(stat -c '%u:%a' "$runtime_dir" 2>/dev/null)" != "$user_id:700" ]; then
+        printf 'displayselect private runtime directory validation failed.\n' >&2
+        exit 1
+    fi
+fi
+
+display_server=${DISPLAY:-}
+[ -n "$display_server" ] || display_server=unknown
+
+case "$display_server" in
+    *:*)
+        display_tail=${display_server##*:}
+        case "$display_tail" in
+            *.*)
+                display_number=${display_tail%.*}
+                screen_number=${display_tail##*.}
+                case "$display_number" in
+                    ''|*[!0-9]*) ;;
+                    *)
+                        case "$screen_number" in
+                            ''|*[!0-9]*) ;;
+                            *) display_server=${display_server%:*}:$display_number ;;
+                        esac
+                        ;;
+                esac
+                ;;
+        esac
+        ;;
+esac
+display_key=$(printf '%s' "$display_server" |
+    LC_ALL=C tr -c 'A-Za-z0-9_-' '_')
+[ -n "$display_key" ] || display_key=unknown
+lock_prefix=$runtime_dir/xdisplay-$user_id-$display_key
+
+exec 8>"$lock_prefix.apply.lock"
 if ! flock -w 30 8; then
     message="Another display configuration is still in progress."
     printf '%s\n' "$message" >&2

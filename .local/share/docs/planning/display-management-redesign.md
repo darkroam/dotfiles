@@ -1,7 +1,8 @@
 # X11 显示管理重构计划
 
-状态：阶段 1 隔离边界已完成，当前显示行为未改变；下一步进入阶段 2。代码回退基线为提交
-`a191c3c`，规划文档基线为 `ef104b6`。
+状态：阶段 2 实现、fixture 和当前 X11 会话验证已完成，自动布局策略未改变；提交后还需通过
+一次真实 X11 退出/重登，才进入阶段 3。代码回退基线为 `a191c3c`，规划文档基线为 `ef104b6`，
+隔离边界基线为 `9e0c292`。
 
 本文把本机已经验证的显示链路重构为可跨设备复用的方案，并规定实施顺序、隔离范围、
 验证门槛和恢复方法。当前运行事实仍以
@@ -188,12 +189,13 @@ ${XDG_CONFIG_HOME:-$HOME/.config}/x11/xdisplay-device.local
 
 ### 阶段 2：只重构观测能力
 
-- [ ] 一次解析 RandR 输出为统一状态，支持负坐标、stale 和 pending，不改变布局策略。
-- [ ] 新增 `--status`、`--apply`、按 X server `DISPLAY` 隔离的私有锁目录，以及绑定 watcher
-  generation 的 manual marker；保持无参数调用兼容。
-- [ ] 加入 X server 消失后的有界退出、signal trap 和失败退避，验证退出 X11 后重新登录。
-- [ ] 用保存的快照覆盖单屏、扩展、镜像、负坐标、模式延迟和 disconnected geometry。
-- [ ] 实机确认 watcher 与 `displayselect` 仍互斥后提交。
+- [x] 一次解析 RandR 输出为统一状态，支持负坐标、stale 和 pending，不改变布局策略。
+- [x] 新增 `--status`、`--apply`、按 X server `DISPLAY` 隔离的私有锁目录、watcher generation
+  和 manual marker 预留路径；保持无参数调用兼容。
+- [ ] 加入 X server 消失后的有界退出、signal trap 和失败退避；模拟交接及当前会话受控换代已通过，
+  仍待一次真实退出 X11 后重新登录。
+- [x] 用保存的快照覆盖单屏、扩展、镜像、负坐标、模式延迟和 disconnected geometry。
+- [x] 实机确认 watcher 与 `displayselect` 使用同一 apply lock；新 watcher 唯一运行且日志为空。
 
 ### 阶段 3：迁移设备个性化
 
