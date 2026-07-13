@@ -5,6 +5,21 @@ runtime dependency and preserve optional-dependency behavior.
 
 - [ ] Review remaining configuration files for obsolete settings and
   distribution-specific assumptions without removing trusted personal values.
+- [ ] Rewrite the architecture and desktop guide by the ten dependency layouts.
+  - Rewrite `project/architecture.md` for Codex/developers: canonical paths,
+    file and runtime relationships, layout ownership and hierarchy, design
+    decisions, extension boundaries, and maintenance constraints. Remove
+    user-operation, shortcut, and troubleshooting instruction from this file.
+  - Rewrite `user/desktop-guide-zh.md` for users: installation and first
+    session, daily operations, shortcuts, personal customization, and
+    troubleshooting within each layout. Remove implementation details that
+    are unnecessary for normal use.
+  - Add an explicit audience and content-boundary rule to
+    `project/maintenance-policy.md`, then verify that both documents are
+    self-contained, use the exact `dependencies.md` layout names, and do not
+    require the other document to be understood.
+  - Check README navigation, Markdown links, terminology, layout coverage,
+    and user-visible behavior before requesting review.
 - [ ] Test the interactive X11 paths after installing their dependencies:
   `nmtui`, `nsxiv`, calendar, brightness, screenshots, OTP, MTP/CIFS mounts,
   torrents, recording selection, and RSS download queue.

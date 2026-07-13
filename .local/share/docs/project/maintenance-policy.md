@@ -19,6 +19,10 @@
   convention without an explicit decision.
 - Review tracked content and Git history for credentials and personal data
   before a public push.
+- Every change below `.local/share/docs/` requires a repository-wide document
+  consistency review before commit. Verify terminology is uniform, internal
+  links resolve, documented directory structure matches tracked paths, and
+  relationships and responsibilities between documents remain valid.
 - Inspect and discuss a behavior change before applying it; verify and commit
   only after approval.
 
