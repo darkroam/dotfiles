@@ -87,25 +87,35 @@ unclutter，但不得启动 PipeWire 服务。`~/src/` 的 DWM、DWMBlocks、dme
 路径必须条件化。`displayselect` 只负责交互式 RandR 布局；`xdisplay.sh` 无参数或使用
 `--apply` 时立即对齐布局，`--watch` 在 X11 会话中监测，`--status` 只读取并解释当前状态。
 每份原始 RandR 快照只由一个 POSIX awk 过程解析一次，形成固定 TSV 状态：输出连接、primary、
-geometry、宽高坐标、首个模式、active、stale 和 pending。geometry 支持正负坐标，active 不以
-`connected` 为前提，因此可以观察 innogpu 的 disconnected geometry。
+geometry、宽高坐标、首个模式、current/preferred/target 模式及刷新率、模式数量、模式能力签名、
+active、stale 和 pending。geometry 支持正负坐标，active 不以 `connected` 为前提，因此可以观察
+innogpu 的 disconnected geometry。模式能力签名保留模式、刷新率和 preferred `+`，忽略表示
+当前模式的 `*`；这样能力变化会触发重新规划，而一次正常 modeset 不会制造签名循环。
 
-物理拓扑签名包含 lid 是否存在及其状态、所有输出的连接状态和首个模式，不包含 primary、坐标
-或缩放。阶段 2 的 `health` 只报告 stale、pending、无连接输出或基础 ready；完整自动布局收敛
-健康和退避仍属于阶段 4。
-盖子状态和 DRM sysfs 状态每 0.5 秒读取；RandR 稳定时每 1 秒读取一次，变化后进入最多 5 秒的
-快速窗口。当前阶段在首次布局成功且没有 pending 输出时提前结束该窗口，因此只能覆盖布局前的
-模式延迟，尚不能覆盖布局成功后才变化的模式能力；阶段 4 将补充 current/preferred 模式和模式
-数量观测。`xrandr --query` 仅在
-DRM 状态变化、开盖、失败恢复和 60 秒兜底时主动探测硬件；合盖首次先使用缓存状态立即处理，
-其他检查和布局验证使用
-`xrandr --current`，避免持续 EDID 探测给驱动施压。合盖首次只消费缓存快照，成功后立即结束
-快速探测；失败或模式未就绪时，快速窗口每秒探测一次，之后每 5 秒重试。稳定布局的主动探测
-仅作 60 秒兜底。每轮只消费一份快照，布局结果验证成功后才提交物理拓扑签名。它不硬编码外接输出名，
-以内屏标准前缀识别内屏；非标准或驱动变化的名称必须由 `XDISPLAY_INTERNAL_OUTPUTS` 显式列出，无法识别时
-对多屏尝试镜像回退；失败时不得提交成功状态并应继续重试，但 RandR 不提供事务回滚，不能保证
-先前布局完全保留。合盖切换必须先准备外屏主输出，再关闭内屏，
-已激活输出不得无条件重跑 `--auto`。硬件专用内屏恢复通过 `XDISPLAY_RESTORE_COMMAND`
+物理拓扑签名包含 lid 是否存在及其状态，以及所有输出的连接状态、首个模式和完整模式能力签名；
+它不包含 current `*`、primary、坐标或缩放。基础 `health` 独立报告 stale、pending、无连接输出
+或 ready；stale 和能力签名即使在连接状态不变时变化，也会触发有限重试。完整的自动布局
+primary/geometry 健康检查必须与 manual marker 一起实现，否则会覆盖合法的 Arandr 手动布局，
+这部分仍属于阶段 4 的后续工作。
+
+盖子状态和 DRM sysfs 状态每 0.5 秒读取；RandR 稳定时每 1 秒读取一次，变化后保留约 5 秒的
+快速窗口。布局成功不会提前结束该窗口，期间每秒用 `xrandr --query` 捕捉扩展坞稍后出现的
+preferred、刷新率或新增模式；稳定期主动探测仍只作约 60 秒兜底，其余检查和布局验证使用
+`xrandr --current`，避免持续 EDID 探测给驱动施压。相同拓扑和健康状态下的失败写入最多连续
+尝试 3 次、间隔约 5 秒，之后只在低频主动探测时恢复尝试；状态变化会重置退避。
+
+目标模式优先采用 RandR 标记的首个 preferred 模式及刷新率；没有 preferred 时采用模式表首项
+及其首个刷新率。单屏、开盖扩展、合盖外屏和无法识别内屏时的镜像回退都显式应用目标模式，
+不再委托 `--auto` 猜测。模式能力缺失时保留已经 active 的输出，尚未 active 的输出保持 pending，
+不根据 EDID 或设备名称猜分辨率。
+
+应用布局前会显式关闭 `disconnected + geometry` 的 stale 输出并重读验证；若此时没有 connected
+活屏，则先按盖子策略激活并验证替代输出，合盖时只允许外屏作为替代，激活失败就保留旧
+framebuffer 等待重试。每轮只消费一份快照，布局和 stale-free 结果验证成功后才提交状态。脚本
+不硬编码外接输出名，以内屏标准前缀识别内屏；非标准或驱动变化的名称必须由
+`XDISPLAY_INTERNAL_OUTPUTS` 显式列出，无法识别时对多屏尝试镜像回退；失败时不得提交成功状态并
+应继续重试，但 RandR 不提供事务回滚，不能保证先前布局完全保留。硬件专用内屏恢复通过
+`XDISPLAY_RESTORE_COMMAND`
 注入未跟踪的本机命令，只允许在共享锁内执行有界短时尝试；后续重试由 watcher 调度，
 不能让辅助脚本的内部休眠长期阻塞通用布局流程。当前 innogpu 恢复命令写死 modeline 与设备候选，
 不属于可跨设备复用的仓库代码。
@@ -119,9 +129,9 @@ DRM 状态变化、开盖、失败恢复和 60 秒兜底时主动探测硬件；
 仓库跟踪的启动入口仍是 `xprofile`，布局已满足时不得重复 modeset。Android MTP 在 Debian 的
 `simple-mtpfs` 接口尚无经过验证的兼容替代，不得未经接口测试替换。
 
-innogpu 当前可能让已拔出的输出保持 `disconnected` 几何和扩展 framebuffer。单输出成功条件
-尚未覆盖这个状态，清理逻辑是活动 TODO；用户可见热切换验证通过不等于 RandR framebuffer
-已经完全收缩。
+本机已验证 innogpu 会让已拔出的输出短暂保持 `disconnected` 几何；当前 stale 清理会显式关闭
+该输出，并要求 framebuffer 最终与有效输出包围盒一致。热插拔验证仍必须同时检查 connection、
+geometry、实际模式和 framebuffer，不能只以物理屏幕已经切换作为成功条件。
 
 自动布局的收敛还包括让根 framebuffer 匹配有效输出包围盒，不能长期留下没有物理输出覆盖的
 根窗口区域。`health=ready`、输出 geometry 和 framebuffer 已正确，只能证明 X11 控制面完成，

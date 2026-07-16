@@ -16,10 +16,12 @@
 直接执行 `xrandr`。本机已在热插入和拔出外接显示器时验证用户可见的切换行为。
 `displayselect` 是唯一的交互式入口，两者通过同一把锁串行修改 RandR 布局。
 
-复查同时发现，拔出后 innogpu 可能把 HDMI 报为 `disconnected`，却继续保留其几何和扩展后的
-framebuffer；当前脚本尚未清理这种残留状态。因此物理热切换已可用，但 RandR 状态不能称为
-完全收敛。旧 udev 规则、它调用的 hybrid 脚本和不参与加载的 Xorg 历史备份已移入临时隔离
-目录，不再留在活动路径。旧的 `.local/share/doc/xdisplay.md` 说明已被本报告取代。
+2026-07-16 的复查已经修复两类独立问题：innogpu 把已拔 HDMI 报为 `disconnected` 后仍保留
+geometry/framebuffer，以及扩展坞路径缺少 preferred 时 `--auto` 选择了较低模式。watcher 现在
+显式清理 stale 输出、跟踪完整模式能力并应用 RandR 实际提供的目标模式。本机已完成开盖拔插、
+合盖、开盖恢复和开盖后再次拔出的完整链路，RandR 状态与物理显示均正确。旧 udev 规则、它调用的
+hybrid 脚本和不参与加载的 Xorg 历史备份已移入临时隔离目录，不再留在活动路径；旧的
+`.local/share/doc/xdisplay.md` 说明已被本报告取代。
 
 ## 本机硬件与内核层
 
@@ -80,24 +82,28 @@ systemd-logind -> Xorg 会话/DRM fd 授权 + 合盖挂起策略
 | 事件 | watcher 的处理 |
 | --- | --- |
 | X11 会话启动 | 读取完整 RandR 状态，按当前连接输出收敛布局 |
-| 热插入或拔出 | DRM 状态变化触发快速检查窗口；模式就绪后自动扩展输出 |
+| 热插入或拔出 | DRM 状态变化触发快速检查窗口；显式关闭断开后仍有 geometry 的输出，模式能力稳定后自动扩展 |
 | 合盖且有外屏 | 首次使用缓存 RandR 状态，先确保外屏可用并位于 `0x0`、设为主屏，再关闭内屏 |
 | 开盖 | 主动探测内屏模式，恢复内屏为主屏，并将外屏依次置于右侧 |
 | 只有一个可用输出 | 将其启用为主屏并定位到 `0x0`；合盖且只剩内屏时不强制 modeset |
-| 无法识别内屏的多屏 | 尝试镜像；失败时不记录成功并继续重试。`xrandr` 不提供事务回滚，可能已经部分应用布局 |
+| 无法识别内屏的多屏 | 以各输出的明确目标模式尝试镜像；失败时不记录成功并继续重试。`xrandr` 不提供事务回滚，可能已经部分应用布局 |
 | 手动布局 | `Mod+F3` 启动 `displayselect`，可选单屏、扩展、镜像或 Arandr；脚本自动完成的前三种路径会刷新壁纸和键盘映射并重启 Dunst，Arandr 分支退出时只释放锁 |
 
-稳定期 watcher 每 1 秒读取 `xrandr --current`；事件后的快速窗口以 0.5 秒间隔检查，但首次布局
-成功且没有 pending 输出时，当前阶段会提前结束该窗口。
-`xrandr --query` 只用于 DRM 变化、开盖、失败恢复、待就绪输出和 60 秒兜底，避免持续 EDID
-探测拖慢 innogpu/外接显示器。布局成功后脚本验证主屏、坐标、激活状态和扩展关系，避免
-对已经正确的输出重复执行 `--auto`。
+稳定期 watcher 每 1 秒读取 `xrandr --current`；事件后的快速窗口以 0.5 秒间隔检查约 5 秒，
+布局成功后也不会提前结束。窗口内每秒执行一次 `xrandr --query`，用于捕捉扩展坞稍后才出现的
+模式、刷新率或 preferred；稳定期只保留约 60 秒的主动探测兜底。相同拓扑/health 的失败写入
+最多连续尝试 3 次、间隔约 5 秒，之后只在低频 query 时恢复尝试，避免错误命令高频循环。
 
-每份 RandR 原始文本只解析一次，并保留输出连接、primary、geometry、正负坐标、可用模式、
-active、stale 和 pending。`xdisplay.sh --status` 不执行恢复或布局命令，可显示解析结果、当前
-策略、基础 health、物理拓扑签名、锁路径、watcher generation、manual marker 状态和当前旧式
-设备注入。连续 6 次快照失败后 watcher 退出；新的同 X server watcher 最多等待 8 秒接管锁。
-manual marker 目前只预留路径，尚不保护手动布局的换代竞争，该功能仍在阶段 4。
+每份 RandR 原始文本只解析一次，并保留输出连接、primary、geometry、正负坐标、首个模式、
+current/preferred/target 模式及刷新率、模式数量、完整能力签名、active、stale 和 pending。
+目标模式优先使用 preferred；没有 preferred 时显式使用模式表首项及其首个刷新率，不从 EDID
+猜测，也不再让 `--auto` 决定。布局成功后脚本验证主屏、坐标、激活状态、目标模式、扩展关系和
+stale-free 状态。
+
+`xdisplay.sh --status` 不执行恢复或布局命令，可显示上述解析结果、当前策略、基础 health、物理
+拓扑签名、锁路径、watcher generation、manual marker 状态和当前旧式设备注入。连续 6 次快照
+失败后 watcher 退出；新的同 X server watcher 最多等待 8 秒接管锁。manual marker 目前只预留
+路径，尚不保护手动布局的换代竞争，该功能仍在阶段 4。
 
 DWM 的 `configurenotify()` 在根窗口尺寸改变时调用 `updategeom()`；其 Xinerama 路径重新读取
 所有屏幕几何、更新状态栏并重新排列窗口。因此 RandR 完成布局后，DWM 不需要单独重启。
@@ -156,6 +162,36 @@ enabled、active (exited)、success，Xorg/DWM 和唯一的 `xdisplay.sh --watch
 watch lock，generation 与唯一 watcher 一致，完成真实会话换代验证。该结果只验证 watcher 生命周期，
 不能替代不同外屏的冷启动模式和物理出光测试。
 
+## 2026-07-16 stale 与模式能力修复
+
+现场复现确认两个问题互相独立：
+
+1. 从直连切换到扩展坞或拔屏后，`HDMI-1`/`HDMI-2` 可能已经是 `disconnected`，却仍带有旧
+   geometry 并继续扩大 framebuffer。只按 connected 输出重新布局不会清掉该 CRTC。
+2. 同一 Dell 外屏直连时的 EDID 产品码为 `0x4277`，RandR 提供 `3840x2160@60`；经过当前扩展坞
+   时产品码为 `0x4279`，RandR 最高只提供 `2560x1440` 且没有 preferred。此时 `--auto` 选择了
+   `2048x1280`，不能把直连能力硬套到扩展坞路径，也不能从 EDID 猜测未暴露的模式。
+
+Xorg 日志还显示，扩展坞完整模式能力比首次 framebuffer 收敛晚约 1.6 秒出现。修复因此同时包含：
+
+- 显式关闭所有 `disconnected + geometry` 输出并重读验证；没有 connected 活屏时，先按盖子策略
+  激活并验证替代输出，失败则保留旧 framebuffer 等待退避重试；
+- 解析 current/preferred/target 模式、刷新率、模式数量和完整能力签名；签名保留 preferred `+`
+  但忽略 current `*`，既能观察迟到能力，又不会因正常 modeset 自激循环；
+- 有 preferred 时使用首个 preferred，没有时使用模式表首项及其首个刷新率；单屏、扩展、合盖和
+  镜像路径均显式设置模式，不再依赖 `--auto`；
+- 成功后继续约 5 秒快速探测；相同失败状态最多写入 3 次，之后只在低频 query 时恢复尝试。
+
+隔离目录中的 fixture 最终通过状态/锁 `11/11`、watcher 生命周期 `4/4` 和显示回归 `11/11`。
+显示回归覆盖 stale 清理、无安全输出、替代输出激活失败、退避、connector 切换、无 preferred、
+首模式不变但 preferred/刷新率变化、能力迟到和模式缺失。
+
+真实 X11 会话随后按“扩展坞拔出 -> 重新接入 -> 合盖 -> 开盖 -> 再次拔出”执行完整链路：外屏
+自动使用 `2560x1440@59.95`，不再落到 `2048x1280`；每次拔出后 HDMI 均无 geometry，framebuffer
+分别收敛为双屏 `5120x1600`、合盖单外屏 `2560x1440` 和开盖单内屏 `2560x1600`，全过程
+`stale_outputs=none`、`pending_outputs=none`。为避免执行工具回收普通后台子进程，本轮仅用无落盘
+unit 文件的 `systemd-run --user --collect` 临时托管新 watcher；永久启动入口和所有权仍是 `xprofile`。
+
 ## 2026-07-16 冷启动与合盖延迟复核
 
 本次整机重启使用了另一块原生 `1920x1080` 外屏，不能用它的成功替代 2026-07-14 原问题外屏。
@@ -183,15 +219,17 @@ Xorg 在 watcher 启动前选择 spanning desktop：内屏以 `2560x1600` 启动
 
 ## 验证结果与维护约束
 
-- 已完成：本机 X11 会话中的外接显示器热插入、拔出和用户可见布局切换。
+- 已完成：本机 X11 会话中的扩展坞外屏热插入、拔出、合盖、开盖及开盖后再次拔出的完整链路；
+  disconnected 输出不再保留 geometry，framebuffer 会收敛到有效输出包围盒。
 - 已完成：内屏候选识别、开合盖布局、手动 `displayselect` 与 watcher 的共享锁行为。
-- 已发现：拔出后可能残留带几何的 disconnected 输出和扩展 framebuffer；清理逻辑单独列入 TODO。
+- 已完成：扩展坞没有 preferred 时按 RandR 模式表显式选择 `2560x1440@59.95`，并用短时 settling
+  捕捉完整能力迟到；不再由 `--auto` 误选 `2048x1280`。
 - 已确认：旧 udev 规则不会匹配本机 DRM 属性；现已从活动路径隔离并 reload rules。
 - 已完成：统一 RandR 状态解析、`--status`、按 X server 加锁、watcher generation、失败退出和
   当前会话受控交接；2026-07-16 整机重启后真实 X11 会话换代验证通过。
-- 已测试：另一块外屏预接冷启动可以出图，开盖物理出光和合盖切换正常，但外屏原生模式未自动
-  收敛而由现场修正，因此该冷启动场景尚未通过；原问题外屏的 fuzzy 初始模式和内屏黑屏也仍需
-  单独复测。
+- 已测试：另一块外屏预接冷启动可以出图，开盖物理出光和合盖切换正常，但该次外屏原生模式由
+  现场修正，发生在本次能力签名修复前，因此仍不能把该冷启动场景追记为自动通过；不同外屏、
+  不同扩展坞的预接冷启动仍需单独复测。
 - 已记录：一次 B 组结果初步支持本机合盖可见延迟来自 framebuffer 重建后的显示链路重新同步；
   通用策略继续收敛 framebuffer，保留旧尺寸只用于持锁 A/B 诊断。
 - 新设备只应配置必要的 `XDISPLAY_INTERNAL_OUTPUTS` 候选；外接输出保持动态识别。

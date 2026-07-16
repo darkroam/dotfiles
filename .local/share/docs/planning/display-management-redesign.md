@@ -1,8 +1,9 @@
 # X11 显示管理重构计划
 
-状态：阶段 2 实现、fixture、当前会话和 2026-07-16 真实 X11 换代验证均已完成，自动布局策略
-未改变；阶段 3 尚未开始。代码回退基线为 `a191c3c`，规划文档基线为 `ef104b6`，隔离边界基线
-为 `9e0c292`，阶段 2 实现基线为 `0b40ac7`。
+状态：阶段 2 实现、fixture、当前会话和 2026-07-16 真实 X11 换代验证均已完成。现场缺陷促使
+阶段 4 中的 stale 清理、模式能力观测、显式目标模式、settling 和有界退避提前完成并通过实机
+链路；阶段 3 和阶段 4 的其余项目尚未开始。代码回退基线为 `a191c3c`，规划文档基线为
+`ef104b6`，隔离边界基线为 `9e0c292`，阶段 2 实现基线为 `0b40ac7`。
 
 本文把本机已经验证的显示链路重构为可跨设备复用的方案，并规定实施顺序、隔离范围、
 验证门槛和恢复方法。当前运行事实仍以
@@ -56,17 +57,22 @@ systemd-logind -> 合盖挂起/忽略策略，不负责 RandR 布局
 | `connection` | RandR 报告的 `connected` 或 `disconnected` | 表示当前物理连接判断 |
 | `geometry` | `<宽>x<高><+|->x<+|->y`；必须支持负坐标 | 表示输出仍占用 framebuffer |
 | `active` | 存在 geometry，不要求输出仍为 `connected` | 捕获 innogpu 的断开残留 |
-| `mode_ready` | `connected` 且存在至少一个可用模式 | 判断是否可以安全执行 `--auto` |
+| `mode_ready` | `connected` 且存在至少一个可用模式 | 判断是否存在可显式应用的目标模式 |
 | `stale` | `disconnected` 但仍存在 geometry | 必须显式加入待关闭输出 |
 | `pending` | `connected`、未激活且模式尚未就绪 | 保留安全活屏并有限重试 |
+| `current_mode/current_rate` | 带 current `*` 的实际模式及刷新率 | 判断当前输出是否已经处于目标模式 |
+| `preferred_mode/preferred_rate` | 首个带 preferred `+` 的模式及刷新率 | 有 preferred 时作为目标 |
+| `target_mode/target_rate` | preferred，缺失时回退模式表首项及首个刷新率 | 所有自动布局路径显式应用，不依赖 `--auto` |
+| `mode_count/mode_signature` | 模式数量，以及模式、刷新率和 preferred 的完整签名 | 捕捉扩展坞迟到的能力变化；签名忽略 current `*` |
 
-物理拓扑签名只包含 lid 是否存在及其状态、输出连接状态和首个可用模式，不包含 primary、坐标
-或缩放。它只用于判断硬件是否变化，不能单独表示布局已经收敛，也不能单独保护手动布局。
+当前物理拓扑签名包含 lid 是否存在及其状态、输出连接状态、首个可用模式和完整模式能力签名，
+不包含 current `*`、primary、坐标或缩放。它既能捕捉连接变化，也能捕捉首模式不变但 preferred
+或刷新率改变的情况；仍不能单独表示布局已经收敛，也不能单独保护手动布局。
 
-watcher 每次读取快照后还要独立检查收敛健康：是否存在 stale 输出、pending 是否需要继续探测、
-期望输出是否 active，以及自动布局的 primary 和几何是否满足计划。即使物理签名没有变化，只要
-健康检查失败也必须按退避计划重试；达到单拓扑重试上限后只保留低频诊断探测，避免失败命令
-无限高频循环。物理拓扑变化后重置退避和错误状态。
+watcher 已把基础收敛健康与拓扑独立比较，检查 stale、pending 和无连接输出。相同拓扑/health
+的失败写入最多连续尝试 3 次、间隔约 5 秒，达到上限后只在低频 query 时恢复尝试；拓扑、能力
+或 health 变化会重置退避。期望输出 active、自动布局 primary/geometry 等完整健康仍须与 manual
+marker 同步实现，否则会覆盖合法的手动布局。
 
 每次自动规划必须同时得到 `desired_outputs` 和 `off_outputs`。后者是所有已知输出减去期望输出，
 包括 `disconnected` 但仍有 geometry 的输出；不能只配置期望输出后提前返回。
@@ -208,13 +214,19 @@ ${XDG_CONFIG_HOME:-$HOME/.config}/x11/xdisplay-device.local
 ### 阶段 4：统一布局收敛
 
 - [ ] 由同一规划器生成 desired/off 输出，所有非期望输出显式 `--off`。
-- [ ] 修正单屏捷径，关闭 `disconnected + geometry` 残留并重读验证。
-- [ ] 独立执行收敛健康检查，使物理签名提交后才延迟出现的 stale geometry 仍会触发退避重试。
-- [ ] 解析 current/preferred 模式、刷新率和模式数量；启动或能力签名变化后保留短时 settling
+- [x] 修正单屏捷径，关闭 `disconnected + geometry` 残留并重读验证；没有 connected 活屏时
+  先按盖子策略激活并验证替代输出。
+- [x] 独立比较基础 health 与拓扑，为 stale/pending 失败加入 3 次有界退避和低频恢复。
+- [ ] 在 manual marker 实现后补齐期望 active、primary、geometry 和 framebuffer 的完整健康检查。
+- [x] 解析 current/preferred 模式、刷新率、模式数量和完整能力签名；启动或能力签名变化后保留短时 settling
   探测，并让已激活但模式错误的输出在每个能力周期最多规范化一次。
+- [x] 单屏、开盖扩展、合盖外屏和现有镜像回退均显式应用 preferred 或模式表首项目标，不再依赖
+  `--auto`；这不等于已经实现最高共同镜像模式。
 - [ ] 实现有盖子/无盖子设备的不同多屏回退，并保持合盖前先验证外屏。
 - [ ] 让 `displayselect` 通过 `--manual-run` 写入手动所有权 marker，取消和失败路径不得写入。
-- [ ] 通过热插拔、开合盖、延迟外屏和手动布局矩阵后提交。
+- [x] 通过状态/锁 `11/11`、watcher 生命周期 `4/4`、显示回归 `11/11`，以及扩展坞拔出、接回、
+  合盖、开盖和再次拔出的实机链路。
+- [ ] 完成不同外屏预接冷启动、多个外屏、无盖桌面、设备适配器和手动 marker 的剩余矩阵。
 
 ### 阶段 5：受控 framebuffer 收缩
 
@@ -225,6 +237,9 @@ ${XDG_CONFIG_HOME:-$HOME/.config}/x11/xdisplay-device.local
 - [x] 自动布局最终仍把 framebuffer 收敛到有效输出包围盒；长期保留旧 framebuffer 不进入共享
   配置或设备适配器，只允许作为持有共享布局锁的临时 A/B 诊断。
 - [ ] 单独实机验证并提交，不与状态解析或设备迁移合并。
+
+本次 stale 输出使用普通 `--output ... --off` 后，Xorg 已自动把 framebuffer 收缩到有效输出
+包围盒，因此当前缺陷不需要新增显式 `--fb` 路径；上述条件项只在以后仍观察到残留时恢复。
 
 ### 阶段 6：系统策略整理
 
@@ -254,6 +269,7 @@ ${XDG_CONFIG_HOME:-$HOME/.config}/x11/xdisplay-device.local
 | 接电、合盖后开盖 | 内屏快速恢复并成为 primary，外屏重新扩展 |
 | 合盖冷启动且外屏枚举延迟 | 不先关闭最后一个安全活屏，外屏就绪后再收敛 |
 | 外屏预接冷启动的不同模式集合 | 分别覆盖 EDID/preferred 正常、延迟和缺失；保存 Xorg 初始策略、实际模式和物理出光，不能用另一块外屏的成功替代 |
+| 同一外屏在直连与扩展坞间切换 | 旧 connector 不再保留 geometry；只采用新路径实际暴露的模式和 preferred，不复用直连 EDID 能力 |
 | 多个外屏 | 全部按确定顺序扩展；拔出任意一个后重新收敛 |
 | `displayselect`/Arandr 手动布局 | 与 watcher 不并发；物理拓扑未变时不被立即覆盖 |
 | 热插后 watcher 尚未收敛即手动布局 | 成功选择写入 manual marker，释放锁后旧自动计划不覆盖它 |

@@ -11,6 +11,10 @@ PENDING_PROBE_TICKS=10
 HARDWARE_PROBE_TICKS=120
 STABLE_POLL_TICKS=1
 SNAPSHOT_FAILURE_LIMIT=6
+# Bound layout mutations per unchanged topology/health state. Hardware queries
+# continue at the normal low-frequency interval after this limit is reached.
+APPLY_FAILURE_LIMIT=3
+APPLY_RETRY_TICKS=10
 # A stable watcher attempts a snapshot once per second. This wait therefore
 # outlasts the old watcher's consecutive-failure exit window.
 WATCH_LOCK_WAIT=8
@@ -204,7 +208,7 @@ drm_signature() {
 }
 
 read_snapshot() {
-    XRANDR_STATE=$(xrandr "${1:---current}" 2>/dev/null) || return 1
+    XRANDR_STATE=$(LC_ALL=C xrandr "${1:---current}" 2>/dev/null) || return 1
 
     # Every raw RandR snapshot is parsed exactly once. Later queries consume
     # this stable TSV model instead of interpreting xrandr's prose repeatedly.
@@ -274,6 +278,11 @@ read_snapshot() {
                 width[count] = height[count] = "-"
                 x[count] = y[count] = "-"
                 first_mode[count] = "-"
+                first_rate[count] = "-"
+                current_mode[count] = current_rate[count] = "-"
+                preferred_mode[count] = preferred_rate[count] = "-"
+                mode_count[count] = 0
+                mode_signature[count] = ""
                 for (i = 3; i <= NF; i++) {
                     if ($i == "primary")
                         primary[count] = 1
@@ -289,8 +298,67 @@ read_snapshot() {
             }
 
             selected && connection[selected] == "connected" &&
-                $1 ~ /^[0-9]+x[0-9]+/ && first_mode[selected] == "-" {
-                first_mode[selected] = $1
+                $1 ~ /^[0-9]+x[0-9]+/ {
+                output_index = selected
+                mode = $1
+                is_first_mode = (first_mode[output_index] == "-")
+                if (is_first_mode)
+                    first_mode[output_index] = mode
+                mode_count[output_index]++
+                mode_entry = mode "@"
+                separator = ""
+                last_rate = ""
+                last_rate_preferred = 0
+
+                for (i = 2; i <= NF; i++) {
+                    token = $i
+                    if (token ~ /^[*+]+$/ && last_rate != "") {
+                        is_current = (token ~ /[*]/)
+                        is_preferred = (token ~ /[+]/)
+                        if (is_preferred && !last_rate_preferred)
+                            mode_entry = mode_entry "+"
+                        if (is_current && current_mode[output_index] == "-") {
+                            current_mode[output_index] = mode
+                            current_rate[output_index] = last_rate
+                        }
+                        if (is_preferred && preferred_mode[output_index] == "-") {
+                            preferred_mode[output_index] = mode
+                            preferred_rate[output_index] = last_rate
+                        }
+                        if (is_preferred)
+                            last_rate_preferred = 1
+                        continue
+                    }
+                    if (token !~ /^[0-9]+([.][0-9]+)?[*+]*$/)
+                        continue
+                    is_current = (token ~ /[*]/)
+                    is_preferred = (token ~ /[+]/)
+                    rate = token
+                    gsub(/[*+]/, "", rate)
+                    if (rate !~ /^[0-9]+([.][0-9]+)?$/)
+                        continue
+
+                    if (is_first_mode && first_rate[output_index] == "-")
+                        first_rate[output_index] = rate
+                    mode_entry = mode_entry separator rate
+                    if (is_preferred)
+                        mode_entry = mode_entry "+"
+                    separator = ","
+                    last_rate = rate
+                    last_rate_preferred = is_preferred
+
+                    if (is_current && current_mode[output_index] == "-") {
+                        current_mode[output_index] = mode
+                        current_rate[output_index] = rate
+                    }
+                    if (is_preferred && preferred_mode[output_index] == "-") {
+                        preferred_mode[output_index] = mode
+                        preferred_rate[output_index] = rate
+                    }
+                }
+                mode_signature[output_index] = mode_signature[output_index] \
+                    mode_entry ";"
+                next
             }
 
             END {
@@ -305,9 +373,21 @@ read_snapshot() {
                     stale = (connection[i] == "disconnected" && active)
                     pending = (connection[i] == "connected" && !active &&
                         !mode_ready)
+                    if (preferred_mode[i] != "-") {
+                        target_mode = preferred_mode[i]
+                        target_rate = preferred_rate[i]
+                    } else {
+                        target_mode = first_mode[i]
+                        target_rate = first_rate[i]
+                    }
+                    if (mode_signature[i] == "")
+                        mode_signature[i] = "-"
                     print "output", name[i], connection[i], primary[i],
                         geometry[i], width[i], height[i], x[i], y[i],
-                        mode_ready, first_mode[i], active, stale, pending
+                        mode_ready, first_mode[i], active, stale, pending,
+                        current_mode[i], current_rate[i], preferred_mode[i],
+                        preferred_rate[i], target_mode, target_rate,
+                        mode_count[i], mode_signature[i]
                 }
             }
         ') || return 1
@@ -368,10 +448,49 @@ output_ready() {
         '
 }
 
+output_target_mode() {
+    printf '%s\n' "$XRANDR_PARSED" |
+        awk -F '\t' -v output="$1" '
+            $1 == "output" && $2 == output { print $19; found = 1; exit }
+            END { if (!found) print "-" }
+        '
+}
+
+output_target_rate() {
+    printf '%s\n' "$XRANDR_PARSED" |
+        awk -F '\t' -v output="$1" '
+            $1 == "output" && $2 == output { print $20; found = 1; exit }
+            END { if (!found) print "-" }
+        '
+}
+
+output_at_target_mode() {
+    printf '%s\n' "$XRANDR_PARSED" |
+        awk -F '\t' -v output="$1" '
+            $1 == "output" && $2 == output && $12 == 1 {
+                if ($19 == "-")
+                    found = 1
+                else if ($15 == $19 && ($20 == "-" || $16 == $20))
+                    found = 1
+            }
+            END { exit !found }
+        '
+}
+
+verify_target_modes() {
+    old_ifs=$IFS
+    IFS='
+'
+    for output in $1; do
+        output_at_target_mode "$output" || { IFS=$old_ifs; return 1; }
+    done
+    IFS=$old_ifs
+}
+
 topology_signature() {
     printf '%s\n' "$XRANDR_PARSED" |
         awk -F '\t' '
-            $1 == "output" { printf "%s:%s:%s,", $2, $3, $11 }
+            $1 == "output" { printf "%s:%s:%s:%s,", $2, $3, $11, $22 }
         '
 }
 
@@ -456,6 +575,84 @@ snapshot_has_pending_outputs() {
         '
 }
 
+snapshot_has_stale_outputs() {
+    printf '%s\n' "$XRANDR_PARSED" |
+        awk -F '\t' '
+            $1 == "output" && $13 == 1 { found = 1 }
+            END { exit !found }
+        '
+}
+
+snapshot_health() {
+    lid=$1
+    if snapshot_has_stale_outputs; then
+        printf '%s\n' stale
+    elif snapshot_has_pending_outputs "$lid"; then
+        printf '%s\n' pending
+    elif [ -z "$(connected_outputs)" ]; then
+        printf '%s\n' no-connected-output
+    else
+        printf '%s\n' ready
+    fi
+}
+
+clear_stale_outputs() {
+    lid=$1
+    stale_outputs=$(printf '%s\n' "$XRANDR_PARSED" |
+        awk -F '\t' '$1 == "output" && $13 == 1 { print $2 }')
+    [ -n "$stale_outputs" ] || return 0
+
+    connected=$(connected_outputs)
+    active_connected=$(printf '%s\n' "$XRANDR_PARSED" |
+        awk -F '\t' '
+            $1 == "output" && $3 == "connected" && $12 == 1 { print $2 }
+        ')
+
+    # Bring up and verify a replacement before removing the last framebuffer
+    # anchor. With a closed lid, only an external output is a safe candidate.
+    if [ -z "$active_connected" ]; then
+        candidates=$connected
+        internal=$(internal_output "$connected")
+        if [ "$lid" = closed ] && [ -n "$internal" ]; then
+            candidates=$(external_outputs "$connected" "$internal")
+        fi
+        candidates=$(usable_outputs "$candidates")
+        [ -n "$candidates" ] || return 1
+        replacement=$(choose_primary "$candidates")
+        [ -n "$replacement" ] || return 1
+        set_output_primary_at_origin "$replacement" || return 1
+        read_snapshot --current || return 1
+        output_active "$replacement" || return 1
+    fi
+
+    set --
+    old_ifs=$IFS
+    IFS='
+'
+    for output in $stale_outputs; do
+        set -- "$@" --output "$output" --off
+    done
+    IFS=$old_ifs
+
+    xrandr "$@" || return 1
+    read_snapshot --current || return 1
+    ! snapshot_has_stale_outputs
+}
+
+set_output_primary_at_origin() {
+    output=$1
+    set -- --output "$output" --primary
+    if ! output_at_target_mode "$output"; then
+        target_mode=$(output_target_mode "$output")
+        [ "$target_mode" != - ] || return 1
+        set -- "$@" --mode "$target_mode"
+        target_rate=$(output_target_rate "$output")
+        [ "$target_rate" = - ] || set -- "$@" --rate "$target_rate"
+    fi
+    set -- "$@" --pos 0x0
+    xrandr "$@"
+}
+
 output_right_of() {
     printf '%s\n' "$XRANDR_PARSED" |
         awk -F '\t' -v output="$1" -v anchor="$2" '
@@ -538,23 +735,23 @@ try_internal_restore() {
 
 configure_single() {
     output=$1
-    if output_active "$output" &&
+    if ! snapshot_has_stale_outputs &&
+        output_active "$output" &&
         output_primary "$output" &&
-        output_at_origin "$output"; then
+        output_at_origin "$output" &&
+        output_at_target_mode "$output"; then
         return 0
     fi
 
-    if output_active "$output"; then
-        xrandr --output "$output" --primary --pos 0x0 || return 1
-    else
-        output_ready "$output" || return 1
-        xrandr --output "$output" --primary --auto --pos 0x0 || return 1
-    fi
+    output_active "$output" || output_ready "$output" || return 1
+    set_output_primary_at_origin "$output" || return 1
 
     read_snapshot &&
+        ! snapshot_has_stale_outputs &&
         output_active "$output" &&
         output_primary "$output" &&
-        output_at_origin "$output"
+        output_at_origin "$output" &&
+        output_at_target_mode "$output"
 }
 
 configure_closed() {
@@ -564,10 +761,12 @@ configure_closed() {
     primary=$(choose_primary "$externals")
     [ -n "$primary" ] || return 1
 
-    if output_primary "$primary" &&
+    if ! snapshot_has_stale_outputs &&
+        output_primary "$primary" &&
         output_at_origin "$primary" &&
         ! output_active "$internal" &&
         verify_active_outputs "$externals" &&
+        verify_target_modes "$externals" &&
         outputs_extended_from "$primary" "$externals"; then
         return 0
     fi
@@ -576,12 +775,20 @@ configure_closed() {
     # the internal panel. This keeps a usable screen alive during link training.
     if ! output_active "$primary"; then
         output_ready "$primary" || return 1
-        xrandr --output "$primary" --primary --auto --pos 0x0 || return 1
+        set_output_primary_at_origin "$primary" || return 1
         read_snapshot || return 1
-        output_active "$primary" || return 1
+        output_active "$primary" && output_at_target_mode "$primary" || return 1
     fi
 
-    set -- --output "$primary" --primary --pos 0x0 --output "$internal" --off
+    set -- --output "$primary" --primary
+    if ! output_at_target_mode "$primary"; then
+        target_mode=$(output_target_mode "$primary")
+        [ "$target_mode" != - ] || return 1
+        set -- "$@" --mode "$target_mode"
+        target_rate=$(output_target_rate "$primary")
+        [ "$target_rate" = - ] || set -- "$@" --rate "$target_rate"
+    fi
+    set -- "$@" --pos 0x0 --output "$internal" --off
     anchor=$primary
     old_ifs=$IFS
     IFS='
@@ -589,7 +796,13 @@ configure_closed() {
     for output in $externals; do
         [ "$output" = "$primary" ] && continue
         set -- "$@" --output "$output"
-        output_active "$output" || set -- "$@" --auto
+        if ! output_at_target_mode "$output"; then
+            target_mode=$(output_target_mode "$output")
+            [ "$target_mode" != - ] || { IFS=$old_ifs; return 1; }
+            set -- "$@" --mode "$target_mode"
+            target_rate=$(output_target_rate "$output")
+            [ "$target_rate" = - ] || set -- "$@" --rate "$target_rate"
+        fi
         set -- "$@" --right-of "$anchor"
         anchor=$output
     done
@@ -597,10 +810,12 @@ configure_closed() {
 
     xrandr "$@" || return 1
     read_snapshot || return 1
-    output_primary "$primary" &&
+    ! snapshot_has_stale_outputs &&
+        output_primary "$primary" &&
         output_at_origin "$primary" &&
         ! output_active "$internal" &&
         verify_active_outputs "$externals" &&
+        verify_target_modes "$externals" &&
         outputs_extended_from "$primary" "$externals"
 }
 
@@ -608,10 +823,13 @@ configure_open() {
     internal=$1
     externals=$(usable_outputs "$2")
 
-    if output_primary "$internal" &&
+    if ! snapshot_has_stale_outputs &&
+        output_primary "$internal" &&
         output_active "$internal" &&
         output_at_origin "$internal" &&
         verify_active_outputs "$externals" &&
+        output_at_target_mode "$internal" &&
+        verify_target_modes "$externals" &&
         outputs_extended_from "$internal" "$externals"; then
         return 0
     fi
@@ -621,19 +839,33 @@ configure_open() {
             try_internal_restore "$internal"
             return 1
         fi
-        xrandr --output "$internal" --primary --auto --pos 0x0 || return 1
+        set_output_primary_at_origin "$internal" || return 1
         read_snapshot || return 1
-        output_active "$internal" || return 1
+        output_active "$internal" && output_at_target_mode "$internal" || return 1
     fi
 
-    set -- --output "$internal" --primary --pos 0x0
+    set -- --output "$internal" --primary
+    if ! output_at_target_mode "$internal"; then
+        target_mode=$(output_target_mode "$internal")
+        [ "$target_mode" != - ] || return 1
+        set -- "$@" --mode "$target_mode"
+        target_rate=$(output_target_rate "$internal")
+        [ "$target_rate" = - ] || set -- "$@" --rate "$target_rate"
+    fi
+    set -- "$@" --pos 0x0
     anchor=$internal
     old_ifs=$IFS
     IFS='
 '
     for output in $externals; do
         set -- "$@" --output "$output"
-        output_active "$output" || set -- "$@" --auto
+        if ! output_at_target_mode "$output"; then
+            target_mode=$(output_target_mode "$output")
+            [ "$target_mode" != - ] || { IFS=$old_ifs; return 1; }
+            set -- "$@" --mode "$target_mode"
+            target_rate=$(output_target_rate "$output")
+            [ "$target_rate" = - ] || set -- "$@" --rate "$target_rate"
+        fi
         set -- "$@" --right-of "$anchor"
         anchor=$output
     done
@@ -641,10 +873,13 @@ configure_open() {
 
     xrandr "$@" || return 1
     read_snapshot || return 1
-    output_primary "$internal" &&
+    ! snapshot_has_stale_outputs &&
+        output_primary "$internal" &&
         output_active "$internal" &&
         output_at_origin "$internal" &&
         verify_active_outputs "$externals" &&
+        output_at_target_mode "$internal" &&
+        verify_target_modes "$externals" &&
         outputs_extended_from "$internal" "$externals"
 }
 
@@ -655,15 +890,24 @@ configure_mirror() {
     [ "$count" -gt 1 ] || { configure_single "$outputs"; return; }
 
     primary=$(choose_primary "$outputs")
-    if output_primary "$primary" &&
+    if ! snapshot_has_stale_outputs &&
+        output_primary "$primary" &&
         output_at_origin "$primary" &&
         verify_active_outputs "$outputs" &&
+        verify_target_modes "$outputs" &&
         outputs_mirrored "$primary" "$outputs"; then
         return 0
     fi
 
-    set -- --output "$primary" --primary --pos 0x0
-    output_active "$primary" || set -- "$@" --auto
+    set -- --output "$primary" --primary
+    if ! output_at_target_mode "$primary"; then
+        target_mode=$(output_target_mode "$primary")
+        [ "$target_mode" != - ] || return 1
+        set -- "$@" --mode "$target_mode"
+        target_rate=$(output_target_rate "$primary")
+        [ "$target_rate" = - ] || set -- "$@" --rate "$target_rate"
+    fi
+    set -- "$@" --pos 0x0
 
     old_ifs=$IFS
     IFS='
@@ -671,16 +915,24 @@ configure_mirror() {
     for output in $outputs; do
         [ "$output" = "$primary" ] && continue
         set -- "$@" --output "$output"
-        output_active "$output" || set -- "$@" --auto
+        if ! output_at_target_mode "$output"; then
+            target_mode=$(output_target_mode "$output")
+            [ "$target_mode" != - ] || { IFS=$old_ifs; return 1; }
+            set -- "$@" --mode "$target_mode"
+            target_rate=$(output_target_rate "$output")
+            [ "$target_rate" = - ] || set -- "$@" --rate "$target_rate"
+        fi
         set -- "$@" --same-as "$primary"
     done
     IFS=$old_ifs
 
     xrandr "$@" || return 1
     read_snapshot || return 1
-    output_primary "$primary" &&
+    ! snapshot_has_stale_outputs &&
+        output_primary "$primary" &&
         output_at_origin "$primary" &&
         verify_active_outputs "$outputs" &&
+        verify_target_modes "$outputs" &&
         outputs_mirrored "$primary" "$outputs"
 }
 
@@ -772,9 +1024,9 @@ display_status() {
                     $2, $3, $4, $5, $6, $7, $8
             }
             $1 == "output" {
-                printf "output=%s connection:%s primary:%s geometry:%s width:%s height:%s x:%s y:%s mode_ready:%s first_mode:%s active:%s stale:%s pending:%s\n",
+                printf "output=%s connection:%s primary:%s geometry:%s width:%s height:%s x:%s y:%s mode_ready:%s first_mode:%s active:%s stale:%s pending:%s current_mode:%s current_rate:%s preferred_mode:%s preferred_rate:%s target_mode:%s target_rate:%s mode_count:%s mode_signature:%s\n",
                     $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-                    $13, $14
+                    $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
             }
         '
 
@@ -824,6 +1076,7 @@ display_status() {
 
 apply_snapshot() {
     lid=$1
+    clear_stale_outputs "$lid" || return 1
     outputs=$(connected_outputs)
     count=$(output_count "$outputs")
     [ "$count" -gt 0 ] || return 1
@@ -831,7 +1084,8 @@ apply_snapshot() {
 
     if [ "$count" -eq 1 ]; then
         if [ "$lid" = closed ] && [ "$outputs" = "$internal" ]; then
-            return 0
+            ! snapshot_has_stale_outputs
+            return
         fi
         if [ "$outputs" = "$internal" ] && ! output_ready "$internal" &&
             ! output_active "$internal"; then
@@ -920,7 +1174,12 @@ watch_displays() {
     observed_lid=
     observed_drm=
     observed_key=
+    observed_health=
     applied_key=
+    applied_health=
+    apply_failure_state=
+    apply_failures=0
+    apply_retry_ticks=0
     poll_ticks=0
     fast_checks=0
     hardware_probe_ticks=$HARDWARE_PROBE_TICKS
@@ -951,8 +1210,12 @@ watch_displays() {
         if [ "$poll_ticks" -le 0 ]; then
             snapshot_option=--current
             pending_layout=0
-            if [ "$observed_key" != "$applied_key" ] ||
-                [ "$pending_outputs" -eq 1 ]; then
+            if { [ "$observed_key" != "$applied_key" ] ||
+                [ "$observed_health" != "$applied_health" ]; } &&
+                [ "$apply_failures" -lt "$APPLY_FAILURE_LIMIT" ]; then
+                pending_layout=1
+            elif [ "$pending_outputs" -eq 1 ] &&
+                [ "$apply_failures" -lt "$APPLY_FAILURE_LIMIT" ]; then
                 pending_layout=1
             fi
             if [ "$lid_closing" -eq 0 ]; then
@@ -970,21 +1233,50 @@ watch_displays() {
                 snapshot_failures=0
                 [ "$snapshot_option" = --query ] && probe_pending=0
                 current_key=$LID_PRESENT:$current_lid\|$(topology_signature)
-                if [ "$current_key" != "$observed_key" ]; then
+                current_health=$(snapshot_health "$current_lid")
+                current_state=$current_key\|health:$current_health
+                if [ "$current_key" != "$observed_key" ] ||
+                    [ "$current_health" != "$observed_health" ]; then
                     observed_key=$current_key
+                    observed_health=$current_health
                     fast_checks=$FAST_WINDOW_CHECKS
                 fi
-                if [ "$current_key" != "$applied_key" ]; then
+                if [ "$current_state" != "$apply_failure_state" ]; then
+                    apply_failure_state=$current_state
+                    apply_failures=0
+                    apply_retry_ticks=0
+                fi
+                apply_due=0
+                if [ "$apply_retry_ticks" -le 0 ]; then
+                    if [ "$apply_failures" -lt "$APPLY_FAILURE_LIMIT" ] ||
+                        [ "$snapshot_option" = --query ]; then
+                        apply_due=1
+                    fi
+                fi
+                if { [ "$current_key" != "$applied_key" ] ||
+                    [ "$current_health" != "$applied_health" ]; } &&
+                    [ "$apply_due" -eq 1 ]; then
                     if apply_display_config "$current_lid"; then
                         applied_key=$LID_PRESENT:$current_lid\|$(topology_signature)
+                        applied_health=$(snapshot_health "$current_lid")
                         observed_key=$applied_key
+                        observed_health=$applied_health
+                        apply_failure_state=$applied_key\|health:$applied_health
+                        apply_failures=0
+                        apply_retry_ticks=0
                         if snapshot_has_pending_outputs "$current_lid"; then
                             pending_outputs=1
                         else
                             pending_outputs=0
-                            fast_checks=0
                             hardware_probe_ticks=0
                         fi
+                    else
+                        apply_result=$?
+                        if [ "$apply_result" -ne 75 ] &&
+                            [ "$apply_failures" -lt "$APPLY_FAILURE_LIMIT" ]; then
+                            apply_failures=$((apply_failures + 1))
+                        fi
+                        apply_retry_ticks=$APPLY_RETRY_TICKS
                     fi
                 fi
             else
@@ -1009,6 +1301,9 @@ watch_displays() {
         observed_lid=$current_lid
         observed_drm=$current_drm
         hardware_probe_ticks=$((hardware_probe_ticks + 1))
+        if [ "$apply_retry_ticks" -gt 0 ]; then
+            apply_retry_ticks=$((apply_retry_ticks - 1))
+        fi
         sleep 0.5
     done
 }
