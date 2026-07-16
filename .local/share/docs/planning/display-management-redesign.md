@@ -1,8 +1,8 @@
 # X11 显示管理重构计划
 
-状态：阶段 2 实现、fixture 和当前 X11 会话验证已完成，自动布局策略未改变；提交后还需通过
-一次真实 X11 退出/重登，才进入阶段 3。代码回退基线为 `a191c3c`，规划文档基线为 `ef104b6`，
-隔离边界基线为 `9e0c292`。
+状态：阶段 2 实现、fixture、当前会话和 2026-07-16 真实 X11 换代验证均已完成，自动布局策略
+未改变；阶段 3 尚未开始。代码回退基线为 `a191c3c`，规划文档基线为 `ef104b6`，隔离边界基线
+为 `9e0c292`，阶段 2 实现基线为 `0b40ac7`。
 
 本文把本机已经验证的显示链路重构为可跨设备复用的方案，并规定实施顺序、隔离范围、
 验证门槛和恢复方法。当前运行事实仍以
@@ -192,8 +192,8 @@ ${XDG_CONFIG_HOME:-$HOME/.config}/x11/xdisplay-device.local
 - [x] 一次解析 RandR 输出为统一状态，支持负坐标、stale 和 pending，不改变布局策略。
 - [x] 新增 `--status`、`--apply`、按 X server `DISPLAY` 隔离的私有锁目录、watcher generation
   和 manual marker 预留路径；保持无参数调用兼容。
-- [ ] 加入 X server 消失后的有界退出、signal trap 和失败退避；模拟交接及当前会话受控换代已通过，
-  仍待一次真实退出 X11 后重新登录。
+- [x] 加入 X server 消失后的有界退出和 signal trap；模拟交接、当前会话受控换代及
+  2026-07-16 整机重启后的真实 X11 换代均已通过。布局健康失败的退避仍属于阶段 4。
 - [x] 用保存的快照覆盖单屏、扩展、镜像、负坐标、模式延迟和 disconnected geometry。
 - [x] 实机确认 watcher 与 `displayselect` 使用同一 apply lock；新 watcher 唯一运行且日志为空。
 
@@ -210,15 +210,20 @@ ${XDG_CONFIG_HOME:-$HOME/.config}/x11/xdisplay-device.local
 - [ ] 由同一规划器生成 desired/off 输出，所有非期望输出显式 `--off`。
 - [ ] 修正单屏捷径，关闭 `disconnected + geometry` 残留并重读验证。
 - [ ] 独立执行收敛健康检查，使物理签名提交后才延迟出现的 stale geometry 仍会触发退避重试。
+- [ ] 解析 current/preferred 模式、刷新率和模式数量；启动或能力签名变化后保留短时 settling
+  探测，并让已激活但模式错误的输出在每个能力周期最多规范化一次。
 - [ ] 实现有盖子/无盖子设备的不同多屏回退，并保持合盖前先验证外屏。
 - [ ] 让 `displayselect` 通过 `--manual-run` 写入手动所有权 marker，取消和失败路径不得写入。
 - [ ] 通过热插拔、开合盖、延迟外屏和手动布局矩阵后提交。
 
 ### 阶段 5：受控 framebuffer 收缩
 
-- [ ] 先评估显式 `--off` 是否已让 innogpu 自动收缩 framebuffer。
+- [x] 已确认合盖关闭内屏时 innogpu/Xorg 会自动收缩 framebuffer；2026-07-16 A/B 同时确认该
+  重建可能让外屏物理恢复慢于 RandR 逻辑收敛。
 - [ ] 只有仍残留时才实现可诊断、可关闭的 `--fb <宽>x<高>` 路径。
 - [ ] 调用前校验 RandR min/max、自动布局包围盒、非负坐标和 panning；不处理手动布局。
+- [x] 自动布局最终仍把 framebuffer 收敛到有效输出包围盒；长期保留旧 framebuffer 不进入共享
+  配置或设备适配器，只允许作为持有共享布局锁的临时 A/B 诊断。
 - [ ] 单独实机验证并提交，不与状态解析或设备迁移合并。
 
 ### 阶段 6：系统策略整理
@@ -248,6 +253,7 @@ ${XDG_CONFIG_HOME:-$HOME/.config}/x11/xdisplay-device.local
 | 接电、外屏连接后合盖 | 外屏先变为有效 primary，再关闭内屏；会话不被 logind 挂起 |
 | 接电、合盖后开盖 | 内屏快速恢复并成为 primary，外屏重新扩展 |
 | 合盖冷启动且外屏枚举延迟 | 不先关闭最后一个安全活屏，外屏就绪后再收敛 |
+| 外屏预接冷启动的不同模式集合 | 分别覆盖 EDID/preferred 正常、延迟和缺失；保存 Xorg 初始策略、实际模式和物理出光，不能用另一块外屏的成功替代 |
 | 多个外屏 | 全部按确定顺序扩展；拔出任意一个后重新收敛 |
 | `displayselect`/Arandr 手动布局 | 与 watcher 不并发；物理拓扑未变时不被立即覆盖 |
 | 热插后 watcher 尚未收敛即手动布局 | 成功选择写入 manual marker，释放锁后旧自动计划不覆盖它 |
@@ -258,6 +264,31 @@ ${XDG_CONFIG_HOME:-$HOME/.config}/x11/xdisplay-device.local
 | lid 文件存在但状态不可读 | 按有盖设备安全降级，不误判为桌面设备 |
 | 退出 X11 后重新登录同一 DISPLAY | 旧 watcher 有界退出，新 watcher 能立即取得会话锁 |
 | 缺少依赖 | 缺少 `xrandr`/`flock` 时清楚报错，缺少可选适配器不影响登录 |
+
+### 显示切换慢的 framebuffer A/B 诊断
+
+只有布局最终正确、`health=ready`、无 stale/pending，且同一方向的肉眼黑屏恢复连续两次超过
+5 秒时进入本分支。布局错误或软件收敛本身超过 3 秒，仍按 watcher/RandR 功能故障排查。
+
+1. A 组先被动计时，不停止 watcher、不取锁、不执行 RandR 写命令。固定显示器、线缆、模式和
+   切换方向，保存切换前后的 `xdisplay.sh --status`、`xrandr --current` 和盖子状态；用单调时钟
+   记录物理事件 `T0`、期望 active/off 与 framebuffer 生效 `T1`、肉眼画面稳定 `T2`。
+2. 若 `T1-T0` 不超过 2 秒而 `T2-T0` 超过 5 秒，才进入 B 组。若 `T1-T0` 超过 3 秒，先检查
+   apply lock、退避、pending 和驱动 modeset，不用 framebuffer A/B 掩盖软件故障；介于 2 秒和
+   3 秒之间时记为不确定并重复 A 组，不能直接归因。
+3. B 组从 `--status` 动态取得 apply lock，从稳定快照动态取得输出、模式、位置和切换前 framebuffer；
+   独占锁后执行相同目标布局，只额外保持切换前 framebuffer。不得硬编码输出名或分辨率，不得在
+   锁内再次调用会取锁的 `xdisplay.sh --apply`，原 framebuffer 无法容纳目标包围盒时中止。
+4. 启动 B 组前先保存 A 组的标准目标和恢复命令；诊断进程必须设置 30 秒总超时、TERM/INT/HUP
+   trap 和有界 kill-after。完成测试后仍在持锁状态下恢复 A 组标准布局，确认至少一个输出可见且
+   framebuffer 已收敛，再释放锁。恢复失败时先保留已验证活屏并释放锁，再让 watcher 或一次
+   `xdisplay.sh --apply` 通过同一把锁重试；全黑时使用既有 TTY 回退，不继续试验。
+5. 相同条件至少各做两次。A 超过 5 秒、B 不超过 2 秒且至少改善 3 秒时，可定位为 framebuffer
+   尺寸变化触发驱动或输出链路重新同步；差值小于 1 秒不支持该结论，其余结果记为不确定并复测。
+
+2026-07-16 本机在本流程固化前完成一次 B 组现场验证：通用收缩约 `1.07s` 完成逻辑布局但
+肉眼超过 5 秒；保留 framebuffer 约 `0.65s` 完成且近乎瞬时出图。该结果是支持候选原因的初步
+定位证据，不替代以后按本分支执行的重复性验证，也不改变继续采用通用 framebuffer 收敛的决定。
 
 静态检查包括 `sh -n`、可用时执行 ShellCheck、文档链接与路径检查、凭据和个人信息扫描。
 实机状态应同时记录 `xdisplay.sh --status`、`xrandr --current`、盖子状态和相关日志。
