@@ -74,7 +74,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`）、procps（`pgre
 | `nsxiv`, `zathura`, `mpv`, `gimp` | 图像、PDF、视频和图形处理器 |
 | `libreoffice-calc` (`localc`) | LF 中配置的电子表格处理器 |
 | ImageMagick（`display`、`convert`）、`mediainfo`、`ffmpegthumbnailer` | LF 图像/视频预览 |
-| `pdftoppm`, `pdftotext`, `pdfinfo`, `odt2txt` | 文档预览和 `getbib` |
+| `pdftoppm`, `pdftotext`, `pdfinfo`, `pdffonts`, `odt2txt` | 文档预览、PDF 渲染/字体检查和 `getbib` |
 | `gpg`, `man`, `col`, `xdg-open` | 加密、手册、格式化文本和桌面打开 |
 | `neomutt`, `newsboat` | 已配置邮件和 RSS 客户端 |
 | `pass`, `pass-otp`, `zbarimg`, `maim`, `xclip`, `dmenu` | 密码库、OTP、二维码、截图和菜单辅助工具 |
@@ -102,7 +102,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`）、procps（`pgre
 | NetworkManager：`nmtui`、`nmcli` | 网络状态栏菜单和交互式连接设置 |
 | `xbacklight` | 亮度键和状态栏滚轮动作 |
 | `lm-sensors` | 硬件导出 CPU 传感器时的 CPU 温度模块 |
-| `simple-mtpfs` | Android MTP 挂载。该命令在已审计 Debian 中没有软件包；跟踪脚本使用其特定接口，因此 Debian 适配在验证兼容替代前挂起。USB 挂载使用基础 `mount` 和 `lsblk`。 |
+| `mount`、`umount`、`lsblk` | 普通块设备挂载、卸载和发现；Debian 中前两项由 `mount` 软件包提供，`lsblk` 由 `util-linux` 提供 |
 | `cifs-utils`、`smbclient`、`avahi-browse`、Avahi 守护进程 | CIFS 发现和挂载辅助工具 |
 | systemd（`loginctl`、`systemctl`）、`pstree`、`slock` | `sysact` 锁屏/会话控制 |
 | `geoiplookup` | 可选 IP 地理位置状态模块 |
@@ -143,7 +143,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`）、procps（`pgre
 | TeX 引擎 | `pdflatex`、`lualatex` 命令由 Debian `texlive-latex-base` 提供，`xelatex` 由 `texlive-xetex` 提供；完整 LuaLaTeX 字体和宏包能力另需 `texlive-luatex` |
 | TeX 参考文献 | `biber` 和 BibLaTeX 宏包；Debian 软件包为 `biber`、`texlive-bibtex-extra` |
 | TeX 中日文排版 | 中文文档使用 `ctex`/`xeCJK` 时安装 `texlive-lang-chinese`；日文文档使用 LuaTeX-ja 等能力时按需安装 `texlive-lang-japanese` |
-| Groff、mom 和 ms | `preconv`, `refer`, `groff` |
+| Groff、mom 和 ms | `preconv`、`refer`、`groff`；DWM `Mod+F1` 动态生成的帮助 PDF 还使用 Debian `fonts-urw-base35` 提供的嵌入式 Nimbus Sans 字体 |
 | Markdown | `lowdown` 或 `groffdown`，否则 `pandoc` |
 | Org mode | 带 Org 和 LaTeX 导出支持的 `emacs` |
 | R Markdown | 带 `rmarkdown` 包的 `Rscript` |
@@ -229,11 +229,10 @@ cron 辅助命令需要 `cron`、`crontab`、`notify-send`、`xdotool`、`newsbo
 | `zathura` | Vim-like PDF viewer | 活跃文档查看器。 |
 | `zathura-pdf-mupdf` | Zathura PDF backend | 历史后端专属条目；当前配置需要发行版提供的 Zathura PDF 后端，而非特定 MuPDF。 |
 | `python-ueberzug` | Terminal image previews | 活跃预览能力由当前 `ueberzug` 命令表示；来源包名是历史的。 |
-| `poppler` | PDF manipulation and previews | 活跃 PDF 预览/工具能力由 `pdftoppm`、`pdftotext` 和 `pdfinfo` 表示。 |
+| `poppler` | PDF manipulation and previews | 活跃 PDF 预览/工具能力由 `pdftoppm`、`pdftotext`、`pdfinfo` 和 `pdffonts` 表示。 |
 | `mediainfo`, `atool`, `fzf`, `highlight`, `xorg-xbacklight` | Media info, archive handling, fuzzy finding, highlighting, brightness | 活跃依赖；`xorg-xbacklight` 映射为当前 `xbacklight`。 |
 | `zsh-syntax-highlighting` | Fish-like shell highlighting | 活跃已配置 Oh My Zsh/zplug 插件。 |
 | `task-spooler`, `ts` | Background command queue | 活跃 `tsp` 队列依赖；`ts` 是历史命令/包拼写。 |
-| `simple-mtpfs` (both source rows) | Android phone mounting | 活跃脚本引用，但 Debian 上没有兼容 `simple-mtpfs` 包，因此挂起。 |
 | `setxkbmap`, `xset` | Keyboard layout and X repeat settings | 活跃 X11 输入辅助。 |
 | `xmodmap`, `xsetroot` | Earlier keyboard/status-root handling | 历史项；重映射使用 `setxkbmap`，状态输出由 DWMBlocks 管理。 |
 | Luke Smith `dwmblocks`, `dmenu`, `st`, `dwm` Git URLs | Status bar, launcher, terminal, window manager | 历史上游源码引用。当前单独构建源码位于 `~/src/`；活跃运行命令在 X11 布局（layout）中记录。 |

@@ -54,7 +54,7 @@
 | `Mod+F5` | 重载 Xresources |
 | `Mod+F6/F7` | Transmission / Transmission 开关 |
 | `Mod+F8` | 邮件同步 |
-| `Mod+F9/F10` | 挂载 / 卸载设备 |
+| `Mod+F9/F10` | 挂载 / 卸载普通块设备 |
 | `Mod+F11` | 摄像头预览 |
 | `Mod+F12` | 重新执行键盘映射 |
 | `Mod+Backspace`、`Mod+Shift+q` | `sysact` 系统操作菜单 |
