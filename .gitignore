@@ -48,6 +48,7 @@
 .xbacklight.conf
 .npm/
 .emacs.d/
+.texlive*/
 .rvm/
 .vim*
 .emacs*

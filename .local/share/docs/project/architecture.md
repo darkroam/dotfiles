@@ -159,8 +159,22 @@ FPP、youtube-viewer 等可选集成必须有保护和回退说明，并保持 T
 
 ## 编译、排版与数据辅助
 
-负责 `compiler`、`getbib`、`texclear` 和按文件格式选择的工具链。工具链是功能范围，
-不是无条件基础依赖；TeX 和多语言工具链的实际支持范围仍待决定。
+负责 `compiler`、`texroot`、`opout`、`getbib`、`texclear` 和按文件格式选择的工具链。
+工具链是功能范围，不是无条件基础依赖；使用某种源格式时才需要安装对应工具。
+
+TeX 根文件解析集中在 `texroot`。它只读取每级文件前 20 行的标准
+`% !TeX root = ...`，相对声明文件逐级解析，拒绝缺失目标、非 TeX 目标、冲突声明、循环和
+超过 20 级的链；路径值不会经过 shell 展开或执行。`compiler`、`opout` 和 `texclear` 不得再各自
+猜测根文件。
+
+最终根文件前 20 行可用 `% !TeX program = pdflatex|xelatex|lualatex` 选择引擎；未声明时默认
+PDFLaTeX，并保留旧的前五行 `xelatex` 标记兼容。`compiler` 在根文件目录调用 `latexmk`，显式
+把 `out_dir` 和受支持时的 `out2_dir` 固定为当前目录，因此最终 PDF 始终与根文件同目录同名；
+项目仍可通过 `.latexmkrc` 定义自定义依赖和独立辅助目录。
+
+`opout` 只打开该根文件的同名 PDF，文件不存在时明确失败。`texclear` 使用 `latexmk -c` 清理
+可再生辅助文件，只在参考文献源存在时删除可再生 `.bbl`，并精确清理根文件的 SyncTeX 和
+`_minted-<jobname>`；根源文件、最终 PDF、参考文献源和其他文档的文件必须保留。
 
 ## 模板与计划工作
 

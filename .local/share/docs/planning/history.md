@@ -2,6 +2,12 @@
 
 ## 最近记录的变更
 
+- [x] 2026-07-17：完成 TeX 工作流审查。新增共享 `texroot`，统一 `compiler`、`opout`、
+  `texclear` 的根文件语义；使用 `latexmk` 支持 PDFLaTeX、XeLaTeX、LuaLaTeX、Biber 和多轮引用，
+  最终 PDF 固定在根文件同目录。本次 `77/77` CLI 回归通过，覆盖中日文字体、特殊路径、项目
+  `.latexmkrc`、无图形及非 TeX 打开、冲突/循环声明和不越界清理；所需 Debian TeX 能力已安装
+  并记录。
+
 - [x] 2026-07-16：修复 innogpu 拔屏后 `disconnected + geometry` 残留和扩展坞无 preferred 时
   `--auto` 误选较低模式的问题。自动路径改为完整模式能力签名、显式 target mode/rate、成功后
   短时 settling、安全 stale 清理和有界退避；fixture 通过 `11/11` 状态/锁、`4/4` watcher 生命周期

@@ -139,14 +139,17 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`）、procps（`pgre
 
 | 源格式或辅助工具 | 命令 |
 | --- | --- |
-| TeX 和参考文献 | `pdflatex`, `xelatex`, `biber` |
+| TeX 根文件与构建编排 | 已跟踪的 `texroot` 统一解析根文件；`latexmk` 负责多轮编译、交叉引用和清理，Debian 软件包为 `latexmk` |
+| TeX 引擎 | `pdflatex`、`lualatex` 命令由 Debian `texlive-latex-base` 提供，`xelatex` 由 `texlive-xetex` 提供；完整 LuaLaTeX 字体和宏包能力另需 `texlive-luatex` |
+| TeX 参考文献 | `biber` 和 BibLaTeX 宏包；Debian 软件包为 `biber`、`texlive-bibtex-extra` |
+| TeX 中日文排版 | 中文文档使用 `ctex`/`xeCJK` 时安装 `texlive-lang-chinese`；日文文档使用 LuaTeX-ja 等能力时按需安装 `texlive-lang-japanese` |
 | Groff、mom 和 ms | `preconv`, `refer`, `groff` |
 | Markdown | `lowdown` 或 `groffdown`，否则 `pandoc` |
 | Org mode | 带 Org 和 LaTeX 导出支持的 `emacs` |
 | R Markdown | 带 `rmarkdown` 包的 `Rscript` |
 | C、C++、C#、Go、Java、Rust | `cc`, `g++`, `mcs`, `mono`, `go`, `javac`, `java`, `cargo` |
 | Octave、Sass、OpenSCAD、Sent | `octave`, `sassc`, `openscad`, `sent` |
-| 构建和 TeX 清理 | `make`、GNU `find`、`rm` |
+| 其他构建和 TeX 精确清理 | `make`、GNU `rm`；TeX 通用清理由 `latexmk` 完成，不再依赖目录正则搜索 |
 | 有声书分割 | `ffmpeg`、`iconv` |
 
 ## 模板与计划工作

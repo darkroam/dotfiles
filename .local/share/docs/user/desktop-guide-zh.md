@@ -138,9 +138,27 @@ Newsboat、dmenu 和链接处理器可以把下载交给 `qndl` 队列。使用 
 
 ## 编译、排版与数据辅助
 
-`compiler <文件>` 按文件类型运行相应工具，`getbib` 可从 DOI 或 PDF 获取 BibTeX，
-`texclear` 清理 TeX 副产物。完整 TeX、编程语言和排版工具链并不默认启用；需要某种格式时，
-先在依赖清单中确认所需命令，再安装对应发行版的软件包。
+`compiler <文件>` 按文件类型运行相应工具，`getbib` 可从 DOI 或 PDF 获取 BibTeX。使用多文件
+TeX 项目时，在各子文件前 20 行内指向根文件：
+
+```tex
+% !TeX root = ../main.tex
+```
+
+在根文件中按需选择引擎：
+
+```tex
+% !TeX program = xelatex
+```
+
+根文件未声明程序时默认使用 PDFLaTeX；也可以明确选择 `pdflatex`、`xelatex` 或 `lualatex`。
+运行 `texroot <当前文件>` 可查看最终根文件，`compiler <当前文件>` 会用 `latexmk` 编译该根文件，
+最终 PDF 固定生成在根文件同目录。`opout <当前文件>` 打开这个 PDF，`texclear <当前文件>` 清理
+可再生辅助文件但保留根源文件、参考文献源和最终 PDF。
+
+若命令报告根文件缺失、声明冲突、循环、引擎不支持或 PDF 尚未生成，先用 `texroot` 检查声明，
+再按依赖清单确认 `latexmk`、所选引擎和参考文献工具已经安装。其他编程语言和排版格式仍按需
+安装各自工具链。
 
 ## 模板与计划工作
 

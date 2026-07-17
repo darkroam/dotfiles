@@ -1,16 +1,48 @@
 #!/bin/sh
 
-# Clears the build files of a LaTeX/XeLaTeX build.
-# I have vim run this file whenever I exit a .tex file.
+# Clear a TeX root document's build files while preserving its final PDF.
+# It can be called directly or from an editor mapping.
+
+[ "$#" -eq 1 ] && [ -f "$1" ] || {
+	printf '%s\n' "Usage: texclear FILE.tex" >&2
+	exit 1
+}
 
 case "$1" in
-	*.tex)
-	file=$(readlink -f "$1")
-	dir=$(dirname "$file")
-	base="${file%.*}"
-	find "$dir"  -maxdepth 1 -type f -regextype gnu-awk -regex "^$base\\.(4tc|xref|tmp|pyc|pyg|pyo|fls|vrb|fdb_latexmk|bak|swp|aux|log|synctex\\(busy\\)|lof|lot|maf|idx|mtc|mtc0|nav|out|snm|toc|bcf|run\\.xml|synctex\\.gz|blg|bbl)" -delete
-	rm -rdf "$dir/_minted-$(basename -- $base)"
-	;;
-	*) printf "Give .tex file as argument.\\n" ;;
+	*.[Tt][Ee][Xx]) ;;
+	*)
+		printf 'texclear: not a .tex file: %s\n' "$1" >&2
+		exit 1
+		;;
 esac
 
+command -v texroot >/dev/null 2>&1 || {
+	printf '%s\n' "texclear: texroot is required." >&2
+	exit 1
+}
+command -v latexmk >/dev/null 2>&1 || {
+	printf '%s\n' "texclear: latexmk is required." >&2
+	exit 1
+}
+
+root=$(texroot "$1") || exit 1
+dir=${root%/*}
+name=${root##*/}
+jobname=${name%.*}
+
+(
+	cd "$dir" || exit 1
+	set -- -c -outdir=.
+	latexmk_help=$(latexmk -norc -help 2>&1)
+	case "$latexmk_help" in *-bibtex-cond1*) set -- "$@" -bibtex-cond1 ;; esac
+	case "$latexmk_help" in *-out2dir*) set -- "$@" -out2dir=. ;; esac
+	latexmk "$@" "./$name"
+) || exit 1
+
+rm -f -- "$dir/$jobname.synctex" "$dir/$jobname.synctex.gz" \
+	"$dir/$jobname.synctex(busy)" || exit 1
+
+minted_dir=$dir/_minted-$jobname
+if [ -d "$minted_dir" ] || [ -L "$minted_dir" ]; then
+	rm -rf -- "$minted_dir"
+fi

@@ -34,6 +34,8 @@
 - 输入法选择集中于 `xprofile`：优先 `fcitx5`，再 `fcitx`，最后 `ibus`。
 - Microsoft Edge 通过 `BROWSER` 作为配置浏览器。
 - 安装 NetworkManager 时，`nmtui` 保持交互式网络管理入口。
+- TeX 根文件解析集中于 `texroot`，`compiler`、`opout`、`texclear` 共享该结果；最终 PDF 固定在
+  根文件同目录，清理不得删除根源文件、最终 PDF、参考文献源或其他文档的文件。
 - 现有 ALSA 回退文件保留，直到持续 PipeWire-only 测试证明可移除。
 - DWM、DWMBlocks、dmenu、st 源码在 `~/src/` 下单独维护；由用户编译安装。
 - `innogpu-restore-dp1-mode-x11` 是未跟踪的本机硬件恢复代码，通过

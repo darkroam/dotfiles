@@ -4,10 +4,60 @@
 # usually the pdf of a compiled document.  I find this useful especially
 # running from vim.
 
-basename="${1%.*}"
+[ "$#" -eq 1 ] && [ -f "$1" ] || {
+	printf '%s\n' "Usage: opout SOURCE_FILE" >&2
+	exit 1
+}
 
-case "${*}" in
-	*.tex|*.m[dse]|*.[rR]md|*.mom|*.[0-9]) setsid -f xdg-open "$basename".pdf >/dev/null 2>&1 ;;
-	*.html) setsid -f "$BROWSER" "$basename".html >/dev/null 2>&1 ;;
-	*.sent) setsid -f sent "$1" >/dev/null 2>&1 ;;
+file=$(readlink -f -- "$1") || {
+	printf 'opout: cannot resolve %s\n' "$1" >&2
+	exit 1
+}
+
+open_detached() {
+	command -v setsid >/dev/null 2>&1 || {
+		printf '%s\n' "opout: setsid is required." >&2
+		return 1
+	}
+	command -v "$1" >/dev/null 2>&1 || {
+		printf 'opout: opener is not installed: %s\n' "$1" >&2
+		return 1
+	}
+	setsid -f "$@" >/dev/null 2>&1
+}
+
+case "$file" in
+	*.[Tt][Ee][Xx])
+		command -v texroot >/dev/null 2>&1 || {
+			printf '%s\n' "opout: texroot is required for TeX files." >&2
+			exit 1
+		}
+		root=$(texroot "$file") || exit 1
+		output=${root%.*}.pdf
+		[ -f "$output" ] || {
+			printf 'opout: output PDF does not exist: %s\n' "$output" >&2
+			exit 1
+		}
+		open_detached xdg-open "$output"
+		;;
+	*.m[dse]|*.[rR]md|*.mom|*.[0-9])
+		output=${file%.*}.pdf
+		[ -f "$output" ] || {
+			printf 'opout: output PDF does not exist: %s\n' "$output" >&2
+			exit 1
+		}
+		open_detached xdg-open "$output"
+		;;
+	*.html)
+		[ -n "$BROWSER" ] || {
+			printf '%s\n' "opout: BROWSER is not set." >&2
+			exit 1
+		}
+		open_detached "$BROWSER" "$file"
+		;;
+	*.sent) open_detached sent "$file" ;;
+	*)
+		printf 'opout: unsupported source type: %s\n' "$file" >&2
+		exit 1
+		;;
 esac

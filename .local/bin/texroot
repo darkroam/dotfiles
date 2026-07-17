@@ -1,0 +1,138 @@
+#!/bin/sh
+
+# Resolve a TeX source to its root document. Root directives are read from the
+# first 20 lines and are resolved relative to the file that declares them.
+
+[ "$#" -eq 1 ] && [ -f "$1" ] || {
+	printf '%s\n' "Usage: texroot FILE.tex" >&2
+	exit 1
+}
+
+file=$(readlink -f -- "$1") || {
+	printf 'texroot: cannot resolve %s\n' "$1" >&2
+	exit 1
+}
+
+case "$file" in
+	*"
+"*)
+		printf 'texroot: paths containing newlines are not supported: %s\n' "$file" >&2
+		exit 1
+		;;
+	*.[Tt][Ee][Xx]) ;;
+	*)
+		printf 'texroot: not a .tex file: %s\n' "$file" >&2
+		exit 1
+		;;
+esac
+
+root_directive() {
+	[ -r "$1" ] || {
+		printf 'texroot: cannot read %s\n' "$1" >&2
+		return 2
+	}
+	LC_ALL=C awk -v source="$1" '
+		function trim(value) {
+			sub(/^[[:space:]]+/, "", value)
+			sub(/[[:space:]]+$/, "", value)
+			return value
+		}
+		function fail(message, status) {
+			printf "texroot: %s in %s\n", message, source > "/dev/stderr"
+			error = status
+			exit
+		}
+		BEGIN { quote = sprintf("%c", 39) }
+		NR > 20 { exit }
+		/^[[:space:]]*%[[:space:]]*![[:space:]]*[Tt][Ee][Xx][[:space:]]+[Rr][Oo][Oo][Tt][[:space:]]*=/ {
+			line = $0
+			sub(/\r$/, "", line)
+			sub(/^[^=]*=[[:space:]]*/, "", line)
+			line = trim(line)
+			if (line == "")
+				fail("empty root directive", 64)
+			first = substr(line, 1, 1)
+			last = substr(line, length(line), 1)
+			if (first == "\"" || first == quote || last == "\"" || last == quote) {
+				if (first != last || (first != "\"" && first != quote))
+					fail("unmatched quote in root directive", 64)
+				line = substr(line, 2, length(line) - 2)
+				if (line == "")
+					fail("empty root directive", 64)
+			}
+			if (!found) {
+				root = line
+				found = 1
+			} else if (line != root) {
+				fail("conflicting root directives", 65)
+			}
+		}
+		END {
+			if (error)
+				exit error
+			if (!found)
+				exit 1
+			print root
+		}
+	' "$1"
+}
+
+seen=
+depth=0
+
+while :; do
+	case "$seen" in
+		*"
+$file
+"*)
+			printf 'texroot: root directive cycle reaches %s\n' "$file" >&2
+			exit 1
+			;;
+	esac
+	seen=$seen"
+$file
+"
+
+	if root=$(root_directive "$file"); then
+		:
+	else
+		status=$?
+		[ "$status" -eq 1 ] && break
+		exit "$status"
+	fi
+
+	depth=$((depth + 1))
+	[ "$depth" -le 20 ] || {
+		printf 'texroot: root directive chain is deeper than 20 files\n' >&2
+		exit 1
+	}
+
+	case "$root" in
+		/*) candidate=$root ;;
+		*) candidate=${file%/*}/$root ;;
+	esac
+
+	[ -f "$candidate" ] || {
+		printf 'texroot: root file declared by %s does not exist: %s\n' "$file" "$root" >&2
+		exit 1
+	}
+	declared_by=$file
+	file=$(readlink -f -- "$candidate") || {
+		printf 'texroot: cannot resolve root declared by %s: %s\n' "$declared_by" "$root" >&2
+		exit 1
+	}
+	case "$file" in
+		*"
+"*)
+			printf 'texroot: paths containing newlines are not supported: %s\n' "$file" >&2
+			exit 1
+			;;
+		*.[Tt][Ee][Xx]) ;;
+		*)
+			printf 'texroot: declared root is not a .tex file: %s\n' "$file" >&2
+			exit 1
+			;;
+	esac
+done
+
+printf '%s\n' "$file"

@@ -1,35 +1,129 @@
 #!/bin/sh
 
-# This script will compile or run another finishing operation on a document. I
-# have this script run via vim.
+# This script compiles or runs another finishing operation on a document. It
+# can be called directly or from an editor mapping.
 #
 # Compiles .tex. groff (.mom, .ms), .rmd, .md, .org.  Opens .sent files as sent
 # presentations. Runs scripts based on extension or shebang.
 #
-# Note that .tex files which you wish to compile with XeLaTeX should have the
-# string "xelatex" somewhere in a comment/command in the first 5 lines.
+# TeX documents may declare their root and engine in the first 20 lines:
+# % !TeX root = ../main.tex
+# % !TeX program = xelatex
 
-[ -f "$1" ] || {
+[ "$#" -eq 1 ] && [ -f "$1" ] || {
 	printf '%s\n' "Provide an existing source file." >&2
 	exit 1
 }
 
-file="$(readlink -f "$1")" || exit 1
+file="$(readlink -f -- "$1")" || exit 1
 dir=${file%/*}
 base="${file%.*}"
 ext="${file##*.}"
 
 cd "$dir" || exit 1
 
-textype() { \
-	command="pdflatex"
-	( head -n5 "$file" | grep -qi 'xelatex' ) && command="xelatex"
-	"$command" --output-directory="$dir" "$base" || return 1
-	if grep -qi addbibresource "$file"; then
-		biber --input-directory "$dir" "$base" || return 1
-		"$command" --output-directory="$dir" "$base" || return 1
-		"$command" --output-directory="$dir" "$base" || return 1
+tex_program() {
+	[ -r "$1" ] || {
+		printf 'compiler: cannot read %s\n' "$1" >&2
+		return 2
+	}
+	LC_ALL=C awk -v source="$1" '
+		function trim(value) {
+			sub(/^[[:space:]]+/, "", value)
+			sub(/[[:space:]]+$/, "", value)
+			return value
+		}
+		function fail(message, status) {
+			printf "compiler: %s in %s\n", message, source > "/dev/stderr"
+			error = status
+			exit
+		}
+		BEGIN { quote = sprintf("%c", 39) }
+		NR > 20 { exit }
+		/^[[:space:]]*%[[:space:]]*![[:space:]]*[Tt][Ee][Xx][[:space:]]+[Pp][Rr][Oo][Gg][Rr][Aa][Mm][[:space:]]*=/ {
+			line = $0
+			sub(/\r$/, "", line)
+			sub(/^[^=]*=[[:space:]]*/, "", line)
+			line = trim(line)
+			if (line == "")
+				fail("empty TeX program directive", 64)
+			first = substr(line, 1, 1)
+			last = substr(line, length(line), 1)
+			if (first == "\"" || first == quote || last == "\"" || last == quote) {
+				if (first != last || (first != "\"" && first != quote))
+					fail("unmatched quote in TeX program directive", 64)
+				line = substr(line, 2, length(line) - 2)
+				if (line == "")
+					fail("empty TeX program directive", 64)
+			}
+			line = tolower(line)
+			if (!found) {
+				program = line
+				found = 1
+			} else if (line != program) {
+				fail("conflicting TeX program directives", 65)
+			}
+		}
+		END {
+			if (error)
+				exit error
+			if (!found)
+				exit 1
+			print program
+		}
+	' "$1"
+}
+
+compile_tex() {
+	command -v texroot >/dev/null 2>&1 || {
+		printf '%s\n' "compiler: texroot is required for TeX files." >&2
+		return 1
+	}
+	command -v latexmk >/dev/null 2>&1 || {
+		printf '%s\n' "compiler: latexmk is required for TeX files." >&2
+		return 1
+	}
+
+	root=$(texroot "$file") || return 1
+	root_dir=${root%/*}
+	root_name=${root##*/}
+	if program=$(tex_program "$root"); then
+		:
+	else
+		status=$?
+		[ "$status" -eq 1 ] || return "$status"
+		program=pdflatex
+		head -n 5 "$root" | grep -qi xelatex && program=xelatex
 	fi
+
+	case "$program" in
+		pdflatex) mode=-pdf ;;
+		xelatex) mode=-xelatex ;;
+		lualatex) mode=-lualatex ;;
+		*)
+			printf 'compiler: unsupported TeX program in %s: %s\n' "$root" "$program" >&2
+			return 1
+			;;
+	esac
+	command -v "$program" >/dev/null 2>&1 || {
+		printf 'compiler: TeX program is not installed: %s\n' "$program" >&2
+		return 1
+	}
+
+	(
+		cd "$root_dir" || exit 1
+		set -- "$mode" -outdir=.
+		latexmk_help=$(latexmk -norc -help 2>&1)
+		case "$latexmk_help" in *-out2dir*) set -- "$@" -out2dir=. ;; esac
+		latexmk "$@" -interaction=nonstopmode -halt-on-error \
+			-file-line-error -synctex=1 "./$root_name"
+	) || return 1
+
+	[ -f "$root_dir/${root_name%.*}.pdf" ] || {
+		printf 'compiler: expected output PDF was not created: %s\n' \
+			"$root_dir/${root_name%.*}.pdf" >&2
+		return 1
+	}
 }
 
 case "$ext" in
@@ -58,6 +152,6 @@ case "$ext" in
 	sass) sassc -a "$file" "$base.css" ;;
 	scad) openscad -o "$base".stl "$file" ;;
 	sent) setsid -f sent "$file" 2>/dev/null ;;
-	tex) textype "$file" ;;
+	[Tt][Ee][Xx]) compile_tex ;;
 	*) sed -n '/^#!/s/^#!//p; q' "$file" | xargs -r -I % "$file" ;;
 esac
