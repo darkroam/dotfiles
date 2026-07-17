@@ -1,12 +1,16 @@
 # User ALSA defaults. Loaded through ~/.asoundrc, not ALSA_CONFIG_PATH.
-# Keep this minimal so PipeWire/WirePlumber can still use the system ALSA config.
+# Do not override pcm.!default or ctl.!default here: each platform's system
+# ALSA config remains authoritative. Explicit hw: devices stay available when
+# supported; that does not imply automatic fallback from a PipeWire default.
 
-pcm.!default {
-        type plug
-        slave.pcm "hw:Intel,0"
-}
-
-ctl.!default {
-        type hw
-        card "Intel"
-}
+# Device-specific override template, intentionally disabled. Hardware routing
+# belongs in the corresponding platform-local configuration.
+# pcm.!default {
+#         type plug
+#         slave.pcm "hw:CARD,DEVICE"
+# }
+#
+# ctl.!default {
+#         type hw
+#         card "CARD"
+# }

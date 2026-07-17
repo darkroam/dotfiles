@@ -4,7 +4,7 @@ Personal Linux configuration managed as a bare Git repository. Tracked files
 are intended to work from `$HOME`; untracked files are deliberately outside the
 repository.
 
-Last reviewed: 2026-07-14.
+Last reviewed: 2026-07-18.
 
 ## Repository Usage
 
@@ -20,19 +20,44 @@ files that currently have diffs.
 
 ## Installation
 
-Bootstrap tracking in `$HOME` with the existing installer:
+Before bootstrap, install `curl`, Git, an OpenSSH client, Bash, and the standard
+GNU file utilities. Configure GitHub SSH access because the repository remote
+uses `git@github.com`. Download and inspect the installer before running it:
 
 ```sh
-curl -Lks https://github.com/darkroam/dotfiles/raw/master/.local/bin/install.sh | /bin/bash
+installer=$(mktemp)
+curl -fsSL https://github.com/darkroam/dotfiles/raw/master/.local/bin/install.sh -o "$installer"
+sed -n '1,240p' "$installer"
+/bin/bash "$installer"
+rm -f "$installer"
+unset installer
 ```
 
-It clones the bare repository into `$HOME/.cfg`, checks out tracked files into
-`$HOME`, backs up checkout conflicts to `.config-backup`, and hides untracked
-files from `c status`. Review the installer before using it on a machine with
-existing configuration.
+It first clones into a temporary private directory and preflights tracked targets,
+including file or symlink ancestors that would block a nested path. It then backs
+up conflicts to the Git-ignored, mode `0700` `.config-backup`, preserving their
+directory structure; activates `$HOME/.cfg`; checks out into `$HOME`; and hides
+untracked files from `c status`. It refuses to follow a symlinked backup root or
+overwrite an existing repository, backup parent, or backup target.
 
 Install the required programs before expecting every optional feature to work:
 [full dependency inventory](.local/share/docs/project/dependencies.md).
+
+The X11 desktop also uses four separately maintained source repositories. After
+installing the compiler, headers, and target-platform packages listed in the
+dependency inventory and platform profile, clone, build, and install them:
+
+```sh
+mkdir -p "$HOME/src"
+for repo in dmenu st dwmblocks dwm; do
+  git clone "https://github.com/darkroam/$repo" "$HOME/src/$repo"
+  make -C "$HOME/src/$repo"
+  sudo make -C "$HOME/src/$repo" install
+done
+```
+
+They remain independent Git repositories; the bare dotfiles installer does not
+clone, build, or commit them.
 
 ## Startup Flow
 
@@ -72,15 +97,16 @@ runtime resources remain in `.local/share/larbs/`:
 
 - [Architecture and design](.local/share/docs/project/architecture.md): directory
   map, load order, optional-feature model, and ownership boundaries.
-- [Display management analysis](.local/share/docs/project/display-management.md):
-  current X11 display-switching relationships, system-service boundaries, and
-  retained device-local hooks.
-- [Display redesign plan](.local/share/docs/planning/display-management-redesign.md):
-  staged implementation, migration quarantine, validation matrix, and rollback.
+- [Display management design](.local/share/docs/project/display-management.md):
+  shared X11 ownership, state model, layout policy, validation, and diagnostics.
 - [Display device adapter guide](.local/share/docs/project/display-device-adapter.md):
   the planned single-file extension contract for nonstandard hardware.
 - [Dependencies](.local/share/docs/project/dependencies.md): complete
-  command-oriented installation inventory for a new machine.
+  command-oriented, distribution-neutral capability inventory.
+- [Platform profiles](.local/share/docs/platforms/index.md): per-device and
+  per-distribution package mappings, system facts, validation, and recovery.
+- [Cross-platform audit](.local/share/docs/planning/dependency-audit.md): reusable
+  code, dependency, runtime, documentation, and platform-boundary checks.
 - [Maintenance policy](.local/share/docs/project/maintenance-policy.md): project
   constraints plus accepted and rejected design directions.
 - [Current TODO](.local/share/docs/planning/todo.md): active work only.
@@ -93,9 +119,8 @@ runtime resources remain in `.local/share/larbs/`:
 - [Chinese keybinding cheat sheet](.local/share/docs/user/keybindings-zh.md):
   concise DWM and media-key reference.
 
-The DWM `Mod+F1` binding still opens the upstream installed guide at
-`/usr/local/share/dwm/larbs.mom`; the localized documents are maintained in
-this repository and intentionally do not alter the separately built DWM source.
+The DWM `Mod+F1` binding opens the installed English guide generated from the
+separately maintained DWM source. Localized documents remain in this repository.
 
 ## Repositories
 

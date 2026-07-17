@@ -7,7 +7,7 @@
 
 | 快捷键 | 动作 |
 | --- | --- |
-| `Mod+Enter` | 打开 `st` |
+| `Mod+Enter` / `Mod+Shift+Enter` | 打开 `st` / 切换 `spterm` 下拉终端 |
 | `Mod+q` | 关闭当前窗口 |
 | `Mod+j/k` | 在窗口栈中切换 |
 | `Mod+Shift+j/k` | 在窗口栈中向后/向前移动当前窗口 |
@@ -38,16 +38,17 @@
 
 | 快捷键 | 动作 |
 | --- | --- |
-| `Mod+d` / `Mod+Shift+d` | dmenu / passmenu |
+| `Mod+d` / `Mod+Shift+d` | dmenu / passmenu；后者要求 PATH 中存在 `passmenu` |
 | `Mod+\`` | Unicode/Emoji 菜单 |
 | `Mod+w` / `Mod+Shift+w` | 浏览器（Microsoft Edge）/ Nmtui |
 | `Mod+e` / `Mod+Shift+e` | Neomutt / Abook 通讯录 |
+| `Mod+c` | Profanity XMPP 客户端 |
 | `Mod+r` / `Mod+Shift+r` | LF / Htop |
 | `Mod+n` / `Mod+Shift+n` | Vimwiki / Newsboat |
 | `Mod+m` | Ncmpcpp |
 | `Mod+Shift+m` | 切换默认输出静音并刷新状态栏 |
-| `Mod+'` / `Mod+Shift+'` | 下拉终端 / 切换智能间隙 |
-| `Mod+F1` | 当前系统安装的英文 LARBS 指南 |
+| `Mod+'` / `Mod+Shift+'` | 切换 `spcalc` 计算器 / 切换智能间隙 |
+| `Mod+F1` | DWM 安装的英文指南 |
 | `Mod+F2` | 教程视频菜单 |
 | `Mod+F3` | 显示器选择器 |
 | `Mod+F4` | Pulsemixer |
@@ -78,6 +79,7 @@
 | `Mod+ScrollLock` | 切换 screenkey 显示按键 |
 | 音量键 | 使用 `wpctl` 静音或调节默认输出 |
 | 媒体键 | 通过 `mpc` 控制 MPD，媒体键打开 Ncmpcpp |
+| 麦克风静音键 | 通过 `pactl` 切换默认输入静音；命令缺失时该按键无效 |
 
 ## 其他硬件键
 
@@ -85,7 +87,7 @@
 | --- | --- |
 | 浏览器键 | 打开 `$BROWSER`，当前为 Microsoft Edge |
 | 计算器键 | 在终端打开 `bc -l` |
-| 睡眠键 | 执行 `sudo -A zzz` |
+| 睡眠键 | 执行 `sudo -A zzz`；这是需由目标平台提供或替换的旧绑定 |
 | 屏保键 | 锁屏、关闭 DPMS、暂停 MPD/MPV |
 | 邮件键 | 打开 Neomutt |
 | 我的电脑键 | 用 LF 打开根目录 |

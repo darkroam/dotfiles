@@ -7,10 +7,12 @@ unsetopt PROMPT_SP
 
 # Start the graphical session only from the local first console.
 if [[ $(tty) == /dev/tty1 ]] && [ -z "$SSH_CONNECTION" ] && [ -z "$DISPLAY" ]; then
-    if [ -e /dev/dri/card0 ] && ! pgrep -x Xorg >/dev/null 2>&1; then
+    graphics_devices=(/dev/dri/card<->(N) /dev/fb<->(N))
+    if (( ${#graphics_devices} )) && ! pgrep -x Xorg >/dev/null 2>&1; then
         export XINITRC="${XDG_CONFIG_HOME:-$HOME/.config}/x11/xinitrc"
         exec startx
     fi
+    unset graphics_devices
 fi
 
 # Keep normal shells on recovery consoles and avoid garbled CJK text.

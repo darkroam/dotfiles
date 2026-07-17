@@ -3,11 +3,12 @@
 这里只保留活动工作。修改已跟踪文件前，先检查其运行依赖并保持可选依赖行为。
 
 - [ ] 检查其余配置文件是否包含过时设置或发行版专属假设，但不删除可信个人设置。
-- [ ] 在安装依赖后测试交互式 X11 路径：`nmtui`、`nsxiv`、日历、亮度、截图、OTP、
-  CIFS 挂载、种子、录制选择和 RSS 下载队列。
-- [ ] 安装后复查依赖：`mpc`、NetworkManager、图像和预览工具、task-spooler、
-  Transmission、媒体元数据工具和其余需要的编译工具链。
-- [ ] 在持续 PipeWire-only 测试后，决定是否可以移除保留的 ALSA 回退文件。
+- [ ] 在独立 DWM 仓库获准修改时，将状态栏 `Shift+Button3` 的源码编辑路径从旧
+  `~/.local/src/dwmblocks/config.h` 对齐规范的 `~/src/dwmblocks/config.h`，并复查帮助文件中的
+  旧源码目录说明。
+- [ ] 按[平台档案索引](../platforms/index.md)完成各平台仍需真实会话、硬件、账户或网络的验证；
+  公共 TODO 不重复记录某台设备的安装状态。
+- [ ] 在持续 PipeWire-only 测试后，决定是否可以移除保留的 ALSA 兼容入口。
 - [ ] 启用无人值守包检查前，复查 cron 调度和 sudo 策略。
 - [ ] 决定是否重写已发布 Git 历史，以移除历史作者/提交者邮箱元数据和旧跟踪
   `.gitconfig` 身份。此操作需要协调 force-push，不能轻率执行。

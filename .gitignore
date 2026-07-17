@@ -29,7 +29,9 @@
 
 # ── Application Data & Config ────────────────────────────────
 .cfg
+.config-backup/
 .local/share/xdisplay-transition-*/
+.local/share/docs/tmux-*.log
 .gnupg
 .docker/
 .gem/

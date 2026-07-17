@@ -262,10 +262,10 @@ export NVM_DIR="$HOME/.config/nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
-# bun completions
-[ -s "/home/ok/.bun/_bun" ] && source "/home/ok/.bun/_bun"
-
 export BUN_INSTALL="$HOME/.bun"
+# bun completions
+[ -s "$BUN_INSTALL/_bun" ] && source "$BUN_INSTALL/_bun"
+
 case ":$PATH:" in
 	*:"$BUN_INSTALL/bin":*) ;;
 	*) export PATH="$BUN_INSTALL/bin:$PATH" ;;
