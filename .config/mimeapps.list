@@ -108,5 +108,5 @@ application/wps-office.wpso=wps-office-prometheus.desktop
 application/wps-office.uot=wps-office-prometheus.desktop
 application/wps-office.uot3=wps-office-prometheus.desktop
 application/wps-office.uott3=wps-office-prometheus.desktop
-x-scheme-handler/clash=Clash Verge.desktop;
-x-scheme-handler/clash-verge=Clash Verge.desktop;
+x-scheme-handler/clash=clash-verge-handler.desktop;
+x-scheme-handler/clash-verge=clash-verge-handler.desktop;

@@ -2,6 +2,11 @@
 
 ## 最近记录的变更
 
+- [x] 2026-07-18：加入可移植的 `clash-verge-handler.desktop`，统一处理 `clash:` 与
+  `clash-verge:` URI。handler 通过 PATH 和 `TryExec` 定位程序，`Exec` 不经过 shell；配置不再
+  依赖发行版含空格的 desktop 文件名。`gio` 与 `xdg-mime` 的隔离测试和当前配置查询均正确解析
+  两个 scheme，未在验证中启动 GUI。
+
 - [x] 2026-07-18：统一独立桌面源码入口为 `~/src`。规范书签 `rr`/`src`、`cfb`、DWM 状态栏
   `Shift+Button3` 和 DWMBlocks 注释不再引用旧 `~/.local/src`；已重新生成被 Git 忽略的 Shell、
   Zsh 与 LF 快捷方式。DWM 帮助同步修正源码目录，并明确保存 `config.h` 不会自动编译安装。

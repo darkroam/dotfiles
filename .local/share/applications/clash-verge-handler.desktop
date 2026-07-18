@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Clash Verge URI Handler
+Comment=Open Clash Verge URI links
+TryExec=clash-verge
+Exec=clash-verge %u
+Icon=clash-verge
+Terminal=false
+NoDisplay=true
+MimeType=x-scheme-handler/clash;x-scheme-handler/clash-verge;
