@@ -113,7 +113,8 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`）、procps（`pgre
 | `dunst`, `xwallpaper` | 手动布局后的可选通知与壁纸刷新；不属于自动 watcher 的基础依赖 |
 | `cvt` | 仅在非标准面板确需自定义 modeline 时使用的可选设备适配开发工具 |
 | `systemd-analyze`, `udevadm` | 可选的 logind 合并配置检查和显示迁移规则维护工具；不属于 watcher 运行依赖 |
-| NetworkManager：`nmtui`、`nmcli` | 网络状态栏菜单和交互式连接设置 |
+| NetworkManager 守护进程、`nmtui`、`nmcli` | 网络连接、自动连接、地址/路由/DNS 所有权、交互式设置和诊断；选择该栈时，同一接口不能再由其他网络管理器接管 |
+| `wpa_supplicant` | 可供 NetworkManager 选用的全局 D-Bus Wi-Fi 认证后端，也是已跟踪接口模板的实现；平台可选择 NetworkManager 支持的其他认证后端，选用时仍不取代 NetworkManager 的连接和三层网络所有权 |
 | `xbacklight` | 亮度键和状态栏滚轮动作 |
 | `lm-sensors` | 硬件导出 CPU 传感器时的 CPU 温度模块 |
 | `mount`、`umount`、`lsblk` | 普通块设备挂载、卸载和发现 |
@@ -173,9 +174,12 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`）、procps（`pgre
 
 - `.local/share/sys-etc/portage/make.conf.template`：Portage 和 `emerge`
 - `.local/share/sys-etc/systemd/network/wireless.network.template`:
-  systemd-networkd 和 `networkctl`
+  systemd-networkd 和 `networkctl`；只用于由 systemd-networkd 管理的接口
 - `.local/share/sys-etc/wpa_supplicant/wpa_supplicant.conf.template`:
-  `wpa_supplicant`
+  接口级 `wpa_supplicant`；与上一模板组成可选栈，不得用于 NetworkManager 已管理的同一接口
+
+这套 systemd-networkd/接口级 `wpa_supplicant` 模板栈与 NetworkManager 对同一接口互斥。
+平台为 NetworkManager 选择全局 D-Bus `wpa_supplicant` 作为 Wi-Fi 认证后端时不构成重复管理。
 
 cron 辅助命令需要 `cron`、`crontab`、`notify-send`、`xdotool`、`newsboat` 和运行中的
 用户 DBus 会话。`.local/bin/cron/README.md` 的示例设置 `DISPLAY` 和

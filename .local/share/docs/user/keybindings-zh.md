@@ -48,7 +48,7 @@
 | --- | --- |
 | `Mod+d` / `Mod+Shift+d` | dmenu / 已跟踪的 `passmenu` 密码库菜单；后者默认复制所选密码 |
 | `Mod+\`` | Unicode/Emoji 菜单 |
-| `Mod+w` / `Mod+Shift+w` | 浏览器（Microsoft Edge）/ Nmtui |
+| `Mod+w` / `Mod+Shift+w` | 浏览器（Microsoft Edge）/ `nmtui` |
 | `Mod+e` / `Mod+Shift+e` | Neomutt / Abook 通讯录 |
 | `Mod+c` | Profanity XMPP 客户端 |
 | `Mod+r` / `Mod+Shift+r` | LF / Htop |

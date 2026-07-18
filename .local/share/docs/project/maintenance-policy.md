@@ -51,7 +51,9 @@
 - 静态颜色和桌面默认值必须在没有 `wal` 或壁纸时可用。
 - 输入法选择集中于 `xprofile`：优先 `fcitx5`，再 `fcitx`，最后 `ibus`。
 - Microsoft Edge 通过 `BROWSER` 作为配置浏览器。
-- 安装 NetworkManager 时，`nmtui` 保持交互式网络管理入口。
+- 选择 NetworkManager 时，`nmtui` 保持交互式网络管理入口，NetworkManager 是连接配置、自动连接、
+  地址、路由和 DNS 的唯一所有者。平台选用全局 D-Bus `wpa_supplicant` 时，它只能作为 Wi-Fi
+  认证后端；ifupdown、systemd-networkd、dhcpcd 和接口级 `wpa_supplicant@` 不得同时管理同一接口。
 - TeX 根文件解析集中于 `texroot`，`compiler`、`opout`、`texclear` 共享该结果；最终 PDF 固定在
   根文件同目录，清理不得删除根源文件、最终 PDF、参考文献源或其他文档的文件。
 - `Mod+F9/F10` 及其脚本只处理 `lsblk` 可见的普通块设备；协议挂载不得混入该入口，CIFS 保持

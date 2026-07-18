@@ -1,3 +1,6 @@
+# Alternative network stack only. Do not install or enable this file for an
+# interface managed by NetworkManager. Pair it with the interface-specific
+# wpa_supplicant template only when systemd-networkd owns that interface.
 # Copy to /etc/systemd/network/25-wireless.network and adjust as needed.
 
 [Match]

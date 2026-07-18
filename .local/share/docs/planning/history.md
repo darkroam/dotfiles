@@ -2,6 +2,12 @@
 
 ## 最近记录的变更
 
+- [x] 2026-07-19：固定网络接口的唯一所有者规则。选择 NetworkManager 时，由它负责连接配置、
+  自动连接、地址、路由和 DNS；平台选用全局 D-Bus `wpa_supplicant` 时，它仅作为 Wi-Fi 认证后端。ifupdown、
+  systemd-networkd、dhcpcd 和接口级 `wpa_supplicant@` 不得并行管理同一接口。备用
+  systemd-networkd/接口级 `wpa_supplicant` 模板已加入就地互斥警告；发行版部署、迁移验证和
+  恢复事实只记录在[平台档案](../platforms/index.md)。
+
 - [x] 2026-07-18：移除 DWM 中的 Void 风格 `sudo -A zzz` 睡眠键绑定，硬件键改由
   systemd-logind 或 elogind 唯一处理。X11 会话单实例启动
   `xss-lock --ignore-xss -- slock`，在不改变 XScreenSaver 空闲策略的前提下桥接 login1 锁屏/睡眠事件；

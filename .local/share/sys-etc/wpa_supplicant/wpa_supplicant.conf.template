@@ -1,3 +1,6 @@
+# Alternative network stack only. Do not start wpa_supplicant@<interface> for
+# an interface managed by NetworkManager. NetworkManager may use a separate
+# global D-Bus wpa_supplicant service; that backend does not use this file.
 # Copy to /etc/wpa_supplicant/wpa_supplicant-<interface>.conf, then replace the
 # placeholders before starting wpa_supplicant@<interface>.
 
