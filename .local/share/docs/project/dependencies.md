@@ -118,8 +118,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`）、procps（`pgre
 | `lm-sensors` | 硬件导出 CPU 传感器时的 CPU 温度模块 |
 | `mount`、`umount`、`lsblk` | 普通块设备挂载、卸载和发现 |
 | `mount.cifs`、`smbclient`、`avahi-browse`、Avahi 守护进程 | CIFS 发现和挂载辅助工具 |
-| systemd（`loginctl`、`systemctl`）、`pstree`、`slock` | `sysact` 锁屏/会话控制 |
-| `zzz` | 独立 DWM 睡眠键保留的 Void 风格可选命令；其他平台应提供兼容命令或调整该绑定 |
+| systemd-logind（`systemctl`）或 elogind（`loginctl`）、`flock`、`xss-lock`、`slock`、`pstree` | 硬件睡眠键、挂起前锁屏以及 `sysact` 电源/会话控制；`flock` 按登录会话和 X server 保证单实例，`xss-lock` 只桥接 login1 事件，不接管 XScreenSaver 空闲超时 |
 | `geoiplookup` | 可选 IP 地理位置状态模块 |
 | `synclient` 和 X11 Synaptics 触摸板驱动 | 为单独构建 DWM 触摸板切换代码保留的可选依赖；无已跟踪 dotfiles 运行调用 |
 | `screenkey` | 为单独构建 DWM 绑定保留的可选按键覆盖层；无已跟踪 dotfiles 运行调用 |

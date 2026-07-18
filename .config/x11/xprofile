@@ -76,6 +76,29 @@ if command -v innogpu-restore-dp1-mode-x11 >/dev/null 2>&1; then
 	export XDISPLAY_RESTORE_COMMAND
 fi
 command -v xdisplay.sh >/dev/null 2>&1 && xdisplay.sh --watch &
+if command -v flock >/dev/null 2>&1 &&
+	command -v xss-lock >/dev/null 2>&1 &&
+	command -v slock >/dev/null 2>&1
+then
+	xss_lock_display=${DISPLAY:-unknown}
+	case "$xss_lock_display" in
+		*:*.*)
+			xss_lock_screen=${xss_lock_display##*.}
+			case "$xss_lock_screen" in
+				''|*[!0-9]*) ;;
+				*) xss_lock_display=${xss_lock_display%.*} ;;
+			esac
+			;;
+	esac
+	xss_lock_key=$(printf '%s' "${XDG_SESSION_ID:-session}-$xss_lock_display" |
+		LC_ALL=C tr -c 'A-Za-z0-9_-' '_')
+	xss_lock_dir=${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}
+	if mkdir -p "$xss_lock_dir"; then
+		flock -n "$xss_lock_dir/xss-lock-$xss_lock_key.lock" \
+			xss-lock --ignore-xss -- slock >/dev/null 2>&1 &
+	fi
+	unset xss_lock_display xss_lock_screen xss_lock_key xss_lock_dir
+fi
 picom_cmd="${PICOM_BIN:-$(command -v picom 2>/dev/null)}"
 if [ -n "$picom_cmd" ] && [ -x "$picom_cmd" ]; then
 	mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}"

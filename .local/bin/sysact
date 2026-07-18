@@ -1,19 +1,76 @@
 #!/bin/sh
 
 # A dmenu wrapper script for system functions.
-export WM="dwm"
-case "$(readlink -f /sbin/init)" in
-	*systemd*) ctl='systemctl' ;;
-	*) ctl='loginctl' ;;
-esac
+export WM="${WM:-dwm}"
 
-wmpid(){ # This function is needed if there are multiple instances of the window manager.
-	tree="$(pstree -ps $$)"
+die() {
+	message=$1
+	printf 'sysact: %s\n' "$message" >&2
+	if [ -n "${DISPLAY:-}" ] && command -v notify-send >/dev/null 2>&1; then
+		notify-send -u critical "sysact" "$message" >/dev/null 2>&1 || :
+	fi
+	return 1
+}
+
+usage() {
+	printf 'Usage: sysact [lock|leave|renew|suspend|hibernate|reboot|poweroff|display-off]\n' >&2
+}
+
+set_power_controller() {
+	if [ -d /run/systemd/system ]; then
+		command -v systemctl >/dev/null 2>&1 || {
+			die "systemd is active but systemctl is unavailable."
+			return 1
+		}
+		ctl=systemctl
+		return 0
+	fi
+
+	if command -v loginctl >/dev/null 2>&1 &&
+		loginctl --version 2>/dev/null | grep -qi elogind; then
+		ctl=loginctl
+		return 0
+	fi
+
+	die "Install systemd-logind or elogind to manage power actions."
+}
+
+power_action() {
+	action=$1
+	set_power_controller || return 1
+	"$ctl" "$action" || die "Failed to run '$ctl $action'."
+}
+
+wmpid() { # This function is needed if there are multiple instances of the window manager.
+	tree="$(pstree -ps $$)" || return 1
+	case "$tree" in
+		*"$WM("*) ;;
+		*) return 1 ;;
+	esac
 	tree="${tree#*$WM(}"
 	echo "${tree%%)*}"
 }
 
-lock(){
+signal_wm() {
+	signal=$1
+	command -v pstree >/dev/null 2>&1 || {
+		die "Required command not found: pstree"
+		return 1
+	}
+	pid="$(wmpid)"
+	[ -n "$pid" ] || {
+		die "Could not determine the $WM process."
+		return 1
+	}
+	kill "-$signal" "$pid" || die "Failed to signal $WM process $pid."
+}
+
+lock() {
+	command -v slock >/dev/null 2>&1 || {
+		die "Required command not found: slock"
+		return 1
+	}
+
 	restore_unmuted=0
 	refresh_volume=0
 	if command -v wpctl >/dev/null 2>&1; then
@@ -36,21 +93,56 @@ lock(){
 	command -v mpc >/dev/null 2>&1 && mpc pause >/dev/null 2>&1
 	command -v pauseallmpv >/dev/null 2>&1 && pauseallmpv >/dev/null 2>&1
 	slock
+	lock_status=$?
 
 	[ "$restore_unmuted" -eq 1 ] && wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 >/dev/null 2>&1
 	if [ "$refresh_volume" -eq 1 ] && command -v pkill >/dev/null 2>&1; then
 		pkill -RTMIN+10 -x "${STATUSBAR:-dwmblocks}" >/dev/null 2>&1
 	fi
+
+	[ "$lock_status" -eq 0 ] || die "slock exited with status $lock_status."
 }
 
-case "$(printf "🔒 lock\n🚪 leave $WM\n🔄 renew $WM\n🐻 hibernate\n🔁 reboot\n⏻ shutdown\n🌙 sleep\n🌑 display off" | dmenu -i -p 'Action: ')" in
-	'🔒 lock') lock ;;
-	"🚪 leave $WM") kill -TERM "$(wmpid)" ;;
-	"🔄 renew $WM") kill -HUP "$(wmpid)" ;;
-	'🐻 hibernate') slock $ctl hibernate -i ;;
-	'🌙 sleep') slock $ctl suspend -i ;;
-	'🔁 reboot') $ctl reboot -i ;;
-	'⏻ shutdown') $ctl poweroff -i ;;
-	'🌑 display off') xset dpms force off ;;
-	*) exit 1 ;;
+if [ "$#" -eq 0 ]; then
+	command -v dmenu >/dev/null 2>&1 || {
+		die "Required command not found: dmenu"
+		exit 1
+	}
+	choice="$(printf "🔒 lock\n🚪 leave $WM\n🔄 renew $WM\n🐻 hibernate\n🔁 reboot\n⏻ shutdown\n🌙 sleep\n🌑 display off" | dmenu -i -p 'Action: ')" || exit 0
+	case "$choice" in
+		'🔒 lock') action=lock ;;
+		"🚪 leave $WM") action=leave ;;
+		"🔄 renew $WM") action=renew ;;
+		'🐻 hibernate') action=hibernate ;;
+		'🔁 reboot') action=reboot ;;
+		'⏻ shutdown') action=poweroff ;;
+		'🌙 sleep') action=suspend ;;
+		'🌑 display off') action=display-off ;;
+		*) exit 0 ;;
+	esac
+elif [ "$#" -eq 1 ]; then
+	case "$1" in
+		lock|leave|renew|suspend|hibernate|reboot|poweroff|display-off) action=$1 ;;
+		sleep) action=suspend ;;
+		shutdown) action=poweroff ;;
+		help|-h|--help) usage; exit 0 ;;
+		*) usage; exit 2 ;;
+	esac
+else
+	usage
+	exit 2
+fi
+
+case "$action" in
+	lock) lock ;;
+	leave) signal_wm TERM ;;
+	renew) signal_wm HUP ;;
+	suspend|hibernate|reboot|poweroff) power_action "$action" ;;
+	display-off)
+		command -v xset >/dev/null 2>&1 || {
+			die "Required command not found: xset"
+			exit 1
+		}
+		xset dpms force off || die "Failed to turn the display off."
+		;;
 esac

@@ -59,6 +59,10 @@
 - 现有 ALSA 兼容入口保留，直到持续 PipeWire-only 测试证明可移除；不得把显式 `hw:` 访问描述为
   PipeWire 默认设备失效后的自动回退。
 - DWM、DWMBlocks、dmenu、st 源码在 `~/src/` 下单独维护；由用户编译安装。
+- 硬件睡眠键由 systemd-logind 或 elogind 唯一处理，DWM 不设置第二个挂起绑定。
+  X11 会话以按登录会话和 X server 划分的 `flock` 运行锁，单实例使用不带
+  `--transfer-sleep-lock` 的 `xss-lock` 启动 `slock`；手动电源动作必须保留 login manager
+  inhibitors，标准 `slock` 未实现延迟锁 FD 握手时不得强行传递该 FD。
 - 硬件恢复代码只能通过受限本地钩子或设备适配器接入；不得向共享配置新增固定输出、modeline
   和驱动假设。现有兼容注入的具体钩子与迁移状态只写平台档案，并按显示管理挂起任务移除。
 - 自动显示布局默认把 framebuffer 收敛到有效输出的包围盒。不得为缩短单台设备的物理重同步

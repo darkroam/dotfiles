@@ -95,7 +95,7 @@
 | --- | --- |
 | 浏览器键 | 打开 `$BROWSER`，当前为 Microsoft Edge |
 | 计算器键 | 在终端打开 `bc -l` |
-| 睡眠键 | 执行 `sudo -A zzz`；这是需由目标平台提供或替换的旧绑定 |
+| 睡眠键 | 由 systemd-logind 或 elogind 唯一处理；`xss-lock` 在睡眠准备阶段启动 `slock` |
 | 屏保键 | 锁屏、关闭 DPMS、暂停 MPD/MPV |
 | 邮件键 | 打开 Neomutt |
 | 我的电脑键 | 用 LF 打开根目录 |

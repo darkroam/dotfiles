@@ -2,6 +2,14 @@
 
 ## 最近记录的变更
 
+- [x] 2026-07-18：移除 DWM 中的 Void 风格 `sudo -A zzz` 睡眠键绑定，硬件键改由
+  systemd-logind 或 elogind 唯一处理。X11 会话单实例启动
+  `xss-lock --ignore-xss -- slock`，在不改变 XScreenSaver 空闲策略的前提下桥接 login1 锁屏/睡眠事件；
+  单实例由按登录会话和 X server 划分的 `flock` 运行锁保证。
+  `sysact` 的菜单和显式动作共用同一分派，使用 `systemctl` 或 elogind `loginctl`，
+  并移除会跳过 inhibitors 的 `-i`。标准 `slock` 不支持延迟锁 FD 握手，因此本项不使用
+  `--transfer-sleep-lock`；严格 locker-ready 握手留待单独设计和验证。
+
 - [x] 2026-07-18：跟踪 X11 专用 `passmenu`，使 DWM `Mod+Shift+d` 不再依赖
   发行版的文档示例路径。脚本基于 Password Store 官方 dmenu 示例并保留
   GPL-2.0-or-later 来源与版权；默认复制密码，显式 `--type` 才自动输入。
