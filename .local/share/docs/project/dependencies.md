@@ -90,8 +90,8 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`）、procps（`pgre
 | `pdftoppm`, `pdftotext`, `pdfinfo`, `pdffonts`, `odt2txt` | 文档预览、PDF 渲染/字体检查和 `getbib` |
 | `gpg`, `man`, `col`, `xdg-open` | 加密、手册、格式化文本和桌面打开 |
 | `neomutt`, `abook`, `newsboat` | 已配置邮件、通讯录和 RSS 客户端；DWM `Mod+Shift+e` 直接启动 Abook，与 Mutt Wizard 共用 Abook 默认数据目录 |
-| `pass`, `pass-otp`, `zbarimg`, `maim`, `xclip`, `dmenu` | 密码库、OTP、二维码、截图和菜单辅助工具 |
-| `passmenu` | 独立 DWM 的 `Mod+Shift+d` 密码菜单；发行版只提供示例而未安装到 PATH 时需单独部署 |
+| `pass`、GnuPG、图形 Pinentry、`pass-otp`、`zbarimg`、`maim`、`xclip`、`dmenu` | 加密密码库及图形解锁、OTP、二维码、截图和菜单辅助工具 |
+| 已跟踪的 `passmenu`、Bash、`dmenu`、`xclip`；可选 `xdotool` | 独立 DWM 的 `Mod+Shift+d` 密码菜单；默认通过 `pass` 复制密码，只有显式 `--type` 才向当前焦点窗口自动输入 |
 | `timedatectl`、`chronyc` 或 `ntpdate` | OTP 时钟同步检查 |
 | WPS Office 和 `wps-office-prometheus.desktop` | 已配置办公 MIME 默认项 |
 | `clash-verge` 和已跟踪的 `clash-verge-handler.desktop` | `clash`、`clash-verge` URI 方案处理器；本地 handler 避免依赖发行版 desktop 文件名，仅在使用相应链接时需要 |

@@ -131,6 +131,7 @@ separately maintained DWM source. Localized documents remain in this repository.
 5. nvbn/thef*ck
 6. ggreer/the_silver_searcher
 7. pulsemixer
+8. zx2c4/password-store
 
 ## Thanks
 
@@ -142,6 +143,9 @@ I keep the folder: .local/share/larbs.
 [Gregory Pakosz] The tmux config comes from him. <https://github.com/gpakosz/.tmux>
 
 [Oh My Zsh] The zsh config comes from them.
+
+[Password Store] The tracked X11 passmenu is adapted from its dmenu example and retains the
+upstream GPL-2.0-or-later copyright notice. <https://www.passwordstore.org/>
 
 ## License
 

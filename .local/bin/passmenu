@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Adapted for X11 from Password Store's contrib/dmenu/passmenu.
+# Copyright (C) 2012-2016 Jason A. Donenfeld.
+
+set -o pipefail
+shopt -s nullglob globstar
+
+die() {
+	printf 'passmenu: %s\n' "$*" >&2
+	exit 1
+}
+
+[[ -n ${DISPLAY:-} ]] || die "No X11 display detected."
+command -v pass >/dev/null 2>&1 || die "Required command not found: pass"
+command -v dmenu >/dev/null 2>&1 || die "Required command not found: dmenu"
+
+type_password=0
+if [[ ${1-} == "--type" ]]; then
+	type_password=1
+	shift
+	command -v xdotool >/dev/null 2>&1 || die "Required command not found: xdotool"
+fi
+
+prefix="${PASSWORD_STORE_DIR:-$HOME/.password-store}"
+password_files=("$prefix"/**/*.gpg)
+((${#password_files[@]} > 0)) || die "No password entries found."
+
+password_files=("${password_files[@]#"$prefix"/}")
+password_files=("${password_files[@]%.gpg}")
+
+password="$(printf '%s\n' "${password_files[@]}" | dmenu "$@")" || exit 1
+[[ -n $password ]] || exit 1
+
+if ((type_password == 0)); then
+	exec pass show -c -- "$password"
+fi
+
+pass show -- "$password" |
+	{
+		IFS= read -r secret
+		[[ -n $secret ]] || exit 1
+		printf %s "$secret"
+	} |
+	xdotool type --clearmodifiers --file -

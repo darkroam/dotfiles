@@ -33,6 +33,8 @@
 .local/share/xdisplay-transition-*/
 .local/share/docs/tmux-*.log
 .gnupg
+.password-store/
+.local/share/password-store/
 .docker/
 .gem/
 .cache/

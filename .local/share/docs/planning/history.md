@@ -2,6 +2,12 @@
 
 ## 最近记录的变更
 
+- [x] 2026-07-18：跟踪 X11 专用 `passmenu`，使 DWM `Mod+Shift+d` 不再依赖
+  发行版的文档示例路径。脚本基于 Password Store 官方 dmenu 示例并保留
+  GPL-2.0-or-later 来源与版权；默认复制密码，显式 `--type` 才自动输入。
+  `dmenupass` 继续只负责 sudo Askpass；隔离 mock 回归 `9/9` 通过，两个密码库目录均由
+  Git 忽略且验证过程不读取或跟踪真实数据。
+
 - [x] 2026-07-18：将 DWM 麦克风静音键从 `pactl` 切换为不经 shell 直接调用
   `wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle`，复用已有 PipeWire/WirePlumber 控制链，
   不再为单一按键引入 PulseAudio 协议客户端依赖；`pipewire-pulse` 兼容服务保持不变。
