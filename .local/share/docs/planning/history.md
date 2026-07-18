@@ -2,6 +2,10 @@
 
 ## 最近记录的变更
 
+- [x] 2026-07-18：将 DWM 麦克风静音键从 `pactl` 切换为不经 shell 直接调用
+  `wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle`，复用已有 PipeWire/WirePlumber 控制链，
+  不再为单一按键引入 PulseAudio 协议客户端依赖；`pipewire-pulse` 兼容服务保持不变。
+
 - [x] 2026-07-18：将 DWM `Mod+Shift+e` 改为不经 shell 直接启动
   `abook`，与 Mutt Wizard 共用 `~/.abook` 默认数据目录。不新增或跟踪通讯录配置和
   账户数据；DWM 帮助中的 `Mod+E` 仍表示同一 Shift 组合键。

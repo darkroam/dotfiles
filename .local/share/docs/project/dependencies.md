@@ -68,11 +68,10 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`）、procps（`pgre
 
 | 软件或命令 | 用途 |
 | --- | --- |
-| PipeWire、`pipewire-pulse`、WirePlumber、`wpctl` | 默认音频栈和音量控制；`pipewire-pulse` 为需要它的应用提供 PulseAudio 兼容服务端 |
+| PipeWire、`pipewire-pulse`、WirePlumber、`wpctl` | 默认音频栈、输出音量和麦克风静音控制；`pipewire-pulse` 为需要它的应用提供 PulseAudio 兼容服务端 |
 | ALSA 库、`pipewire-alsa` 和可选 ALSA 工具 | 平台系统配置可将默认设备接入 PipeWire；显式 `hw:` 访问仍可用，但不承诺服务失效时自动回退；已跟踪 `asoundrc` 不固定硬件 |
 | `mpd`, `mpc`, `ncmpcpp` | 音乐守护进程、控制客户端和终端界面 |
 | `pulsemixer` | 已配置交互式音频混音器 |
-| `pactl` | 独立 DWM 源码中麦克风静音键的可选 PulseAudio 协议客户端；可连接 `pipewire-pulse`，不要求 PulseAudio daemon |
 | `mpv`, `socat`, `ffmpeg` | 视频播放、MPV IPC 辅助、录制/转码 |
 | `slop` | 选区录制 |
 | V4L2 摄像头设备 | 摄像头录制路径 |
