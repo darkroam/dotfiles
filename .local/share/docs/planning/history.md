@@ -2,6 +2,10 @@
 
 ## 最近记录的变更
 
+- [x] 2026-07-18：将 DWM `Mod+Shift+e` 改为不经 shell 直接启动
+  `abook`，与 Mutt Wizard 共用 `~/.abook` 默认数据目录。不新增或跟踪通讯录配置和
+  账户数据；DWM 帮助中的 `Mod+E` 仍表示同一 Shift 组合键。
+
 - [x] 2026-07-18：加入可移植的 `clash-verge-handler.desktop`，统一处理 `clash:` 与
   `clash-verge:` URI。handler 通过 PATH 和 `TryExec` 定位程序，`Exec` 不经过 shell；配置不再
   依赖发行版含空格的 desktop 文件名。`gio` 与 `xdg-mime` 的隔离测试和当前配置查询均正确解析

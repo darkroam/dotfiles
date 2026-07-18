@@ -90,7 +90,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`）、procps（`pgre
 | ImageMagick（`display`、`convert`）、`mediainfo`、`ffmpegthumbnailer` | LF 图像/视频预览 |
 | `pdftoppm`, `pdftotext`, `pdfinfo`, `pdffonts`, `odt2txt` | 文档预览、PDF 渲染/字体检查和 `getbib` |
 | `gpg`, `man`, `col`, `xdg-open` | 加密、手册、格式化文本和桌面打开 |
-| `neomutt`, `abook`, `newsboat` | 已配置邮件、通讯录和 RSS 客户端；Abook 由 DWM `Mod+Shift+e` 调用 |
+| `neomutt`, `abook`, `newsboat` | 已配置邮件、通讯录和 RSS 客户端；DWM `Mod+Shift+e` 直接启动 Abook，与 Mutt Wizard 共用 Abook 默认数据目录 |
 | `pass`, `pass-otp`, `zbarimg`, `maim`, `xclip`, `dmenu` | 密码库、OTP、二维码、截图和菜单辅助工具 |
 | `passmenu` | 独立 DWM 的 `Mod+Shift+d` 密码菜单；发行版只提供示例而未安装到 PATH 时需单独部署 |
 | `timedatectl`、`chronyc` 或 `ntpdate` | OTP 时钟同步检查 |
