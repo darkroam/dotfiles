@@ -181,6 +181,12 @@ NetworkManager
 └─ 全局 D-Bus wpa_supplicant：Wi-Fi 认证后端
 ```
 
+同日首次整机冷启动后，NetworkManager 仍为 `enabled`、`active`，总体状态为
+`connected:full`，`nmcli device show` 列出的设备均为 `GENERAL.NM-MANAGED:yes`；断开或不可用的
+非活动设备不影响当前连接。`networking.service` 和 `systemd-networkd.service` 均为
+`disabled`、`inactive`，没有活动 ifup unit、dhcpcd 进程或接口级 `wpa_supplicant@` unit，且只
+存在一个使用 D-Bus 参数的全局 `wpa_supplicant` 进程。第一次冷启动的自动连接和唯一所有权验证通过。
+
 2026-07-18 重启 X11 后，按登录会话和 X server 划分的 `flock` 运行锁只启动一个 xss-lock
 实例。`sysact suspend` 对应的 `systemd-suspend.service` 从 22:28:46 运行到 22:29:22，结果为
 success；恢复后 slock 完成认证并退出，原 xss-lock 实例继续存活。认证时用户日志出现
@@ -288,10 +294,6 @@ sudo /root/networkmanager-transition-20260719/networkmanager-transition.sh rollb
 
 ### 平台活动待办
 
-- [ ] 下一次冷启动后确认 NetworkManager 自动连接，Wi-Fi 仍为 managed，且 systemd-networkd、
-  ifup unit、dhcpcd 服务/进程和接口级 `wpa_supplicant@` unit/进程均未取得该接口所有权；成功前
-  保留网络恢复目录。同步检查这些 unit 的 enabled 状态；若服务为 enabled，必须确认没有匹配该
-  接口的配置。
 - [ ] 复查仍依赖真实 X11、硬件、账户或网络的交互路径：截图/录制、OTP、CIFS、Transmission、
   RSS/邮件和媒体预览。
 - [ ] 按“运行必要性、跨设备价值、效率、结构和维护成本”评估未跟踪的 HDA audio user unit/helper；
@@ -318,7 +320,8 @@ sudo /root/networkmanager-transition-20260719/networkmanager-transition.sh rollb
 - [ ] 用户明确恢复亮度控制工作后，选定本硬件可用后端，再统一 `xlight`、状态栏和按键行为。
 - [ ] 只有通用 cron 调度和最小 sudo 策略获批后，才在本平台启用并验证无人值守 APT 检查。
 - [ ] NetworkManager 稳定使用并完成至少 3 次冷启动，且每次均通过自动连接和唯一所有权检查后，
-  再评估删除 `/root/networkmanager-transition-20260719/`；未达到条件时继续保留可回退状态。
+  再评估删除 `/root/networkmanager-transition-20260719/`；当前已完成 `1/3`，未达到条件时继续保留
+  可回退状态。
 
 ## 升级与重新审计
 
