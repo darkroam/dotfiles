@@ -56,6 +56,10 @@ POSIX Shell；`profile.local` 和 `aliasrc.local` 是预期的每机器扩展点
 `aliasrc` 提供，`cg*` 通过 `cfg_git` 固定操作 `$HOME/.cfg`，不能依赖 alias 展开或当前目录仓库。
 Git 状态使用 `gst`，不得占用非 Git 的 `gs`。
 
+`aliasrc` 同时提供 Bash/Zsh 共用的 `setproxy`、`unsetproxy`、`git_set_proxy` 和
+`git_unset_proxy`。前两者只修改当前 shell 的代理环境，后两者只修改 Git 的全局代理配置；X11
+会话脚本不定义 alias，也不把代理强行注入所有图形程序。
+
 Zsh 在 `compinit` 后按条件加载 `fzf-tab`；缺失 `fzf` 时保留原生 Tab。Tmux 的规范配置位于
 `.config/tmux/tmux.conf`，并加载已跟踪的共享覆盖层 `.config/tmux/tmux.conf.local`；它不是
 每机器私有文件。仓库不保留根目录重复副本。

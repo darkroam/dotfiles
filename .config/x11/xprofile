@@ -46,10 +46,6 @@ if [ -n "$IM_NAME" ]; then
 fi
 unset IM_MODULE
 
-alias setproxy="export http_proxy=http://127.0.0.1:7897 https_proxy=http://127.0.0.1:7897 all_proxy=socks5://127.0.0.1:7897 HTTP_PROXY=http://127.0.0.1:7897 HTTPS_PROXY=http://127.0.0.1:7897 ALL_PROXY=socks5://127.0.0.1:7897"
-alias unsetproxy="unset http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY"
-alias ip="curl -i http://ip.cn"
-
 export GO111MODULE=on
 export GOPROXY=https://goproxy.cn,direct
 

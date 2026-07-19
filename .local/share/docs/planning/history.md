@@ -2,6 +2,10 @@
 
 ## 最近记录的变更
 
+- [x] 2026-07-19：统一 Bash/Zsh 的代理控制。将环境代理和 Git 代理函数集中到共享 `aliasrc`，
+  保持 `7897` 端口和大小写环境变量行为；移除 X11 非交互 shell 中不会生效的 proxy alias，以及
+  Zsh 中的重复定义。代理不会因启动图形会话而强制注入所有程序。
+
 - [x] 2026-07-19：加固匿名 CIFS 菜单。脚本改用 Avahi resolved hostname/port 和 `smbclient -g`，
   严格限制候选服务器与共享名，使用用户级锁、`findmnt` 核对和 `/mnt/cifs-<UID>/` 下的隔离目标；
   提权统一走 `sudo -A`，挂载使用 guest、本地 uid/gid、`nosuid`/`nodev`，不再关闭客户端权限检查，

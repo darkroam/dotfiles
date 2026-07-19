@@ -104,16 +104,6 @@ attach() {
   docker exec -it `docker ps | grep $* | awk -F ' ' '{print $1}'` bash
 }
 
-git_set_proxy() {
-  git config --global http.proxy 'http://127.0.0.1:7897'
-  git config --global https.proxy 'http://127.0.0.1:7897'
-}
-
-git_unset_proxy() {
-  git config --global --unset http.proxy
-  git config --global --unset https.proxy
-}
-
 json() {
   echo `xclip -o` | jq		# Linux
   # echo `pbpaste` | jq		# macOS
@@ -123,20 +113,6 @@ json() {
 if [ "$(uname)" = "Darwin" ]; then
   export HOMEBREW_BOTTLE_DOMAIN=https://mirrors.ustc.edu.cn/homebrew-bottles
 fi
-
-setproxy() {
-  export http_proxy='http://127.0.0.1:7897'
-  export https_proxy='http://127.0.0.1:7897'
-  export all_proxy='socks5://127.0.0.1:7897'
-  export HTTP_PROXY="$http_proxy"
-  export HTTPS_PROXY="$https_proxy"
-  export ALL_PROXY="$all_proxy"
-}
-
-unsetproxy() {
-  unset http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY
-}
-
 
 # User configuration
 
