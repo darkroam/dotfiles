@@ -76,6 +76,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | `ffmpeg`（含 `libx264`、AAC、FLAC 以及 ALSA、V4L2、X11 输入支持） | `dmenurecord` 的屏幕、音频、摄像头录制，以及其他媒体转码 |
 | `dmenu`、`xdpyinfo`、`slop`、`flock`、procps（`ps`、`pkill`）、Linux procfs | 录制菜单、当前 X11 framebuffer/选区、用户级状态锁、PID/启动时刻身份核对和可选状态栏刷新 |
 | V4L2 摄像头设备 | 可选摄像头录制；默认发现首个可读设备，也可用 `DMENURECORD_VIDEO_DEVICE` 和 `DMENURECORD_VIDEO_SIZE` 覆盖 |
+| `maim`；条件使用 `dmenu`、`xdotool`、`xclip` | `maimpick` 的截图基础能力；无参数菜单需要 `dmenu`，当前窗口需要 `xdotool`，复制模式需要 `xclip` |
 | `sox` | `noisereduce` 辅助工具 |
 | ImageMagick（`convert`） | `slider` 和图像转换 |
 | `vorbiscomment`, `opustags`, `eyeD3`, `metaflac` | `tag` 元数据辅助工具 |

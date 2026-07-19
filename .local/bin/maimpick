@@ -1,20 +1,199 @@
 #!/bin/sh
 
-# This is bound to Shift+PrintScreen by default, requires maim. It lets you
-# choose the kind of screenshot to take, including copying the image or even
-# highlighting an area to copy. scrotcucks on suicidewatch right now.
+# Save screenshots or copy them to the X11 image clipboard.
 
-ifinstalled maim dmenu xdotool xclip || exit 1
+umask 077
 
-# variables
-output="$(date '+%y%m%d-%H%M-%S').png"
-xclip_cmd="xclip -sel clip -t image/png"
+tmpfile=
+errorfile=
+runtime_dir=
+capture_cancelled=0
 
-case "$(printf "a selected area\\ncurrent window\\nfull screen\\na selected area (copy)\\ncurrent window (copy)\\nfull screen (copy)" | dmenu -l 6 -i -p "Screenshot which area?")" in
-    "a selected area") maim -s pic-selected-"${output}" ;;
-    "current window") maim -q -d 0.2 -i "$(xdotool getactivewindow)" pic-window-"${output}" ;;
-    "full screen") maim -q -d 0.2 pic-full-"${output}" ;;
-    "a selected area (copy)") maim -s | ${xclip_cmd} ;;
-    "current window (copy)") maim -q -d 0.2 -i "$(xdotool getactivewindow)" | ${xclip_cmd} ;;
-    "full screen (copy)") maim -q -d 0.2 | ${xclip_cmd} ;;
+cleanup() {
+	[ -z "$tmpfile" ] || rm -f "$tmpfile"
+	[ -z "$errorfile" ] || rm -f "$errorfile"
+}
+
+fail() {
+	printf 'maimpick: %s\n' "$*" >&2
+	if command -v notify-send >/dev/null 2>&1; then
+		notify-send "Screenshot failed" "$*"
+	fi
+	exit 1
+}
+
+require_commands() {
+	for command_name do
+		command -v "$command_name" >/dev/null 2>&1 ||
+			fail "$command_name must be installed for this action"
+	done
+}
+
+set_runtime_dir() {
+	runtime_dir=${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}
+	case "$runtime_dir" in
+		/*) ;;
+		*) runtime_dir=/tmp ;;
+	esac
+	[ -d "$runtime_dir" ] && [ -w "$runtime_dir" ] || runtime_dir=/tmp
+}
+
+clear_error() {
+	[ -z "$errorfile" ] || rm -f "$errorfile"
+	errorfile=
+}
+
+choose_mode() {
+	errorfile=$(mktemp "$runtime_dir/maimpick-error-XXXXXX") ||
+		fail "cannot create a private menu error log"
+	choice=$(printf '%s\n' \
+		"a selected area" \
+		"current window" \
+		"full screen" \
+		"a selected area (copy)" \
+		"current window (copy)" \
+		"full screen (copy)" |
+		dmenu -l 6 -i -p "Screenshot which area?" 2>"$errorfile")
+	menu_status=$?
+	if [ "$menu_status" -ne 0 ]; then
+		if [ -s "$errorfile" ]; then
+			cat "$errorfile" >&2
+			clear_error
+			return 2
+		fi
+		clear_error
+		return 1
+	fi
+	clear_error
+
+	case "$choice" in
+		"a selected area") mode=select ;;
+		"current window") mode=window ;;
+		"full screen") mode=full ;;
+		"a selected area (copy)") mode=select; copy=1 ;;
+		"current window (copy)") mode=window; copy=1 ;;
+		"full screen (copy)") mode=full; copy=1 ;;
+		*) return 1 ;;
+	esac
+}
+
+capture_png() {
+	case "$mode" in
+		select)
+			capture_message=
+			capture_status=0
+			capture_message=$(maim -f png -s "$1" 2>&1) || capture_status=$?
+			[ "$capture_status" -eq 0 ] && return 0
+			case "$capture_message" in
+				*"Selection was cancelled by keystroke or right-click."*)
+					capture_cancelled=1
+					return 1
+					;;
+			esac
+			[ -z "$capture_message" ] || printf '%s\n' "$capture_message" >&2
+			return "$capture_status"
+			;;
+		window)
+			window_id=$(xdotool getactivewindow) || return 1
+			maim -f png -B -q -d 0.2 -i "$window_id" "$1"
+			;;
+		full)
+			maim -f png -q -d 0.2 "$1"
+			;;
+	esac
+}
+
+capture_checked() {
+	capture_cancelled=0
+	capture_status=0
+	capture_png "$1" || capture_status=$?
+	[ "$capture_cancelled" -eq 0 ] || exit 0
+	case "$capture_status" in
+		0) ;;
+		*) fail "could not capture the $mode screenshot" ;;
+	esac
+	[ -s "$1" ] || fail "maim produced an empty screenshot"
+}
+
+save_screenshot() {
+	if [ -n "${MAIMPICK_DIR:-}" ]; then
+		output_dir=$MAIMPICK_DIR
+	else
+		[ -n "${HOME:-}" ] || fail "HOME is not set"
+		output_dir=$HOME/Pictures
+	fi
+	case "$output_dir" in
+		/*) ;;
+		*) fail "MAIMPICK_DIR must be an absolute path" ;;
+	esac
+	mkdir -p "$output_dir" || fail "cannot create $output_dir"
+
+	stamp=$(date '+%Y%m%d-%H%M%S') || fail "cannot create a timestamp"
+	tmpfile=$(mktemp "$output_dir/.pic-$mode-$stamp-XXXXXX") ||
+		fail "cannot create a temporary screenshot in $output_dir"
+
+	capture_checked "$tmpfile"
+
+	filename=${tmpfile##*/}
+	output="$output_dir/${filename#.}.png"
+	mv -n -T "$tmpfile" "$output" || fail "cannot save $output"
+	[ ! -e "$tmpfile" ] || fail "refusing to overwrite $output"
+	tmpfile=
+	printf '%s\n' "$output"
+}
+
+copy_screenshot() {
+	tmpfile=$(mktemp "$runtime_dir/maimpick-XXXXXX") ||
+		fail "cannot create a private temporary screenshot"
+
+	capture_checked "$tmpfile"
+	xclip -selection clipboard -t image/png <"$tmpfile" ||
+		fail "could not copy the screenshot"
+}
+
+trap cleanup 0
+trap 'exit 1' HUP INT TERM
+
+mode=
+copy=0
+set_runtime_dir
+
+case $# in
+	0)
+		require_commands dmenu mktemp rm cat
+		choose_status=0
+		choose_mode || choose_status=$?
+		case "$choose_status" in
+			0) ;;
+			1) exit 0 ;;
+			*) fail "could not open the screenshot menu" ;;
+		esac
+		;;
+	1)
+		mode=$1
+		;;
+	2)
+		mode=$1
+		[ "$2" = --copy ] || fail "usage: maimpick [select|window|full] [--copy]"
+		copy=1
+		;;
+	*)
+		fail "usage: maimpick [select|window|full] [--copy]"
+		;;
 esac
+
+case "$mode" in
+	select|window|full) ;;
+	*) fail "usage: maimpick [select|window|full] [--copy]" ;;
+esac
+
+require_commands maim mktemp rm
+[ "$copy" -eq 1 ] || require_commands date mkdir mv
+[ "$mode" = window ] && require_commands xdotool
+[ "$copy" -eq 0 ] || require_commands xclip
+
+if [ "$copy" -eq 1 ]; then
+	copy_screenshot
+else
+	save_screenshot
+fi

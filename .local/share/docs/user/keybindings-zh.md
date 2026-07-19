@@ -92,7 +92,7 @@ DWM 部分以当前 `~/src/dwm/config.h` 为准，st 鼠标操作以当前 `~/sr
 | `Mod+Shift+[` / `Mod+Shift+]` | MPD 后退/前进 60 秒 |
 | `Mod+-` / `Mod+=` | 默认输出音量减/加 5% |
 | `Mod+Shift+-` / `Mod+Shift+=` | 默认输出音量减/加 15% |
-| `Print` / `Shift+Print` | 全屏截图 / 选区截图 |
+| `Print` / `Shift+Print` | 保存全屏截图到 maimpick 目录 / 打开选区、窗口、全屏的保存或复制菜单 |
 | `Mod+Print` | 录制菜单 |
 | `Mod+Shift+Print`、`Mod+Delete` | 停止录制 |
 | `Mod+ScrollLock` | 切换 screenkey 显示按键 |
