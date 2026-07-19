@@ -1,7 +1,8 @@
 # 快捷键摘要
 
-以下以当前 `~/src/dwm/config.h` 为准。`Mod` 是 Super/Windows 键；大写字母表示
-同时按 Shift。依赖缺失时，快捷键会启动失败而不会自动安装程序。
+DWM 部分以当前 `~/src/dwm/config.h` 为准，st 鼠标操作以当前 `~/src/st/config.h` 为准。
+`Mod` 是 Super/Windows 键；大写字母表示同时按 Shift。依赖缺失时，快捷键会启动失败而不会
+自动安装程序。
 
 ## 窗口、布局与标签
 
@@ -33,6 +34,16 @@
 | `Mod+Tab` 或 `Mod+\\` | 切换回前一标签视图 |
 | `Mod+Left/Right` | 切换显示器焦点 |
 | `Mod+Shift+Left/Right` | 将窗口移到另一显示器 |
+
+## st 鼠标操作
+
+| 操作 | 动作 |
+| --- | --- |
+| 左键拖动 | 建立文本选区并更新 `PRIMARY` |
+| 有选区时右键 | 复制到 `CLIPBOARD` 并清除选区高亮 |
+| 无选区时右键 | 在终端当前光标位置粘贴 `CLIPBOARD` |
+| 中键 | 粘贴 `PRIMARY` |
+| `Shift+左键拖动` / `Shift+右键` | 程序启用鼠标上报时，强制执行 st 本地选区 / 复制粘贴 |
 
 ## 状态栏鼠标操作
 

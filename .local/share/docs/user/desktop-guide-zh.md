@@ -57,6 +57,11 @@ zplug 管理，首次缺失时会尝试通过 Git 联网安装；`thefuck`、NVM
 包括 `Mod+Enter` 打开终端、`Mod+d` 打开 dmenu、`Mod+数字` 切换工作区、
 `Mod+Shift+数字` 移动窗口。
 
+在 st 中用左键拖选文本；存在已完成选区时，右键把选区复制到 `CLIPBOARD` 并清除高亮，
+没有选区时右键把 `CLIPBOARD` 粘贴到终端当前光标位置。右键点击不会把 shell 光标移动到
+鼠标所在列。中键仍粘贴 `PRIMARY`。Nvim、Tmux 等程序启用鼠标上报后，普通鼠标操作由程序
+处理；使用 `Shift+左键拖动`建立 st 本地选区，使用 `Shift+右键`强制执行 st 的本地复制或粘贴。
+
 `Mod+F1` 会用 Groff 动态生成英文快捷键指南并在 Zathura 中打开。若指南无法生成或命令标签
 显示异常，确认已安装 `groff`、可嵌入的 Nimbus Sans Type 1 字体、`zathura` 和 PDF 后端，
 再从 `~/src/dwm` 重新安装帮助文件；发行版包名见平台档案。
