@@ -5,144 +5,379 @@
 # `$0 screencast`: Record both audio and screen
 # `$0 video`: Record only screen
 # `$0 audio`: Record only audio
+# `$0 webcam`: Record from the first readable V4L2 device
 # `$0 kill`: Kill existing recording
 #
-# If there is already a running instance, user will be prompted to end it.
+# Runtime state is kept in XDG_RUNTIME_DIR (or the user's cache directory).
+# Set DMENURECORD_VIDEO_DEVICE to select a particular camera.
 
-updateicon() { \
-	echo "$1" > /tmp/recordingicon
-	pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}"
-	}
+umask 077
 
-recording_ffmpeg() {
-	case "$1" in
-		""|*[!0-9]*) return 1 ;;
+die() {
+	printf 'dmenurecord: %s\n' "$*" >&2
+	exit 1
+}
+
+need_cmd() {
+	command -v "$1" >/dev/null 2>&1 || die "missing command: $1"
+}
+
+[ -n "${HOME:-}" ] || die 'HOME is not set'
+need_cmd id
+need_cmd flock
+need_cmd mkdir
+need_cmd chmod
+need_cmd mv
+need_cmd rm
+need_cmd ps
+need_cmd tr
+need_cmd awk
+need_cmd date
+need_cmd sleep
+
+recording_uid=$(id -u) || die 'cannot determine user id'
+if [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -d "$XDG_RUNTIME_DIR" ] && [ -w "$XDG_RUNTIME_DIR" ]; then
+	state_dir=$XDG_RUNTIME_DIR/dmenurecord
+else
+	state_dir=${XDG_CACHE_HOME:-$HOME/.cache}/dmenurecord
+fi
+
+if ! mkdir -p "$state_dir" 2>/dev/null; then
+	state_dir=${TMPDIR:-/tmp}/dmenurecord-$recording_uid
+	mkdir -p "$state_dir" 2>/dev/null || die "cannot create state directory: $state_dir"
+fi
+[ -d "$state_dir" ] || die "state path is not a directory: $state_dir"
+[ ! -L "$state_dir" ] || die "refusing symlinked state directory: $state_dir"
+chmod 700 "$state_dir" || die "cannot secure state directory: $state_dir"
+[ ! -L "$state_dir/lock" ] || die "refusing symlinked lock file: $state_dir/lock"
+exec 9>"$state_dir/lock" || die "cannot open state lock"
+flock -n 9 || die 'another dmenurecord instance is running'
+
+state_file=$state_dir/state
+icon_file=$state_dir/icon
+log_file=$state_dir/ffmpeg.log
+statusbar=${STATUSBAR:-dwmblocks}
+case "$statusbar" in
+	''|*[!A-Za-z0-9_.-]*) statusbar=dwmblocks ;;
+esac
+
+updateicon() {
+	icon_tmp=$icon_file.$$
+	if printf '%s\n' "$1" > "$icon_tmp" && mv -f "$icon_tmp" "$icon_file"; then
+		:
+	else
+		rm -f "$icon_tmp"
+	fi
+	if command -v pkill >/dev/null 2>&1; then
+		pkill -RTMIN+9 -x -- "$statusbar" 2>/dev/null || :
+	fi
+}
+
+clear_state() {
+	rm -f "$state_file" "$icon_file"
+}
+
+proc_start_token() {
+	[ -r "/proc/$1/stat" ] || return 1
+	awk '{print $22; exit}' "/proc/$1/stat" 2>/dev/null
+}
+
+read_state() {
+	[ -r "$state_file" ] || return 1
+	IFS=' ' read -r recording_pid recorded_start state_extra < "$state_file" || return 1
+	case "$recording_pid" in
+		''|*[!0-9]*) return 1 ;;
 	esac
-	[ "$(ps -p "$1" -o comm= 2>/dev/null | tr -d '[:space:]')" = ffmpeg ]
+	case "$recorded_start" in
+		''|*[!0-9]*) return 1 ;;
+	esac
+	[ -z "$state_extra" ]
+}
+
+active_recording() {
+	read_state || return 1
+	[ "$(ps -p "$recording_pid" -o comm= 2>/dev/null | tr -d '[:space:]')" = ffmpeg ] || return 1
+	current_start=$(proc_start_token "$recording_pid" 2>/dev/null || :)
+	case "$current_start" in
+		''|*[!0-9]*) return 1 ;;
+	esac
+	[ "$current_start" = "$recorded_start" ]
+}
+
+launched_ffmpeg() {
+	[ "$(ps -p "$recording_pid" -o comm= 2>/dev/null | tr -d '[:space:]')" = ffmpeg ] || return 1
+	current_start=$(proc_start_token "$recording_pid" 2>/dev/null || :)
+	case "$current_start" in
+		''|*[!0-9]*) return 1 ;;
+	esac
+	if [ -z "${recording_start_token:-}" ]; then
+		recording_start_token=$current_start
+	fi
+	[ "$current_start" = "$recording_start_token" ]
+}
+
+write_state() {
+	case "${recording_start_token:-}" in
+		''|*[!0-9]*) return 1 ;;
+	esac
+	state_tmp=$state_file.$$
+	printf '%s %s\n' "$recording_pid" "$recording_start_token" > "$state_tmp" || return 1
+	mv -f "$state_tmp" "$state_file"
+}
+
+output_file() {
+	output_base=$HOME/$1-$(date '+%y%m%d-%H%M-%S')
+	output_path=$output_base.$2
+	if [ -e "$output_path" ]; then
+		output_path=$output_base-$$.$2
+		output_index=1
+		while [ -e "$output_path" ]; do
+			output_path=$output_base-$$-$output_index.$2
+			output_index=$((output_index + 1))
+		done
+	fi
+	printf '%s\n' "$output_path"
+}
+
+abort_start() {
+	if [ -n "${recording_pid:-}" ] && [ -n "${recording_start_token:-}" ]; then
+		current_start=$(proc_start_token "$recording_pid" 2>/dev/null || :)
+		if [ "$current_start" = "$recording_start_token" ]; then
+			kill -TERM "$recording_pid" 2>/dev/null || :
+		fi
+	fi
+	clear_state
+	updateicon ''
+	exit 1
+}
+
+start_recording() {
+	recording_icon=$1
+	recording_output=$2
+	shift 2
+	if active_recording; then
+		printf 'dmenurecord: a recording is already active\n' >&2
+		return 1
+	fi
+	clear_state
+	: > "$log_file" || {
+		printf 'dmenurecord: cannot write ffmpeg log: %s\n' "$log_file" >&2
+		return 1
+	}
+	recording_pid=
+	recording_start_token=
+	trap abort_start HUP INT TERM
+	ffmpeg -nostdin -n "$@" "$recording_output" 9>&- > "$log_file" 2>&1 &
+	recording_pid=$!
+	recording_start_token=$(proc_start_token "$recording_pid" 2>/dev/null || :)
+	start_wait=0
+	stable_checks=0
+	while [ "$start_wait" -lt 50 ]; do
+		if launched_ffmpeg; then
+			stable_checks=$((stable_checks + 1))
+			if [ "$stable_checks" -ge 5 ] && write_state; then
+				updateicon "$recording_icon"
+				trap - HUP INT TERM
+				return 0
+			fi
+		else
+			stable_checks=0
+		fi
+		kill -0 "$recording_pid" 2>/dev/null || break
+		sleep 0.1
+		start_wait=$((start_wait + 1))
+	done
+	if [ -n "$recording_start_token" ] && [ "$(proc_start_token "$recording_pid" 2>/dev/null || :)" = "$recording_start_token" ]; then
+		kill -TERM "$recording_pid" 2>/dev/null || :
+	fi
+	clear_state
+	updateicon ''
+	trap - HUP INT TERM
+	printf 'dmenurecord: ffmpeg did not start; see %s\n' "$log_file" >&2
+	return 1
 }
 
 killrecording() {
-	[ -r /tmp/recordingpid ] || {
-		updateicon ""
-		exit 0
-	}
-	recpid="$(cat /tmp/recordingpid)"
-	if ! recording_ffmpeg "$recpid"; then
-		rm -f /tmp/recordingpid
-		updateicon ""
-		exit 1
+	if ! active_recording; then
+		clear_state
+		updateicon ''
+		return 0
 	fi
-
-	# kill with SIGTERM, allowing finishing touches.
-	kill -15 "$recpid"
-	rm -f /tmp/recordingpid
-	updateicon ""
-	pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}"
-	# even after SIGTERM, ffmpeg may still run, so SIGKILL it.
-	sleep 3
-	recording_ffmpeg "$recpid" && kill -9 "$recpid"
-	exit
+	kill -TERM "$recording_pid" 2>/dev/null || {
+		if ! active_recording; then
+			clear_state
+			updateicon ''
+			return 0
+		fi
+		printf 'dmenurecord: could not stop recording %s\n' "$recording_pid" >&2
+		return 1
 	}
+	stop_wait=0
+	while active_recording && [ "$stop_wait" -lt 50 ]; do
+		sleep 0.1
+		stop_wait=$((stop_wait + 1))
+	done
+	if active_recording; then
+		kill -KILL "$recording_pid" 2>/dev/null || :
+	fi
+	clear_state
+	updateicon ''
+	return 0
+}
 
-screencast() { \
-	ffmpeg -y \
-	-f x11grab \
-	-framerate 60 \
-	-s "$(xdpyinfo | awk '/dimensions/ {print $2;}')" \
-	-i "$DISPLAY" \
-	-f alsa -i default \
-	-r 30 \
- 	-c:v h264 -crf 0 -preset ultrafast -c:a aac \
-	"$HOME/screencast-$(date '+%y%m%d-%H%M-%S').mp4" &
-	echo $! > /tmp/recordingpid
-	updateicon "⏺️🎙️"
-       	}
+require_display() {
+	need_cmd xdpyinfo
+	[ -n "${DISPLAY:-}" ] || die 'DISPLAY is not set'
+	display_geometry=$(xdpyinfo -display "$DISPLAY" 2>/dev/null |
+		awk '$1 == "dimensions:" {print $2; exit}')
+	valid_size "$display_geometry" || die "cannot determine geometry for DISPLAY=$DISPLAY"
+}
 
-video() { ffmpeg \
-	-f x11grab \
-	-s "$(xdpyinfo | awk '/dimensions/ {print $2;}')" \
-	-i "$DISPLAY" \
- 	-c:v libx264 -qp 0 -r 30 \
-	"$HOME/video-$(date '+%y%m%d-%H%M-%S').mkv" &
-	echo $! > /tmp/recordingpid
-	updateicon "⏺️"
-	}
-
-webcamhidef() { ffmpeg \
-	-f v4l2 \
-	-i /dev/video0 \
-	-video_size 1920x1080 \
-	"$HOME/webcam-$(date '+%y%m%d-%H%M-%S').mkv" &
-	echo $! > /tmp/recordingpid
-	updateicon "🎥"
-	}
-
-webcam() { ffmpeg \
-	-f v4l2 \
-	-i /dev/video0 \
-	-video_size 640x480 \
-	"$HOME/webcam-$(date '+%y%m%d-%H%M-%S').mkv" &
-	echo $! > /tmp/recordingpid
-	updateicon "🎥"
-	}
-
-
-audio() { \
-	ffmpeg \
-	-f alsa -i default \
-	-c:a flac \
-	"$HOME/audio-$(date '+%y%m%d-%H%M-%S').flac" &
-	echo $! > /tmp/recordingpid
-	updateicon "🎙️"
-	}
-
-askrecording() { \
-	choice=$(printf "screencast\\nvideo\\nvideo selected\\naudio\\nwebcam\\nwebcam (hi-def)" | dmenu -i -p "Select recording style:")
-	case "$choice" in
-		screencast) screencast;;
-		audio) audio;;
-		video) video;;
-		*selected) videoselected;;
-		webcam) webcam;;
-		"webcam (hi-def)") webcamhidef;;
+valid_unsigned() {
+	case "$1" in
+		''|*[!0-9]*) return 1 ;;
 	esac
-	}
+	return 0
+}
 
-asktoend() { \
-	response=$(printf "No\\nYes" | dmenu -i -p "Recording still active. End recording?") &&
-	[ "$response" = "Yes" ] &&  killrecording
-	}
+valid_integer() {
+	case "$1" in
+		-*) valid_unsigned "${1#-}" ;;
+		*) valid_unsigned "$1" ;;
+	esac
+}
 
-videoselected()
-{
-	selection="$(slop -f "%x %y %w %h")" || exit 0
+valid_size() {
+	case "$1" in
+		*x*) size_width=${1%%x*}; size_height=${1#*x} ;;
+		*) return 1 ;;
+	esac
+	case "$size_height" in
+		*x*) return 1 ;;
+	esac
+	valid_unsigned "$size_width" && valid_unsigned "$size_height" || return 1
+	[ "$size_width" -gt 0 ] && [ "$size_height" -gt 0 ]
+}
+
+find_camera() {
+	if [ -n "${DMENURECORD_VIDEO_DEVICE:-}" ]; then
+		[ -c "$DMENURECORD_VIDEO_DEVICE" ] && [ -r "$DMENURECORD_VIDEO_DEVICE" ] || return 1
+		printf '%s\n' "$DMENURECORD_VIDEO_DEVICE"
+		return 0
+	fi
+	for camera in /dev/v4l/by-id/*-video-index0 /dev/video*; do
+		[ -c "$camera" ] && [ -r "$camera" ] || continue
+		printf '%s\n' "$camera"
+		return 0
+	done
+	return 1
+}
+
+camera_size=${DMENURECORD_VIDEO_SIZE:-}
+
+screencast() {
+	need_cmd ffmpeg
+	require_display
+	start_recording '⏺️🎙️' "$(output_file screencast mp4)" \
+		-f x11grab -framerate 60 -video_size "$display_geometry" -i "$DISPLAY" \
+		-f alsa -i default -r 30 -c:v libx264 -crf 0 -preset ultrafast -c:a aac
+}
+
+video() {
+	need_cmd ffmpeg
+	require_display
+	start_recording '⏺️' "$(output_file video mkv)" \
+		-f x11grab -video_size "$display_geometry" -i "$DISPLAY" \
+		-c:v libx264 -qp 0 -r 30
+}
+
+webcam_record() {
+	need_cmd ffmpeg
+	camera_device=$(find_camera) || die 'no readable V4L2 camera; set DMENURECORD_VIDEO_DEVICE'
+	# `-video_size` is an input option and must precede `-i`.
+	if [ -n "$camera_size" ]; then
+		valid_size "$camera_size" || die "invalid camera size: $camera_size"
+		start_recording '🎥' "$(output_file webcam mkv)" \
+			-f v4l2 -video_size "$camera_size" -i "$camera_device"
+	else
+		start_recording '🎥' "$(output_file webcam mkv)" \
+			-f v4l2 -i "$camera_device"
+	fi
+}
+
+webcamhidef() {
+	camera_size=${DMENURECORD_VIDEO_SIZE:-1920x1080}
+	webcam_record
+}
+
+webcam() {
+	camera_size=${DMENURECORD_VIDEO_SIZE:-640x480}
+	webcam_record
+}
+
+audio() {
+	need_cmd ffmpeg
+	start_recording '🎙️' "$(output_file audio flac)" \
+		-f alsa -i default -c:a flac
+}
+
+videoselected() {
+	need_cmd ffmpeg
+	need_cmd slop
+	require_display
+	selection=$(slop -f '%x %y %w %h') || return 0
+	set -f
 	set -- $selection
-	[ "$#" -eq 4 ] || exit 1
-	X="$1"
-	Y="$2"
-	W="$3"
-	H="$4"
+	set +f
+	[ "$#" -eq 4 ] || die 'invalid selection from slop'
+	valid_integer "$1" && valid_integer "$2" && valid_integer "$3" && valid_integer "$4" ||
+		die 'slop returned non-numeric geometry'
+	[ "$3" -gt 0 ] 2>/dev/null && [ "$4" -gt 0 ] 2>/dev/null ||
+		die 'slop returned an empty selection'
+	start_recording '⏺️' "$(output_file box mkv)" \
+		-f x11grab -framerate 60 -video_size "$3x$4" -i "$DISPLAY+$1,$2" \
+		-c:v libx264 -qp 0 -r 30
+}
 
-	ffmpeg \
-	-f x11grab \
-	-framerate 60 \
-	-video_size "$W"x"$H" \
-	-i :0.0+"$X,$Y" \
-	-c:v libx264 -qp 0 -r 30 \
-	"$HOME/box-$(date '+%y%m%d-%H%M-%S').mkv" &
-	echo $! > /tmp/recordingpid
-	updateicon "⏺️"
+askrecording() {
+	need_cmd dmenu
+	if find_camera >/dev/null 2>&1; then
+		choice=$(printf '%s\n' screencast video 'video selected' audio webcam 'webcam (hi-def)' |
+			dmenu -i -p 'Select recording style:') || return 0
+	else
+		choice=$(printf '%s\n' screencast video 'video selected' audio |
+			dmenu -i -p 'Select recording style:') || return 0
+	fi
+	case "$choice" in
+		screencast) screencast ;;
+		audio) audio ;;
+		video) video ;;
+		'video selected') videoselected ;;
+		webcam) webcam ;;
+		'webcam (hi-def)') webcamhidef ;;
+	esac
+}
+
+asktoend() {
+	need_cmd dmenu
+	response=$(printf '%s\n' No Yes | dmenu -i -p 'Recording still active. End recording?') || return 0
+	[ "$response" = Yes ] && killrecording
 }
 
 case "$1" in
-	screencast) screencast;;
-	audio) audio;;
-	video) video;;
-	*selected) videoselected;;
-	kill) killrecording;;
-	*) if [ -f /tmp/recordingpid ]; then
-		asktoend
-	else
-		askrecording
-	fi ;;
+	screencast) screencast ;;
+	audio) audio ;;
+	video) video ;;
+	*selected) videoselected ;;
+	webcam) webcam ;;
+	'webcam (hi-def)') webcamhidef ;;
+	kill) killrecording ;;
+	*)
+		if active_recording; then
+			asktoend
+		else
+			clear_state
+			askrecording
+		fi
+		;;
 esac

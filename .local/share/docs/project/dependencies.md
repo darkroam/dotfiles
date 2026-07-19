@@ -72,9 +72,10 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | ALSA 库、`pipewire-alsa` 和可选 ALSA 工具 | 平台系统配置可将默认设备接入 PipeWire；显式 `hw:` 访问仍可用，但不承诺服务失效时自动回退；已跟踪 `asoundrc` 不固定硬件 |
 | `mpd`, `mpc`, `ncmpcpp` | 音乐守护进程、控制客户端和终端界面 |
 | `pulsemixer` | 已配置交互式音频混音器 |
-| `mpv`, `socat`, `ffmpeg` | 视频播放、MPV IPC 辅助、录制/转码 |
-| `slop` | 选区录制 |
-| V4L2 摄像头设备 | 摄像头录制路径 |
+| `mpv`, `socat` | 视频播放和 MPV IPC 辅助 |
+| `ffmpeg`（含 `libx264`、AAC、FLAC 以及 ALSA、V4L2、X11 输入支持） | `dmenurecord` 的屏幕、音频、摄像头录制，以及其他媒体转码 |
+| `dmenu`、`xdpyinfo`、`slop`、`flock`、procps（`ps`、`pkill`）、Linux procfs | 录制菜单、当前 X11 framebuffer/选区、用户级状态锁、PID/启动时刻身份核对和可选状态栏刷新 |
+| V4L2 摄像头设备 | 可选摄像头录制；默认发现首个可读设备，也可用 `DMENURECORD_VIDEO_DEVICE` 和 `DMENURECORD_VIDEO_SIZE` 覆盖 |
 | `sox` | `noisereduce` 辅助工具 |
 | ImageMagick（`convert`） | `slider` 和图像转换 |
 | `vorbiscomment`, `opustags`, `eyeD3`, `metaflac` | `tag` 元数据辅助工具 |

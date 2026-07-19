@@ -86,6 +86,15 @@ Zsh 在 `compinit` 后按条件加载 `fzf-tab`；缺失 `fzf` 时保留原生 T
 PipeWire 兼容音频栈，不启动该栈；已跟踪 `asoundrc` 不覆盖系统默认 PCM/CTL，避免把一个声卡名
 写成共享默认。摄像头、捕获设备和 MPD 服务都是运行条件，缺失时只能影响相关功能。
 
+`dmenurecord` 从当前 `$DISPLAY` 和 `xdpyinfo` 取得 X11 framebuffer，选区不固定 X server；摄像头
+优先使用稳定的 V4L2 by-id 节点，再回退首个可读 `/dev/video*`，设备和尺寸可由环境变量集中覆盖。
+PID 与 procfs 启动时刻原子保存在同一个状态文件，图标和 FFmpeg 日志位于用户的 XDG 运行时
+目录，缺失时回退用户缓存目录；`flock` 只串行启动/停止控制，后台 FFmpeg 不继承锁。停止动作同时
+核对 PID、进程名和 Linux procfs 启动时刻，
+先发 TERM 并有界等待，最后才使用 KILL。DWMBlocks 的录制图标块仍是未启用的可选项，只保留信号和
+动态状态路径准备。FFmpeg 在登记后若因设备热拔或写入错误自行退出，下一次 `dmenurecord` 调用会
+以失败关闭方式清理陈旧状态；启用可选图标前还需在真实会话验证这种异常退出路径。
+
 ## 文件、文档、密码与桌面处理
 
 负责 LF、预览器、nsxiv、Zathura、MIME、桌面入口、文档工具和密码/OTP 工具。MIME 与 LF
