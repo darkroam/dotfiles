@@ -2,7 +2,7 @@
 
 这是面向全新 Linux 安装的完整命令清单。安装适用组可启用全部已跟踪功能；发行版包名不同，
 命令名是稳定参考。基础环境还假定具备 GNU/Linux `sh`、`bash`、GNU coreutils、findutils、
-grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`）、procps（`pgrep`、`pkill`、`ps`）、
+grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、procps（`pgrep`、`pkill`、`ps`）、
 `pidof`、psmisc（`killall`）、`file` 和 `sudo`。
 
 发行版包名、安装状态和设备验证不在本文维护；从[平台档案索引](../platforms/index.md)进入对应
@@ -118,11 +118,17 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`）、procps（`pgre
 | `xbacklight` | 亮度键和状态栏滚轮动作 |
 | `lm-sensors` | 硬件导出 CPU 传感器时的 CPU 温度模块 |
 | `mount`、`umount`、`lsblk` | 普通块设备挂载、卸载和发现 |
-| `mount.cifs`、`smbclient`、`avahi-browse`、Avahi 守护进程 | CIFS 发现和挂载辅助工具 |
+| `avahi-browse`、Avahi 守护进程 | mDNS/DNS-SD 的 SMB 服务发现；守护进程必须运行 |
+| `smbclient` | 以 guest/空密码枚举匿名 SMB 共享；本配置不向它提供账户凭据 |
+| `mount.cifs`、`findmnt`、`flock`、`sudo` | `dmenumountcifs` 的匿名 CIFS 挂载、精确状态核对、单实例锁和提权入口 |
 | systemd-logind（`systemctl`）或 elogind（`loginctl`）、`flock`、`xss-lock`、`slock`、`pstree` | 硬件睡眠键、挂起前锁屏以及 `sysact` 电源/会话控制；`flock` 按登录会话和 X server 保证单实例，`xss-lock` 只桥接 login1 事件，不接管 XScreenSaver 空闲超时 |
 | `geoiplookup` | 可选 IP 地理位置状态模块 |
 | `synclient` 和 X11 Synaptics 触摸板驱动 | 为单独构建 DWM 触摸板切换代码保留的可选依赖；无已跟踪 dotfiles 运行调用 |
 | `screenkey` | 为单独构建 DWM 绑定保留的可选按键覆盖层；无已跟踪 dotfiles 运行调用 |
+
+`.local/bin/dmenumountcifs` 只处理 Avahi 发布且允许 guest 访问的匿名共享，挂载目标限制在
+`/mnt/cifs-<UID>/` 下；它不读取、保存或提示输入认证共享的凭据。认证共享和专用 CIFS 卸载入口
+暂不属于当前配置能力，见挂起项。
 
 ## 状态栏、通信与网络服务
 

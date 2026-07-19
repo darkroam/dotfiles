@@ -1,19 +1,143 @@
 #!/bin/sh
-# Gives a dmenu prompt to mount unmounted local NAS shares for read/write.
-# Requirements - "%wheel ALL=(ALL) NOPASSWD: ALL"
-#
-# Browse for mDNS/DNS-SD services using the Avahi daemon...
-srvname=$(avahi-browse _smb._tcp -t | awk '{print $4}' | dmenu -i -p "Which NAS?") || exit 1
-notify-send "Searching for network shares..." "Please wait..."
-# Choose share disk...
-share=$(smbclient -L "$srvname" -N | grep Disk | awk '{print $1}' | dmenu -i -p "Mount which share?") || exit 1
-# Format URL...
-share2mnt=//"$srvname".local/"$share"
 
-sharemount() {
-	mounted=$(mount -v | grep "$share2mnt") || ([ ! -d /mnt/"$share" ] && sudo mkdir /mnt/"$share")
-	[ -z "$mounted" ] && sudo mount -t cifs "$share2mnt" -o user=nobody,password="",noperm /mnt/"$share" && notify-send "Netshare $share mounted" && exit 0
-	notify-send "Netshare $share already mounted"; exit 1
+# Discovers and mounts anonymous SMB/CIFS disk shares advertised by Avahi.
+
+umask 077
+
+notify_user() {
+	command -v notify-send >/dev/null 2>&1 || return 0
+	notify-send "$1" "$2" >/dev/null 2>&1 || :
 }
 
-sharemount
+fail() {
+	printf '%s\n' "dmenumountcifs: $1" >&2
+	notify_user "CIFS mount failed" "$1"
+	exit 1
+}
+
+list_contains() {
+	printf '%s\n' "$1" | grep -F -x -- "$2" >/dev/null 2>&1
+}
+
+for required_command in avahi-browse awk dmenu find findmnt flock grep id install mkdir mount rmdir \
+	smbclient sort sudo; do
+	command -v "$required_command" >/dev/null 2>&1 ||
+		fail "Required command '$required_command' is not installed."
+done
+
+if [ ! -x /usr/sbin/mount.cifs ] && [ ! -x /sbin/mount.cifs ] &&
+	[ ! -x /usr/bin/mount.cifs ]; then
+	fail "CIFS mount helper 'mount.cifs' is not installed."
+fi
+
+uid=$(id -u) || fail "Could not determine the current user ID."
+gid=$(id -g) || fail "Could not determine the current group ID."
+lock_dir=${XDG_RUNTIME_DIR:-/tmp}
+[ -d "$lock_dir" ] && [ -w "$lock_dir" ] || lock_dir=/tmp
+exec 9>"$lock_dir/dmenumountcifs-$uid.lock" || fail "Could not create the CIFS run lock."
+flock -n 9 || fail "Another CIFS mount menu is already running."
+
+if ! browse_output=$(avahi-browse -r -t -p -k -l _smb._tcp 2>/dev/null); then
+	fail "Avahi discovery failed. Ensure avahi-daemon is running."
+fi
+
+services=$(printf '%s\n' "$browse_output" |
+	awk -F';' '$1 == "=" && $5 == "_smb._tcp" && $7 != "" &&
+		$9 ~ /^[0-9]+$/ && $9 >= 1 && $9 <= 65535 { printf "%s:%d\n", $7, $9 }' |
+	sort -u)
+[ -n "$services" ] || fail "No SMB servers were resolved through Avahi."
+
+service=$(printf '%s\n' "$services" | dmenu -i -p "Which anonymous SMB server?") || exit 0
+[ -n "$service" ] || exit 0
+list_contains "$services" "$service" || fail "Select a server from the discovered list."
+server=${service%:*}
+port=${service##*:}
+case "$server" in
+	[-.]*|*..*|*[!A-Za-z0-9.-]*) fail "The discovered server name is unsafe." ;;
+esac
+case "$port" in
+	''|*[!0-9]*) fail "The discovered SMB port is unsafe." ;;
+esac
+[ "$port" -ge 1 ] && [ "$port" -le 65535 ] || fail "The discovered SMB port is invalid."
+
+notify_user "Searching for anonymous SMB shares" "Please wait..."
+if ! smb_output=$(LC_ALL=C smbclient -g -N -U 'guest%' -p "$port" -L "$server" 2>/dev/null); then
+	fail "Anonymous share listing failed; authenticated shares are not supported."
+fi
+
+shares=$(printf '%s\n' "$smb_output" |
+	awk -F'|' '$1 == "Disk" && $2 != "" { print $2 }' |
+	sort -u)
+[ -n "$shares" ] || fail "No anonymously accessible disk shares were found."
+
+share=$(printf '%s\n' "$shares" | dmenu -i -p "Mount which anonymous share?") || exit 0
+[ -n "$share" ] || exit 0
+list_contains "$shares" "$share" || fail "Select a share from the discovered list."
+case "$share" in
+	.|..|*/*|*\\*|*'|'*) fail "The selected share name is unsafe." ;;
+esac
+if printf '%s' "$share" | LC_ALL=C grep -q '[[:cntrl:]]'; then
+	fail "The selected share name contains a control character."
+fi
+
+source="//$server/$share"
+mount_root="/mnt/cifs-$uid"
+server_dir="$mount_root/$server-$port"
+target="$server_dir/$share"
+
+if findmnt -rn -S "$source" >/dev/null 2>&1; then
+	notify_user "CIFS share already mounted" "$source"
+	exit 0
+fi
+
+[ ! -L "$mount_root" ] || fail "The CIFS mount root must not be a symbolic link."
+sudo -A -v || fail "Sudo authentication was cancelled or failed."
+
+# Recheck after authentication so concurrent invocations cannot mount twice.
+if findmnt -rn -S "$source" >/dev/null 2>&1; then
+	notify_user "CIFS share already mounted" "$source"
+	exit 0
+fi
+
+sudo -n install -d -m 0700 -o "$uid" -g "$gid" "$mount_root" ||
+	fail "Could not prepare $mount_root."
+[ -d "$mount_root" ] && [ ! -L "$mount_root" ] && [ -w "$mount_root" ] ||
+	fail "The CIFS mount root is not a writable directory."
+
+created_server=0
+created_target=0
+if [ -L "$server_dir" ] || { [ -e "$server_dir" ] && [ ! -d "$server_dir" ]; }; then
+	fail "The server mount path is not a safe directory."
+fi
+if [ ! -d "$server_dir" ]; then
+	mkdir -m 0700 "$server_dir" || fail "Could not create the server mount directory."
+	created_server=1
+fi
+
+if [ -L "$target" ] || { [ -e "$target" ] && [ ! -d "$target" ]; }; then
+	fail "The share mount path is not a safe directory."
+fi
+if [ ! -d "$target" ]; then
+	mkdir -m 0700 "$target" || fail "Could not create the share mount directory."
+	created_target=1
+fi
+
+if findmnt -rn -M "$target" >/dev/null 2>&1; then
+	fail "The selected mount path is already used by another source."
+fi
+if find "$target" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
+	fail "The selected mount directory is not empty."
+fi
+
+if ! sudo -n mount -t cifs "$source" "$target" \
+	-o "guest,username=guest,port=$port,rw,uid=$uid,gid=$gid,forceuid,forcegid,file_mode=0600,dir_mode=0700,nosuid,nodev"; then
+	[ "$created_target" -eq 0 ] || rmdir "$target" 2>/dev/null || :
+	[ "$created_server" -eq 0 ] || rmdir "$server_dir" 2>/dev/null || :
+	fail "Anonymous CIFS mount failed."
+fi
+
+findmnt -rn -S "$source" -M "$target" >/dev/null 2>&1 ||
+	fail "Mount returned success, but the mounted share could not be verified."
+
+notify_user "CIFS share mounted" "$share mounted at $target."
+printf '%s\n' "$target"

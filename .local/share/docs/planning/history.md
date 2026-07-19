@@ -2,6 +2,12 @@
 
 ## 最近记录的变更
 
+- [x] 2026-07-19：加固匿名 CIFS 菜单。脚本改用 Avahi resolved hostname/port 和 `smbclient -g`，
+  严格限制候选服务器与共享名，使用用户级锁、`findmnt` 核对和 `/mnt/cifs-<UID>/` 下的隔离目标；
+  提权统一走 `sudo -A`，挂载使用 guest、本地 uid/gid、`nosuid`/`nodev`，不再关闭客户端权限检查，
+  也不要求宽泛 sudoers。`dash -n`、`sh -n` 和隔离 mock `22/22` 通过；真实 guest SMB 服务验证
+  仍在平台活动待办，认证共享与专用卸载入口列入挂起项。
+
 - [x] 2026-07-19：固定网络接口的唯一所有者规则。选择 NetworkManager 时，由它负责连接配置、
   自动连接、地址、路由和 DNS；平台选用全局 D-Bus `wpa_supplicant` 时，它仅作为 Wi-Fi 认证后端。ifupdown、
   systemd-networkd、dhcpcd 和接口级 `wpa_supplicant@` 不得并行管理同一接口。备用

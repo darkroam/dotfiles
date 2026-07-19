@@ -126,7 +126,10 @@ NetworkManager 负责保存连接并自动联网。按 `Mod+Shift+w` 打开 `nmt
 D-Bus `wpa_supplicant` 作为 Wi-Fi 认证后端，这是正常组合，不需要在 `nmtui` 中单独管理。
 
 `Mod+F9/F10` 用于挂载/卸载 `lsblk` 可见的普通块设备；
-局域网 CIFS 挂载使用独立菜单命令 `dmenumountcifs`。锁屏、睡眠、关机等系统操作从 `sysact`
+局域网 CIFS 挂载使用独立菜单命令 `dmenumountcifs`。该命令只显示 Avahi 发现并允许匿名（guest）
+访问的 SMB 共享，挂载到 `/mnt/cifs-<UID>/<服务器>-<端口>/<共享>`，提权通过现有图形 Askpass
+完成；需要认证的共享目前不会提示输入密码，也不会被挂载。使用后可对脚本输出的目录执行普通的
+`sudo -A umount`，专用卸载菜单仍未启用。锁屏、睡眠、关机等系统操作从 `sysact`
 菜单进入，也可使用 `sysact lock|suspend|hibernate|reboot|poweroff|display-off` 显式执行。
 这些电源动作会保留 login manager inhibitors，被拒绝时不会再降级到绕过策略的命令。
 

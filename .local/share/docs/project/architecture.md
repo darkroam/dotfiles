@@ -115,7 +115,10 @@ login1 睡眠准备阶段启动真实 locker，
 现有兼容注入是平台档案已登记、按显示管理未完成工作迁移的过渡例外，不得扩展为新设备方案。
 
 `dmenumount` 和 `dmenuumount` 只处理 `lsblk` 可见的普通块设备，CIFS 使用独立命令；不得在普通
-块设备入口混入协议专用分支。平台的显示/亮度/服务事实和验证结果见
+块设备入口混入协议专用分支。`dmenumountcifs` 仅解析 Avahi 的 SMB hostname/port，接受候选列表中的
+guest 共享，并把目标限制在 `/mnt/cifs-<UID>/<hostname>-<port>/`；它使用用户级 `flock`、现有
+`SUDO_ASKPASS` 的 `sudo -A` 和 `findmnt` 状态核对，不要求宽泛 sudoers，也不跟踪凭据。认证共享和
+专用卸载入口在需求明确后另行设计。平台的显示/亮度/服务事实和验证结果见
 [平台档案索引](../platforms/index.md)。
 
 ## 状态栏、通信与网络服务
