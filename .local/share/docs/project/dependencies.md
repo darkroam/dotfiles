@@ -91,9 +91,10 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | `pdftoppm`, `pdftotext`, `pdfinfo`, `pdffonts`, `odt2txt` | 文档预览、PDF 渲染/字体检查和 `getbib` |
 | `gpg`, `man`, `col`, `xdg-open` | 加密、手册、格式化文本和桌面打开 |
 | `neomutt`, `abook`, `newsboat` | 已配置邮件、通讯录和 RSS 客户端；DWM `Mod+Shift+e` 直接启动 Abook，与 Mutt Wizard 共用 Abook 默认数据目录 |
-| `pass`、GnuPG、图形 Pinentry、`pass-otp`、`zbarimg`、`maim`、`xclip`、`dmenu` | 加密密码库及图形解锁、OTP、二维码、截图和菜单辅助工具 |
+| `pass`、GnuPG、图形 Pinentry、`pass-otp`、`oathtool` 2.6.5 或更高版本、`xclip`、`dmenu` | 加密密码库、图形解锁及 TOTP/HOTP 生成和复制；`otp` 验证最低版本并强制 `pass-otp` 的安全 stdin 分支，避免扩展错误的版本比较把 secret 放入进程参数 |
+| `maim`、支持 `--raw --nodbus` 和 stdin 图像的 `zbarimg`、`flock`、GNU coreutils | `otp` 不创建明文二维码图片文件，并提供同用户操作互斥、加密暂存和原子不覆盖落位；密码库文件系统必须支持硬链接，否则导入安全失败 |
 | 已跟踪的 `passmenu`、Bash、`dmenu`、`xclip`；可选 `xdotool` | 独立 DWM 的 `Mod+Shift+d` 密码菜单；默认通过 `pass` 复制密码，只有显式 `--type` 才向当前焦点窗口自动输入 |
-| `timedatectl`、`chronyc` 或 `ntpdate` | OTP 时钟同步检查 |
+| `timedatectl`、`chronyc` 或 `ntpdate`；手动同步另需 `sudo` | OTP 时钟检查和替代同步后端；能响应的 Chrony 拥有同步职责，否则使用 systemd NTP，最后才尝试一次性 `ntpdate` |
 | WPS Office 和 `wps-office-prometheus.desktop` | 已配置办公 MIME 默认项 |
 | `clash-verge` 和已跟踪的 `clash-verge-handler.desktop` | `clash`、`clash-verge` URI 方案处理器；本地 handler 避免依赖发行版 desktop 文件名，仅在使用相应链接时需要 |
 

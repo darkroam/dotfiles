@@ -2,6 +2,16 @@
 
 ## 最近记录的变更
 
+- [x] 2026-07-19：加固 `otp`。密码库路径支持标准默认值和 `PASSWORD_STORE_DIR`，候选可递归包含
+  嵌套条目，取消与自由输入不会触发操作。二维码改为 `maim` 到 `zbarimg` 的管道，脚本不创建明文
+  图片文件；URI 只通过 stdin 送入 `pass-otp`。私有加密暂存和 `ln -T` 原子落位保证不覆盖已有条目，
+  密码库 Git 只提交本次条目并保留签名提交设置。导入和 HOTP 共用用户锁，所有可能后台化的子进程
+  关闭锁 FD；`oathtool` 低于 2.6.5 时拒绝生成，通过门槛后强制 `pass-otp` 使用 stdin 安全分支，
+  时间同步按 Chrony、systemd NTP 和一次性客户端的所有权选择。POSIX Shell 语法和隔离 mock
+  `82/82` 通过；系统 `pass`/`pass-otp` 的假 GPG/oathtool/xclip 隔离验证确认 seed 不在 argv 且只
+  进入 stdin。验证未读取真实密码库、GPG 密钥或 OTP secret；真实 X11、账户、HOTP 和剪贴板行为
+  继续由平台待办跟踪。
+
 - [x] 2026-07-19：加固 `dmenurecord`。屏幕和选区录制改用当前 `$DISPLAY`，摄像头从 V4L2
   by-id/可读节点发现并支持环境覆盖，FFmpeg H.264 编码器修正为本机实际提供的 `libx264`。
   PID、启动时刻、图标和日志移入用户运行时/缓存目录，使用 `flock` 串行控制并阻止后台进程

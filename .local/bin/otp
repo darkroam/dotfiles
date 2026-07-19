@@ -1,71 +1,446 @@
 #!/bin/sh
 
-# Get a one-time password, or add a OTP secret to your pass-otp store.
+# Copy an OTP code from pass-otp, import one from a QR code, or request a
+# system time synchronization. OTP entries managed here end in `-otp`.
 
-# The assumption of this script is that all otp passwords are stored with the
-# suffix `-otp`. This script automatically appends newly added otps as such.
+umask 077
 
-# OTP generation requires a correctly synchronized system clock.
-
-require_pass_otp() {
-	if command -v pass >/dev/null 2>&1 && pass otp --help >/dev/null 2>&1; then
-		return 0
+notice() {
+	title=$1
+	body=$2
+	if command -v notify-send >/dev/null 2>&1; then
+		notify-send "$title" "$body" 9>&- >/dev/null 2>&1 || :
 	fi
+	printf '%s: %s\n' "$title" "$body" >&2
+}
 
-	notify-send "📦 pass-otp" "The pass OTP extension must be installed for this function."
-	return 1
+notice_low() {
+	title=$1
+	body=$2
+	if command -v notify-send >/dev/null 2>&1; then
+		notify-send -u low "$title" "$body" 9>&- >/dev/null 2>&1 || :
+	fi
+	printf '%s: %s\n' "$title" "$body" >&2
+}
+
+die() {
+	notice "OTP" "$*"
+	exit 1
+}
+
+need_cmd() {
+	command -v "$1" >/dev/null 2>&1 || die "Missing command: $1"
+}
+
+[ -n "${HOME:-}" ] || die "HOME is not set."
+need_cmd pass
+need_cmd dmenu
+need_cmd find
+need_cmd sed
+need_cmd sort
+need_cmd grep
+
+pass otp --help >/dev/null 2>&1 || die "The pass OTP extension is not installed."
+
+store_dir=${PASSWORD_STORE_DIR:-$HOME/.password-store}
+if [ -d "$store_dir" ]; then
+	store_dir=$(CDPATH= cd -- "$store_dir" 2>/dev/null && pwd -P) ||
+		die "The password-store path cannot be resolved."
+fi
+PASSWORD_STORE_DIR=$store_dir
+export PASSWORD_STORE_DIR
+
+list_entries() {
+	[ -d "$store_dir" ] || return 0
+	(
+		cd "$store_dir" 2>/dev/null || exit 1
+		find . -type f -name '*-otp.gpg' -print 2>/dev/null
+	) |
+		sed 's#^\./##;s/-otp\.gpg$//' |
+		LC_ALL=C sort -u
+}
+
+systemd_time_status() {
+	command -v timedatectl >/dev/null 2>&1 || return 2
+	time_value=$(LC_ALL=C timedatectl show -p NTPSynchronized --value 2>/dev/null) || return 2
+	[ "$time_value" = yes ]
+}
+
+chrony_time_status() {
+	command -v chronyc >/dev/null 2>&1 || return 2
+	chrony_output=$(LC_ALL=C chronyc tracking 2>/dev/null) || return 2
+	printf '%s\n' "$chrony_output" |
+		grep -Eq '^Leap status[[:space:]]*:[[:space:]]*Normal$'
+}
+
+time_status() {
+	time_known=2
+	if command -v timedatectl >/dev/null 2>&1; then
+		systemd_time_status
+		time_result=$?
+		[ "$time_result" -eq 0 ] && return 0
+		[ "$time_result" -eq 1 ] && time_known=1
+	fi
+	if command -v chronyc >/dev/null 2>&1; then
+		chrony_time_status
+		time_result=$?
+		[ "$time_result" -eq 0 ] && return 0
+		[ "$time_result" -eq 1 ] && time_known=1
+	fi
+	return "$time_known"
+}
+
+warn_time_status() {
+	time_status
+	time_result=$?
+	case "$time_result" in
+		0) return 0 ;;
+		1) notice_low "OTP clock" "System time is not synchronized; generated TOTP codes may be invalid." ;;
+		*) notice_low "OTP clock" "Time synchronization could not be confirmed; HOTP is unaffected." ;;
+	esac
+	return 0
 }
 
 sync_time() {
-	if command -v timedatectl >/dev/null 2>&1 && sudo timedatectl set-ntp true; then
-		notify-send -u low "🕙 Synchronizing Time..." "Enabled system time synchronization."
-	elif command -v chronyc >/dev/null 2>&1 && sudo chronyc -a makestep; then
-		notify-send -u low "🕙 Synchronizing Time..." "Synchronized time with chrony."
-	elif command -v ntpdate >/dev/null 2>&1; then
-		updatedata="$(sudo ntpdate pool.ntp.org)" &&
-			notify-send -u low "🕙 Synchronizing Time..." "Done. Time changed by ${updatedata#*offset }"
-	else
-		notify-send "🕙 Synchronizing Time..." "Install a time synchronization tool (systemd, chrony, or ntpdate)."
+	need_cmd sleep
+	if time_status; then
+		notice_low "OTP clock" "System time is already synchronized."
+		return 0
+	fi
+
+	# A responding chronyd owns synchronization; do not enable a second daemon.
+	chrony_time_status
+	chrony_result=$?
+	if [ "$chrony_result" -ne 2 ]; then
+		command -v sudo >/dev/null 2>&1 || {
+			notice "OTP clock" "Chrony is available, but sudo is not installed."
+			return 1
+		}
+		if sudo -A chronyc makestep >/dev/null 2>&1; then
+			if chrony_time_status; then
+				notice_low "OTP clock" "System time is synchronized with chrony."
+				return 0
+			fi
+			notice "OTP clock" "Chrony accepted the step, but synchronization is not confirmed."
+			return 1
+		fi
+		notice "OTP clock" "Chrony is available, but the synchronization request failed."
 		return 1
+	fi
+
+	if command -v timedatectl >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
+		if sudo -A timedatectl set-ntp true >/dev/null 2>&1; then
+			notice_low "OTP clock" "NTP is enabled; waiting for synchronization."
+			sync_wait=0
+			while [ "$sync_wait" -lt 10 ]; do
+				sleep 1
+				if systemd_time_status; then
+					notice_low "OTP clock" "System time is synchronized."
+					return 0
+				fi
+				sync_wait=$((sync_wait + 1))
+			done
+			notice "OTP clock" "NTP was enabled, but synchronization is not confirmed yet."
+			return 1
+		fi
+	fi
+
+	if command -v ntpdate >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
+		if sudo -A ntpdate pool.ntp.org >/dev/null 2>&1; then
+			notice_low "OTP clock" "System time was synchronized with ntpdate."
+			return 0
+		fi
+	fi
+
+	notice "OTP clock" "No working time synchronization backend was found."
+	return 1
+}
+
+acquire_store_lock() {
+	need_cmd id
+	need_cmd mkdir
+	need_cmd chmod
+	need_cmd stat
+	need_cmd flock
+
+	user_id=$(id -u) || return 1
+	if [ -n "${XDG_RUNTIME_DIR:-}" ] && [ ! -L "$XDG_RUNTIME_DIR" ] &&
+		[ -d "$XDG_RUNTIME_DIR" ] && [ -w "$XDG_RUNTIME_DIR" ] &&
+		[ "$(stat -c '%u:%a' "$XDG_RUNTIME_DIR" 2>/dev/null)" = "$user_id:700" ]
+	then
+		state_root=$XDG_RUNTIME_DIR
+	else
+		state_root=${XDG_CACHE_HOME:-$HOME/.cache}
+		[ ! -L "$state_root" ] || {
+			notice "OTP" "Refusing a symlinked user cache directory for locking."
+			return 1
+		}
+		mkdir -p "$state_root" 2>/dev/null || {
+			notice "OTP" "Cannot create the user cache directory for locking."
+			return 1
+		}
+		state_root_info=$(stat -c '%u:%a' "$state_root" 2>/dev/null) || {
+			notice "OTP" "Cannot inspect the user cache directory for locking."
+			return 1
+		}
+		state_root_owner=${state_root_info%%:*}
+		state_root_mode=${state_root_info#*:}
+		state_root_other=${state_root_mode#${state_root_mode%?}}
+		state_root_without_other=${state_root_mode%?}
+		state_root_group=${state_root_without_other#${state_root_without_other%?}}
+		if [ "$state_root_owner" != "$user_id" ]; then
+			notice "OTP" "The user cache directory has an unsafe owner."
+			return 1
+		fi
+		case "$state_root_group$state_root_other" in
+			*[2367]*)
+				notice "OTP" "The user cache directory is writable by another user."
+				return 1
+				;;
+		esac
+	fi
+	state_dir=$state_root/otp-helper
+
+	[ ! -L "$state_dir" ] || {
+		notice "OTP" "Refusing a symlinked state directory."
+		return 1
+	}
+	mkdir -p "$state_dir" 2>/dev/null || {
+		notice "OTP" "Cannot create a private state directory."
+		return 1
+	}
+	[ -d "$state_dir" ] && chmod 700 "$state_dir" || {
+		notice "OTP" "Cannot secure the private state directory."
+		return 1
+	}
+	[ "$(stat -c '%u:%a' "$state_dir" 2>/dev/null)" = "$user_id:700" ] || {
+		notice "OTP" "The private state directory has an unsafe owner or mode."
+		return 1
+	}
+	[ ! -L "$state_dir/lock" ] || {
+		notice "OTP" "Refusing a symlinked lock file."
+		return 1
+	}
+	exec 9>"$state_dir/lock" || return 1
+	flock -n 9 || {
+		notice "OTP" "Another OTP operation is already running."
+		return 1
+	}
+}
+
+cleanup_stage() {
+	[ -n "${stage_dir:-}" ] || return 0
+	rm -f -- "$stage_dir/payload.gpg" "$stage_dir/.gpg-id" "$stage_dir/.gpg-id.sig"
+	if rmdir -- "$stage_dir" 2>/dev/null; then
+		stage_dir=
+		return 0
+	fi
+	return 1
+}
+
+prepare_stage() {
+	need_cmd mktemp
+	need_cmd cp
+	need_cmd rm
+	need_cmd rmdir
+	need_cmd ln
+
+	stage_dir=$(mktemp -d "$store_dir/.otp-import.XXXXXX") || {
+		notice "OTP import" "Cannot create a private encrypted staging directory."
+		return 1
+	}
+	trap cleanup_stage 0
+	trap 'exit 1' HUP INT QUIT TERM
+	chmod 700 "$stage_dir" || {
+		cleanup_stage || :
+		notice "OTP import" "Cannot secure the encrypted staging directory."
+		return 1
+	}
+	if [ -f "$store_dir/.gpg-id" ]; then
+		cp -- "$store_dir/.gpg-id" "$stage_dir/.gpg-id" || {
+			cleanup_stage || :
+			notice "OTP import" "Cannot prepare the password-store recipients."
+			return 1
+		}
+		if [ -f "$store_dir/.gpg-id.sig" ]; then
+			cp -- "$store_dir/.gpg-id.sig" "$stage_dir/.gpg-id.sig" || {
+				cleanup_stage || :
+				notice "OTP import" "Cannot prepare the signed recipient list."
+				return 1
+			}
+		fi
 	fi
 }
 
-require_pass_otp || exit 1
+commit_store_entry() (
+	exec 9>&-
+	command -v git >/dev/null 2>&1 || return 0
+	unset GIT_DIR GIT_WORK_TREE GIT_NAMESPACE GIT_INDEX_FILE GIT_INDEX_VERSION
+	unset GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
+	GIT_CEILING_DIRECTORIES=${store_dir%/}/..
+	export GIT_CEILING_DIRECTORIES
+	store_git_root=$(git -C "$store_dir" rev-parse --show-toplevel 2>/dev/null) || return 0
+	[ "$store_git_root" = "$store_dir" ] || return 1
+	git -C "$store_dir" add -- "$entry.gpg" >/dev/null 2>&1 || return 1
+	[ -n "$(git -C "$store_dir" status --porcelain -- "$entry.gpg")" ] || return 0
+	if [ "$(git -C "$store_dir" config --bool --get pass.signcommits 2>/dev/null)" = true ]; then
+		git -C "$store_dir" commit -S -m "Add OTP secret for $entry to store." \
+			--only -- "$entry.gpg" >/dev/null 2>&1
+	else
+		git -C "$store_dir" commit -m "Add OTP secret for $entry to store." \
+			--only -- "$entry.gpg" >/dev/null 2>&1
+	fi
+)
 
-dir="${PASSWORD_STORE_DIR}"
+require_safe_oathtool() {
+	need_cmd oathtool
+	oath_version=$(oathtool --version 2>/dev/null | sed -n '1s/.* //p')
+	[ -n "$oath_version" ] || {
+		notice "OTP" "The oathtool version could not be determined."
+		return 1
+	}
+	oldest_version=$(printf '%s\n' 2.6.5 "$oath_version" | LC_ALL=C sort -V | sed -n '1p')
+	[ "$oldest_version" = 2.6.5 ] || {
+		notice "OTP" "oathtool 2.6.5 or newer is required to keep the secret out of process arguments."
+		return 1
+	}
+}
 
-choice="$({ echo "🆕add" ; echo "🕙sync-time" ; ls ${dir}/*-otp.gpg ;} | sed "s/.*\///;s/-otp.gpg//" | dmenu -p "Pick a 2FA:")"
+valid_entry_name() {
+	case "$1" in
+		''|[-._]*|*[!A-Za-z0-9._-]*) return 1 ;;
+	esac
+	return 0
+}
 
-case $choice in
-	🆕add )
-		ifinstalled maim zbarimg xclip || exit 1
+import_otp() {
+	need_cmd maim
+	need_cmd zbarimg
+	[ -d "$store_dir" ] || {
+		notice "OTP import" "Initialize the password store before importing an OTP."
+		return 1
+	}
 
-		temp="$dir/temp.png"
-		otp="otp-test-script"
-		trap 'shred -fu $temp; pass rm $otp' HUP INT QUIT TERM PWR EXIT
+	entry_name=$(dmenu -p "Name this OTP without the -otp suffix:" </dev/null) || return 0
+	[ -n "$entry_name" ] || return 0
+	valid_entry_name "$entry_name" || {
+		notice "OTP import" \
+			"Use a name beginning with a letter or number and only letters, numbers, dot, underscore, or hyphen."
+		return 1
+	}
+	entry=$entry_name-otp
+	target=$store_dir/$entry.gpg
+	[ ! -e "$target" ] && [ ! -L "$target" ] || {
+		notice "OTP import" "The target OTP entry already exists; it was not overwritten."
+		return 1
+	}
 
-		notify-send "Scan the image." "Scan the OTP QR code."
+	acquire_store_lock || return 1
+	[ ! -e "$target" ] && [ ! -L "$target" ] || {
+		notice "OTP import" "The target OTP entry already exists; it was not overwritten."
+		return 1
+	}
+	notice_low "OTP import" "Select the QR code area."
+	qr_data=$(maim -s 2>/dev/null | zbarimg -q --raw --nodbus - 2>/dev/null) || {
+		qr_data=
+		notice "OTP import" "No OTP QR code was found."
+		return 1
+	}
+	case "$qr_data" in
+		''|*'
+'*)
+			notice "OTP import" "Select exactly one OTP QR code."
+			qr_data=
+			return 1
+			;;
+		otpauth://totp/*|otpauth://hotp/*) ;;
+		*)
+			notice "OTP import" "The selected QR code is not a valid OTP URI."
+			qr_data=
+			return 1
+			;;
+	esac
 
-		maim -s "$temp" || exit 1
-		info="$(zbarimg -q "$temp")"
-		info="${info#QR-Code:}"
-		issuer="$(echo "$info" | grep -o "issuer=[A-z0-9]\+")"
-		name="${issuer#issuer=}"
+	[ ! -e "$target" ] && [ ! -L "$target" ] || {
+		notice "OTP import" "The target appeared during import; it was not overwritten."
+		qr_data=
+		return 1
+	}
 
-		if echo "$info" | pass otp insert "$otp"; then
-			while true ; do
-				export name="$(dmenu -p "Give this One Time Password a one-word name:")"
-				echo "$name" | grep -q -- "^[A-z0-9-]\+$" && break
-			done
-			pass mv "$otp" "$name-otp"
-			notify-send "Successfully added." "$name-otp has been created."
+	prepare_stage || {
+		qr_data=
+		return 1
+	}
+	stage_extensions=${PASSWORD_STORE_EXTENSIONS_DIR:-$store_dir/.extensions}
+	if ! printf '%s\n' "$qr_data" |
+		PASSWORD_STORE_DIR=$stage_dir PASSWORD_STORE_EXTENSIONS_DIR=$stage_extensions \
+		pass otp insert -- payload 9>&- >/dev/null 2>&1
+	then
+		qr_data=
+		cleanup_stage || notice "OTP import" "An encrypted staging directory could not be removed."
+		notice "OTP import" "The OTP URI could not be encrypted; the password store was not changed."
+		return 1
+	fi
+	qr_data=
+	stage_file=$stage_dir/payload.gpg
+	[ -f "$stage_file" ] && [ ! -L "$stage_file" ] || {
+		cleanup_stage || notice "OTP import" "An encrypted staging directory could not be removed."
+		notice "OTP import" "The encrypted staging file is missing or unsafe."
+		return 1
+	}
+	if ! ln -T -- "$stage_file" "$target" 2>/dev/null; then
+		cleanup_stage || notice "OTP import" "An encrypted staging directory could not be removed."
+		if [ -e "$target" ] || [ -L "$target" ]; then
+			notice "OTP import" "The target appeared during import; it was not overwritten."
 		else
-			notify-send "No OTP data found." "Try to scan the image again more precisely."
+			notice "OTP import" "The encrypted OTP entry could not be installed atomically."
 		fi
+		return 1
+	fi
+	cleanup_stage || notice "OTP import" "An encrypted staging directory could not be removed."
+	if ! commit_store_entry; then
+		notice "OTP import" "$entry was added, but the password-store Git commit failed."
+		return 0
+	fi
+	notice_low "OTP import" "$entry was added to the password store."
+	return 0
+}
 
-		;;
-	🕙sync-time )
-		sync_time
-		;;
-	*) pass otp -c ${choice}-otp ;;
+copy_otp() {
+	choice=$1
+	entries=$2
+	printf '%s\n' "$entries" | grep -Fqx -- "$choice" || {
+		notice "OTP" "The selected entry is not an OTP candidate."
+		return 1
+	}
+	entry=$choice-otp
+	acquire_store_lock || return 1
+	[ -f "$store_dir/$entry.gpg" ] || {
+		notice "OTP" "The selected OTP entry no longer exists."
+		return 1
+	}
+	require_safe_oathtool || return 1
+	need_cmd xclip
+	warn_time_status
+	if OATH_SAFE=1 pass otp -c -- "$entry" 9>&- >/dev/null 2>&1; then
+		notice_low "OTP" "The code for $choice was copied to the clipboard."
+		return 0
+	fi
+	notice "OTP" "The selected code could not be generated or decrypted."
+	return 1
+}
+
+entries=$(list_entries)
+choice=$(
+	{
+		printf '%s\n' "🆕add" "🕙sync-time"
+		[ -z "$entries" ] || printf '%s\n' "$entries"
+	} | dmenu -i -p "Pick a 2FA:"
+) || exit 0
+[ -n "$choice" ] || exit 0
+
+case "$choice" in
+	"🆕add") import_otp ;;
+	"🕙sync-time") sync_time ;;
+	*) copy_otp "$choice" "$entries" ;;
 esac

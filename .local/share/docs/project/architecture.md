@@ -101,6 +101,13 @@ PID 与 procfs 启动时刻原子保存在同一个状态文件，图标和 FFmp
 处理器形成依赖链：新增处理器必须同步处理命令、桌面入口、依赖和缺失行为。邮件账户、密码库
 内容和个人文档保持未跟踪。
 
+Shell profile 负责设置 `PASSWORD_STORE_DIR`；环境未提供时 `passmenu` 和 `otp` 都遵循 Password
+Store 的 `~/.password-store` 默认值。`otp` 只列举 `*-otp.gpg`，二维码经内存管道识别后先在密码库
+同一文件系统的私有暂存目录中加密，再以硬链接原子安装且不覆盖最终条目；共享用户锁同时保护导入和
+可能更新计数器的 HOTP 复制。密码库是 Git 工作树时只提交新增条目，并保留 `pass.signcommits`。
+生成前由包装脚本可靠检查 `oathtool` 版本并强制 `pass-otp` 的 stdin 安全分支。临时状态、二维码和
+secret 都不得进入配置仓库；不支持硬链接的密码库必须安全失败。
+
 ## 显示、网络、挂载与系统控制
 
 负责 RandR 自动/手动布局、重映射、亮度、锁屏/会话操作、NetworkManager 入口和挂载工具。
