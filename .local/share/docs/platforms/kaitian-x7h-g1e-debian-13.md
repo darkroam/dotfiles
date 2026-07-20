@@ -295,9 +295,7 @@ sudo /root/networkmanager-transition-20260719/networkmanager-transition.sh rollb
 
 ### 平台活动待办
 
-- [ ] 复查仍依赖真实 X11、账户或网络的交互路径：OTP、Transmission、RSS/邮件和媒体预览。
-  OTP 的静态和 mock 检查已完成；此处只保留真实 X11 `dmenu`/`maim`、GPG/Pinentry、验证码、
-  HOTP 计数及剪贴板清理验证。
+- [ ] 复查仍依赖真实 X11、账户或网络的交互路径：Transmission、RSS/邮件和媒体预览。
 - [ ] 按“运行必要性、跨设备价值、效率、结构和维护成本”评估未跟踪的 HDA audio user unit/helper；
   未经单独审查不纳入配置仓库。
 
@@ -307,6 +305,10 @@ sudo /root/networkmanager-transition-20260719/networkmanager-transition.sh rollb
   `Mod+Delete`/`Mod+Shift+Print` 停止以及状态、图标、日志和输出文件清理。2026-07-20 开始前已确认
   没有活动录制、状态目录或旧测试输出，用户在实际采集前决定挂起；脚本语法和 mock 已通过。
   当前没有 `/dev/video*`，摄像头分支只确认菜单正确隐藏，出现可读 V4L2 设备后再做采集验证。
+- [ ] 用户明确恢复 OTP 真实交互验证后，只在 mode 700 的临时密码库中使用公开测试密钥，验证
+  `dmenu` 选择、`maim` 二维码导入、GPG/Pinentry、TOTP、HOTP 计数更新以及 45 秒剪贴板恢复；
+  不读取或修改真实密码库，结束后清理测试库。OTP 的静态、mock 和扩展级隔离检查已通过；
+  2026-07-20 仅讨论了临时库方案，用户在创建前决定挂起，当前没有测试目录需要清理。
 - [ ] 仅在本机出现可用的匿名 SMB 服务或明确产生 CIFS 使用需求时，恢复
   `.local/bin/dmenumountcifs` 的真实 LAN 验证；当前因无测试服务跳过，代码和 mock 结果已记录在依赖审计中。
 - [ ] 2026-08 进入下一轮检查时，先询问是否恢复[跨设备显示工作](../project/display-management.md#未完成的通用工作)；
