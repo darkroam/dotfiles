@@ -21,7 +21,7 @@ while getopts "hvrpi:c:a:o:d:f:t:s:e:x:" o; do case "${o}" in
 	s) ppt="$OPTARG" ;;
 	e) endtime="$OPTARG" ;;
 	x) res="$OPTARG"
-		echo "$res" | grep -qv "^[0-9]\+x[0-9]\+$" &&
+		echo "$res" | grep -Eqv "^[0-9]+x[0-9]+$" &&
 			echo "Resolution must be dimensions separated by a 'x': 1280x720, etc." &&
 			exit 1 ;;
 	p) echo "Purge old build files in $cache? [y/N]"
