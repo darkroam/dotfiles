@@ -192,9 +192,11 @@ release_layout_lock() {
 
 postrun() { # Stuff to run to clean up.
 	release_layout_lock
-	setbg		# Fix background if screen size/arangement has changed.
-	remaps		# Re-remap keys if keyboard added (for laptop bases)
-	{ killall dunst ; setsid -f dunst ;} >/dev/null 2>&1 # Restart dunst to ensure proper location on screen
+	command -v setbg >/dev/null 2>&1 && setbg
+	command -v remaps >/dev/null 2>&1 && remaps
+	if command -v dunst >/dev/null 2>&1; then
+		{ killall dunst ; setsid -f dunst ;} >/dev/null 2>&1
+	fi
 	}
 
 # Get all possible displays
