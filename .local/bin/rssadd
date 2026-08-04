@@ -47,7 +47,7 @@ if awk '{print $1}' "$RSSFILE" | grep -Fqx "$url" >/dev/null; then
 else
 	for tag in "$@"; do
 		case "$tag" in
-			*'"'*|*'\\'*)
+			*'"'*|*"\\"*)
 				notify "RSS tags cannot contain quotes, backslashes, or newlines."
 				exit 1
 				;;
