@@ -4,6 +4,66 @@ case "$1" in
 	*/*|..*|.* ) echo "Invalid key name." >&2; exit 1 ;;
 esac
 
-cat "${XDG_DATA_HOME:-$HOME/.local/share}"/larbs/getkeys/"$1" 2>/dev/null && exit
-echo "Run command with one of the following arguments for info about that program:"
-ls "${XDG_DATA_HOME:-$HOME/.local/share}"/larbs/getkeys
+keysdir="${XDG_DATA_HOME:-$HOME/.local/share}/larbs/getkeys"
+
+show_list() {
+	printf '\n'
+	printf '  \033[1;4mWindow Manager & Terminal\033[0m\n'
+	for name in dwm st; do
+		[ -f "$keysdir/$name" ] || continue
+		desc=$(grep -m1 ' is the ' "$keysdir/$name" | sed 's/^[[:space:]]*//')
+		printf '    %-10s %s\n' "$name" "$desc"
+	done
+
+	printf '\n  \033[1;4mFile Manager\033[0m\n'
+	for name in lf; do
+		[ -f "$keysdir/$name" ] || continue
+		desc=$(grep -m1 ' is the ' "$keysdir/$name" | sed 's/^[[:space:]]*//')
+		printf '    %-10s %s\n' "$name" "$desc"
+	done
+
+	printf '\n  \033[1;4mMedia & Documents\033[0m\n'
+	for name in nsxiv ncmpcpp zathura; do
+		[ -f "$keysdir/$name" ] || continue
+		desc=$(grep -m1 ' is the ' "$keysdir/$name" | sed 's/^[[:space:]]*//')
+		printf '    %-10s %s\n' "$name" "$desc"
+	done
+
+	printf '\n  \033[1;4mCommunication\033[0m\n'
+	for name in mutt newsboat; do
+		[ -f "$keysdir/$name" ] || continue
+		desc=$(grep -m1 ' is the ' "$keysdir/$name" | sed 's/^[[:space:]]*//')
+		printf '    %-10s %s\n' "$name" "$desc"
+	done
+
+	printf '\n  \033[1;4mProductivity\033[0m\n'
+	for name in calcurse; do
+		[ -f "$keysdir/$name" ] || continue
+		desc=$(grep -m1 ' is the ' "$keysdir/$name" | sed 's/^[[:space:]]*//')
+		printf '    %-10s %s\n' "$name" "$desc"
+	done
+
+	printf '\n  \033[1;4mLauncher & Selector\033[0m\n'
+	for name in dmenu; do
+		[ -f "$keysdir/$name" ] || continue
+		desc=$(grep -m1 ' is the ' "$keysdir/$name" | sed 's/^[[:space:]]*//')
+		printf '    %-10s %s\n' "$name" "$desc"
+	done
+	printf '\n'
+}
+
+if [ -z "$1" ]; then
+	printf 'Available programs:'
+	show_list
+	printf 'Usage: \033[1mgetkeys <program>\033[0m\n'
+	exit 0
+fi
+
+if cat "$keysdir/$1" 2>/dev/null; then
+	exit 0
+fi
+
+printf '\n\033[31mUnknown program:\033[0m %s\n' "$1"
+printf 'Available programs:'
+show_list
+printf 'Usage: \033[1mgetkeys <program>\033[0m\n'

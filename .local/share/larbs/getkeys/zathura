@@ -5,15 +5,20 @@
 /___\__,_|\__|_| |_|\__,_|_|  \__,_|
 
 zathura is the pdf/djvu reader.
-	h/j/k/l - Move left/down/up/right in document
-	d/u - Down/up a half page
-	gg - Top of document
-	G - Bottom of document
-	f - Highlight URLS to follow
+
+Navigation:
+	h/j/k/l - Move left/down/up/right
+	d/u - Page down/up half page
+	gg/G - Top/bottom of document
+
+View:
 	J/K - Zoom out/in
 	s - Zoom to fit width
 	a - Zoom to fit height
-	r - Reload document if changed
-	R - Rotate document
 	D - Toggle dual-page mode
+	R - Rotate document
+	r - Reload document if changed
+
+Actions:
+	f - Highlight URLs to follow
 	p - Print document

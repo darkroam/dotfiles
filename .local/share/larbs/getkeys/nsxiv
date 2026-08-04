@@ -1,15 +1,30 @@
-          _
- _____  _(_)_   __
-/ __\ \/ / \ \ / /
-\__ \>  <| |\ V /
-|___/_/\_\_| \_/
+#    #  ####  #    # # #    #
+##   # #       #  #  # #    #
+# #  #  ####    ##   # #    #
+#  # #      #   ##   # #    #
+#   ## #    #  #  #  # #  #
+#    #  ####  #    # #   ##
+
 nsxiv is the image viewer.
+
+Navigation:
 	h/j/k/l - Pan image
 	-/+ - Zoom out/in
-	Enter - Toggle thumbnail mode
-	f - Fullscreen
 	n/p - Previous/next image in list/directory
+	Enter - Toggle thumbnail mode
 	r - Reload image if changed
-	m - Mark/unmark image
+
+View:
 	w - Zoom to fit window
-	ctrl-x - Run external command (see ~/.config/nsxiv/exec/key-handler for options)
+	f - Toggle fullscreen
+	m - Mark/unmark images
+
+External commands (ctrl-x then):
+	w - Set as wallpaper
+	c - Copy file to directory
+	m - Move file to directory
+	r/R - Rotate 90° clockwise/counter-clockwise
+	f - Flip horizontally
+	y/Y - Copy filename/full path to clipboard
+	d - Delete file
+	g - Open in GIMP

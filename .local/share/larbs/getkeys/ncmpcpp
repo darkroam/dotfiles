@@ -6,16 +6,23 @@
                      |_|        |_|   |_|
 
 ncmpcpp is the music player.
-	h/j/k/l - Move left/down/up/right
-	d/u - Down/up page
+
+Navigation:
+	h/j/k/l - Left/down/up/right
+	d/u - Page down/up
+	g/G - Go to top/bottom
+
+Playback:
+	p - Pause/unpause
+
+Library:
 	a - Add song(s) to playlist
 	c - Clear playlist
-	g - Go to top
-	G - Go to bottom
-	p - Pause
 	m - Media library
-	f - Music sorted by directory structure
-	t - Tag editor
+	f - Browse by directory structure
 	s - Search
+	t - Tag editor
+
+Views:
 	v - Visualizer
 	P - Playlist

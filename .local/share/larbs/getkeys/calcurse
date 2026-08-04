@@ -5,6 +5,7 @@
  \___\__,_|_|\___|\__,_|_|  |___/\___|
 
 calcurse is the calendar and schedule manager.
-	tab - Switch from calendar to todo to appointments
+
+Navigation:
+	tab - Switch between calendar/todo/appointments
 	h/j/k/l - Move left/down/up/right
-	Most other bindings are listed in the program.
