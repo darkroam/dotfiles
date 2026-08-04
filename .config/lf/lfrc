@@ -126,7 +126,7 @@ cmd copyto ${{
 	notify-send "📋 File(s) copied." "File(s) copied to $destpath."
 }}
 
-cmd setbg "$1"
+cmd setbg "$HOME/.local/bin/setbg" "$1"
 
 cmd bulkrename ${{
     tmpfile_old="$(mktemp)"

@@ -4,7 +4,7 @@
 
 notify-send "📦 Package Check" "Checking for package updates..."
 
-if ! sudo apt update; then
+if ! sudo -n apt update; then
 	notify-send "📦 Package Check" "Unable to refresh APT package lists.
 
 Check your internet connection, sudo access, or run pu manually to see errors."
