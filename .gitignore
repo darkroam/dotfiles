@@ -23,7 +23,7 @@
 
 # ── OS-specific ──────────────────────────────────────────────
 .DS_Store
-.CFUserTextEnncoding
+.CFUserTextEncoding
 .bash_sessions/
 .Xclients
 .Xauthority
