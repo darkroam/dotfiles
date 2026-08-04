@@ -134,13 +134,15 @@ secret 都不得进入配置仓库；不支持硬链接的密码库必须安全�
 明确部署后才生效，并与同一接口上的 NetworkManager 互斥；平台为 NetworkManager 选择的全局
 D-Bus 认证后端不属于冲突。
 
-硬件睡眠键由 systemd-logind 或 elogind 唯一处理，DWM 不重复绑定。`xprofile` 通过按登录会话和
-规范化 X server 划分的 `flock` 运行锁，单实例启动 `xss-lock --ignore-xss -- slock`：它在
-login1 睡眠准备阶段启动真实 locker，
+硬件睡眠键由 systemd-logind 或 elogind 唯一处理，DWM 不重复绑定。
+
+`xprofile` 通过按登录会话和规范化 X server 划分的 `flock` 运行锁，单实例启动
+`xss-lock --ignore-xss -- slock`：它在 login1 睡眠准备阶段启动真实 locker，
 但不改变 XScreenSaver 空闲策略。`sysact` 无参数时提供菜单，显式参数走同一动作分派；
 电源请求交给当前 login manager 且不跳过 inhibitors。标准 `slock` 不实现
 `XSS_SLEEP_LOCK_FD` 握手，因此不使用 `--transfer-sleep-lock`；若未来要求严格的 locker-ready
 确认，必须另行实现可验证的 FD 关闭协议，不得只加该选项。
+
 显示状态模型、锁、布局、设备适配器边界、验证矩阵和 framebuffer 诊断统一由
 [X11 显示管理设计](display-management.md)定义；本节不复制算法或平台实测。
 

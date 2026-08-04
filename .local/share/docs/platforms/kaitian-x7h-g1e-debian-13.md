@@ -1,5 +1,7 @@
 # KaiTian X7h G1e + Debian 13 平台档案
 
+本文面向 Agent 和维护者。
+
 ## 设备基本信息
 
 | 项目 | 平台事实 |

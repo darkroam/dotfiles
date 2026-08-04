@@ -1,5 +1,9 @@
 # 安装系统修复记录
 
+本文面向 Agent 和维护者。
+
+相关文档：[安装系统设计](../project/installation-system.md)、[安装测试](../project/installation-testing.md)、[当前待办](todo.md)
+
 **状态**: 待执行
 **创建日期**: 2026-08-04
 

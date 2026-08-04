@@ -1,5 +1,9 @@
 # 快捷键摘要
 
+本文面向本配置的使用者。
+
+相关文档：[桌面使用指南](desktop-guide-zh.md)、[架构与设计](../project/architecture.md)
+
 DWM 部分以当前 `~/src/dwm/config.h` 为准，st 鼠标操作以当前 `~/src/st/config.h` 为准。
 `Mod` 是 Super/Windows 键；大写字母表示同时按 Shift。依赖缺失时，快捷键会启动失败而不会
 自动安装程序。

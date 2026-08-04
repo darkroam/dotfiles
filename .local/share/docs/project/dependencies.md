@@ -1,5 +1,7 @@
 # 依赖清单
 
+本文面向 Agent 和维护者，用于全新安装和依赖核查。
+
 这是面向全新 Linux 安装的完整命令清单。安装适用组可启用全部已跟踪功能；发行版包名不同，
 命令名是稳定参考。基础环境还假定具备 GNU/Linux `sh`、`bash`、GNU coreutils、findutils、
 grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、procps（`pgrep`、`pkill`、`ps`）、

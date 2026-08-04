@@ -4,7 +4,7 @@
 
 ## 快速开始
 
-只想快速安装和使用？阅读根目录 [README](../../README.md)。
+只想快速安装和使用？阅读根目录 [README](../../../README.md)。
 
 ## 用户指南（面向最终用户）
 
@@ -74,10 +74,10 @@ docs/README.md (中文，文档索引)
     ├── 用户指南 (desktop-guide-zh.md, keybindings-zh.md)
     ├── 维护者文档 (architecture.md, dependencies.md, maintenance-policy.md, docs-standard.md)
     ├── 显示管理 (display-management.md, display-device-adapter.md)
-    ├── 安装系统 (installation-system.md, installation-testing.md, installation-fixes.md)
+    ├── 安装系统 (project/installation-system.md, project/installation-testing.md)
     ├── 平台部署 (platforms/index.md → 各平台档案)
     ├── 审计记录 (audits/ — 按日期归档的审计发现和执行记录)
-    └── 项目跟踪 (todo.md, suspended.md, history.md, dependency-audit.md)
+    └── 项目跟踪 (todo.md, suspended.md, history.md, dependency-audit.md, installation-fixes.md)
 ```
 
 修改任何文档后，必须执行维护策略规定的全库一致性检查：术语统一、内部链接有效、文档关系成立、无平台泄漏。

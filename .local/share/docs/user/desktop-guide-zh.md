@@ -129,12 +129,16 @@ Shell profile 设为 XDG 数据目录下的密码库，变量缺失时回退到�
 登录 X11 时，`xdisplay.sh --watch` 会同时监测笔记本盖子和已连接显示器：合盖且有外接显示器时关闭内屏并
 将外屏设为主屏；切换时会先准备外屏再关闭内屏。开盖时恢复内屏为主屏并把外屏置于右侧。启动时若暂时只发现一个输出，会直接将其启用为主屏；
 之后检测到新输出会再次收敛布局。无法识别内屏的多屏情况会尝试镜像，失败后 watcher 会继续重试，
-但 XRandR 不保证自动回滚已经部分应用的布局。`xdisplay.sh` 失败时会输出错误，并在
-`notify-send` 可用时通知；`displayselect` 的所有失败路径不保证通知。需要立即修正布局时执行
-`xdisplay.sh` 或 `xdisplay.sh --apply`。只排查、不修改布局时执行 `xdisplay.sh --status`，它会
-显示 lid、各输出的连接与 geometry、current/preferred/target 模式及刷新率、模式数量和能力签名、
-stale/pending、当前策略、锁路径、watcher generation 和 manual marker 状态。标准内屏名称无需
-设置。当前非标准硬件仍使用平台档案登记的 legacy 环境变量注入；尚未实施的目标迁移按
+但 XRandR 不保证自动回滚已经部分应用的布局。
+
+`xdisplay.sh` 失败时会输出错误，并在 `notify-send` 可用时通知；`displayselect` 的所有失败路径
+不保证通知。需要立即修正布局时执行 `xdisplay.sh` 或 `xdisplay.sh --apply`。
+
+只排查、不修改布局时执行 `xdisplay.sh --status`，它会显示 lid、各输出的连接与 geometry、
+current/preferred/target 模式及刷新率、模式数量和能力签名、stale/pending、当前策略、锁路径、
+watcher generation 和 manual marker 状态。标准内屏名称无需设置。
+
+当前非标准硬件仍使用平台档案登记的 legacy 环境变量注入；尚未实施的目标迁移按
 [设备适配器指引](../project/display-device-adapter.md)处理，不把新设备参数继续写进通用配置。
 事件后 watcher 会短时提高探测频率以等待迟到模式；手动显示选择期间
 自动布局等待共享锁。缺少基础命令时脚本会明确提示，缺少 Arandr 只影响可选手动界面。
