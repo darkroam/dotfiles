@@ -73,7 +73,11 @@ Genre=$genre"
 		[ -n "$comment" ] && tags="$tags
 Comment=$comment"
 		printf '%s\n' "$tags" | opustags -i -S "$file" ;;
-	*.mp3) eyeD3 -Q --remove-all -a "$artist" -A "$album" -t "$title" -n "$track" -N "$total" -Y "$date" "$file" ;;
+	*.mp3)
+		eyeD3 -Q --remove-all -a "$artist" -A "$album" -t "$title" -n "$track" "$file"
+		[ -n "$total" ] && eyeD3 -Q -N "$total" "$file"
+		[ -n "$date" ] && eyeD3 -Q -Y "$date" "$file"
+		;;
 	*.flac)
 		tags="TITLE=$title
 ARTIST=$artist
