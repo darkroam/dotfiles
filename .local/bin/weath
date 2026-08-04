@@ -13,6 +13,8 @@ notify() {
 	fi
 }
 
+command -v curl >/dev/null 2>&1 || { notify "curl not installed"; exit 1; }
+
 fetch() {
 	curl -sfm 5 "$url/$1"
 }
