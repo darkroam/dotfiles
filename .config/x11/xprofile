@@ -18,7 +18,9 @@ case ":$PATH:" in
 esac
 export PATH
 
-command -v dbus-launch >/dev/null 2>&1 && eval "$(dbus-launch --sh-syntax --exit-with-session)"
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+	command -v dbus-launch >/dev/null 2>&1 && eval "$(dbus-launch --sh-syntax --exit-with-session)"
+fi
 
 # Select one input-method engine for both environment variables and startup.
 IM_NAME=""
