@@ -33,8 +33,7 @@ if [ "$(uname)" = "Darwin" ]; then
 		sl="ls -h" \
 		l.='ls -d .*' \
 		ll='ls -hAlF' \
-		ll.='ls -hAlFd .*' \
-		pss='ps aux | grep -v grep | grep -i -e VSZ -e'
+		ll.='ls -hAlFd .*'
 elif [ "$(expr substr $(uname -s) 1 5)" = "Linux" ]; then
 	alias \
 		ls="ls -hN --color=auto --group-directories-first" \
@@ -42,9 +41,10 @@ elif [ "$(expr substr $(uname -s) 1 5)" = "Linux" ]; then
 		l.='ls -d .* --color=auto --group-directories-first' \
 		ll='ls -hAlF --group-directories-first' \
 		ll.='ls -hAlFd .* --group-directories-first' \
-		diff="diff --color=auto" \
-		pss='ps auxf | grep -v grep | grep -i -e VSZ -e'
+		diff="diff --color=auto"
 fi
+
+pss() { ps aux | grep -v grep | grep -i -e VSZ -e "${1:-.}"; }
 
 alias \
 	grep="grep --color=auto" \
@@ -52,7 +52,7 @@ alias \
 	ip="ip -color=auto" \
 	which='command -v' \
 	..='cd ..' \
-	...='cd ..\..'
+	...='cd ../..'
 
 # These common commands are just too long! Abbreviate them.
 alias \

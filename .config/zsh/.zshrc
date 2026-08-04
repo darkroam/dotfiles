@@ -229,6 +229,7 @@ _c_git() {
 	local completion_status=$?
 	words=("${saved_words[@]}")
 	CURRENT=$saved_current
+	unset GIT_DIR GIT_WORK_TREE
 	return $completion_status
 }
 compdef _c_git c=git
