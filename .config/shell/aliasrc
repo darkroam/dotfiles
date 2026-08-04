@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# ============================================================================
+# EDITOR & SHELL BASICS
+# ============================================================================
+
 # Use neovim for vim if present.
 [ -x "$(command -v nvim)" ] && alias vim="nvim" vimdiff="nvim -d"
 alias nvim="$EDITOR"
@@ -7,11 +11,18 @@ alias nvim="$EDITOR"
 # Use $XINITRC variable if file exists.
 [ -f "$XINITRC" ] && alias startx="startx $XINITRC"
 
+# ============================================================================
+# SUDO WRAPPERS
+# ============================================================================
+
 # Run selected system commands through sudo when they are available.
-for command in mount umount sv pacman updatedb su shutdown poweroff reboot ; do
+for command in mount umount sv pacman apt updatedb su shutdown poweroff reboot ; do
 	command -v "$command" >/dev/null 2>&1 && alias "$command=sudo $command"
 done; unset command
 
+# ============================================================================
+# CORE COMMANDS
+# ============================================================================
 
 # Verbosity and settings that you pretty much just always are going to want.
 alias \
@@ -21,10 +32,13 @@ alias \
 	rm="rm -vI" \
 	bc="bc -ql" \
 	mkd="mkdir -pv" \
-#	yt="youtube-dl --add-metadata -i" \
 	yt="yt-dlp --embed-metadata -i" \
 	yta="yt -x -f bestaudio/best" \
 	ffmpeg="ffmpeg -hide_banner"
+
+# ============================================================================
+# OS-SPECIFIC SETTINGS
+# ============================================================================
 
 # Colorize commands when possible.
 if [ "$(uname)" = "Darwin" ]; then
@@ -34,7 +48,7 @@ if [ "$(uname)" = "Darwin" ]; then
 		l.='ls -d .*' \
 		ll='ls -hAlF' \
 		ll.='ls -hAlFd .*'
-elif [ "$(expr substr $(uname -s) 1 5)" = "Linux" ]; then
+elif [ "$(uname -s)" = "Linux" ]; then
 	alias \
 		ls="ls -hN --color=auto --group-directories-first" \
 		sl="ls -hN --color=auto --group-directories-first" \
@@ -44,7 +58,9 @@ elif [ "$(expr substr $(uname -s) 1 5)" = "Linux" ]; then
 		diff="diff --color=auto"
 fi
 
-pss() { ps aux | grep -v grep | grep -i -e VSZ -e "${1:-.}"; }
+# ============================================================================
+# NAVIGATION & COLORIZE
+# ============================================================================
 
 alias \
 	grep="grep --color=auto" \
@@ -53,6 +69,12 @@ alias \
 	which='command -v' \
 	..='cd ..' \
 	...='cd ../..'
+
+pss() { ps aux | grep -v grep | grep -i -e VSZ -e "${1:-.}"; }
+
+# ============================================================================
+# ABBREVIATIONS
+# ============================================================================
 
 # These common commands are just too long! Abbreviate them.
 alias \
@@ -65,10 +87,11 @@ alias \
 	sdn="sudo shutdown -h now" \
 	e="emacs" \
 	v="$EDITOR" \
-	calcurse='calcurse -D ~/.config/calcurse' 
-#	calcurse='calcurse -D ~/.config/calcurse' \
-#	x='nsxiv -ft *' \
-#	z="zathura"
+	calcurse='calcurse -D ~/.config/calcurse'
+
+# ============================================================================
+# GIT HELPERS
+# ============================================================================
 
 # Shared Git helpers. Keep gs for the system Ghostscript command.
 alias \
@@ -119,29 +142,9 @@ glll() {
 	gitlog "%C(${gitHashColor:-magenta})%h %C(${gitDateColor:-yellow})%cd %C(${gitAuthorColor:-blue})%cn: %C(${gitContentColor:-cyan})%s%Creset" "${1:-10}"
 }
 
-# Shared proxy controls for Bash and Zsh. They only change the current shell.
-setproxy() {
-	export http_proxy='http://127.0.0.1:7897'
-	export https_proxy='http://127.0.0.1:7897'
-	export all_proxy='socks5://127.0.0.1:7897'
-	export HTTP_PROXY="$http_proxy"
-	export HTTPS_PROXY="$https_proxy"
-	export ALL_PROXY="$all_proxy"
-}
-
-unsetproxy() {
-	unset http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY
-}
-
-git_set_proxy() {
-	git config --global http.proxy 'http://127.0.0.1:7897'
-	git config --global https.proxy 'http://127.0.0.1:7897'
-}
-
-git_unset_proxy() {
-	git config --global --unset http.proxy
-	git config --global --unset https.proxy
-}
+# ============================================================================
+# CONFIG REPO HELPERS
+# ============================================================================
 
 # Mirror the Git helpers above for the bare configuration repository.
 cfg_git() {
@@ -210,7 +213,39 @@ cglll() {
 	cgitlog "%C(${gitHashColor:-magenta})%h %C(${gitDateColor:-yellow})%cd %C(${gitAuthorColor:-blue})%cn: %C(${gitContentColor:-cyan})%s%Creset" "${1:-10}"
 }
 
-# Package management. All aliases use the same p-prefix across distributions:
+# ============================================================================
+# PROXY CONTROLS
+# ============================================================================
+
+# Shared proxy controls for Bash and Zsh. They only change the current shell.
+setproxy() {
+	export http_proxy='http://127.0.0.1:7897'
+	export https_proxy='http://127.0.0.1:7897'
+	export all_proxy='socks5://127.0.0.1:7897'
+	export HTTP_PROXY="$http_proxy"
+	export HTTPS_PROXY="$https_proxy"
+	export ALL_PROXY="$all_proxy"
+}
+
+unsetproxy() {
+	unset http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY
+}
+
+git_set_proxy() {
+	git config --global http.proxy 'http://127.0.0.1:7897'
+	git config --global https.proxy 'http://127.0.0.1:7897'
+}
+
+git_unset_proxy() {
+	git config --global --unset http.proxy
+	git config --global --unset https.proxy
+}
+
+# ============================================================================
+# PACKAGE MANAGEMENT
+# ============================================================================
+
+# All aliases use the same p-prefix across distributions:
 # p: manager, pu: update, pi: install, pr: remove, pse: search,
 # pp: package information, pl: installed packages, pc: cleanup.
 if command -v apt >/dev/null 2>&1; then
@@ -251,6 +286,10 @@ elif command -v emerge >/dev/null 2>&1; then
 	alias pc='sudo emerge --depclean'
 fi
 
+# ============================================================================
+# MEDIA & APPS
+# ============================================================================
+
 # Give each MPV instance a unique socket so pauseallmpv can control it.
 mpv() {
 	mpv_socket_dir="${XDG_RUNTIME_DIR:-/tmp}/mpvSockets"
@@ -264,18 +303,17 @@ mpv() {
 	return "$mpv_status"
 }
 
-# Some other stuff
 alias \
 	lf="lfub" \
 	magit="nvim -c MagitOnly" \
-	ref="shortcuts >/dev/null; source ${XDG_CONFIG_HOME:-$HOME/.config}/shell/shortcutrc ; source ${XDG_CONFIG_HOME:-$HOME/.config}/shell/zshnameddirrc"
-#	tmux="tmux -f ${XDG_CONFIG_HOME:-$HOME/.config}/tmux/tmux.conf"
-
-# Customization
-alias \
+	ref="shortcuts >/dev/null; source ${XDG_CONFIG_HOME:-$HOME/.config}/shell/shortcutrc ; source ${XDG_CONFIG_HOME:-$HOME/.config}/shell/zshnameddirrc" \
 	lg="lazygit" \
 	t="tldr" \
-  cc-switch-cli='~/.local/bin/cc-switch'
+	cc-switch-cli='~/.local/bin/cc-switch'
+
+# ============================================================================
+# LOCAL OVERRIDES
+# ============================================================================
 
 local_aliasrc="${XDG_CONFIG_HOME:-$HOME/.config}/shell/aliasrc.local"
 [ -r "$local_aliasrc" ] && . "$local_aliasrc"
