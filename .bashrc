@@ -30,6 +30,7 @@ if [ -r /usr/share/bash-completion/completions/git ]; then
 		COMP_CWORD=$saved_cword
 		COMP_LINE=$saved_line
 		COMP_POINT=$saved_point
+		unset GIT_DIR GIT_WORK_TREE
 		return $status
 	}
 	complete -o bashdefault -o default -o nospace -F _c_git_complete c
