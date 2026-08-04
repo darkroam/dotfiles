@@ -46,7 +46,7 @@
 	dcs = diff --cached --stat
 	df= diff-tree --no-commit-id --name-only
 # Remove branches that have already been merged with master
-	dm = "!git branch --merged | grep -v '\\*' | xargs -n 1 git branch -d"
+	dm = "!git branch --merged | grep -v '\\*' | xargs -r -n 1 git branch -d"
 # delete tag(s)
 	dtag = "!f() { git tag -d $1 && git push origin :refs/tags/$1; }; f"
 	ds = diff --stat
