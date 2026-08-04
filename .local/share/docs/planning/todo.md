@@ -17,5 +17,9 @@
   DF_F3 设备 `[1d94:14d3]`（上游仅支持 `[1d94:1463]`）。需给 k10temp 打补丁在
   `k10temp_id_table` 中添加 `{ PCI_VDEVICE(HYGON, 0x14d3) }` 并重新编译模块；
   或向海光/内核社区报告请求主线支持。内核更新后需重新打补丁。
+- [ ] 测试脚本环境隔离加固：`scripts/test/` 下的测试脚本曾导致真实 `~/.cfg` 被删除。
+  需完成：①消除 `state-machine-tester.sh` 中硬编码的 `/home/ok/` 路径，改用 `$REAL_HOME`；
+  ②在所有 cleanup 函数中增加双重校验（路径必须在 `/tmp/` 下且不得为 `$REAL_HOME`）；
+  ③确认脚本顶部安全约束声明覆盖全部写操作。
 
 有意挂起的工作见[挂起项](suspended.md)，已完成项目记录在[待办历史](history.md)。
