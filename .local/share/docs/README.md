@@ -20,6 +20,7 @@
 - [架构与设计](project/architecture.md) — 目录结构、运行关系、所有权和维护边界
 - [依赖清单](project/dependencies.md) — 完整命令和能力清单，按布局（layout）组织
 - [维护策略](project/maintenance-policy.md) — 项目约束、工作流规则、已接受决定和明确不采用项
+- [文档质量规范](project/docs-standard.md) — 文件级写作标准、完整性自检、Agent 维护规范
 - [显示管理设计](project/display-management.md) — X11 显示引擎的状态模型、布局策略和验证矩阵
 - [显示设备适配器指引](project/display-device-adapter.md) — 非标准硬件扩展接口规范
 
@@ -45,7 +46,8 @@
 - [挂起项目](planning/suspended.md) — 暂缓的工作和恢复条件
 - [变更历史](planning/history.md) — 已完成的工作记录
 - [跨发行版审计流程](planning/dependency-audit.md) — 可复用的审计流程和基线
-- [全量审查问题清单](planning/config-review-issues.md) — 2026-07-31 审计发现的问题及进度
+- [全量审查问题清单](audits/2026-07-31-full-review.md) — 2026-07-31 审计发现的 112 项问题（已全部修复）
+- [配置全量审计修改](audits/2026-08-04-full-review.md) — 2026-08-04 审计修改计划 64 项（已全部完成）
 
 ## 文档体系说明
 
@@ -70,9 +72,11 @@
     ↓
 docs/README.md (中文，文档索引)
     ├── 用户指南 (desktop-guide-zh.md, keybindings-zh.md)
-    ├── 维护者文档 (architecture.md, dependencies.md, maintenance-policy.md)
-    ├── 安装系统 (installation-system.md, installation-testing.md)
+    ├── 维护者文档 (architecture.md, dependencies.md, maintenance-policy.md, docs-standard.md)
+    ├── 显示管理 (display-management.md, display-device-adapter.md)
+    ├── 安装系统 (installation-system.md, installation-testing.md, installation-fixes.md)
     ├── 平台部署 (platforms/index.md → 各平台档案)
+    ├── 审计记录 (audits/ — 按日期归档的审计发现和执行记录)
     └── 项目跟踪 (todo.md, suspended.md, history.md, dependency-audit.md)
 ```
 

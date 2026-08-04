@@ -2,6 +2,12 @@
 
 ## 最近记录的变更
 
+- [x] 2026-08-04：全量配置审计与文档重构。逐文件审查 140 个跟踪文件，发现并修复 112 项问题
+  （22 项高严重度：eval 注入、printf 格式串、未初始化变量等；42 项中严重度：XDG 变量顺序、
+  未加引号变量、临时文件泄漏等；52 项低严重度：GNU 扩展、拼写错误、风格问题）。审计记录归档于
+  `audits/` 目录。文档重构：将工作流规则从"已接受的决定"提升为 maintenance-policy.md
+  独立章节；审计文件从 planning/ 迁移到 audits/ 按日期归档；清理会话指令。
+
 - [x] 2026-08-03 ~ 08-04：实施安装系统 v2.0。新增 5 个 Gen 2 脚本（install-2.sh、install-server.sh、
   restore-desktop.sh、restore-server.sh、uninstall.sh），实现三状态幂等安装系统（FRESH/DESKTOP/SERVER）。
   核心特性：状态感知备份（`.config-backup-{from}-to-{to}-{timestamp}`）、MD5 内容对比过滤、

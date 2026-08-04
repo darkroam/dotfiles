@@ -1,16 +1,19 @@
 # 配置全量审计修改计划
 
-2026-08-04 全量审计发现。140 个跟踪文件逐一审查，按严重度和类型分组。
-
-## 任务单位
-
-每个编号（S01、S02、F01 等）是一个独立任务，必须单独走完整工作流程：
-提出方案 → 用户确认 → 执行 → review → 用户确认 → 下一项。
-不得将多个任务合并处理。
+- **日期：** 2026-08-04
+- **范围：** 全库逐文件审查（140 个跟踪文件）
+- **方法：** 按修复类型（安全/功能/质量）分批，每项含影响分析
+- **状态：** 已完成（64/64）
 
 ## 工作流程
 
-遵循[维护策略](../project/maintenance-policy.md#项目约束)规定的工作流。
+遵循[维护策略规定的工作流规则](../project/maintenance-policy.md#工作流)。
+
+每一项编号（S01、F01、Q01 等）为一个独立任务，必须单独走完整流程：
+提出方案 → 用户确认 → 执行 → review → 用户确认 → 下一项。
+不得将多个任务合并处理。会话因上下文压缩恢复后，必须先阅读
+[维护策略](../project/maintenance-policy.md)确认约束和工作流，再对照本文件的
+执行进度表确认当前状态。
 
 ---
 
@@ -149,48 +152,56 @@
 ### F01 — `pdf.desktop` 缺少 MimeType
 - **文件：** `.local/share/applications/pdf.desktop`
 - **现状：** 无 MimeType
+- **影响：** PDF 文件无法通过桌面关联打开
 - **修复：** 添加 `MimeType=application/pdf;`
 - **状态：** [x] 已修复
 
 ### F02 — `mail.desktop` 缺少 MimeType
 - **文件：** `.local/share/applications/mail.desktop`
 - **现状：** 无 MimeType
+- **影响：** 邮件链接（mailto:）无法通过桌面关联打开
 - **修复：** 添加 `MimeType=x-scheme-handler/mailto;`
 - **状态：** [x] 已修复
 
 ### F03 — `rss.desktop` 缺少 MimeType
 - **文件：** `.local/share/applications/rss.desktop`
 - **现状：** 无 MimeType
+- **影响：** RSS/Atom feed 链接无法通过桌面关联打开
 - **修复：** 添加 `MimeType=application/rss+xml;application/atom+xml;x-scheme-handler/feed;`
 - **状态：** [x] 已修复
 
 ### F04 — `text.desktop` 缺少 MimeType
 - **文件：** `.local/share/applications/text.desktop`
 - **现状：** 无 MimeType
+- **影响：** 文本文件无法通过桌面关联打开
 - **修复：** 添加 `MimeType=text/plain;text/x-c;text/x-python;text/x-shellscript;text/html;text/css;application/json;`
 - **状态：** [x] 已修复
 
 ### F05 — `torrent.desktop` 缺少 MimeType
 - **文件：** `.local/share/applications/torrent.desktop`
 - **现状：** 无 MimeType
+- **影响：** 种子文件和磁力链接无法通过桌面关联打开
 - **修复：** 添加 `MimeType=application/x-bittorrent;x-scheme-handler/magnet;`
 - **状态：** [x] 已修复
 
 ### F06 — `file.desktop` 缺少 MimeType
 - **文件：** `.local/share/applications/file.desktop`
 - **现状：** 无 MimeType
+- **影响：** 文件管理器无法通过桌面关联打开目录
 - **修复：** 添加 `MimeType=inode/directory;`
 - **状态：** [x] 已修复
 
 ### F07 — `video.desktop` MimeType 不完整
 - **文件：** `.local/share/applications/video.desktop`
 - **现状：** 仅 `video/x-matroska;`
+- **影响：** 大部分视频和音频文件无法通过桌面关联打开
 - **修复：** 补充 `video/mp4;video/webm;video/x-flv;video/x-msvideo;audio/mpeg;audio/flac;audio/ogg;audio/mp4;`
 - **状态：** [x] 已修复
 
 ### F08 — `img.desktop` 用 `%f` 限制单文件
 - **文件：** `.local/share/applications/img.desktop`
 - **现状：** `Exec=/usr/bin/nsxiv -a %f`，`%f` 限制单文件
+- **影响：** 图片查看器只能打开单个文件，无法批量查看
 - **修复：** 改为 `%F` 支持多文件
 - **状态：** [x] 已修复
 
@@ -232,22 +243,26 @@
 ### F14 — `lf/lfrc` MIME 分支死代码
 - **文件：** `.config/lf/lfrc`
 - **现状：** `application/pdf` 在第 32 行已匹配，第 45 行不可达；`application/vnd*` 使 localc 分支不可达
+- **影响：** 死代码增加维护负担，MIME 匹配逻辑不可预测
 - **修复：** 合并或重排 MIME 分支
 - **状态：** [x] 已修复（根据 voidrice 配置全面更新 lfrc）
 
 ### F15 — `lf/lfrc:99` `map gh` 无动作
 - **文件：** `.config/lf/lfrc`
 - **现状：** `map gh` 绑定为空
+- **影响：** 快捷键绑定无效，用户预期行为不可达
 - **修复：** 补为 `map gh cd ~` 或删除
 - **状态：** [x] 已修复（根据 voidrice 配置改为 `map H cd ~`）
 
 ### F16 — `lf/lfrc:59,68` `$ans` 未加引号
 - **文件：** `.config/lf/lfrc`
 - **现状：** `[ $ans = "y" ]`，空输入时语法错误
+- **影响：** 空输入时 `[ $ans = "y" ]` 展开为 `[ = "y" ]`，语法错误
 - **修复：** 改为 `[ "$ans" = "y" ]`
 - **状态：** [x] 已修复
 
 ### F17 — 补丁文件格式错误
+- **影响：** 补丁无法应用或应用后破坏功能
 
 | 编号 | 文件 | 问题 |
 |------|------|------|
@@ -260,22 +275,26 @@
 ### F18 — `crontog:6` 数据丢失风险
 - **文件：** `.local/bin/cron/crontog`
 - **现状：** 单行 `&&`/`||` 组合，中断时可永久删除 crontab
+- **影响：** 中断时 crontab 永久丢失，无法恢复
 - **修复：** 重写为显式 if/else，每步检查返回值
 - **状态：** [x] 已修复（重写为 if/else，添加失败提示）
 
 ### F19 — `sb-kbselect:16` dmenu 取消后空参数
 - **文件：** `.local/bin/statusbar/sb-kbselect`
 - **现状：** dmenu 取消后 `$kb` 为空，`setxkbmap ""` 执行
+- **影响：** 按 Escape 取消时键盘布局被重置
 - **修复：** 加 `[ -n "$kb_choice" ] || exit 0`
 - **状态：** [x] 已修复
 
 ### F20 — `cron/newsup:8` xdotool 空窗口 ID
 - **文件：** `.local/bin/cron/newsup`
 - **现状：** `xdotool search --name "^newsboat$"` 无匹配时返回空，后续 `key --window ""` 出错
+- **影响：** 无 newsboat 窗口时 xdotool 报错
 - **修复：** 加空值检查
 - **状态：** [x] 已修复
 
 ### F21-F23 — lf/lfrc 问题
+- **影响：** tr 转义错误导致 mkdir 失败；~ 替换可能误改路径；拼写错误影响专业性
 
 | 编号 | 问题 | 状态 |
 |------|------|------|
@@ -284,6 +303,7 @@
 | F23 | "copies" 拼写错误 | [x] 已修复（voidrice 用 "copied"） |
 
 ### F24-F26 — 其他功能问题
+- **影响：** 非标准 MIME 类型不被桌面识别；HTTP 传输不安全；已弃用命令将在未来失效
 
 | 编号 | 文件 | 问题 | 状态 |
 |------|------|------|------|
@@ -298,34 +318,40 @@
 ### Q01 — 统一信号号
 - **文件：** `sb-mpdup` 等
 - **现状：** `kill -45` 不跨平台
+- **影响：** 信号号因系统而异，脚本在其他机器上可能无效
 - **修复：** 统一为 `pkill -RTMIN+N`
 - **状态：** [x] 已修复（改为 `pkill -RTMIN+11`）
 
 ### Q02 — D-Bus 启动加条件守卫
 - **文件：** `.config/x11/xprofile:21`
 - **现状：** 无条件调用 `dbus-launch`
+- **影响：** 已有 D-Bus 会话时重复启动，浪费资源并可能产生僵尸进程
 - **修复：** 加 `[ -z "$DBUS_SESSION_BUS_ADDRESS" ]` 检查
 - **状态：** [x] 已修复
 
 ### Q03 — 临时文件清理
 - **文件：** `linkhandler`、`dmenuhandler`
 - **现状：** 下载后临时文件不清理
+- **影响：** 临时文件积累占用磁盘，可能泄漏敏感下载内容
 - **修复：** 加 trap 清理
 - **状态：** [x] 已修复
 
 ### Q04 — 依赖检查补全
 - **文件：** 多个状态栏脚本
 - **现状：** `sensors`、`mpc`、`newsboat`、`wpctl`、`groff` 无存在性检查
+- **影响：** 缺少依赖时脚本报错而非优雅降级，状态栏显示错误信息
 - **修复：** 加 `command -v` 检查
 - **状态：** [x] 已修复（sb-cpu, sb-help-icon, sb-mpdup, sb-music, sb-news, sb-volume）
 
 ### Q05 — echo → printf
 - **文件：** `tag`、`qndl`、`dmenuhandler`、`install-ohmyz.sh`
 - **现状：** 用 `echo` 处理用户数据
+- **影响：** echo 解释用户数据中的 -n、-e 等选项，输出错误
 - **修复：** 改为 `printf '%s\n'`
 - **状态：** [x] 已修复
 
 ### Q06 — 废弃选项清理
+- **影响：** 已弃用选项在未来版本中可能不被识别，导致配置加载失败或警告
 - **文件：** `dunstrc`（transparency）、`zathurarc`（旧选项名）、`tmux.conf`（utf8）、`gtkrc-2.0`/`settings.ini`（toolbar-style）
 - **修复：** 删除或更新为当前语法
 - **状态：** [x] 已修复（dunstrc transparency、tmux.conf utf8 已删除；gtk-toolbar-style 保留）
@@ -333,84 +359,98 @@
 ### Q07 — lf 未引用变量
 - **文件：** `.config/lf/lfrc`
 - **现状：** `$f`、`$fx` 多处未加引号
+- **影响：** 含空格的文件名导致命令断裂，行为不可预测
 - **修复：** 加引号
 - **状态：** [x] 已修复
 
 ### Q08 — wal postrun 安全
 - **文件：** `.config/wal/postrun`
 - **现状：** 写入所有 PTY；`pkill dunst` 影响所有用户
+- **影响：** 向其他用户的 PTY 写入数据是安全隐患；pkill 影响其他用户的 dunst
 - **修复：** 限制为当前用户 PTY；`pkill -u "$USER" dunst`
 - **状态：** [x] 已修复
 
 ### Q09 — `.bashrc` GIT_DIR 泄漏
 - **文件：** `.bashrc:16-34`
 - **现状：** 补全函数导出 GIT_DIR/GIT_WORK_TREE 到环境
+- **影响：** 子 shell 继承 GIT_DIR 后 git 操作指向错误仓库
 - **修复：** 函数末尾 unset 或改用 local
 - **状态：** [x] 已修复
 
 ### Q10 — `.gitignore` 过宽模式
 - **文件：** `.gitignore:14`
 - **现状：** `.z*` 匹配所有 `.z` 开头文件
+- **影响：** `.z*` 匹配 `.zshrc`、`.zshenv` 等，意外忽略重要配置文件
 - **修复：** 改为具体模式
 - **状态：** [x] 已修复
 
 ### Q11 — `.gitconfig` 未引用参数
 - **文件：** `.gitconfig:66-68`
 - **现状：** `fs`/`fm` 别名 `$1` 未加引号
+- **影响：** 含空格的参数断裂，git 别名行为不可预测
 - **修复：** 加引号
 - **状态：** [x] 已修复
 
 ### Q12 — `.gitconfig:49` dm 别名空输入
 - **文件：** `.gitconfig`
 - **现状：** `xargs` 无 `--no-run-if-empty`
+- **影响：** 空输入时 xargs 仍执行命令，可能打开空窗口或报错
 - **修复：** 加 `-r` 标志
 - **状态：** [x] 已修复
 
 ### Q13 — `samedir:30` $TERMINAL 未检查
 - **文件：** `.local/bin/samedir`
 - **现状：** `$TERMINAL` 为空时 `exec ""` 失败
+- **影响：** $TERMINAL 为空时 exec "" 失败，脚本崩溃
 - **修复：** 加非空检查
 - **状态：** [x] 已修复
 
 ### Q14 — `sb-tasks:18` 编辑器阻塞状态栏
 - **文件：** `.local/bin/statusbar/sb-tasks`
 - **现状：** 中键直接运行 `$EDITOR`，无 `setsid -f`
+- **影响：** 编辑器阻塞状态栏脚本，dwm 状态更新停滞直到编辑器关闭
 - **修复：** 改为 `setsid -f "$TERMINAL" -e "$EDITOR" "$0"`
 - **状态：** [x] 已修复
 
 ### Q15 — `sb-cpubars:20` 未引用变量
 - **文件：** `.local/bin/statusbar/sb-cpubars`
 - **现状：** `[ ! -f $cache ]`
+- **影响：** 含空格的路径导致测试条件断裂
 - **修复：** 加引号
 - **状态：** [x] 已修复
 
 ### Q16 — `noisereduce` ffmpeg 无错误检查
 - **文件：** `.local/bin/noisereduce`
 - **现状：** ffmpeg 失败后继续处理
+- **影响：** ffmpeg 失败后继续处理损坏或空的输出文件
 - **修复：** 每步加错误检查
 - **状态：** [x] 已修复
 
 ### Q17 — `lf/scope:67` GPG 预览可能挂起
 - **文件：** `.config/lf/scope`
 - **现状：** `gpg -d` 在预览中可能等待密码输入
+- **影响：** GPG 等待密码输入时 lf 预览卡死
 - **修复：** 加 `--batch --pinentry-mode error`
 - **状态：** [x] 已修复
 
 ### Q18 — `xprofile` GO 变量仅 X 会话
 - **文件：** `.config/x11/xprofile:49`
 - **现状：** `GO111MODULE`/`GOPROXY` 仅在 X 会话生效
+- **影响：** 非 X 会话（SSH、tty）中 Go 工具使用错误的模块设置
 - **修复：** 移到 shell profile
 - **状态：** [x] 已修复
 
 ### Q19 — `picom.conf` animations 需 v13+
 - **文件：** `.config/x11/picom.conf:71-81`
 - **现状：** animations 块仅 picom v13+ 支持
+- **影响：** 旧版 picom 启动时因无法识别的选项报错
 - **修复：** 加注释说明版本要求，或移除
 - **状态：** [x] 已有注释说明，无需修改
 
 ### Q20 — `.gitignore:25` 拼写错误
 - **文件：** `.gitignore`
 - **现状：** `.CFUserTextEnncoding` 多一个 n
+- **影响：** gitignore 模式不匹配目标文件，意外跟踪用户文本编码配置
 - **修复：** 改为 `.CFUserTextEncoding`
 - **状态：** [x] 已修复
 
@@ -418,14 +458,14 @@
 
 ## 已记录在 installation-fixes.md 的缺陷（不重复）
 
-B1-B7 安装系统缺陷已记录在 [installation-fixes.md](installation-fixes.md)，不在本文档重复。
+B1-B7 安装系统缺陷已记录在 [installation-fixes.md](../planning/installation-fixes.md)，不在本文档重复。
 
 ---
 
 ## 执行进度
 
-第一批 18 项：6/18 完成
-第二批 26 项：0/26 完成
-第三批 20 项：0/20 完成
+第一批 18 项：18/18 完成
+第二批 26 项：26/26 完成
+第三批 20 项：20/20 完成
 
-总计 64 项，6 完成。
+总计 64 项，全部完成。

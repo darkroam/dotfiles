@@ -78,7 +78,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | V4L2 摄像头设备 | 可选摄像头录制；默认发现首个可读设备，也可用 `DMENURECORD_VIDEO_DEVICE` 和 `DMENURECORD_VIDEO_SIZE` 覆盖 |
 | `maim`；条件使用 `dmenu`、`xdotool`、`xclip` | `maimpick` 的截图基础能力；无参数菜单需要 `dmenu`，当前窗口需要 `xdotool`，复制模式需要 `xclip` |
 | `sox` | `noisereduce` 辅助工具 |
-| ImageMagick（`convert`） | `slider` 和图像转换 |
+| ImageMagick（`magick`） | `slider` 和图像转换 |
 | `vorbiscomment`, `opustags`, `eyeD3`, `metaflac` | `tag` 元数据辅助工具 |
 
 ## 文件、文档、密码与桌面处理
@@ -88,7 +88,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | `lf`, `ueberzug`, `atool`, `mimeopen`, `vidir` | 文件管理、预览、归档/MIME 工作流 |
 | `nsxiv`, `zathura`, `mpv`, `gimp` | 图像、PDF、视频和图形处理器 |
 | `localc`（LibreOffice Calc） | LF 中配置的电子表格处理器 |
-| ImageMagick（`display`、`convert`）、`mediainfo`、`ffmpegthumbnailer` | LF 图像/视频预览 |
+| ImageMagick（`display`、`magick`）、`mediainfo`、`ffmpegthumbnailer` | LF 图像/视频预览 |
 | `pdftoppm`, `pdftotext`, `pdfinfo`, `pdffonts`, `odt2txt` | 文档预览、PDF 渲染/字体检查和 `getbib` |
 | `gpg`, `man`, `col`, `xdg-open` | 加密、手册、格式化文本和桌面打开 |
 | `neomutt`, `abook`, `newsboat` | 已配置邮件、通讯录和 RSS 客户端；DWM `Mod+Shift+e` 直接启动 Abook，与 Mutt Wizard 共用 Abook 默认数据目录 |
