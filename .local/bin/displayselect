@@ -126,11 +126,13 @@ fi
 
 twoscreen() { # If multi-monitor is selected and there are two screens.
 
-    mirror=$(printf "no\\nyes" | dmenu -i -p "Mirror displays?")
+    mirror=$(printf "no\nyes" | dmenu -i -p "Mirror displays?") || return 1
+    [ -n "$mirror" ] || return 1
     # Mirror displays using native resolution of external display and a scaled
     # version for the internal display
     if [ "$mirror" = "yes" ]; then
-        external=$(echo "$screens" | dmenu -i -p "Optimize resolution for:")
+        external=$(echo "$screens" | dmenu -i -p "Optimize resolution for:") || return 1
+        [ -n "$external" ] || return 1
         internal=$(printf '%s\n' "$screens" | awk -v output="$external" '$1 != output')
 
         res_external=$(xrandr --query | sed -n "/^$external/,/\+/p" | \
@@ -151,20 +153,26 @@ twoscreen() { # If multi-monitor is selected and there are two screens.
             --scale "$scale_x"x"$scale_y"
     else
 
-        primary=$(echo "$screens" | dmenu -i -p "Select primary display:")
+        primary=$(echo "$screens" | dmenu -i -p "Select primary display:") || return 1
+        [ -n "$primary" ] || return 1
         secondary=$(printf '%s\n' "$screens" | awk -v output="$primary" '$1 != output')
-        direction=$(printf "left\\nright" | dmenu -i -p "What side of $primary should $secondary be on?")
+        direction=$(printf "left\nright" | dmenu -i -p "What side of $primary should $secondary be on?") || return 1
+        [ -n "$direction" ] || return 1
         xrandr --output "$primary" --primary --auto --scale 1.0x1.0 \
             --output "$secondary" --"$direction"-of "$primary" --auto --scale 1.0x1.0
     fi
     }
 
 morescreen() { # If multi-monitor is selected and there are more than two screens.
-	primary=$(echo "$screens" | dmenu -i -p "Select primary display:")
-	secondary=$(printf '%s\n' "$screens" | awk -v output="$primary" '$1 != output' | dmenu -i -p "Select secondary display:")
-	direction=$(printf "left\\nright" | dmenu -i -p "What side of $primary should $secondary be on?")
-	tertiary=$(printf '%s\n' "$screens" | awk -v first="$primary" -v second="$secondary" '$1 != first && $1 != second' | dmenu -i -p "Select third display:")
-	xrandr --output "$primary" --primary --auto --output "$secondary" --"$direction"-of "$primary" --auto --output "$tertiary" --"$(printf "left\\nright" | grep -v "$direction")"-of "$primary" --auto
+	primary=$(echo "$screens" | dmenu -i -p "Select primary display:") || return 1
+	[ -n "$primary" ] || return 1
+	secondary=$(printf '%s\n' "$screens" | awk -v output="$primary" '$1 != output' | dmenu -i -p "Select secondary display:") || return 1
+	[ -n "$secondary" ] || return 1
+	direction=$(printf "left\nright" | dmenu -i -p "What side of $primary should $secondary be on?") || return 1
+	[ -n "$direction" ] || return 1
+	tertiary=$(printf '%s\n' "$screens" | awk -v first="$primary" -v second="$secondary" '$1 != first && $1 != second' | dmenu -i -p "Select third display:") || return 1
+	[ -n "$tertiary" ] || return 1
+	xrandr --output "$primary" --primary --auto --output "$secondary" --"$direction"-of "$primary" --auto --output "$tertiary" --"$(printf "left\nright" | grep -v "$direction")"-of "$primary" --auto
 	}
 
 multimon() { # Multi-monitor handler.
