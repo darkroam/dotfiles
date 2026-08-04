@@ -41,7 +41,7 @@ case "$(file --mime-type -b "$trueloc" 2>/dev/null)" in
 		wallpaper="$trueloc"
 		;;
 	inode/directory)
-		wallpaper="$(find "$trueloc" -iregex '.*.\(jpg\|jpeg\|png\|gif\)' -type f | shuf -n 1)"
+		wallpaper="$(find "$trueloc" -iregex '.*.\(jpg\|jpeg\|png\|gif\)' -type f -print0 | shuf -zn1 | tr -d '\0')"
 		;;
 	*)
 		clear_wal_override
