@@ -14,6 +14,7 @@ fi
 
 download() {
 	temp="$(mktemp /tmp/linkhandler.XXXXXX)" || return 1
+	trap 'rm -f "$temp"' EXIT
 	if ! curl -fsSL "$1" -o "$temp"; then
 		rm -f "$temp"
 		return 1

@@ -6,6 +6,7 @@ feed="${1:-$(printf "%s" | dmenu -p 'Paste URL or file path')}"
 
 download() {
 	temp="$(mktemp /tmp/dmenuhandler.XXXXXX)" || return 1
+	trap 'rm -f "$temp"' EXIT
 	if ! curl -fsSL "$1" -o "$temp"; then
 		rm -f "$temp"
 		return 1
