@@ -18,7 +18,7 @@
 	ui = auto
 [alias]
 # hold, @see http://git-blame.blogspot.com.au/2012/08/leftover-bits.html
-	hd = "!sh -c 'git update-ref refs/hold/$1 refs/heads/$1 && git branch -D $1' -"
+	hd = "!f() { git update-ref \"refs/hold/$1\" \"refs/heads/$1\" && git branch -D \"$1\"; }; f"
 # show holded branches
 	shd ="!sh -c 'git show-ref | grep refs/hold'"
 	sr = show-ref
@@ -48,13 +48,13 @@
 # Remove branches that have already been merged with master
 	dm = "!git branch --merged | grep -v '\\*' | xargs -r -n 1 git branch -d"
 # delete tag(s)
-	dtag = "!f() { git tag -d $1 && git push origin :refs/tags/$1; }; f"
+	dtag = "!f() { git tag -d \"$1\" && git push origin \":refs/tags/$1\"; }; f"
 	ds = diff --stat
-	who1m = "!f() { git log --format='%an' --since='1 month ago' $1 | sort | uniq -c | sort -rn | head -n50; }; f"
-	who3m = "!f() { git log --format='%an' --since='3 months ago' $1 | sort | uniq -c | sort -rn | head -n50; }; f"
-	who6m = "!f() { git log --format='%an' --since='6 months ago' $1 | sort | uniq -c | sort -rn | head -n50; }; f"
-	who1y = "!f() { git log --format='%an' --since='1 year ago' $1 | sort | uniq -c | sort -rn | head -n50; }; f"
-	who3y = "!f() { git log --format='%an' --since='3 years ago' $1 | sort | uniq -c | sort -rn | head; }; f"
+	who1m = "!f() { git log --format='%an' --since='1 month ago' \"$1\" | sort | uniq -c | sort -rn | head -n50; }; f"
+	who3m = "!f() { git log --format='%an' --since='3 months ago' \"$1\" | sort | uniq -c | sort -rn | head -n50; }; f"
+	who6m = "!f() { git log --format='%an' --since='6 months ago' \"$1\" | sort | uniq -c | sort -rn | head -n50; }; f"
+	who1y = "!f() { git log --format='%an' --since='1 year ago' \"$1\" | sort | uniq -c | sort -rn | head -n50; }; f"
+	who3y = "!f() { git log --format='%an' --since='3 years ago' \"$1\" | sort | uniq -c | sort -rn | head; }; f"
 	fc=fetch -p #fetch and clean local invalid ref
 # Find branches containing commit
 	fb = "!f() { git branch -a --contains \"$1\"; }; f"
@@ -76,8 +76,8 @@
 	lg = log --graph
 	lt = log --topo-order
 # {{ push one specific commit to remote branch
-	p1 = "!f() { git push origin $1:`git symbolic-ref --short HEAD`; }; f"
-	pp1 = "!f() { git push -f origin $1:`git symbolic-ref --short HEAD`; }; f"
+	p1 = "!f() { git push origin \"$1\":`git symbolic-ref --short HEAD`; }; f"
+	pp1 = "!f() { git push -f origin \"$1\":`git symbolic-ref --short HEAD`; }; f"
 # }}
 # push the submodules automatically (if necessary) before pushing the parent repo
 	psub = push --recurse-submodules=on-demand
