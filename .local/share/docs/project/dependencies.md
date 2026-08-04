@@ -220,7 +220,6 @@ cron 辅助命令需要 `cron`、`crontab`、`notify-send`、`xdotool`、`newsbo
 | `libxft-bgra` | Color emoji rendering in suckless software | 历史源码构建依赖；仅当单独构建的 DWM/ST 源码需要该补丁时保留。 |
 | `xorg-fonts`, `ttf-inconsolata`, `nerd-fonts-inconsolata`, `ttf-linux-libertine` | LARBS fonts and symbols | 已被跟踪的 Fontconfig/GTK 字体选择替代：Linux Libertine、Noto CJK、Noto Color Emoji 和 FontAwesome。 |
 | `libX11-devel`, `libXft-devel`, `gcr-devel`, `fontconfig-devel` | Build dependencies | 历史 Arch/Void 包名不是当前通用名称；X11/Xft/Fontconfig 开发能力仍是四个独立桌面源码的活跃构建要求，`gcr-devel` 当前无源码引用。 |
-| `i3-gaps` | Earlier window manager | 历史项；当前会话启动 DWM。 |
 | `ranger-git` | Earlier terminal file manager | 历史项；LF 是已配置文件管理器。Ranger 帮助数据仅作参考。 |
 | `arandr` | Screen-layout UI | 活跃 `displayselect` 手动布局依赖。 |
 | `bc` | Calculator and arithmetic | 活跃计算器别名和显示布局算术辅助。 |

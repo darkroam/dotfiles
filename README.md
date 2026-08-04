@@ -22,7 +22,15 @@ files that currently have diffs.
 
 Before bootstrap, install `curl`, Git, an OpenSSH client, Bash, and the standard
 GNU file utilities. Configure GitHub SSH access because the repository remote
-uses `git@github.com`. Download and inspect the installer before running it:
+uses `git@github.com`.
+
+Quick install:
+
+```sh
+curl -fsSL https://github.com/darkroam/dotfiles/raw/master/.local/bin/install.sh | bash
+```
+
+Or download and inspect before running:
 
 ```sh
 installer=$(mktemp)
