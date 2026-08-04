@@ -12,7 +12,6 @@ esac
 
 [ -f "$HOME/.config/shell/shortcutrc" ] && source "$HOME/.config/shell/shortcutrc" # Load shortcut aliases
 [ -f "$HOME/.config/shell/zshnameddirrc" ] && source "$HOME/.config/shell/zshnameddirrc"
-export GOPATH="$HOME/Project/go"
 
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time oh-my-zsh is loaded, in which case,

@@ -47,8 +47,6 @@
 	df= diff-tree --no-commit-id --name-only
 # Remove branches that have already been merged with master
 	dm = "!git branch --merged | grep -v '\\*' | xargs -n 1 git branch -d"
-# delete all remote branches except master and HEAD, DANGEROUS!
-	rm-remotes-but-master = "!git branch -r | awk -F/ '/\\/[^mH]/{print $2}'| xargs  -I{} git push -f origin :{}"
 # delete tag(s)
 	dtag = "!f() { git tag -d $1 && git push origin :refs/tags/$1; }; f"
 	ds = diff --stat
