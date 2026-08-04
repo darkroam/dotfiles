@@ -38,7 +38,7 @@ file="${file:-$1}"
 [ -z "$track" ] && echo "Enter a track number." && read -r track
 
 case "$file" in
-	*.ogg) echo "Title=$title
+	*.ogg) printf '%s\n' "Title=$title
 Artist=$artist
 Album=$album
 Track=$track
@@ -46,7 +46,7 @@ Total=$total
 Date=$date
 Genre=$genre
 Comment=$comment" | vorbiscomment -w "$file" ;;
-	*.opus) echo "Title=$title
+	*.opus) printf '%s\n' "Title=$title
 Artist=$artist
 Album=$album
 Track=$track
@@ -55,7 +55,7 @@ Date=$date
 Genre=$genre
 Comment=$comment" | opustags -i -S "$file" ;;
 	*.mp3) eyeD3 -Q --remove-all -a "$artist" -A "$album" -t "$title" -n "$track" -N "$total" -Y "$date" "$file" ;;
-	*.flac) echo "TITLE=$title
+	*.flac) printf '%s\n' "TITLE=$title
 ARTIST=$artist
 ALBUM=$album
 TRACKNUMBER=$track

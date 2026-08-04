@@ -199,7 +199,7 @@ setup_shell() {
 
 	# We're going to change the default shell, so back up the current one
 	if [ -n "$SHELL" ]; then
-		echo $SHELL > ~/.shell.pre-oh-my-zsh
+		printf '%s\n' "$SHELL" > ~/.shell.pre-oh-my-zsh
 	else
 		grep "^$USER:" /etc/passwd | awk -F: '{print $7}' > ~/.shell.pre-oh-my-zsh
 	fi
