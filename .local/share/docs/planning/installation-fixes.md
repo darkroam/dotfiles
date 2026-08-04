@@ -145,4 +145,30 @@ if [[ "$line" =~ ^(.+)\ -\>\ (.+)\ \((modified|untracked)\)$ ]]; then
 
 ---
 
+## B8（高）：uninstall.sh 恢复逻辑跳过已存在文件
+
+**文件**: `.local/bin/uninstall.sh:145-149, 174-177`
+
+**问题**: 恢复备份时，如果目标路径已存在文件（安装 checkout 的仓库版本），uninstall.sh 会跳过恢复而不是替换。导致卸载后用户原始文件未被恢复。
+
+**当前代码**:
+```bash
+if [ -e "$original" ] || [ -L "$original" ]; then
+    printf 'Skipped (exists): %s\n' "$(basename "$original")"
+    ((skipped++)) || true
+    continue
+fi
+```
+
+**影响**: 卸载无法恢复到安装前状态，用户原始配置丢失。
+
+**修复方案**: 恢复前先删除当前文件（它是仓库 checkout 的版本）：
+```bash
+if [ -e "$original" ] || [ -L "$original" ]; then
+    rm -f -- "$original"
+fi
+```
+
+---
+
 **下一步**: 运行状态机全量测试验证修复效果，确认后将 Gen 2 脚本纳入 Git 跟踪。

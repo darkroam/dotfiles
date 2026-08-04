@@ -142,10 +142,9 @@ if ((${#backup_dirs[@]} > 0)); then
 						original="${BASH_REMATCH[1]}"
 						backup_file="${BASH_REMATCH[2]}"
 
+						# Remove current file if it exists (it's the repo version from checkout)
 						if [ -e "$original" ] || [ -L "$original" ]; then
-							printf 'Skipped (exists): %s\n' "$(basename "$original")"
-							((skipped++)) || true
-							continue
+							rm -f -- "$original"
 						fi
 
 						mkdir -p "$(dirname "$original")"
@@ -172,9 +171,9 @@ if ((${#backup_dirs[@]} > 0)); then
 					[[ "$relative_path" == "MANIFEST.txt" ]] && continue
 
 					target="$HOME/$relative_path"
+					# Remove current file if it exists (it's the repo version from checkout)
 					if [ -e "$target" ] || [ -L "$target" ]; then
-						printf 'Skipped (exists): %s\n' "$relative_path"
-						continue
+						rm -f -- "$target"
 					fi
 
 					mkdir -p "$(dirname "$target")"
