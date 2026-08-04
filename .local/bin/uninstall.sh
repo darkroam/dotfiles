@@ -116,6 +116,12 @@ for path in "${files_to_remove[@]}"; do
 done
 printf 'Removed %d files.\n' "$removed"
 
+# Remove checkout state file (installer metadata)
+if [ -f "$state_file" ]; then
+	rm -f -- "$state_file"
+	printf 'Removed checkout state file.\n'
+fi
+
 # Step 2: Restore from latest backup
 if [ -n "$latest_backup" ] && [ -d "$latest_backup" ]; then
 	printf '\n=== Step 2: Restoring from backup ===\n'
