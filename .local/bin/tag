@@ -38,30 +38,48 @@ file="${file:-$1}"
 [ -z "$track" ] && echo "Enter a track number." && read -r track
 
 case "$file" in
-	*.ogg) printf '%s\n' "Title=$title
+	*.ogg)
+		tags="Title=$title
 Artist=$artist
 Album=$album
-Track=$track
-Total=$total
-Date=$date
-Genre=$genre
-Comment=$comment" | vorbiscomment -w "$file" ;;
-	*.opus) printf '%s\n' "Title=$title
+Track=$track"
+		[ -n "$total" ] && tags="$tags
+Total=$total"
+		[ -n "$date" ] && tags="$tags
+Date=$date"
+		[ -n "$genre" ] && tags="$tags
+Genre=$genre"
+		[ -n "$comment" ] && tags="$tags
+Comment=$comment"
+		printf '%s\n' "$tags" | vorbiscomment -w "$file" ;;
+	*.opus)
+		tags="Title=$title
 Artist=$artist
 Album=$album
-Track=$track
-Total=$total
-Date=$date
-Genre=$genre
-Comment=$comment" | opustags -i -S "$file" ;;
+Track=$track"
+		[ -n "$total" ] && tags="$tags
+Total=$total"
+		[ -n "$date" ] && tags="$tags
+Date=$date"
+		[ -n "$genre" ] && tags="$tags
+Genre=$genre"
+		[ -n "$comment" ] && tags="$tags
+Comment=$comment"
+		printf '%s\n' "$tags" | opustags -i -S "$file" ;;
 	*.mp3) eyeD3 -Q --remove-all -a "$artist" -A "$album" -t "$title" -n "$track" -N "$total" -Y "$date" "$file" ;;
-	*.flac) printf '%s\n' "TITLE=$title
+	*.flac)
+		tags="TITLE=$title
 ARTIST=$artist
 ALBUM=$album
-TRACKNUMBER=$track
-TOTALTRACKS=$total
-DATE=$date
-GENRE=$genre
-DESCRIPTION=$comment" | metaflac --remove-all-tags --import-tags-from=- "$file" ;;
+TRACKNUMBER=$track"
+		[ -n "$total" ] && tags="$tags
+TOTALTRACKS=$total"
+		[ -n "$date" ] && tags="$tags
+DATE=$date"
+		[ -n "$genre" ] && tags="$tags
+GENRE=$genre"
+		[ -n "$comment" ] && tags="$tags
+DESCRIPTION=$comment"
+		printf '%s\n' "$tags" | metaflac --remove-all-tags --import-tags-from=- "$file" ;;
 	*) echo "File type not implemented yet." ;;
 esac
