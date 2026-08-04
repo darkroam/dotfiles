@@ -15,7 +15,7 @@ inputaudio="$1"
 ext="${1##*.}"
 
 # Get a safe file name from the book.
-escbook="$(echo "$booktitle" | iconv -cf UTF-8 -t ASCII//TRANSLIT | tr -d '[:punct:]' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed -e 's/--*/-/g' -e 's/^-//' -e 's/-$//')"
+escbook="$(printf '%s\n' "$booktitle" | iconv -cf UTF-8 -t ASCII//TRANSLIT | tr -d '[:punct:]' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed -e 's/--*/-/g' -e 's/^-//' -e 's/-$//')"
 
 ! mkdir -p "$escbook" &&
     echo "Do you have write access in this directory?" &&
@@ -28,7 +28,7 @@ set -- ffmpeg -i "$inputaudio" -nostdin -y
 
 while IFS= read -r x || [ -n "$x" ];
 do
-    end="$(echo "$x" | cut -d'	' -f1)"
+    end="$(printf '%s\n' "$x" | cut -d'	' -f1)"
     file="$escbook/$(printf "%.2d" "$track")-$esctitle.$ext"
     if [ -n "$start" ]; then
 	set -- "$@" -metadata "artist=$author" -metadata "title=$title" \
@@ -36,8 +36,8 @@ do
 	    -metadata "track=$track" -metadata "total=$total" \
 	    -ss "$start" -to "$end" -vn -c:a copy "$file"
     fi
-    title="$(echo "$x" | cut -d'	' -f2-)"
-    esctitle="$(echo "$title" | iconv -cf UTF-8 -t ASCII//TRANSLIT | tr -d '[:punct:]' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed -e 's/--*/-/g' -e 's/^-//' -e 's/-$//')"
+    title="$(printf '%s\n' "$x" | cut -d'	' -f2-)"
+    esctitle="$(printf '%s\n' "$title" | iconv -cf UTF-8 -t ASCII//TRANSLIT | tr -d '[:punct:]' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed -e 's/--*/-/g' -e 's/^-//' -e 's/-$//')"
     track="$((track+1))"
     start="$end"
 done < "$2"
