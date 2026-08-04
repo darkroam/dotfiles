@@ -153,11 +153,11 @@ case "$ext" in
 			python "$file"
 		fi
 		;;
-	[rR]md) Rscript -e "rmarkdown::render('$file', quiet=TRUE)" ;;
+	[rR]md) Rscript -e 'args <- commandArgs(trailingOnly=TRUE); rmarkdown::render(args[1], quiet=TRUE)' -- "$file" ;;
 	rs) cargo build ;;
 	sass) sassc -a "$file" "$base.css" ;;
 	scad) openscad -o "$base".stl "$file" ;;
 	sent) setsid -f sent "$file" 2>/dev/null ;;
 	[Tt][Ee][Xx]) compile_tex ;;
-	*) sed -n '/^#!/s/^#!//p; q' "$file" | xargs -r -I % "$file" ;;
+	*) sed -n '/^#!/s/^#!//p; q' "$file" | xargs -r -I % % "$file" ;;
 esac

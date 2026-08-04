@@ -31,7 +31,7 @@ else
 		exit 1
 	}
 	url="$(grep -Eom1 '<[^>]+(rel="self"|application/[a-z]+\+xml)[^>]+>' "$source" |
-		grep -o "https?://[^\" ]")"
+		grep -oE 'https?://[^" ]*')"
 
 	if ! is_url "$url"; then
 		notify "That doesn't look like a full URL."

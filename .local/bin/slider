@@ -9,7 +9,7 @@
 # Application cache if not stated elsewhere.
 cache="${XDG_CACHE_HOME:-$HOME/.cache}/slider"
 
-while getopts "hvrpi:c:a:o:d:f:t:e:x:" o; do case "${o}" in
+while getopts "hvrpi:c:a:o:d:f:t:s:e:x:" o; do case "${o}" in
 	c) bgc="$OPTARG" ;;
 	t) fgc="$OPTARG" ;;
 	f) font="$OPTARG" ;;
@@ -60,6 +60,7 @@ Timecodes and filenames must be separated by Tabs." &&
 	exit 1
 	}
 
+seconds=0
 if [ -n "${audio+x}" ]; then
 	# Check that the audio file looks like an actual audio file.
 	case "$(file --dereference --brief --mime-type -- "$audio")" in

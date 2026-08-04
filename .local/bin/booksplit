@@ -24,14 +24,17 @@ escbook="$(echo "$booktitle" | iconv -cf UTF-8 -t ASCII//TRANSLIT | tr -d '[:pun
 # Count all timecode records, including a final line without a newline.
 total="$(awk 'END { print NR }' "$2")"
 
-cmd="ffmpeg -i \"$inputaudio\" -nostdin -y"
+set -- ffmpeg -i "$inputaudio" -nostdin -y
 
 while IFS= read -r x || [ -n "$x" ];
 do
     end="$(echo "$x" | cut -d'	' -f1)"
     file="$escbook/$(printf "%.2d" "$track")-$esctitle.$ext"
     if [ -n "$start" ]; then
-	cmd="$cmd -metadata artist=\"$author\" -metadata title=\"$title\" -metadata album=\"$booktitle\" -metadata year=\"$year\" -metadata track=\"$track\" -metadata total=\"$total\" -ss \"$start\" -to \"$end\" -vn -c:a copy \"$file\" "
+	set -- "$@" -metadata "artist=$author" -metadata "title=$title" \
+	    -metadata "album=$booktitle" -metadata "year=$year" \
+	    -metadata "track=$track" -metadata "total=$total" \
+	    -ss "$start" -to "$end" -vn -c:a copy "$file"
     fi
     title="$(echo "$x" | cut -d'	' -f2-)"
     esctitle="$(echo "$title" | iconv -cf UTF-8 -t ASCII//TRANSLIT | tr -d '[:punct:]' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed "s/-\+/-/g;s/\(^-\|-\$\)//g")"
@@ -41,6 +44,8 @@ done < "$2"
 
 # Last track must be added out of the loop.
 file="$escbook/$(printf "%.2d" "$track")-$esctitle.$ext"
-cmd="$cmd -metadata artist=\"$author\" -metadata title=\"$title\" -metadata album=\"$booktitle\" -metadata year=\"$year\" -metadata track=\"$track\" -ss \"$start\" -vn -c copy \"$file\""
+set -- "$@" -metadata "artist=$author" -metadata "title=$title" \
+    -metadata "album=$booktitle" -metadata "year=$year" \
+    -metadata "track=$track" -ss "$start" -vn -c copy "$file"
 
-eval "$cmd"
+"$@"

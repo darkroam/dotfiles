@@ -230,7 +230,7 @@ elif command -v pacman >/dev/null 2>&1; then
 	alias pse='pacman -Ss'
 	alias pp='pacman -Qi'
 	alias pl='pacman -Q'
-	alias pc='sudo pacman -Rns $(pacman -Qtdq)'
+	alias pc='pacman -Qtdq | xargs -r sudo pacman -Rns'
 elif command -v xbps-install >/dev/null 2>&1; then
 	alias p='sudo xbps-install'
 	alias pu='sudo xbps-install -Syu'
