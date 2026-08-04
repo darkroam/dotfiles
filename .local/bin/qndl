@@ -5,15 +5,17 @@
 
 ifinstalled tsp || exit 1
 
-cmd="$2"
-[ -n "$cmd" ] || {
+url="$1"
+if [ -n "$2" ]; then
+	set -- $2 "$url"
+else
 	ifinstalled yt-dlp || exit 1
-	cmd="yt-dlp --embed-metadata -ic"
-}
+	set -- yt-dlp --embed-metadata -ic "$url"
+fi
 
-base="$(basename "$1")"
+base="$(basename "$url")"
 notify-send "⏳ Queuing $base..."
-idnum="$(tsp $cmd "$1")" || exit 1
+idnum="$(tsp "$@")" || exit 1
 [ -n "$idnum" ] || exit 1
 realname="$(printf '%s\n' "$base" | sed "s/?\(source\|dest\).*//;s/%20/ /g")"
 tsp -D "$idnum" mv "$base" "$realname"
