@@ -49,7 +49,6 @@ fi
 unset IM_MODULE
 
 # Display settings
-command -v xrandr >/dev/null 2>&1 && xrandr --dpi 96
 command -v setbg >/dev/null 2>&1 && setbg
 xresources="${XDG_CONFIG_HOME:-$HOME/.config}/x11/xresources"
 if command -v xrdb >/dev/null 2>&1 && [ -f "$xresources" ]; then
