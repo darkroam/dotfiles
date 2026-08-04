@@ -68,16 +68,16 @@ tmpAudCleanFile="$tmpdir/audio-clean.wav"
 printf "Cleaning noise on %s...\n" "$1"
 
 if [ $isVideo -eq "1" ]; then
-    ffmpeg -v warning -y -i "$1" -qscale:v 0 -vcodec copy -an "$tmpVidFile"
-    ffmpeg -v warning -y -i "$1" -qscale:a 0 "$tmpAudFile"
+    ffmpeg -v warning -y -i "$1" -qscale:v 0 -vcodec copy -an "$tmpVidFile" || { printf 'ffmpeg: video extraction failed\n' >&2; exit 1; }
+    ffmpeg -v warning -y -i "$1" -qscale:a 0 "$tmpAudFile" || { printf 'ffmpeg: audio extraction failed\n' >&2; exit 1; }
 else
     cp "$1" "$tmpAudFile"
 fi
-ffmpeg -v warning -y -i "$1" -vn -ss "$sampleStart" -to "$sampleEnd" "$noiseAudFile"
-sox "$noiseAudFile" -n noiseprof "$noiseProfFile"
-sox "$tmpAudFile" "$tmpAudCleanFile" noisered "$noiseProfFile" "$sensitivity"
+ffmpeg -v warning -y -i "$1" -vn -ss "$sampleStart" -to "$sampleEnd" "$noiseAudFile" || { printf 'ffmpeg: noise sample extraction failed\n' >&2; exit 1; }
+sox "$noiseAudFile" -n noiseprof "$noiseProfFile" || { printf 'sox: noise profile failed\n' >&2; exit 1; }
+sox "$tmpAudFile" "$tmpAudCleanFile" noisered "$noiseProfFile" "$sensitivity" || { printf 'sox: noise reduction failed\n' >&2; exit 1; }
 if [ $isVideo -eq "1" ]; then
-    ffmpeg -v warning -y -i "$tmpAudCleanFile" -i "$tmpVidFile" -vcodec copy -qscale:v 0 -qscale:a 0 "$2"
+    ffmpeg -v warning -y -i "$tmpAudCleanFile" -i "$tmpVidFile" -vcodec copy -qscale:v 0 -qscale:a 0 "$2" || { printf 'ffmpeg: merge failed\n' >&2; exit 1; }
 else
     cp "$tmpAudCleanFile" "$2"
 fi
