@@ -15,7 +15,7 @@ inputaudio="$1"
 ext="${1##*.}"
 
 # Get a safe file name from the book.
-escbook="$(echo "$booktitle" | iconv -cf UTF-8 -t ASCII//TRANSLIT | tr -d '[:punct:]' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed "s/-\+/-/g;s/\(^-\|-\$\)//g")"
+escbook="$(echo "$booktitle" | iconv -cf UTF-8 -t ASCII//TRANSLIT | tr -d '[:punct:]' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed -e 's/--*/-/g' -e 's/^-//' -e 's/-$//')"
 
 ! mkdir -p "$escbook" &&
     echo "Do you have write access in this directory?" &&
@@ -37,7 +37,7 @@ do
 	    -ss "$start" -to "$end" -vn -c:a copy "$file"
     fi
     title="$(echo "$x" | cut -d'	' -f2-)"
-    esctitle="$(echo "$title" | iconv -cf UTF-8 -t ASCII//TRANSLIT | tr -d '[:punct:]' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed "s/-\+/-/g;s/\(^-\|-\$\)//g")"
+    esctitle="$(echo "$title" | iconv -cf UTF-8 -t ASCII//TRANSLIT | tr -d '[:punct:]' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed -e 's/--*/-/g' -e 's/^-//' -e 's/-$//')"
     track="$((track+1))"
     start="$end"
 done < "$2"
