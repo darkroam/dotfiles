@@ -67,7 +67,7 @@ if [ -n "${audio+x}" ]; then
 		audio/*) ;;
 		*) echo "That doesn't look like an audio file."; exit 1 ;;
 	esac
-	totseconds="$(date '+%s' -d $(ffmpeg -i "$audio" 2>&1 | awk '/Duration/ {print $2}' | sed s/,//))"
+	totseconds="$(date '+%s' -d "$(ffmpeg -i "$audio" 2>&1 | awk '/Duration/ {print $2}' | sed s/,//)")"
 	endtime="$((totseconds-seconds))"
 fi
 
