@@ -5,7 +5,7 @@
 
 /usr/bin/notify-send "📰 Updating RSS feeds..."
 
-if pgrep -f newsboat$ >/dev/null; then
+if pgrep -x newsboat >/dev/null; then
     winid="$(/usr/bin/xdotool search --name "^newsboat$" 2>/dev/null | head -1)"
     [ -n "$winid" ] && /usr/bin/xdotool key --window "$winid" R && exit
 fi
