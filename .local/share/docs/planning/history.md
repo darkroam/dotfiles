@@ -2,6 +2,25 @@
 
 ## 最近记录的变更
 
+- [x] 2026-08-03 ~ 08-04：实施安装系统 v2.0。新增 5 个 Gen 2 脚本（install-2.sh、install-server.sh、
+  restore-desktop.sh、restore-server.sh、uninstall.sh），实现三状态幂等安装系统（FRESH/DESKTOP/SERVER）。
+  核心特性：状态感知备份（`.config-backup-{from}-to-{to}-{timestamp}`）、MD5 内容对比过滤、
+  MANIFEST.txt 精确追踪、`.cfg-checkout-state` 指纹记录、智能状态决策交互提示、`--dry-run`/`--reinstall`
+  参数。新增共享验证库 `cfg-validate.sh`（cfg_validate/cfg_should_backup_file/cfg_detect_state）及内联回退。
+  新增状态机测试框架（9 种转换全部通过）和单元测试（11 项）。卸载改为不自动删除仓库。文档整合为
+  installation-system.md 和 installation-testing.md。代码审查发现 7 个待修复问题（B1-B7），
+  详见 planning/installation-fixes.md。
+
+- [x] 2026-08-03：优化 getkeys 快捷键参考系统。增强脚本支持无参数时按类别显示程序列表
+  （窗口管理、终端/文件、文档/媒体、通信、生产力）；新增 dwm、dmenu、lf、st 的快捷键文档；
+  删除 ranger（改用 lf）；重构全部10个文件按功能分区（导航、剪贴板、文件操作等），提升可读性。
+  共修改12个文件，新增374行，删除70行。
+
+- [x] 2026-08-03：清理 i3 相关内容。删除 `profile` 和 `xinitrc` 中的 i3 注释行；简化
+  `showclip` 注释（脚本保持 WM 无关）；移除 `sb-help-icon` 的 i3 回退分支，改为 dwm 单一分支；
+  删除 `tutorialvids` 的 i3 视频教程条目。`dependencies.md` 保留 LARBS 迁移历史记录。共修改
+  5 个文件，删除 11 行，新增 2 行。
+
 - [x] 2026-07-20：加固 `maimpick`。DWM 的普通 `Print` 与 `Shift+Print` 统一进入 helper，CLI 和六项
   菜单共用选区、窗口、全屏的保存/复制路径。截图默认保存到已忽略的 `~/Pictures`，支持绝对
   `MAIMPICK_DIR`，使用 mode 600 的唯一临时文件、显式 PNG 格式和不覆盖原子落位；复制只有在捕获

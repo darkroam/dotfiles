@@ -101,6 +101,13 @@ runtime resources remain in `.local/share/larbs/`:
   shared X11 ownership, state model, layout policy, validation, and diagnostics.
 - [Display device adapter guide](.local/share/docs/project/display-device-adapter.md):
   the planned single-file extension contract for nonstandard hardware.
+- [Installation system](.local/share/docs/project/installation-system.md):
+  three-state idempotent installation architecture, Gen 2 scripts, and shared
+  validation library.
+- [Installation testing](.local/share/docs/project/installation-testing.md):
+  state machine test framework and 9-transition verification.
+- [Installation known issues](.local/share/docs/planning/installation-fixes.md):
+  B1-B7 defect records and fix proposals.
 - [Dependencies](.local/share/docs/project/dependencies.md): complete
   command-oriented, distribution-neutral capability inventory.
 - [Platform profiles](.local/share/docs/platforms/index.md): per-device and
