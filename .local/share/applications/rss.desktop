@@ -2,3 +2,4 @@
 Type=Application
 Name=RSS feed addition
 Exec=/usr/bin/env rssadd %U
+MimeType=application/rss+xml;application/atom+xml;x-scheme-handler/feed;

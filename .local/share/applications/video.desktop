@@ -2,6 +2,6 @@
 Name=Video Player
 Exec=/usr/bin/env mpv %U
 Type=Application
-MimeType=video/x-matroska;
+MimeType=video/x-matroska;video/mp4;video/webm;video/x-flv;video/x-msvideo;audio/mpeg;audio/flac;audio/ogg;audio/mp4;
 Categories=AudioVideo;Video;Player;
 Terminal=false

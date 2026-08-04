@@ -2,3 +2,4 @@
 Type=Application
 Name=Mail
 Exec=/usr/local/bin/st -e neomutt %u
+MimeType=x-scheme-handler/mailto;
