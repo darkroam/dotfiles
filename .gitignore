@@ -11,7 +11,8 @@
 .config/shell/zshnameddirrc
 .config/lf/shortcutrc
 .*history
-.z*
+.z
+.zcompdump
 .zcompdump-*
 .zplug/
 .oh-my-zsh/
