@@ -21,7 +21,7 @@ vidid="${vidid%%\?*}"
 vidid="${vidid%%\#*}"
 [ -n "$vidid" ] || exit 1
 
-link="$(curl -fsSL "$instance/api/v1/videos/$vidid" | grep -o "$instance/download/torrents/.\{37\}$quality.torrent" | head -n 1)" || exit 1
+link="$(curl -fsSL "$instance/api/v1/videos/$vidid" | grep -o "$instance/download/torrents/[^/]*$quality.torrent" | head -n 1)" || exit 1
 [ -n "$link" ] || exit 1
 
 transadd "$link"
