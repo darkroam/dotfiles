@@ -18,6 +18,7 @@ esac
 
 # Loop through all attached batteries and format the info
 for battery in /sys/class/power_supply/BAT?*; do
+	[ -d "$battery" ] || continue
 	# If non-first battery, print a space separator.
 	[ -n "${capacity+x}" ] && printf " "
 	# Sets up the status and capacity
