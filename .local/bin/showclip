@@ -3,6 +3,11 @@
 # Display contents of selection via dunst if running.
 # Separate script for i3.
 
+if ! command -v xclip >/dev/null 2>&1; then
+	printf '%s\n' "xclip not installed" >&2
+	exit 1
+fi
+
 clip=$(xclip -o -selection clipboard)
 prim=$(xclip -o -selection primary)
 
