@@ -14,6 +14,7 @@ set -euo pipefail
 # Source helper functions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/generate-conflicts.sh"
+source "$SCRIPT_DIR/helpers.sh"
 
 # Test configuration
 TEST_TIMEOUT=300  # 5 minutes timeout
