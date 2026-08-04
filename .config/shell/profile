@@ -5,7 +5,7 @@
 # If you don't plan on reverting to bash, you can remove the link in ~/.profile
 # to clean up.
 
-# Add local commands, including grouped scripts such as statusbar modules.
+# PATH
 local_bin="$HOME/.local/bin"
 case ":$PATH:" in
 	*:"$local_bin":*) ;;
@@ -16,65 +16,59 @@ local_bin_paths=${local_bin_paths%:}
 [ -n "$local_bin_paths" ] && PATH="$PATH:$local_bin_paths"
 export PATH
 unset local_bin local_bin_paths
-#export PATH="$PATH:$HOME/Project/go/bin/"
-#export PATH="$PATH:${$(gem environment gemdir)}/bin"
 
-# Get default LARBS WM from ~/.local/share/larbs/wm
-#export LARBSWM="$(cat ~/.local/share/larbs/wm 2>/dev/null)" &&
-#export LARBSWM="i3" &&
+# Window manager
 export LARBSWM="dwm"
 
-
-# Default programs:
+# Default programs
 export EDITOR="nvim"
 export TERMINAL="st"
-#export BROWSER="tabbed -r 2 surf -e lmao"
-#export BROWSER="brave"
 export BROWSER="microsoft-edge"
 export READER="zathura"
 export FILE="lfub"
 export STATUSBAR="${LARBSWM}blocks"
 
-profile_local="${XDG_CONFIG_HOME:-$HOME/.config}/shell/profile.local"
-[ -r "$profile_local" ] && . "$profile_local"
-unset profile_local
+# XDG Base Directories
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+export XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 
-# ~/ Clean-up:
-export XDG_CONFIG_HOME="$HOME/.config"
-export XDG_DATA_HOME="$HOME/.local/share"
-export XDG_CACHE_HOME="$HOME/.cache"
-#export XINITRC="${XDG_CONFIG_HOME:-$HOME/.config}/x11/xinitrc"
+# Program config paths
+#export XINITRC="$XDG_CONFIG_HOME/x11/xinitrc"
 #export XAUTHORITY="$XDG_RUNTIME_DIR/Xauthority" # This line will break some DMs.
-export NOTMUCH_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/notmuch-config"
-export GTK2_RC_FILES="${XDG_CONFIG_HOME:-$HOME/.config}/gtk-2.0/gtkrc-2.0"
+export NOTMUCH_CONFIG="$XDG_CONFIG_HOME/notmuch-config"
+export GTK2_RC_FILES="$XDG_CONFIG_HOME/gtk-2.0/gtkrc-2.0"
 export LESSHISTFILE="-"
-export WGETRC="${XDG_CONFIG_HOME:-$HOME/.config}/wget/wgetrc"
-export INPUTRC="${XDG_CONFIG_HOME:-$HOME/.config}/shell/inputrc"
-export ZDOTDIR="${XDG_CONFIG_HOME:-$HOME/.config}/zsh"
+export WGETRC="$XDG_CONFIG_HOME/wget/wgetrc"
+export INPUTRC="$XDG_CONFIG_HOME/shell/inputrc"
+export ZDOTDIR="$XDG_CONFIG_HOME/zsh"
 # disabled: ALSA_CONFIG_PATH replaces system alsa.conf and breaks PipeWire
 # export ALSA_CONFIG_PATH="$XDG_CONFIG_HOME/alsa/asoundrc"
-#export GNUPGHOME="${XDG_DATA_HOME:-$HOME/.local/share}/gnupg"
-export WINEPREFIX="${XDG_DATA_HOME:-$HOME/.local/share}/wineprefixes/default"
-export KODI_DATA="${XDG_DATA_HOME:-$HOME/.local/share}/kodi"
-export PASSWORD_STORE_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/password-store"
-export TMUX_TMPDIR="$XDG_RUNTIME_DIR"
-export CARGO_HOME="${XDG_DATA_HOME:-$HOME/.local/share}/cargo"
-export GOPATH="${XDG_DATA_HOME:-$HOME/.local/share}/go"
+#export GNUPGHOME="$XDG_DATA_HOME/gnupg"
+export WINEPREFIX="$XDG_DATA_HOME/wineprefixes/default"
+export KODI_DATA="$XDG_DATA_HOME/kodi"
+export PASSWORD_STORE_DIR="$XDG_DATA_HOME/password-store"
+export CARGO_HOME="$XDG_DATA_HOME/cargo"
+export ANSIBLE_CONFIG="$XDG_CONFIG_HOME/ansible/ansible.cfg"
+export UNISON="$XDG_DATA_HOME/unison"
+export HISTFILE="$XDG_DATA_HOME/history"
+export WEECHAT_HOME="$XDG_CONFIG_HOME/weechat"
+export MBSYNCRC="$XDG_CONFIG_HOME/mbsync/config"
+export ELECTRUMDIR="$XDG_DATA_HOME/electrum"
+
+# Go
+export GOPATH="$XDG_DATA_HOME/go"
 export GO111MODULE=on
 export GOPROXY=https://goproxy.cn,direct
-export ANSIBLE_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/ansible/ansible.cfg"
-export UNISON="${XDG_DATA_HOME:-$HOME/.local/share}/unison"
-export HISTFILE="${XDG_DATA_HOME:-$HOME/.local/share}/history"
-export WEECHAT_HOME="${XDG_CONFIG_HOME:-$HOME/.config}/weechat"
-export MBSYNCRC="${XDG_CONFIG_HOME:-$HOME/.config}/mbsync/config"
-export ELECTRUMDIR="${XDG_DATA_HOME:-$HOME/.local/share}/electrum"
 
-# Other program settings:
+# Other settings
 export DICS="/usr/share/stardict/dic/"
 export SUDO_ASKPASS="$HOME/.local/bin/dmenupass"
 export FZF_DEFAULT_OPTS="--layout=reverse --height 40%"
 export GIT_TERMINAL_PROMPT=1
 export LESS=-R
+export TMUX_TMPDIR="$XDG_RUNTIME_DIR"
+# Man page colors
 export LESS_TERMCAP_mb="$(printf '%b' '[1;31m')"
 export LESS_TERMCAP_md="$(printf '%b' '[1;36m')"
 export LESS_TERMCAP_me="$(printf '%b' '[0m')"
@@ -87,9 +81,15 @@ export QT_QPA_PLATFORMTHEME="gtk3"	# Use the installed GTK platform theme for Qt
 export MOZ_USE_XINPUT2="1"		# Mozilla smooth scrolling/touchpads.
 export _JAVA_AWT_WM_NONREPARENTING=1	# Fix for Java applications in dwm
 
-shell_shortcuts="${XDG_CONFIG_HOME:-$HOME/.config}/shell/shortcutrc"
-zsh_named_dirs="${XDG_CONFIG_HOME:-$HOME/.config}/shell/zshnameddirrc"
-lf_shortcuts="${XDG_CONFIG_HOME:-$HOME/.config}/lf/shortcutrc"
+# User overrides
+profile_local="$XDG_CONFIG_HOME/shell/profile.local"
+[ -r "$profile_local" ] && . "$profile_local"
+unset profile_local
+
+# Shell shortcuts
+shell_shortcuts="$XDG_CONFIG_HOME/shell/shortcutrc"
+zsh_named_dirs="$XDG_CONFIG_HOME/shell/zshnameddirrc"
+lf_shortcuts="$XDG_CONFIG_HOME/lf/shortcutrc"
 if [ ! -f "$shell_shortcuts" ] || [ ! -f "$zsh_named_dirs" ] || [ ! -f "$lf_shortcuts" ]; then
 	"$HOME/.local/bin/shortcuts" >/dev/null 2>&1
 fi
