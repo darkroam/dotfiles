@@ -3,4 +3,20 @@
 # Toggles all cronjobs off/on.
 # Stores disabled crontabs in ~/.config/cronsaved until restored.
 
-([ -f "${XDG_CONFIG_HOME:-$HOME/.config}"/cronsaved ] && crontab - < "${XDG_CONFIG_HOME:-$HOME/.config}"/cronsaved  && rm "${XDG_CONFIG_HOME:-$HOME/.config}"/cronsaved && notify-send "🕓 Cronjobs re-enabled.") || ( crontab -l > "${XDG_CONFIG_HOME:-$HOME/.config}"/cronsaved && crontab -r && notify-send "🕓 Cronjobs saved and disabled.")
+CRONSAVED="${XDG_CONFIG_HOME:-$HOME/.config}/cronsaved"
+
+if [ -f "$CRONSAVED" ]; then
+    if crontab - < "$CRONSAVED" && rm "$CRONSAVED"; then
+        notify-send "🕓 Cronjobs re-enabled."
+    else
+        notify-send "❌ Failed to restore crontab." >&2
+        exit 1
+    fi
+else
+    if crontab -l > "$CRONSAVED" && crontab -r; then
+        notify-send "🕓 Cronjobs saved and disabled."
+    else
+        notify-send "❌ Failed to disable crontab." >&2
+        exit 1
+    fi
+fi
