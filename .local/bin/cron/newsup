@@ -5,7 +5,10 @@
 
 /usr/bin/notify-send "📰 Updating RSS feeds..."
 
-pgrep -f newsboat$ && /usr/bin/xdotool key --window "$(/usr/bin/xdotool search --name "^newsboat$")" R && exit
+if pgrep -f newsboat$ >/dev/null; then
+    winid="$(/usr/bin/xdotool search --name "^newsboat$" 2>/dev/null | head -1)"
+    [ -n "$winid" ] && /usr/bin/xdotool key --window "$winid" R && exit
+fi
 
 echo 🔃 > /tmp/newsupdate
 pkill -RTMIN+6 "${STATUSBAR:-dwmblocks}"
