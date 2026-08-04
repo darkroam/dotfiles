@@ -2,6 +2,8 @@
 
 # Prints the current volume or 🔇 if muted.
 
+command -v wpctl >/dev/null 2>&1 || { notify-send "❌ wpctl not installed"; exit 0; }
+
 case $BLOCK_BUTTON in
 	1) setsid -f "$TERMINAL" -e pulsemixer ;;
 	2) wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle ;;

@@ -9,4 +9,5 @@ case $BLOCK_BUTTON in
 	6) "$TERMINAL" -e "$EDITOR" "$0" ;;
 esac
 
+command -v sensors >/dev/null 2>&1 || { notify-send "❌ sensors not installed"; exit 0; }
 sensors | awk '/Core 0/ {print "🌡" $3}'

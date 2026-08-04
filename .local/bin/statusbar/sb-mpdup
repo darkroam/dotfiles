@@ -3,6 +3,8 @@
 # This loop will update the mpd statusbar module whenever a command changes the
 # music player's status. mpd must be running on X's start for this to work.
 
+command -v mpc >/dev/null 2>&1 || { notify-send "❌ mpc not installed"; exit 0; }
+
 while : ; do
 	mpc idle >/dev/null && pkill -RTMIN+11 "${STATUSBAR:-dwmblocks}" || break
 done
