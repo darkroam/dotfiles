@@ -35,7 +35,7 @@ setup_test_home() {
     export HOME="$TEST_HOME"
     export GIT_CONFIG_GLOBAL="$TEST_HOME/.gitconfig-test"
     export GIT_CONFIG_SYSTEM=/dev/null
-    export DOTFILES_LIB_DIR="$REAL_HOME/.local/share/dotfiles-lib"
+    export DOTFILES_LIB_DIR="$REAL_HOME/.local/lib/dotfiles"
     export DOTCFG_BIN_DIR="$DOTFILES_ROOT/.local/bin"
 }
 ```

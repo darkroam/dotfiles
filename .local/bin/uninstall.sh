@@ -22,7 +22,7 @@ backup_root="$HOME/.config-backup"
 state_file="$HOME/.cfg-checkout-state"
 
 # Source shared validation library
-DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/share/dotfiles-lib}"
+DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
 if [ -f "$DOTFILES_LIB_DIR/cfg-validate.sh" ]; then
 	. "$DOTFILES_LIB_DIR/cfg-validate.sh"
 	cfg_validate "$git_dir"

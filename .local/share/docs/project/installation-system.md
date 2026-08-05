@@ -47,7 +47,7 @@
 
 ### 共享验证库
 
-`.local/share/dotfiles-lib/cfg-validate.sh` 提供所有脚本共享的核心函数：
+`.local/lib/dotfiles/cfg-validate.sh` 提供所有脚本共享的核心函数：
 
 | 函数 | 用途 |
 |------|------|

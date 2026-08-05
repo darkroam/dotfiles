@@ -9,7 +9,7 @@ REAL_HOME="${REAL_HOME:-$HOME}"
 
 # ── Paths ──────────────────────────────────────────────────────────────
 DOTFILES_ROOT="${DOTFILES_ROOT:-$(cd "$(dirname "${BATS_TEST_FILENAME:-}")/../../../.." && pwd)}"
-VALIDATE_LIB="$DOTFILES_ROOT/.local/share/dotfiles-lib/cfg-validate.sh"
+VALIDATE_LIB="$DOTFILES_ROOT/.local/lib/dotfiles/cfg-validate.sh"
 INSTALL_DESKTOP="$DOTFILES_ROOT/.local/bin/install-2.sh"
 INSTALL_SERVER="$DOTFILES_ROOT/.local/bin/install-server.sh"
 RESTORE_DESKTOP="$DOTFILES_ROOT/.local/bin/restore-desktop.sh"
@@ -71,7 +71,7 @@ setup_source_repo() {
 			".local/bin/uninstall.sh"
 			".local/share/docs/README.md"
 			".local/share/docs/user/desktop-guide-zh.md"
-			".local/share/dotfiles-lib/cfg-validate.sh"
+			".local/lib/dotfiles/cfg-validate.sh"
 		)
 	fi
 	local temp_work
@@ -153,7 +153,7 @@ setup_test_home() {
 	export GIT_CONFIG_GLOBAL="$TEST_HOME/.gitconfig-test"
 	export GIT_CONFIG_SYSTEM=/dev/null
 	touch "$GIT_CONFIG_GLOBAL"
-	export DOTFILES_LIB_DIR="$REAL_HOME/.local/share/dotfiles-lib"
+	export DOTFILES_LIB_DIR="$REAL_HOME/.local/lib/dotfiles"
 	export DOTCFG_BIN_DIR="$DOTFILES_ROOT/.local/bin"
 
 	mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"

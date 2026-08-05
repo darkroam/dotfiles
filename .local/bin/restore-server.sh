@@ -19,7 +19,7 @@ timestamp=$(date +%Y%m%dT%H%M%S)
 backup_dir=""
 
 # Source shared validation library
-DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/share/dotfiles-lib}"
+DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
 if [ -f "$DOTFILES_LIB_DIR/cfg-validate.sh" ]; then
 	. "$DOTFILES_LIB_DIR/cfg-validate.sh"
 else

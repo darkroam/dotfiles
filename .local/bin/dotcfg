@@ -18,7 +18,7 @@ GIT_DIR="${DOTCFG_GIT_DIR:-$HOME/.cfg}"
 BACKUP_ROOT="$HOME/.config-backup"
 BIN_DIR="${DOTCFG_BIN_DIR:-$HOME/.local/bin}"
 
-DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/share/dotfiles-lib}"
+DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
 if [ -f "$DOTFILES_LIB_DIR/cfg-validate.sh" ]; then
     . "$DOTFILES_LIB_DIR/cfg-validate.sh"
 else
