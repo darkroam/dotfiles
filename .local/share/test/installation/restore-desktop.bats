@@ -108,9 +108,9 @@ teardown() {
 	[[ "$output" == *"DRY RUN"* ]]
 }
 
-# TC-25: --auto-stash removes conflicting files without backup
+# TC-25: --auto-stash backs up conflicting files without prompting
 
-@test "TC-25: restore-desktop --auto-stash overwrites without backup" {
+@test "TC-25: restore-desktop --auto-stash backs up without prompting" {
 	setup_source_repo
 
 	# Simulate server-mode install: .cfg exists but no desktop indicators
@@ -127,10 +127,10 @@ teardown() {
 	run run_restore_desktop --auto-stash
 	[ "$status" -eq 0 ]
 
-	# No backup directory should be created (auto-stash skips backup)
-	assert_backup_count 0
+	# Backup directory should be created (auto-stash backs up without prompting)
+	assert_backup_count 1
 
-	# Files should be repo versions (conflicts removed, then checked out)
+	# Files should be repo versions (backed up, then checked out)
 	assert_file_contains ".bashrc" "repo content for .bashrc"
 	assert_file_contains ".gitconfig" "repo content for .gitconfig"
 

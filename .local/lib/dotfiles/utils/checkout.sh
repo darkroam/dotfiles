@@ -7,10 +7,74 @@ if [ -n "${_CFG_CHECKOUT_LOADED:-}" ]; then
 fi
 _CFG_CHECKOUT_LOADED=1
 
+# cfg_validate_path_safety <path>
+# Validates that a path (after resolving all symlinks) is within $HOME
+# Returns 0 if safe, 1 if unsafe
+# Prints warning to stderr if unsafe
+cfg_validate_path_safety() {
+	local path="$1"
+	local full_path
+
+	# Handle relative paths (relative to $HOME)
+	if [[ "$path" != /* ]]; then
+		full_path="$HOME/$path"
+	else
+		full_path="$path"
+	fi
+
+	# If the path exists (as file, dir, or symlink), resolve it
+	if [ -e "$full_path" ] || [ -L "$full_path" ]; then
+		local resolved
+		resolved=$(readlink -f "$full_path" 2>/dev/null) || {
+			printf 'WARNING: Cannot resolve path: %s\n' "$path" >&2
+			return 1
+		}
+
+		# Check if resolved path starts with $HOME/
+		# Use ${HOME%/}/ to handle both /home/user and /home/user/ cases
+		local home_prefix="${HOME%/}/"
+		if [[ "$resolved" != "$HOME" && "$resolved" != "$home_prefix"* ]]; then
+			printf 'SECURITY ERROR: Path escapes $HOME boundary\n' >&2
+			printf '  Original: %s\n' "$path" >&2
+			printf '  Resolved: %s\n' "$resolved" >&2
+			printf '  Expected: must start with %s\n' "$HOME" >&2
+			return 1
+		fi
+	fi
+
+	return 0
+}
+
+# cfg_validate_paths_batch <path...>
+# Validates multiple paths, returns 0 if all safe, 1 if any unsafe
+cfg_validate_paths_batch() {
+	local paths=("$@")
+	local unsafe_count=0
+
+	for path in "${paths[@]}"; do
+		if ! cfg_validate_path_safety "$path"; then
+			((unsafe_count++)) || true
+		fi
+	done
+
+	if (( unsafe_count > 0 )); then
+		printf '\nABORT: %d path(s) failed safety check\n' "$unsafe_count" >&2
+		return 1
+	fi
+
+	return 0
+}
+
 cfg_checkout_files() {
 	local git_dir="$1"
 	shift
 	local files=("$@")
+
+	# Validate all paths are within $HOME before checkout
+	if ! cfg_validate_paths_batch "${files[@]}"; then
+		printf '0 %d' "${#files[@]}"
+		return 1
+	fi
 
 	local config_fn
 	config_fn() { git --git-dir="$git_dir/" --work-tree="$HOME" "$@"; }

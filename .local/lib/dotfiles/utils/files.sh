@@ -7,7 +7,8 @@ if [ -n "${_CFG_FILES_LOADED:-}" ]; then
 fi
 _CFG_FILES_LOADED=1
 
-CFG_SERVER_FILES=(
+# Default server files (fallback if server-files.txt doesn't exist)
+CFG_SERVER_FILES_DEFAULT=(
 	".config/shell/profile"
 	".config/shell/aliasrc"
 	".config/shell/zshrc"
@@ -30,6 +31,37 @@ CFG_SERVER_FILES=(
 	".local/share/docs/README.md"
 	".local/share/docs/user/desktop-guide-zh.md"
 )
+
+# cfg_load_server_files [git_dir]
+# Loads server file list from server-files.txt (in repo root)
+# Falls back to CFG_SERVER_FILES_DEFAULT if file doesn't exist
+# Sets CFG_SERVER_FILES array
+cfg_load_server_files() {
+	local git_dir="${1:-$HOME/.cfg}"
+	local config_file="$git_dir/server-files.txt"
+
+	CFG_SERVER_FILES=()
+
+	if [ -f "$config_file" ]; then
+		local line
+		while IFS= read -r line || [ -n "$line" ]; do
+			# Skip empty lines and comments
+			[[ -z "$line" ]] && continue
+			[[ "$line" =~ ^[[:space:]]*# ]] && continue
+			# Trim whitespace
+			line="${line#"${line%%[![:space:]]*}"}"
+			line="${line%"${line##*[![:space:]]}"}"
+			[ -z "$line" ] && continue
+			CFG_SERVER_FILES+=("$line")
+		done < "$config_file"
+	else
+		# Fallback to default list
+		CFG_SERVER_FILES=("${CFG_SERVER_FILES_DEFAULT[@]}")
+	fi
+}
+
+# Initialize with default list (for backwards compatibility)
+CFG_SERVER_FILES=("${CFG_SERVER_FILES_DEFAULT[@]}")
 
 CFG_DESKTOP_INDICATORS=(
 	".xinitrc"

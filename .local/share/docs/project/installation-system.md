@@ -150,10 +150,10 @@ dotcfg help                   # 使用帮助
 | `common.sh` | 顶层加载器，source 所有工具库 |
 | `args.sh` | 参数解析（`cfg_parse_common_args`） |
 | `backup.sh` | 备份创建和文件备份（`cfg_create_backup_dir`, `cfg_backup_file`） |
-| `rollback.sh` | 失败时从备份恢复（`cfg_rollback_from_backup`） |
-| `checkout.sh` | 文件 checkout 和状态记录（`cfg_checkout_files`, `cfg_record_checkout_state`） |
+| `rollback.sh` | 回滚判断和执行（`cfg_should_rollback`, `cfg_rollback_from_backup`） |
+| `checkout.sh` | 文件 checkout、路径安全检查和状态记录（`cfg_checkout_files`, `cfg_validate_path_safety`） |
 | `repo.sh` | 仓库克隆和激活（`cfg_setup_repository`, `cfg_activate_repository`） |
-| `files.sh` | 文件分类和常量定义（`cfg_analyze_files`, `CFG_SERVER_FILES`） |
+| `files.sh` | 文件分类和常量定义（`cfg_analyze_files`, `cfg_load_server_files`） |
 
 ### 通用参数
 
@@ -163,9 +163,27 @@ dotcfg help                   # 使用帮助
 
 特定脚本额外支持：
 - `--reinstall` — 跳过交互提示，直接重新安装（switch-desktop / switch-server）
-- `--auto-stash` — 移除冲突文件而不备份（仅 switch-desktop）
+- `--auto-stash` — 自动备份冲突文件，不提示用户，直接继续操作（仅 switch-desktop）
 - `--latest` — 恢复最新备份而非最早（仅 uninstall）
 - `--clean-backups` — 卸载后清理备份目录（仅 uninstall）
+
+### `--auto-stash` 语义定义
+
+`--auto-stash` 的精确行为：
+
+1. **自动备份冲突文件**：与默认行为相同，冲突文件会被备份到 `.config-backup/`
+2. **不提示用户**：跳过冲突文件处理的交互提示，直接继续操作
+3. **直接继续**：备份完成后立即执行 checkout，无需用户确认
+
+**与 `--dry-run` 的交互**：
+
+当同时使用 `--auto-stash` 和 `--dry-run` 时：
+- 打印将要备份的文件列表
+- 不执行实际备份操作
+- 不执行 checkout 操作
+- 在打印报告后退出
+
+这使得用户可以在执行前预览 `--auto-stash` 的影响范围。
 
 ### 1. switch-desktop.sh — 桌面模式切换
 
@@ -187,9 +205,9 @@ dotcfg help                   # 使用帮助
 5. 分析所有跟踪文件（`cfg_analyze_files`）
 6. 打印安装前报告
 7. 如果 `--dry-run`，退出
-8. 如果 `--auto-stash`，删除冲突文件；否则创建备份
+8. 备份冲突文件（`--auto-stash` 时自动备份不提示）
 9. Checkout 所有桌面配置（`cfg_checkout_files`）
-10. 若 checkout 失败率 >50% 则自动回滚（`cfg_rollback_from_backup`）
+10. 若 checkout 失败数 >5 或失败率 >10% 则自动回滚（`cfg_rollback_from_backup`）
 11. 激活仓库（如果是 fresh 克隆）
 12. 记录 `.cfg-checkout-state`，设置 `showUntrackedFiles = no`
 
@@ -205,7 +223,15 @@ dotcfg help                   # 使用帮助
   └─ server  → 提示重新安装（--reinstall 跳过提示）
 ```
 
-**服务器文件白名单**（`CFG_SERVER_FILES`）：
+**服务器文件清单**（`server-files.txt`）：
+
+服务器模式 checkout 的文件列表由仓库根目录的 `server-files.txt` 配置文件管理。用户可自定义此文件以添加或删除服务器模式下的配置文件。
+
+配置文件位置：`~/.cfg/server-files.txt`（bare repo 根目录）
+
+格式：每行一个文件路径（相对于 `$HOME`），`#` 开头的行为注释。
+
+**默认文件列表**（21 个）：
 
 ```
 Shell:    .config/shell/profile, .config/shell/aliasrc, .config/shell/zshrc,
@@ -216,6 +242,20 @@ LF:       .config/lf/lfrc, .config/lf/scope, .config/lf/cleaner,
           .config/lf/icons, .config/lf/shortcutrc
 文档:     .local/share/docs/README.md, .local/share/docs/user/desktop-guide-zh.md
 ```
+
+**自定义方法**：
+
+```bash
+# 查看当前配置
+git --git-dir=~/.cfg/ show HEAD:server-files.txt
+
+# 编辑配置（需要 commit）
+git --git-dir=~/.cfg/ --work-tree=~ edit server-files.txt
+git --git-dir=~/.cfg/ --work-tree=~ add server-files.txt
+git --git-dir=~/.cfg/ --work-tree=~ commit -m "Customize server file list"
+```
+
+如果 `server-files.txt` 不存在，系统会回退到内置的默认列表。
 
 **桌面指标文件移除**（从 desktop 切换时）：
 
@@ -363,7 +403,7 @@ switch-server.sh 从 desktop 切换到 server 时，移除以下桌面特有文�
 1. **先检测后操作**：所有脚本先检测当前状态，再决定操作路径
 2. **先备份后修改**：冲突文件在修改前必须备份到 `.config-backup/`
 3. **先预览后执行**：`--dry-run` 可在任何操作前使用
-4. **失败可回滚**：checkout 失败率 >50% 时自动从备份恢复
+4. **失败可回滚**：checkout 失败数 >5 或失败率 >10% 时自动从备份恢复
 
 ### 恢复原则
 
@@ -397,7 +437,7 @@ switch-server.sh 从 desktop 切换到 server 时，移除以下桌面特有文�
 
 - `switch-desktop.sh` 和 `switch-server.sh` 重复执行结果一致
 - 无冲突文件时不创建备份目录
-- `--auto-stash` 模式直接覆盖，不创建备份
+- `--auto-stash` 模式自动备份冲突文件，不创建交互提示
 
 ---
 
@@ -408,7 +448,7 @@ switch-server.sh 从 desktop 切换到 server 时，移除以下桌面特有文�
 | 场景 | 恢复方法 |
 |------|----------|
 | 安装过程中断 | 备份已创建，手动恢复或重新运行脚本 |
-| checkout 大面积失败 | 自动回滚（失败率 >50%），从备份恢复 |
+| checkout 大面积失败 | 自动回滚（失败数 >5 或失败率 >10%），从备份恢复 |
 | 切换后不满意 | 运行反向切换脚本（如 desktop→server→desktop） |
 | 完全卸载后恢复 | 从 `.config-backup/` 手动恢复文件 |
 | 多次切换后恢复原始文件 | `uninstall.sh`（默认恢复最早备份） |

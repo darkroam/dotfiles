@@ -145,6 +145,9 @@ config() { git --git-dir="$git_dir/" --work-tree="$HOME" "$@"; }
 
 config rev-parse --verify HEAD >/dev/null
 
+# ── Load server file list ───────────────────────────────────────────────
+cfg_load_server_files "$git_dir"
+
 # ── Analyze server files ────────────────────────────────────────────────
 printf '\nAnalyzing configurations...\n'
 cfg_analyze_server_files "$git_dir"
@@ -266,8 +269,8 @@ installed=${result% *}
 skipped_checkout=${result#* }
 total=$((${#to_install[@]} + ${#to_backup[@]}))
 
-if (( skipped_checkout > 0 && total > 0 && skipped_checkout * 2 > total )); then
-	printf '\nERROR: %d/%d files failed to checkout. Rolling back...\n' "$skipped_checkout" "$total" >&2
+if cfg_should_rollback "$skipped_checkout" "$total"; then
+	cfg_print_rollback_reason "$skipped_checkout" "$total"
 	if [ -n "$backup_dir" ] && [ -d "$backup_dir" ]; then
 		cfg_rollback_from_backup "$backup_dir" "${to_backup[@]}"
 	fi

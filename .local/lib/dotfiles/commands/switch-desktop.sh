@@ -201,11 +201,10 @@ fi
 # ── Handle backups ──────────────────────────────────────────────────────
 if ((${#to_backup[@]})); then
 	if [ "$CFG_AUTO_STASH" = true ]; then
-		printf '\n--auto-stash: removing %d conflicting files without backup...\n' "${#to_backup[@]}"
-		for path in "${to_backup[@]}"; do
-			rm -f -- "$HOME/$path"
-			printf 'Removed: %s\n' "$path"
-		done
+		printf '\n--auto-stash: backing up %d conflicting files without prompting...\n' "${#to_backup[@]}"
+		cfg_create_backup_dir "$current_state" "$target_state" "$timestamp"
+		cfg_backup_files "$git_dir" "${to_backup[@]}"
+		backup_dir="$CFG_BACKUP_DIR"
 	else
 		cfg_create_backup_dir "$current_state" "$target_state" "$timestamp"
 		cfg_backup_files "$git_dir" "${to_backup[@]}"
@@ -220,8 +219,8 @@ installed=${result% *}
 skipped_checkout=${result#* }
 total=$((${#to_install[@]} + ${#to_backup[@]}))
 
-if (( skipped_checkout > 0 && total > 0 && skipped_checkout * 2 > total )); then
-	printf '\nERROR: %d/%d files failed to checkout. Rolling back...\n' "$skipped_checkout" "$total" >&2
+if cfg_should_rollback "$skipped_checkout" "$total"; then
+	cfg_print_rollback_reason "$skipped_checkout" "$total"
 	if [ -n "$backup_dir" ] && [ -d "$backup_dir" ]; then
 		cfg_rollback_from_backup "$backup_dir" "${to_backup[@]}"
 	fi

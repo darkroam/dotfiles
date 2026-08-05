@@ -1,0 +1,35 @@
+# Server mode file list
+# This file defines which files are checked out in server mode.
+# One path per line (relative to $HOME). Lines starting with # are comments.
+# Users can customize this list to add/remove files for server mode.
+
+# Shell configuration
+.config/shell/profile
+.config/shell/aliasrc
+.config/shell/zshrc
+.config/shell/tmux.conf.local
+.bashrc
+.zshrc
+.profile
+
+# Tmux configuration
+.config/tmux/tmux.conf
+.config/tmux/tmux.conf.local
+.tmux.conf
+
+# Git configuration
+.config/git/gitconfig
+.config/git/ignore
+.gitconfig
+.gitignore
+
+# LF file manager configuration
+.config/lf/lfrc
+.config/lf/scope
+.config/lf/cleaner
+.config/lf/icons
+.config/lf/shortcutrc
+
+# Documentation
+.local/share/docs/README.md
+.local/share/docs/user/desktop-guide-zh.md

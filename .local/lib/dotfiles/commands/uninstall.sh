@@ -183,6 +183,13 @@ if [ "$CFG_DRY_RUN" = true ]; then
 		printf '  = %s\n' "$path"
 	done
 	printf '\nNote: Repository and backups will NOT be automatically removed.\n'
+
+	# Show backup directory size in dry-run mode
+	if [ -d "$backup_root" ]; then
+		backup_size=$(du -sh "$backup_root" 2>/dev/null | cut -f1)
+		printf '\nBackup directory size: %s (%s)\n' "$backup_size" "$backup_root"
+		printf 'To clean up: rm -rf %s\n' "$backup_root"
+	fi
 	exit 0
 fi
 
@@ -258,7 +265,8 @@ if [ -d "$backup_root" ] || [ -d "$git_dir" ]; then
 	printf '\n=== Manual Cleanup (Optional) ===\n'
 	printf 'To completely remove all traces of the dotfiles system, delete:\n'
 	if [ -d "$backup_root" ]; then
-		printf '  1. Backup directory: rm -rf %s\n' "$backup_root"
+		backup_size=$(du -sh "$backup_root" 2>/dev/null | cut -f1)
+		printf '  1. Backup directory (%s): rm -rf %s\n' "$backup_size" "$backup_root"
 	fi
 	if [ -d "$git_dir" ] || [ -L "$git_dir" ]; then
 		printf '  2. Repository: rm -rf %s\n' "$git_dir"
