@@ -150,6 +150,7 @@ desktop_dirs=(
 # Analyze desktop symlinks to remove
 to_remove_symlinks=()
 to_remove_dirs=()
+to_remove_regular=()
 already_removed_symlinks=()
 already_removed_dirs=()
 
@@ -162,8 +163,12 @@ for link in "${desktop_symlinks[@]}"; do
 	full_path="$HOME/$link"
 	if [ -L "$full_path" ]; then
 		to_remove_symlinks+=("$link")
-	elif cfg_should_backup_file "$git_dir" "$link"; then
-		to_backup_files+=("$link")
+	elif [ -f "$full_path" ]; then
+		if cfg_should_backup_file "$git_dir" "$link"; then
+			to_backup_files+=("$link")
+		else
+			to_remove_regular+=("$link")
+		fi
 	else
 		already_removed_symlinks+=("$link")
 	fi
@@ -171,7 +176,7 @@ done
 
 for dir in "${desktop_dirs[@]}"; do
 	full_path="$HOME/$dir"
-	if [ -L "$full_path" ]; then
+	if [ -L "$full_path" ] || [ -d "$full_path" ]; then
 		to_remove_dirs+=("$dir")
 	else
 		already_removed_dirs+=("$dir")
@@ -180,7 +185,7 @@ done
 
 # Determine backup directory name
 if ((${#to_backup_files[@]} > 0)); then
-	backup_dir="$HOME/.config-backup-${current_state}-to-${target_state}-${timestamp}"
+	backup_dir="$HOME/.config-backup/${current_state}-to-${target_state}-${timestamp}"
 fi
 
 # Print analysis
@@ -229,9 +234,9 @@ if ((${#to_backup_files[@]} > 0)); then
 	chmod 700 "$backup_dir"
 
 	manifest="$backup_dir/MANIFEST.txt"
-	printf '# Backup manifest created at %s\n' "$(date)" > "$manifest"
-	printf '# State transition: %s -> %s\n' "$current_state" "$target_state" >> "$manifest"
-	printf '# Format: original_path -> backup_path (status)\n\n' >> "$manifest"
+	printf '# Created: %s\n' "$(date)" > "$manifest"
+	printf '# Transition: %s -> %s\n' "$current_state" "$target_state" >> "$manifest"
+	printf '#\n# relative_path\tmd5\tstatus\n' >> "$manifest"
 
 	printf '\nBacking up %d files...\n' "${#to_backup_files[@]}"
 	for path in "${to_backup_files[@]}"; do
@@ -244,8 +249,11 @@ if ((${#to_backup_files[@]} > 0)); then
 			status="modified"
 		fi
 
+		# Compute MD5 before moving
+		md5=$(md5sum < "$source_path" 2>/dev/null | cut -d' ' -f1)
+
 		mv -- "$source_path" "$backup_path"
-		printf '%s -> %s (%s)\n' "$source_path" "$backup_path" "$status" >> "$manifest"
+		printf '%s\t%s\t%s\n' "$path" "$md5" "$status" >> "$manifest"
 		printf 'Backed up: %s\n' "$path"
 	done
 
@@ -253,7 +261,7 @@ if ((${#to_backup_files[@]} > 0)); then
 	printf 'Manifest: %s\n' "$manifest"
 fi
 
-if ((${#to_remove_symlinks[@]} == 0)) && ((${#to_remove_dirs[@]} == 0)); then
+if ((${#to_remove_symlinks[@]} == 0)) && ((${#to_remove_dirs[@]} == 0)) && ((${#to_remove_regular[@]} == 0)); then
 	printf '\nNo desktop symlinks found. Already in server mode or using direct files.\n'
 	printf 'Proceeding to verify server configs...\n'
 else
@@ -271,10 +279,20 @@ else
 		printf 'Removed: %s\n' "$link"
 	done
 
-	# Remove desktop directory symlinks
+	# Remove desktop regular files (identical to repo, no backup needed)
+	for link in "${to_remove_regular[@]}"; do
+		rm -f -- "$HOME/$link"
+		printf 'Removed: %s\n' "$link"
+	done
+
+	# Remove desktop directory symlinks and regular directories
 	printf '\nRemoving desktop directory symlinks...\n'
 	for dir in "${to_remove_dirs[@]}"; do
-		rm -f -- "$HOME/$dir"
+		if [ -L "$HOME/$dir" ]; then
+			rm -f -- "$HOME/$dir"
+		elif [ -d "$HOME/$dir" ]; then
+			rm -rf -- "$HOME/$dir"
+		fi
 		printf 'Removed: %s\n' "$dir"
 	done
 fi
@@ -368,7 +386,7 @@ while IFS= read -r path; do
 	echo "$path:$hash" >> "$state_file"
 done < <(config ls-tree -r --name-only HEAD)
 
-removed_total=$((${#to_remove_symlinks[@]} + ${#to_remove_dirs[@]}))
+removed_total=$((${#to_remove_symlinks[@]} + ${#to_remove_regular[@]} + ${#to_remove_dirs[@]}))
 
 printf '\n=== Server Mode Restoration Complete ===\n'
 printf 'Desktop symlinks removed: %d\n' "$removed_total"

@@ -4,117 +4,237 @@
 
 ## 概述
 
-状态机测试框架，自动化验证安装脚本在所有状态转换路径下的正确性和幂等性。覆盖 3 种基本状态之间的 9 种转换路径。
+基于 Bats（Bash Automated Testing System）的自动化测试框架，覆盖安装系统全部功能：状态检测、备份逻辑、所有状态转换路径、卸载恢复、统一 CLI 和端到端生命周期验证。
 
 ### 设计目标
 
-1. **完整性**：覆盖所有可能的状态转换路径
-2. **隔离性**：测试在临时 HOME 目录中进行，不影响真实配置
+1. **完整性**：覆盖所有状态转换路径、边界条件和错误处理
+2. **隔离性**：每个测试在临时 `$HOME` 目录中运行，不影响真实配置
 3. **可重复性**：结果确定且可重复，支持回归测试
 4. **自动化**：支持本地和 CI 环境
-5. **可追溯**：详细日志和报告便于问题定位
+5. **可追溯**：TAP 格式输出，便于问题定位
 
 ---
 
-## 状态机模型
+## 测试框架
 
-### 三种基本状态
+### Bats 环境
 
-- **FRESH**：`.cfg` 不存在，无符号链接
-- **DESKTOP**：`.cfg` 存在，checkout 所有文件（含 X11、音频、图形工具）
-- **SERVER**：`.cfg` 存在，只 checkout 服务器白名单文件
-
-### 九种状态转换
-
-```
-FRESH → DESKTOP   (install-2.sh)
-FRESH → SERVER    (install-server.sh)
-DESKTOP → DESKTOP (install-2.sh --reinstall，幂等)
-DESKTOP → SERVER  (restore-server.sh)
-DESKTOP → FRESH   (uninstall.sh)
-SERVER → SERVER   (install-server.sh --reinstall，幂等)
-SERVER → DESKTOP  (restore-desktop.sh)
-SERVER → FRESH    (uninstall.sh)
-FRESH → FRESH     (基准测试，无操作)
-```
-
----
-
-## 测试架构
+- **Bats 版本**：>= 1.11.0
+- **运行命令**：`bats -r .local/share/test/`（全部）或 `bats .local/share/test/installation/`（单个专题）
+- **过滤运行**：`bats --filter "TC-11" .local/share/test/installation/`
+- **TAP 输出**：`bats -r .local/share/test/ --tap`（CI 适用）
 
 ### 环境隔离
 
-采用临时用户目录隔离：
+每个测试在独立的临时 `$HOME` 中运行：
 
 ```bash
-TEST_HOME=$(mktemp -d /tmp/cfg-test-home.XXXXXX)
-export HOME="$TEST_HOME"
+setup_test_home() {
+    TEST_HOME=$(mktemp -d "/tmp/dotfiles-test-XXXXXX")
+    export HOME="$TEST_HOME"
+    export GIT_CONFIG_GLOBAL="$TEST_HOME/.gitconfig-test"
+    export GIT_CONFIG_SYSTEM=/dev/null
+    export DOTFILES_LIB_DIR="$REAL_HOME/.local/share/dotfiles-lib"
+    export DOTCFG_BIN_DIR="$DOTFILES_ROOT/.local/bin"
+}
 ```
 
-- 完全隔离，不影响真实 `$HOME`
-- 无需 root 权限
-- 易于清理
-- CI 友好
+**安全保障**：
+- `REAL_HOME` 在加载时保存，永远不被修改
+- `teardown_test_home()` 有安全检查：拒绝删除 `REAL_HOME`，只删除 `/tmp/dotfiles-test-*` 路径
+- Git 配置隔离：`GIT_CONFIG_GLOBAL` 指向独立文件，`GIT_CONFIG_SYSTEM=/dev/null`
 
 ### Git 仓库源策略
 
 **模式 A：本地 Git Mirror（默认）**
+
+从真实 `~/.cfg/` 归档创建本地 bare mirror，不依赖网络：
+
 ```bash
-git clone --bare git@github.com:darkroam/dotfiles.git /tmp/cfg-git-mirror/dotfiles.git
-export DOTFILES_REPOSITORY="/tmp/cfg-git-mirror/dotfiles.git"
+setup_git_mirror()  # 创建 /tmp/dotfiles-test-git-mirror/dotfiles.git
+setup_source_repo() # 创建带签名文件的测试源仓库，设置 DOTFILES_REPOSITORY
 ```
-优势：不依赖网络、速度快、可离线运行。
 
 **模式 B：真实远程仓库**
+
 ```bash
-export USE_REAL_REMOTE=true
+export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 ```
-适用于验证真实网络环境和 CI 定期验证。
 
 ---
 
-## 核心组件
+## 测试文件结构
 
-### 1. 冲突文件生成器
-
-`scripts/test/state-machine-tester.sh` 内嵌的 `generate_*_conflicts` 函数为每种状态生成逼真的冲突场景：
-
-- **Fresh 冲突**：系统默认 `.bashrc`、`.zshrc`
-- **Desktop 冲突**：用户修改的 `.bashrc`、`.gitconfig`、未跟踪的 `.tmux.conf.local`
-- **Server 冲突**：服务器模式修改的 `.bashrc`、自定义 `.config/server-tools/`
-
-### 2. 状态验证器
-
-`verify_*_state` 函数（内嵌在测试脚本中）：
-
-- `verify_fresh_state` — 验证 `.cfg` 不存在或仓库保留但符号链接已移除
-- `verify_desktop_state` — 验证 `.cfg` 存在、桌面文件存在（.xinitrc 等）、`showUntrackedFiles = no`
-- `verify_server_state` — 验证 `.cfg` 存在、桌面文件不存在、服务器文件存在
-
-### 3. 测试执行器
-
-`scripts/test/state-machine-tester.sh` 核心功能：
-- 初始化隔离测试环境
-- 设置初始状态并生成冲突
-- 执行状态转换脚本
-- 验证结果状态
-- 生成详细测试报告
-
-**文件快照机制**：
-```bash
-snapshot_files() {
-    find "$HOME" -maxdepth 3 \( -type f -o -type l \) | sort
-    find "$HOME" -maxdepth 3 -type l -exec ls -la {} \;
-    find "$HOME" -maxdepth 1 -name ".config-backup-*" -type d
-}
+```
+.local/share/test/
+└── installation/               ← 安装系统专题
+    ├── helpers.bash            ← 共享辅助函数（460+ 行）
+    ├── detect-state.bats       ← TC-01..03  状态检测
+    ├── backup-logic.bats       ← TC-04..10  备份逻辑
+    ├── install-desktop.bats    ← TC-11..16  桌面安装
+    ├── install-server.bats     ← TC-17..21  服务器安装
+    ├── restore-desktop.bats    ← TC-22..25  恢复桌面
+    ├── restore-server.bats     ← TC-26..29  恢复服务器
+    ├── uninstall.bats          ← TC-30..33, TC-38..43  卸载与恢复
+    ├── validate.bats           ← TC-34a..34k, TC-35  仓库验证
+    ├── e2e-state-machine.bats  ← TC-36..37  端到端生命周期
+    ├── dotcfg.bats             ← TC-44..58  统一 CLI
+    └── generate-conflicts.sh   ← 冲突文件生成器
 ```
 
-### 4. 单元测试
+---
 
-`scripts/test/cfg-validate-test.sh` 提供 11 个单元测试，验证共享验证库 `cfg-validate.sh` 的各个函数：
-- `cfg_validate` 的各种仓库状态
-- `cfg_should_backup_file` 的文件过滤逻辑
-- `cfg_detect_state` 的状态检测
+## 测试用例目录
+
+### TC-01..03：状态检测（detect-state.bats）
+
+| 用例 | 描述 |
+|------|------|
+| TC-01 | 无 `.cfg` → fresh |
+| TC-02a..02d | `.cfg` + 桌面指标（.xinitrc / .xprofile / .config/x11 / 符号链接）→ desktop |
+| TC-03a..03b | `.cfg` 无桌面指标 → server |
+
+### TC-04..10：备份逻辑（backup-logic.bats）
+
+| 用例 | 描述 |
+|------|------|
+| TC-04 | 文件不存在 → 跳过备份 |
+| TC-05 | 文件存在但未跟踪 → 备份 |
+| TC-06 | 文件已跟踪但已修改 → 备份 |
+| TC-07 | 文件已跟踪且相同 → 跳过 |
+| TC-08 | 备份目录命名约定 `(fresh\|desktop\|server)-to-(fresh\|desktop\|server)-[0-9]{8}T[0-9]{6}` |
+| TC-09 | 备份目录权限 0700 |
+| TC-10 | MANIFEST 格式：`relative_path\tmd5\tstatus`（tab 分隔） |
+
+### TC-11..16：桌面安装（install-desktop.bats）
+
+| 用例 | 描述 |
+|------|------|
+| TC-11 | fresh 安装：创建 .cfg，checkout 所有文件 |
+| TC-12 | 备份已有用户文件到 `.config-backup/` |
+| TC-13 | `--dry-run` 预览不修改 |
+| TC-14 | `--force` 替换有效仓库（备份旧仓库） |
+| TC-15 | checkout state 文件记录所有跟踪文件 |
+| TC-16 | `showUntrackedFiles = no` 配置 |
+
+### TC-17..21：服务器安装（install-server.bats）
+
+| 用例 | 描述 |
+|------|------|
+| TC-17 | fresh 安装：只 checkout 服务器白名单文件 |
+| TC-18 | 备份已有用户文件 |
+| TC-19 | `--dry-run` 预览 |
+| TC-20 | 白名单排除桌面文件 |
+| TC-21 | checkout state 和 git 配置 |
+
+### TC-22..25：恢复桌面（restore-desktop.bats）
+
+| 用例 | 描述 |
+|------|------|
+| TC-22 | server → desktop：添加桌面文件 |
+| TC-23 | 备份已修改文件 |
+| TC-24 | `--dry-run` 预览 |
+| TC-25 | `--auto-stash` 覆盖不备份 |
+
+### TC-26..29：恢复服务器（restore-server.bats）
+
+| 用例 | 描述 |
+|------|------|
+| TC-26 | desktop → server：移除桌面指标，验证服务器文件 |
+| TC-27 | 备份已修改桌面文件 |
+| TC-28 | `--dry-run` 预览 |
+| TC-29 | checkout state 和 git 配置更新 |
+
+### TC-30..33, TC-38..43：卸载与恢复（uninstall.bats）
+
+| 用例 | 描述 |
+|------|------|
+| TC-30 | 移除所有 checkout 文件 |
+| TC-31 | 从最早备份恢复用户文件 |
+| TC-32 | `--dry-run` 预览 |
+| TC-33 | 无仓库时报错 |
+| TC-38 | 移除 checkout state 文件 |
+| TC-39 | `--latest` 恢复最新版本 |
+| TC-40 | 多转换链：从所有会话恢复文件 |
+| TC-41 | 幂等性：两次卸载结果相同 |
+| TC-42 | `--clean-backups` 删除所有备份 |
+| TC-43 | 无备份的管理文件直接删除 |
+
+### TC-34..35：仓库验证（validate.bats）
+
+| 用例 | 描述 |
+|------|------|
+| TC-34a..34k | `cfg_validate` 各种仓库状态分类（missing/not_git/foreign_repo/valid） |
+| TC-35 | 库不可用时回退到内联验证 |
+
+### TC-36..37：端到端生命周期（e2e-state-machine.bats）
+
+| 用例 | 描述 |
+|------|------|
+| TC-36 | fresh → desktop → server → desktop → fresh（完整循环） |
+| TC-37 | fresh → server → desktop → server → fresh（反向循环） |
+
+### TC-44..58：统一 CLI（dotcfg.bats）
+
+| 用例 | 描述 |
+|------|------|
+| TC-44 | status：fresh 状态显示可用转换 |
+| TC-45 | status：desktop 状态检测 |
+| TC-46 | status：server 状态检测 |
+| TC-47 | graph：desktop 状态图 |
+| TC-48 | graph：fresh 状态图 |
+| TC-49 | history：无备份目录 |
+| TC-50 | history：解析 MANIFEST 时间线 |
+| TC-51 | history：跳过畸形目录名 |
+| TC-52 | switch：同状态无操作 |
+| TC-53 | switch：无效目标报错 |
+| TC-54 | switch：fresh → desktop 完整安装 |
+| TC-55 | switch：desktop → server 完整切换 |
+| TC-56 | switch：`--dry-run` 透传 |
+| TC-57 | validate：仓库验证详情 |
+| TC-58 | 默认 status + 未知子命令报错 |
+
+---
+
+## 辅助函数
+
+### 状态模拟
+
+| 函数 | 用途 |
+|------|------|
+| `setup_source_repo [files...]` | 创建测试源仓库（含签名文件），设置 `DOTFILES_REPOSITORY` |
+| `create_valid_existing_cfg [files...]` | 创建通过 `cfg_validate` 的 `.cfg` 仓库 |
+| `setup_installed_state()` | 模拟完整安装（clone + checkout + state 文件） |
+| `create_mock_cfg_repo [files...]` | 轻量 bare repo（用于单元测试） |
+| `create_mock_cfg_repo_with_remote <url> [files...]` | 带 remote URL 的 mock repo |
+
+### 脚本执行
+
+| 函数 | 用途 |
+|------|------|
+| `run_install_desktop [args...]` | `yes \| bash install-2.sh` |
+| `run_install_server [args...]` | `yes \| bash install-server.sh` |
+| `run_restore_desktop [args...]` | `yes \| bash restore-desktop.sh` |
+| `run_restore_server [args...]` | `yes \| bash restore-server.sh` |
+| `run_uninstall [args...]` | `yes \| yes \| bash uninstall.sh` |
+| `run_dotcfg [args...]` | `bash dotcfg` |
+
+### 断言函数
+
+| 函数 | 用途 |
+|------|------|
+| `assert_state_is <state>` | 验证当前状态（fresh/desktop/server） |
+| `assert_cfg_exists` / `assert_cfg_not_exists` | `.cfg` 存在性 |
+| `assert_file_exists` / `assert_file_not_exists` | 文件存在性 |
+| `assert_file_contains <path> <pattern>` | 文件内容匹配 |
+| `assert_backup_dir_exists` / `assert_backup_count <n>` | 备份目录验证 |
+| `assert_backup_contains <path>` / `assert_any_backup_contains <path>` | 备份内容验证 |
+| `assert_manifest_exists` | MANIFEST.txt 存在 |
+| `assert_backup_naming <name>` | 命名约定匹配 |
+| `assert_checkout_state_exists` / `assert_checkout_state_not_exists` | checkout state 文件 |
+| `assert_show_untracked_no` | git 配置验证 |
+| `assert_output_contains <pattern>` | 命令输出匹配 |
 
 ---
 
@@ -123,142 +243,37 @@ snapshot_files() {
 ### 本地运行
 
 ```bash
-# 运行全部 9 个状态转换测试
-bash scripts/test/state-machine-tester.sh all
+# 运行全部测试（递归扫描子目录）
+bats -r .local/share/test/
 
-# 运行单个测试
-bash scripts/test/state-machine-tester.sh single fresh desktop
+# 运行单个专题
+bats .local/share/test/installation/
 
-# 运行单元测试
-bash scripts/test/cfg-validate-test.sh
+# 过滤特定用例
+bats --filter "TC-36" .local/share/test/installation/
 
-# 使用真实远程仓库
-USE_REAL_REMOTE=true bash scripts/test/state-machine-tester.sh all
-
-# 更新本地 Mirror
-UPDATE_MIRROR=true bash scripts/test/state-machine-tester.sh all
+# TAP 格式（CI 适用）
+bats -r .local/share/test/ --tap
 ```
 
-### CI 运行
+### 当前测试结果
 
-GitHub Actions：
-- **Push/PR**：使用本地 mirror 运行快速测试
-- **每周调度**：使用真实远程仓库运行完整测试
-
----
-
-## 测试报告
-
-### 报告格式
+**环境**：Debian 13, Git 2.47.2, Bash 5.2.37, Bats 1.11.1
 
 ```
-Test: desktop_to_server
-Timestamp: 2026-08-03T14:30:00+08:00
-Duration: 12s
-Script Exit Code: 0
-Verify Exit Code: 0
-Result: PASS
-
-Files Before: 45
-Files After: 38
-Symlinks Before: 12
-Symlinks After: 8
-Backups Before: 0
-Backups After: 1
-```
-
-### 日志文件
-
-每个测试生成：
-- `{test_name}.stdout` / `.stderr` — 标准输出/错误
-- `{test_name}.report.txt` — 测试报告
-- `{test_name}.before.filelist` / `.after.filelist` — 文件列表
-- `{test_name}.before.symlinks` / `.after.symlinks` — 符号链接
-- `{test_name}.before.backups` / `.after.backups` — 备份目录
-
-日志位置：`/tmp/cfg-test-log-XXXXXX/`
-
----
-
-## 测试结果
-
-### 首次完整测试（2026-08-04）
-
-**环境**：Debian 13, Git 2.47.2, Bash 5.2.37, 本地 Git Mirror
-
-```
-Total:  9
-Passed: 9
+Total:  72
+Passed: 72
 Failed: 0
-```
-
-| 测试 | 说明 | 结果 |
-| --- | --- | --- |
-| fresh → desktop | 首次安装桌面模式 | PASS |
-| fresh → server | 首次安装服务器模式 | PASS |
-| desktop → desktop | 幂等性验证 | PASS |
-| desktop → server | 切换到服务器模式 | PASS |
-| desktop → fresh | 卸载桌面模式 | PASS |
-| server → server | 幂等性验证 | PASS |
-| server → desktop | 切换到桌面模式 | PASS |
-| server → fresh | 卸载服务器模式 | PASS |
-| fresh → fresh | 基准测试 | PASS |
-
-执行时间：约 10-15 秒（全部 9 个测试）
-
-### 测试过程中修复的问题
-
-1. **测试框架**：缺少 `setup_test_env` 调用、算术运算在 `set -e` 下返回非零、`~` 路径展开错误、`yes |` 管道 SIGPIPE
-2. **安装脚本**：`git checkout` 缺少 `HEAD` 参数、`local` 关键字在函数外使用
-3. **验证逻辑**：`verify_fresh_state` 错误要求 `.cfg` 不存在（实际 uninstall 保留仓库）
-
-### 覆盖验证
-
-- 状态检测逻辑（fresh/desktop/server）
-- 智能决策提示
-- 文件冲突检测（已跟踪/未跟踪/已修改）
-- 备份创建和 MANIFEST 生成
-- Checkout 和符号链接创建
-- `.cfg-checkout-state` 记录
-- 卸载和符号链接清理
-- 幂等性：重复安装不产生额外备份
-
----
-
-## 故障排除
-
-### Git Mirror 创建失败
-```bash
-ssh -T git@github.com                                    # 检查 SSH
-rm -rf /tmp/cfg-git-mirror
-git clone --bare git@github.com:darkroam/dotfiles.git /tmp/cfg-git-mirror/dotfiles.git
-```
-
-### 测试环境污染
-```bash
-rm -rf /tmp/cfg-test-home.* /tmp/cfg-test-log.* /tmp/cfg-git-mirror
-bash scripts/test/state-machine-tester.sh all
-```
-
-### 调试技巧
-```bash
-# 详细日志
-bash -x scripts/test/state-machine-tester.sh single fresh desktop 2>&1 | tee debug.log
-
-# 保留测试环境
-export KEEP_TEST_ENV=true
-bash scripts/test/state-machine-tester.sh single fresh desktop
-ls -la /tmp/cfg-test-home-*/
 ```
 
 ---
 
 ## 已知限制
 
-1. SSH 密钥依赖：真实远程模式需要有效的 GitHub SSH 密钥
-2. 网络要求：首次创建 mirror 时需要网络连接
-3. 磁盘空间：每个测试约占用 50-100MB
-4. 并行限制：不建议同时运行超过 5 个测试实例（Git lock 冲突）
+1. **SSH 密钥依赖**：真实远程模式需要有效的 GitHub SSH 密钥
+2. **网络要求**：首次创建 mirror 时需要网络连接（除非从本地 `~/.cfg/` 归档）
+3. **磁盘空间**：每个测试约占用 50-100MB
+4. **并行限制**：不建议同时运行超过 5 个测试实例（Git lock 冲突）
 
 ---
 
@@ -270,5 +285,5 @@ ls -la /tmp/cfg-test-home-*/
 
 ---
 
-**最后更新**: 2026-08-04
-**版本**: 1.0 — 基于 state-machine-testing.md 整合
+**最后更新**: 2026-08-05
+**版本**: 2.0 — Bats 迁移 + 72 个测试用例 + dotcfg CLI 测试

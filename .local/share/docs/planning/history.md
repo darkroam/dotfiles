@@ -4,6 +4,19 @@
 
 ## 最近记录的变更
 
+- [x] 2026-08-05：备份系统重设计与统一 CLI。
+  **备份系统**：将备份目录从扁平 `$HOME/.config-backup-{from}-to-{to}-{ts}/` 改为嵌套
+  `$HOME/.config-backup/{from}-to-{to}-{ts}/`。MANIFEST 格式从绝对路径改为 tab 分隔的
+  `relative_path\tmd5\tstatus`。完全重写 uninstall.sh：备份链扫描（bash 关联数组）、双模式恢复
+  （默认=最早，--latest=最新）、--clean-backups。使用 `cp` 而非 `mv` 恢复文件实现幂等性。
+  修复时间排序问题：使用文件系统 mtime（`find -printf '%T@\t%p\n' | sort -n`）替代目录名称排序。
+  **统一 CLI**：新增 `dotcfg` 命令（~300 行），git 风格子命令：status（默认）、graph（ASCII 状态图）、
+  history（从 MANIFEST 重建转换时间线）、switch（exec 调度到底层脚本）、validate、help。
+  **测试**：从 Gen 1 shell 脚本迁移到 Bats v1.11.1。72 个测试全部通过（TC-01 到 TC-58），
+  新增 15 个 dotcfg 测试。测试目录从 `scripts/test/` 迁移到 `.local/share/test/installation/`，
+  消除额外的顶层目录，符合只用 `.config` 和 `.local` 的目录原则。
+  **文档**：重写 installation-system.md（v2.0）和 installation-testing.md（v2.0）。
+
 - [x] 2026-08-04：全量配置审计与文档重构。逐文件审查 140 个跟踪文件，发现并修复 112 项问题
   （22 项高严重度：eval 注入、printf 格式串、未初始化变量等；42 项中严重度：XDG 变量顺序、
   未加引号变量、临时文件泄漏等；52 项低严重度：GNU 扩展、拼写错误、风格问题）。审计记录归档于

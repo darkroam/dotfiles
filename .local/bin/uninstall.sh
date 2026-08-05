@@ -1,20 +1,24 @@
 #!/usr/bin/env bash
 
 # uninstall.sh - Remove dotfiles repository and restore backed up configs
-# Usage: uninstall.sh [--dry-run]
+# Usage: uninstall.sh [--dry-run] [--latest] [--clean-backups]
 
 set -euo pipefail
 
 # Parse arguments
 DRY_RUN=false
+LATEST=false
+CLEAN_BACKUPS=false
 for arg in "$@"; do
 	case $arg in
 		--dry-run) DRY_RUN=true ;;
+		--latest) LATEST=true ;;
+		--clean-backups) CLEAN_BACKUPS=true ;;
 	esac
 done
 
 git_dir=$HOME/.cfg
-backup_pattern="$HOME/.config-backup-*"
+backup_root="$HOME/.config-backup"
 state_file="$HOME/.cfg-checkout-state"
 
 # Source shared validation library
@@ -41,7 +45,11 @@ fi
 printf '=== Dotfiles Uninstallation ===\n\n'
 printf 'This will:\n'
 printf '  1. Remove all files checked out from the repository\n'
-printf '  2. Restore backed up configs from the latest backup\n'
+if [ "$LATEST" = true ]; then
+	printf '  2. Restore backed up configs (latest version from backup chain)\n'
+else
+	printf '  2. Restore backed up configs (original version from backup chain)\n'
+fi
 printf '  3. Prompt for manual repository removal\n'
 
 # Check if repository exists
@@ -50,7 +58,7 @@ if [ ! -d "$git_dir" ] && [ ! -L "$git_dir" ]; then
 	exit 1
 fi
 
-# Get list of files to remove (from checkout state or git ls-tree)
+# Get list of managed files (from checkout state or git ls-tree)
 files_to_remove=()
 if [ -f "$state_file" ]; then
 	while IFS=: read -r path _hash; do
@@ -64,19 +72,63 @@ else
 	printf '\nNo checkout state or repository found. Nothing to remove.\n'
 fi
 
-# Check for backup directories
-mapfile -t backup_dirs < <(compgen -G "$backup_pattern" 2>/dev/null || true)
-if ((${#backup_dirs[@]} > 0)); then
-	printf '\nFound %d backup director(y/ies):\n' "${#backup_dirs[@]}"
-	for bd in "${backup_dirs[@]}"; do
-		printf '  - %s\n' "$bd"
-	done
-	# Select the latest backup (last in sorted order)
-	latest_backup="${backup_dirs[-1]}"
-	printf '\nWill restore from latest backup: %s\n' "$latest_backup"
-else
-	printf '\nNo backup directories found.\n'
-	latest_backup=""
+# Scan backup chain and build file history index
+# For each file, track which backup sessions contain it (in chronological order)
+declare -A file_backup_sessions  # file -> newline-separated list of session dirs containing it
+
+backup_session_count=0
+if [ -d "$backup_root" ]; then
+	while IFS= read -r session_dir; do
+		[ -n "$session_dir" ] || continue
+		((backup_session_count++)) || true
+		manifest="$session_dir/MANIFEST.txt"
+		if [ -f "$manifest" ]; then
+			while IFS=$'\t' read -r rel_path md5 status; do
+				# Skip comments and empty lines
+				[[ "$rel_path" =~ ^#.*$ ]] && continue
+				[[ -z "$rel_path" ]] && continue
+
+				if [ -n "${file_backup_sessions[$rel_path]+x}" ]; then
+					file_backup_sessions[$rel_path]+=$'\n'"$session_dir"
+				else
+					file_backup_sessions[$rel_path]="$session_dir"
+				fi
+			done < "$manifest"
+		fi
+	done < <(find "$backup_root" -mindepth 1 -maxdepth 1 -type d -printf '%T@\t%p\n' 2>/dev/null | sort -n | cut -f2-)
+fi
+
+printf '\nFound %d backup session(s) in %s.\n' "$backup_session_count" "$backup_root"
+
+# Determine which files can be restored and from which session
+declare -A file_restore_session  # file -> session dir to restore from
+restorable_count=0
+not_in_backup=()
+
+for path in "${files_to_remove[@]}"; do
+	if [ -n "${file_backup_sessions[$path]+x}" ]; then
+		if [ "$LATEST" = true ]; then
+			# Sessions are in chronological order; last = latest
+			file_restore_session[$path]=$(printf '%s' "${file_backup_sessions[$path]}" | tail -1)
+		else
+			# Sessions are in chronological order; first = earliest
+			file_restore_session[$path]=$(printf '%s' "${file_backup_sessions[$path]}" | head -1)
+		fi
+		((restorable_count++)) || true
+	else
+		not_in_backup+=("$path")
+	fi
+done
+
+if ((restorable_count > 0)); then
+	printf 'Files restorable from backup: %d\n' "$restorable_count"
+fi
+if ((${#not_in_backup[@]} > 0)); then
+	printf 'Files not in any backup (will be deleted): %d\n' "${#not_in_backup[@]}"
+fi
+
+if [ "$CLEAN_BACKUPS" = true ]; then
+	printf '\nWARNING: --clean-backups will delete ALL %d backup session(s).\n' "$backup_session_count"
 fi
 
 if [ "$DRY_RUN" = true ]; then
@@ -87,10 +139,21 @@ if [ "$DRY_RUN" = true ]; then
 			printf '  - %s\n' "$path"
 		fi
 	done
-	if [ -n "$latest_backup" ] && [ -f "$latest_backup/MANIFEST.txt" ]; then
-		printf '\nWould restore from MANIFEST:\n'
-		grep -v '^#' "$latest_backup/MANIFEST.txt" | grep -v '^$' | head -10
-		printf '  ... (see full MANIFEST for complete list)\n'
+	if ((restorable_count > 0)); then
+		printf '\nWould restore %d files from backup:\n' "$restorable_count"
+		for path in "${!file_restore_session[@]}"; do
+			session_name=$(basename "${file_restore_session[$path]}")
+			printf '  ~ %s (from %s)\n' "$path" "$session_name"
+		done
+	fi
+	if ((${#not_in_backup[@]} > 0)); then
+		printf '\nWould delete (no backup available):\n'
+		for path in "${not_in_backup[@]}"; do
+			printf '  ! %s\n' "$path"
+		done
+	fi
+	if [ "$CLEAN_BACKUPS" = true ]; then
+		printf '\nWould delete backup directory: %s\n' "$backup_root"
 	fi
 	printf '\nNote: Repository at %s will NOT be automatically removed.\n' "$git_dir"
 	exit 0
@@ -104,7 +167,7 @@ if [[ "$confirm" != [yY] && "$confirm" != [yY][eE][sS] ]]; then
 	exit 0
 fi
 
-# Step 1: Remove all tracked files
+# Step 1: Remove all managed files
 printf '\n=== Step 1: Removing repository files ===\n'
 removed=0
 for path in "${files_to_remove[@]}"; do
@@ -116,65 +179,50 @@ for path in "${files_to_remove[@]}"; do
 done
 printf 'Removed %d files.\n' "$removed"
 
-# Remove checkout state file (installer metadata)
+# Remove checkout state file
 if [ -f "$state_file" ]; then
 	rm -f -- "$state_file"
 	printf 'Removed checkout state file.\n'
 fi
 
-# Step 2: Restore from latest backup
-if [ -n "$latest_backup" ] && [ -d "$latest_backup" ]; then
-	printf '\n=== Step 2: Restoring from backup ===\n'
-	manifest="$latest_backup/MANIFEST.txt"
+# Step 2: Restore from backup chain
+restored=0
+failed=0
+if ((restorable_count > 0)); then
+	printf '\n=== Step 2: Restoring from backup chain ===\n'
+	restored=0
+	failed=0
 
-	if [ -f "$manifest" ]; then
-		printf 'Using manifest for restoration...\n'
-		restored=0
-		failed=0
+	for path in "${!file_restore_session[@]}"; do
+		session_dir="${file_restore_session[$path]}"
+		backup_file="$session_dir/$path"
+		target="$HOME/$path"
 
-		while IFS= read -r line; do
-			# Skip comments and empty lines
-			[[ "$line" =~ ^#.*$ ]] && continue
-			[[ -z "$line" ]] && continue
-
-			# Parse "source -> backup (status)" format
-			if [[ "$line" =~ ^(.+)\ -\>\ (.+)\ \((modified|untracked)\)$ ]]; then
-				original="${BASH_REMATCH[1]}"
-				backup_file="${BASH_REMATCH[2]}"
-
-				if [ -e "$backup_file" ]; then
-					mkdir -p "$(dirname "$original")"
-					if mv -- "$backup_file" "$original"; then
-						printf 'Restored: %s\n' "$(basename "$original")"
-						((restored++)) || true
-					else
-						printf 'Failed: %s\n' "$(basename "$original")" >&2
-						((failed++)) || true
-					fi
-				fi
-			fi
-		done < "$manifest"
-
-		printf '\nRestoration summary:\n'
-		printf '  Restored: %d\n' "$restored"
-		printf '  Failed: %d\n' "$failed"
-	else
-		# Fallback: restore all files without manifest
-		printf 'No manifest found. Restoring all files...\n'
-		restored=0
-		while IFS= read -r -d '' backup_file; do
-			relative_path="${backup_file#$latest_backup/}"
-			[[ "$relative_path" == "MANIFEST.txt" ]] && continue
-
-			target="$HOME/$relative_path"
+		if [ -e "$backup_file" ]; then
 			mkdir -p "$(dirname "$target")"
-			if mv -- "$backup_file" "$target"; then
-				printf 'Restored: %s\n' "$relative_path"
+			if cp -- "$backup_file" "$target"; then
+				printf 'Restored: %s (from %s)\n' "$path" "$(basename "$session_dir")"
 				((restored++)) || true
+			else
+				printf 'Failed: %s\n' "$path" >&2
+				((failed++)) || true
 			fi
-		done < <(find "$latest_backup" -type f -print0)
-		printf 'Restored %d files.\n' "$restored"
-	fi
+		else
+			printf 'Warning: backup file missing: %s\n' "$path" >&2
+			((failed++)) || true
+		fi
+	done
+
+	printf '\nRestoration summary:\n'
+	printf '  Restored: %d\n' "$restored"
+	printf '  Failed: %d\n' "$failed"
+fi
+
+# Step 3: Clean backups if requested
+if [ "$CLEAN_BACKUPS" = true ] && [ -d "$backup_root" ]; then
+	printf '\n=== Step 3: Cleaning backup directory ===\n'
+	rm -rf -- "$backup_root"
+	printf 'Deleted %s\n' "$backup_root"
 fi
 
 # Prompt for manual repository removal
@@ -186,11 +234,10 @@ printf '\nIMPORTANT: Verify that all your configurations are working correctly b
 
 printf '\n=== Uninstall Complete ===\n'
 printf 'Files removed: %d\n' "$removed"
-if ((${#backup_dirs[@]} > 0)); then
-	printf '\nBackup directories preserved:\n'
-	for bd in "${backup_dirs[@]}"; do
-		printf '  - %s\n' "$bd"
-	done
+printf 'Files restored from backup: %d\n' "$restored"
+if [ "$CLEAN_BACKUPS" = false ] && [ -d "$backup_root" ]; then
+	printf '\nBackup directory preserved at: %s\n' "$backup_root"
+	printf 'To remove all backups: rm -rf %s\n' "$backup_root"
 fi
 printf '\nRemember to manually remove the repository when ready:\n'
 printf '  rm -rf %s\n' "$git_dir"

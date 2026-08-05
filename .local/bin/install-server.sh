@@ -164,7 +164,7 @@ case "$CFG_STATE" in
 	not_git)
 		if [ "$FORCE" = true ]; then
 			printf '\n--force: backing up and removing invalid %s\n' "$final_git_dir"
-			invalid_backup="$HOME/.config-backup-invalid-${timestamp}"
+			invalid_backup="$HOME/.config-backup/invalid-${timestamp}"
 			mkdir -p -- "$invalid_backup"
 			chmod 700 "$invalid_backup"
 			if [ -d "$final_git_dir" ] && [ ! -L "$final_git_dir" ]; then
@@ -182,7 +182,7 @@ case "$CFG_STATE" in
 	foreign_repo)
 		if [ "$FORCE" = true ]; then
 			printf '\n--force: backing up and removing foreign repo at %s\n' "$final_git_dir"
-			foreign_backup="$HOME/.config-backup-foreign-${timestamp}"
+			foreign_backup="$HOME/.config-backup/foreign-${timestamp}"
 			mkdir -p -- "$foreign_backup"
 			chmod 700 "$foreign_backup"
 			if [ -d "$final_git_dir" ] && [ ! -L "$final_git_dir" ]; then
@@ -350,7 +350,7 @@ done
 # Determine backup directory name based on state transition
 if ((${#to_backup[@]} > 0)); then
 	target_state="server"
-	backup_dir="$HOME/.config-backup-${current_state}-to-${target_state}-${timestamp}"
+	backup_dir="$HOME/.config-backup/${current_state}-to-${target_state}-${timestamp}"
 fi
 
 # Print pre-installation report
@@ -403,9 +403,9 @@ if ((${#to_backup[@]})); then
 
 	# Create manifest
 	manifest="$backup_dir/MANIFEST.txt"
-	printf '# Backup manifest created at %s\n' "$(date)" > "$manifest"
-	printf '# State transition: %s -> server\n' "$current_state" >> "$manifest"
-	printf '# Format: original_path -> backup_path (status)\n\n' >> "$manifest"
+	printf '# Created: %s\n' "$(date)" > "$manifest"
+	printf '# Transition: %s -> server\n' "$current_state" >> "$manifest"
+	printf '#\n# relative_path\tmd5\tstatus\n' >> "$manifest"
 
 	printf '\nBacking up %d files...\n' "${#to_backup[@]}"
 	for path in "${to_backup[@]}"; do
@@ -419,8 +419,11 @@ if ((${#to_backup[@]})); then
 			status="modified"
 		fi
 
+		# Compute MD5 before moving
+		md5=$(md5sum < "$source_path" 2>/dev/null | cut -d' ' -f1)
+
 		mv -- "$source_path" "$backup_path"
-		printf '%s -> %s (%s)\n' "$source_path" "$backup_path" "$status" >> "$manifest"
+		printf '%s\t%s\t%s\n' "$path" "$md5" "$status" >> "$manifest"
 		printf 'Backed up: %s\n' "$path"
 	done
 
@@ -487,10 +490,10 @@ config config status.showUntrackedFiles no
 # Record checkout state for future modification detection
 state_file="$HOME/.cfg-checkout-state"
 > "$state_file"
-while IFS= read -r path; do
+for path in "${to_install[@]}" "${to_backup[@]}" "${to_skip[@]}"; do
 	hash=$(config show HEAD:"$path" | md5sum | cut -d' ' -f1)
 	echo "$path:$hash" >> "$state_file"
-done < <(config ls-tree -r --name-only HEAD)
+done
 
 printf '\n=== Server Installation Complete ===\n'
 printf 'Installed: %d files\n' "$installed"

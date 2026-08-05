@@ -4,44 +4,81 @@
 
 ## 概述
 
-本配置库实现了一套幂等性安装、卸载和状态切换系统，支持在三种配置状态（未安装、桌面模式、服务器模式）之间安全转换。所有操作保证幂等性——重复执行不改变结果或产生副作用。
+本配置库实现了一套幂等性安装、卸载和状态切换系统，支持在三种配置状态之间安全转换。系统以 bare git repo 为版本控制核心，通过 MANIFEST 和备份链实现完整可追溯性，保证任意时刻均可恢复到历史状态。
 
 ### 设计原则
 
-1. **幂等性**：同一操作可重复执行，结果一致
+1. **幂等性**：同一操作可重复执行，结果一致，不产生多余副作用
 2. **状态感知**：自动检测当前状态，选择正确操作路径
 3. **智能备份**：只备份真正需要保护的文件，通过 MD5 内容对比跳过未修改文件
-4. **安全卸载**：不自动删除仓库，防止误操作
-5. **可追溯性**：MANIFEST.txt 和 `.cfg-checkout-state` 记录所有变更
+4. **可恢复性**：`.config-backup/` + `.cfg/`  Together 足以恢复到任意历史状态
+5. **安全卸载**：不自动删除仓库，防止误操作
+6. **可追溯性**：MANIFEST.txt 和 `.cfg-checkout-state` 记录所有变更
 
 ---
 
-## 三种配置状态
+## 版本控制思路
 
-### State 0: FRESH（未安装）
+### 核心架构
 
-- `.cfg` 目录不存在
-- 可能有系统默认配置文件（`.bashrc`, `.zshrc`, `.profile` 等）
-- 无符号链接指向仓库文件
+系统使用 **bare git repo** 作为配置源真相（source of truth）：
 
-### State 1: DESKTOP（桌面模式）
+```
+~/.cfg/              ← bare git repo（git --git-dir=~/.cfg/ --work-tree=~）
+~/.config-backup/    ← 备份链（状态转换时自动创建）
+~/.cfg-checkout-state ← 文件指纹记录（path:md5 格式）
+```
 
-- `.cfg` 存在且 checkout 了所有跟踪文件
-- 包含完整桌面环境配置：X11（`.xinitrc`, `.xprofile`）、音频（`.asoundrc`）、图形工具、状态栏等
-- `status.showUntrackedFiles = no`
-- `.cfg-checkout-state` 记录文件指纹
+**为什么选择 bare repo + work-tree 模式**：
+- `git checkout` 直接将文件写入 `$HOME`，无需符号链接管理
+- `status.showUntrackedFiles = no` 隐藏未跟踪文件，保持 `git status` 清洁
+- 所有配置文件（包括桌面和服务器模式）均在同一个 repo 中跟踪
+- "模式"区别不在于 repo 内容，而在于 **哪些文件被 checkout 到 work-tree**
 
-### State 2: SERVER（服务器模式）
+### 仓库身份验证
 
-- `.cfg` 存在但只 checkout 了服务器相关文件（白名单控制）
-- 排除图形化组件，只保留 Shell、Tmux、Git、LF 等终端工具
-- 桌面特有文件不作为符号链接存在
-- `status.showUntrackedFiles = no`
-- `.cfg-checkout-state` 记录文件指纹
+共享验证库 `cfg-validate.sh` 通过双重验证确认仓库身份：
+
+- **方法 A**：规范化 remote URL（SSH→HTTPS 统一比较）匹配 `git@github.com:darkroam/dotfiles.git`
+- **方法 B**：检查 HEAD 中是否存在签名文件 `.local/bin/install.sh`
+- 任一方法通过即确认为本项目的 dotfiles 仓库
+
+仓库状态分类：`missing`（不存在）、`not_git`（非 git 目录）、`foreign_repo`（其他 git 仓库）、`valid`（本项目的仓库）。
+
+### 共享验证库
+
+`.local/share/dotfiles-lib/cfg-validate.sh` 提供所有脚本共享的核心函数：
+
+| 函数 | 用途 |
+|------|------|
+| `cfg_validate()` | 验证 `.cfg` 仓库身份，设置 `CFG_STATE`/`CFG_IS_OURS`/`CFG_NEEDS_PULL`/`CFG_REMOTE_URL` |
+| `cfg_detect_state()` | 检测当前安装状态（fresh/desktop/server） |
+| `cfg_should_backup_file()` | MD5 内容对比，判断文件是否需要备份 |
+| `cfg_check_updates()` | 检查远程是否有新提交 |
+| `cfg_print_validation_result()` | 人类可读的验证结果输出 |
+
+安装脚本通过 `DOTFILES_LIB_DIR` 加载此库。如果库不可用，脚本回退到内联副本（打印弃用警告）。
 
 ---
 
-## 状态转换矩阵
+## 状态机
+
+### 三种基本状态
+
+| 状态 | 检测条件 | 含义 |
+|------|----------|------|
+| **fresh** | `.cfg` 不存在 | 未安装，可能有系统默认配置文件 |
+| **desktop** | `.cfg` 存在 + 桌面指标文件存在 | 完整桌面环境配置已激活 |
+| **server** | `.cfg` 存在 + 无桌面指标文件 | 仅服务器/终端配置已激活 |
+
+**桌面指标文件**（任一存在即为 desktop）：
+- `.xinitrc`（文件或符号链接）
+- `.xprofile`（文件或符号链接）
+- `.config/x11`（目录或符号链接）
+
+这些文件仅在桌面模式安装时被 checkout，因此是区分 desktop/server 的可靠信号。
+
+### 状态转换矩阵
 
 ```
 ┌─────────────┐
@@ -55,7 +92,7 @@
 │  DESKTOP    │
 └──────┬──────┘
        │
-       ├─ install-2.sh ──────────────→ DESKTOP  (幂等，交互提示)
+       ├─ install-2.sh --reinstall ──→ DESKTOP  (幂等重装)
        ├─ restore-server.sh ─────────→ SERVER
        └─ uninstall.sh ──────────────→ FRESH*
 
@@ -63,14 +100,28 @@
 │   SERVER    │
 └──────┬──────┘
        │
-       ├─ install-server.sh ─────────→ SERVER  (幂等，交互提示)
+       ├─ install-server.sh --reinstall → SERVER  (幂等重装)
        ├─ restore-desktop.sh ────────→ DESKTOP
        └─ uninstall.sh ──────────────→ FRESH*
-
-FRESH → FRESH  (基准测试，无操作)
 ```
 
-*uninstall.sh 移除符号链接但保留 `.cfg` 仓库，需用户手动删除。
+\* uninstall.sh 移除 checkout 的文件但保留 `.cfg` 仓库，需用户手动删除。
+
+### 统一命令行入口
+
+`dotcfg` 命令提供 git 风格的统一入口，自动调度到正确的底层脚本：
+
+```bash
+dotcfg                        # 显示当前状态（等同于 dotcfg status）
+dotcfg status                 # 当前状态 + 可用转换
+dotcfg graph                  # ASCII 状态图，标记当前位置
+dotcfg history                # 从备份 MANIFEST 重建转换时间线
+dotcfg switch <target>        # 切换到目标状态（fresh|desktop|server）
+dotcfg validate               # 详细仓库验证
+dotcfg help                   # 使用帮助
+```
+
+`dotcfg switch` 根据（当前状态, 目标状态）对自动选择脚本，通过 `exec` 调度并透传所有参数（`--dry-run`、`--force` 等）。
 
 ---
 
@@ -79,13 +130,14 @@ FRESH → FRESH  (基准测试，无操作)
 ### 脚本总览
 
 | 脚本 | 用途 | 转换 |
-| --- | --- | --- |
-| `install-2.sh` | 桌面模式安装（推荐） | FRESH/SERVER → DESKTOP |
-| `install-server.sh` | 服务器模式安装 | FRESH/DESKTOP → SERVER |
+|------|------|------|
+| `install-2.sh` | 桌面模式安装（推荐） | FRESH → DESKTOP |
+| `install-server.sh` | 服务器模式安装 | FRESH → SERVER |
 | `restore-desktop.sh` | 切换到桌面模式 | SERVER → DESKTOP |
 | `restore-server.sh` | 切换到服务器模式 | DESKTOP → SERVER |
-| `uninstall.sh` | 卸载（保留仓库） | DESKTOP/SERVER → FRESH |
-| `install.sh` | 桌面安装（经典版，保留兼容） | FRESH → DESKTOP |
+| `uninstall.sh` | 卸载并恢复备份 | DESKTOP/SERVER → FRESH |
+| `install.sh` | 桌面安装（Gen 1 兼容版） | FRESH → DESKTOP |
+| `dotcfg` | 统一命令行入口 | 调度到上述脚本 |
 
 ### 通用参数
 
@@ -105,24 +157,20 @@ FRESH → FRESH  (基准测试，无操作)
 ```
 
 **执行流程**：
-1. 检测当前状态（fresh/desktop/server）
-2. 自主决策（如已安装，交互式提示）
-3. 分析文件冲突（未跟踪 → 备份 / 已跟踪已修改 → 备份 / 已跟踪相同 → 跳过）
-4. 创建备份 `.config-backup-{from}-to-desktop-{timestamp}/`
-5. Checkout 所有桌面配置
-6. 记录 `.cfg-checkout-state`
-
-```bash
-bash ~/.local/bin/install-2.sh            # 首次安装或交互提示
-bash ~/.local/bin/install-2.sh --reinstall # 跳过提示直接重装
-bash ~/.local/bin/install-2.sh --dry-run   # 预览
-```
+1. 验证仓库身份（`cfg_validate`）
+2. 检测当前状态（`cfg_detect_state`）
+3. 处理无效仓库（`--force` 时备份到 `.config-backup/invalid-{ts}/` 或 `foreign-{ts}/`）
+4. 克隆或复用仓库
+5. 分析所有跟踪文件（未跟踪 → 备份 / 已跟踪已修改 → 备份 / 已跟踪相同 → 跳过）
+6. 创建备份 `.config-backup/{from}-to-desktop-{ts}/`
+7. Checkout 所有桌面配置
+8. 若 checkout 失败率 >50% 则自动回滚
+9. 记录 `.cfg-checkout-state`，设置 `showUntrackedFiles = no`
 
 ### 2. install-server.sh — 服务器模式安装
 
-与 install-2.sh 相同的决策模式，但只 checkout 服务器文件白名单。
+与 install-2.sh 相同的决策模式，但只 checkout **服务器文件白名单**：
 
-**服务器文件白名单**（install-server.sh 实际代码）：
 ```
 Shell:    .config/shell/profile, .config/shell/aliasrc, .config/shell/zshrc,
           .config/shell/tmux.conf.local, .bashrc, .zshrc, .profile
@@ -133,98 +181,120 @@ LF:       .config/lf/lfrc, .config/lf/scope, .config/lf/cleaner,
 文档:     .local/share/docs/README.md, .local/share/docs/user/desktop-guide-zh.md
 ```
 
-> **注意**：restore-server.sh 的白名单只包含 11 个文件，与 install-server.sh 的 22 个文件不一致。详见 [installation-fixes.md](../planning/installation-fixes.md)。
-
-```bash
-bash ~/.local/bin/install-server.sh            # 首次安装
-bash ~/.local/bin/install-server.sh --reinstall # 跳过提示
-bash ~/.local/bin/install-server.sh --dry-run   # 预览
-```
+> **注意**：restore-server.sh 的桌面文件移除列表与 install-server.sh 的白名单不完全一致（B4）。restore-server.sh 只移除已知的桌面指标文件，不保证移除所有非服务器文件。
 
 ### 3. restore-desktop.sh — 切换到桌面模式
 
-从 SERVER → DESKTOP：
-1. 检测当前状态（已是 desktop 则提示并退出）
-2. 分析冲突文件并备份
-3. 创建备份 `.config-backup-server-to-desktop-{timestamp}/`
-4. Checkout 所有桌面配置
+从 SERVER → DESKTOP，不克隆仓库，仅操作 work-tree：
+1. 验证 `.cfg` 存在且有效（无 `--force` 选项）
+2. 分析冲突文件并备份（或 `--auto-stash` 直接覆盖）
+3. Checkout 所有桌面配置
+4. 回滚保护（失败率 >50% 时从备份恢复）
 5. 更新 `.cfg-checkout-state`
-
-```bash
-bash ~/.local/bin/restore-desktop.sh          # 切换
-bash ~/.local/bin/restore-desktop.sh --dry-run # 预览
-```
-
-> **注意**：`--auto-stash` 参数可被解析但未实现，实际行为与不加参数相同。详见 [installation-fixes.md](../planning/installation-fixes.md)。
 
 ### 4. restore-server.sh — 切换到服务器模式
 
-从 DESKTOP → SERVER：
-1. 检测当前状态（已是 server 则提示并退出）
-2. 分析冲突文件并备份
-3. 创建备份 `.config-backup-desktop-to-server-{timestamp}/`
-4. 删除桌面符号链接（.xinitrc, .xprofile, .asoundrc 等）
-5. 验证服务器配置
-6. 更新 `.cfg-checkout-state`
-
-```bash
-bash ~/.local/bin/restore-server.sh          # 切换
-bash ~/.local/bin/restore-server.sh --dry-run # 预览
-```
+从 DESKTOP → SERVER，**移除式**策略：
+1. 验证 `.cfg` 存在且有效
+2. 识别桌面特有产物（符号链接、目录、已修改文件）
+3. 备份已修改文件，直接删除符号链接和目录
+4. 验证服务器配置（checkout 服务器白名单文件）
+5. 回滚保护
 
 ### 5. uninstall.sh — 完全卸载
 
-1. 检测仓库存在（不存在则退出）
-2. 移除所有符号链接
-3. 可选恢复备份（检测所有备份目录，用户选择）
-4. 提示手动删除 `.cfg` 仓库
-
-```bash
-bash ~/.local/bin/uninstall.sh          # 卸载
-bash ~/.local/bin/uninstall.sh --dry-run # 预览
-rm -rf ~/.cfg                           # 手动删除仓库
-```
+**备份链扫描与双模式恢复**：
+1. 确定要移除的文件（优先从 `.cfg-checkout-state` 读取，回退到 `git ls-tree`）
+2. 扫描 `.config-backup/` 下所有会话目录（按文件系统 mtime 排序）
+3. 解析每个 MANIFEST.txt，构建文件→备份会话的关联映射
+4. 选择恢复源：默认恢复**最早**版本（原始文件），`--latest` 恢复**最新**版本
+5. 移除所有 checkout 的文件
+6. 从备份中 `cp`（非 `mv`）恢复用户文件——保持备份完整，支持幂等
+7. `--clean-backups` 删除所有备份会话
+8. 提示手动删除 `.cfg` 仓库
 
 ---
 
-## 智能备份系统
+## 文件处理逻辑
 
-### 备份命名约定
+### 文件分类决策树
 
-```
-.config-backup-{from}-to-{to}-{timestamp}
-```
-
-示例：
-- `.config-backup-fresh-to-desktop-20260803T143000/`
-- `.config-backup-server-to-desktop-20260803T150000/`
-- `.config-backup-desktop-to-server-20260803T160000/`
-
-### 智能文件过滤
+每个安装/切换脚本对仓库中的每个跟踪文件执行以下判断：
 
 ```
-文件存在？
-  ├─ 否 → 跳过
+文件在 $HOME 中存在？
+  ├─ 否 → 直接 checkout（无需备份）
   └─ 是
-      ├─ 已跟踪？
-      │   ├─ 否 → 备份（未跟踪文件）
+      ├─ 文件在仓库中被跟踪？
+      │   ├─ 否 → 备份为「未跟踪文件」(untracked)
       │   └─ 是
-      │       ├─ MD5 相同 → 跳过（未修改）
-      │       └─ MD5 不同 → 备份（已修改）
+      │       ├─ MD5 与仓库 HEAD 相同 → 跳过（未修改）
+      │       └─ MD5 与仓库 HEAD 不同 → 备份为「已修改文件」(modified)
 ```
 
-典型场景下减少 80-90% 的备份文件数量。
+### 三种文件状态
+
+| 状态 | 含义 | 备份？ | 示例 |
+|------|------|--------|------|
+| `untracked` | 用户自己的文件，不在仓库中 | 是 | 用户自建的 `.bashrc` |
+| `modified` | 仓库跟踪的文件，但内容已修改 | 是 | 用户修改过的 `.gitconfig` |
+| （相同） | 仓库跟踪的文件，内容一致 | 否 | 上次 checkout 的 `.tmux.conf` |
+
+### 不同脚本的处理差异
+
+| 脚本 | 处理的文件范围 | 特殊逻辑 |
+|------|----------------|----------|
+| `install-2.sh` | 仓库中所有跟踪文件 | 全量 checkout |
+| `install-server.sh` | 服务器白名单内的文件 | 只 checkout 白名单 |
+| `restore-desktop.sh` | 所有跟踪文件 | 不克隆 repo，只 checkout |
+| `restore-server.sh` | 桌面指标文件 + 服务器白名单 | 移除桌面产物 + 验证服务器文件 |
+| `uninstall.sh` | `.cfg-checkout-state` 或 `git ls-tree` 列出的文件 | 移除 + 从备份恢复 |
+
+### 桌面特有产物（restore-server.sh 移除列表）
+
+**符号链接**：`.xinitrc`、`.xprofile`、`.asoundrc`、`.gtkrc-2.0`、`.tmux.conf`、`.gitconfig`、`.gitignore`
+
+**目录**：`.config/x11`、`.config/alsa`、`.config/mpd`、`.config/nsxiv`、`.config/zathura`
+
+---
+
+## 备份系统
+
+### 目录结构
+
+```
+~/.config-backup/
+  ├── {from}-to-{to}-{YYYYMMDDTHHMMSS}/    ← 会话目录
+  │   ├── MANIFEST.txt                      ← 转换记录
+  │   ├── .bashrc                           ← 备份的文件（保持相对路径）
+  │   └── .config/
+  │       └── shell/
+  │           └── zshrc
+  ├── invalid-{YYYYMMDDTHHMMSS}/            ← --force 备份的无效仓库
+  ├── foreign-{YYYYMMDDTHHMMSS}/            ← --force 备份的外部仓库
+  └── valid-to-fresh-{YYYYMMDDTHHMMSS}/     ← --force 备份的有效仓库
+```
+
+**命名约定**：`{当前状态}-to-{目标状态}-{时间戳}`
+
+**权限**：所有会话目录 `chmod 700`，仅当前用户可访问。
 
 ### MANIFEST.txt 格式
 
 ```
-# Backup manifest created at Mon Aug  3 14:30:00 CST 2026
-# State transition: server -> desktop
-# Format: original_path -> backup_path (status)
-
-/home/ok/.bashrc -> /home/ok/.config-backup-server-to-desktop-20260803T143000/.bashrc (modified)
-/home/ok/.zshrc -> /home/ok/.config-backup-server-to-desktop-20260803T143000/.zshrc (untracked)
+# Created: Mon Aug  4 10:00:00 UTC 2026
+# Transition: fresh -> desktop
+#
+# relative_path	md5	status
+.bashrc	d41d8cd98f00b204e9800998ecf8427e	modified
+.config/shell/zshrc	098f6bcd4621d373cade4e832627b4f6	untracked
+.ssh/config	a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6	modified
 ```
+
+**字段说明**：
+- `relative_path`：相对于 `$HOME` 的路径
+- `md5`：文件备份前的 MD5 哈希（通过 `md5sum` 计算）
+- `status`：`modified`（仓库跟踪但内容不同）或 `untracked`（仓库未跟踪）
 
 ### Checkout 状态记录
 
@@ -236,7 +306,73 @@ rm -rf ~/.cfg                           # 手动删除仓库
 .profile:5d41402abc4b2a76b9719d911017c592
 ```
 
-用于快速判断文件是否被用户修改，避免重复计算 hash。
+用于 uninstall.sh 快速确定需要移除的文件列表，以及判断文件是否被用户修改。
+
+---
+
+## 部署与恢复原则
+
+### 部署原则
+
+1. **先检测后操作**：所有脚本先检测当前状态，再决定操作路径
+2. **先备份后修改**：冲突文件在修改前必须备份到 `.config-backup/`
+3. **先预览后执行**：`--dry-run` 可在任何操作前使用
+4. **失败可回滚**：checkout 失败率 >50% 时自动从备份恢复
+
+### 恢复原则
+
+1. **备份链完整性**：`.config-backup/` + `.cfg/`  Together 足以恢复到任意历史状态
+2. **默认恢复最早版本**：uninstall 默认从最早的备份会话恢复（还原用户原始文件）
+3. **可选恢复最新版本**：`--latest` 从最近的备份会话恢复
+4. **按文件粒度选择**：每个文件独立选择恢复源，不同文件可来自不同会话
+5. **复制而非移动**：恢复使用 `cp` 而非 `mv`，保持备份完整，支持多次执行
+
+### 时间排序策略
+
+备份会话按文件系统 mtime 排序（`find -printf '%T@\t%p\n' | sort -n`），而非目录名称排序。这解决了同一秒内创建的多个会话目录名称排序与创建顺序不一致的问题。
+
+---
+
+## 幂等性
+
+### 安装幂等性
+
+- 重复执行 `install-2.sh` 或 `install-server.sh` 不会产生多余备份
+- 已跟踪且内容相同的文件被跳过（不备份、不重新 checkout）
+- `.cfg-checkout-state` 记录上次 checkout 的文件指纹，用于快速对比
+
+### 卸载幂等性
+
+- 重复执行 `uninstall.sh` 产生相同结果
+- 恢复使用 `cp`（非 `mv`），备份文件不被消耗
+- 已移除的文件再次执行时直接跳过
+
+### 切换幂等性
+
+- `restore-desktop.sh` 和 `restore-server.sh` 重复执行结果一致
+- 无冲突文件时不创建备份目录
+- `--auto-stash` 模式直接覆盖，不创建备份
+
+---
+
+## 可恢复性
+
+### 恢复场景
+
+| 场景 | 恢复方法 |
+|------|----------|
+| 安装过程中断 | 备份已创建，手动恢复或重新运行脚本 |
+| checkout 大面积失败 | 自动回滚（失败率 >50%），从备份恢复 |
+| 切换后不满意 | 运行反向切换脚本（如 desktop→server→desktop） |
+| 完全卸载后恢复 | 从 `.config-backup/` 手动恢复文件 |
+| 多次切换后恢复原始文件 | `uninstall.sh`（默认恢复最早备份） |
+
+### 恢复保障机制
+
+1. **MANIFEST.txt**：精确记录每个备份文件的来源路径、内容和状态
+2. **备份链**：每次状态转换创建独立会话，不覆盖历史备份
+3. **MD5 校验**：MANIFEST 中记录备份前的 MD5，可用于验证备份完整性
+4. **备份保留**：恢复操作使用 `cp` 不消耗备份，支持反复恢复
 
 ---
 
@@ -246,7 +382,7 @@ rm -rf ~/.cfg                           # 手动删除仓库
 
 `uninstall.sh` 不自动删除 `.cfg` 仓库，防止误操作导致数据丢失。用户需手动执行 `rm -rf ~/.cfg`。
 
-### 符号链接检查
+### 路径安全检查
 
 安装前检查符号链接目标，拒绝跟随符号链接祖先，验证所有符号链接在 `$HOME` 内。
 
@@ -254,32 +390,9 @@ rm -rf ~/.cfg                           # 手动删除仓库
 
 备份目录权限设为 `0700`，只允许当前用户访问。
 
-### 状态检测
+### 仓库身份验证
 
-所有脚本自动检测当前状态，检测逻辑：
-```bash
-detect_state() {
-    if [ ! -d "$HOME/.cfg" ]; then
-        echo "fresh"; return
-    fi
-    if [ -e "$HOME/.xinitrc" ] || [ -L "$HOME/.xinitrc" ]; then
-        echo "desktop"; return
-    fi
-    echo "server"
-}
-```
-
----
-
-## 共享验证库
-
-`.local/share/dotfiles-lib/cfg-validate.sh` 提供共享函数：
-
-- `cfg_validate()` — 验证 `.cfg` 仓库状态，设置 `CFG_STATE`（missing/not_git/foreign_repo/valid）
-- `cfg_should_backup_file()` — MD5 内容对比，判断文件是否需要备份
-- `cfg_detect_state()` — 检测当前状态（fresh/desktop/server）
-
-安装脚本通过 `DOTFILES_LIB_DIR` 加载此库。如果库不可用，脚本回退到内联副本。
+所有脚本在执行前验证 `.cfg` 是否为本项目的 dotfiles 仓库（双重验证：remote URL + 签名文件），防止误操作其他 git 仓库。
 
 ---
 
@@ -287,27 +400,35 @@ detect_state() {
 
 ### 场景 1：全新桌面安装
 ```bash
-bash ~/.local/bin/install-2.sh --dry-run  # 预览
-bash ~/.local/bin/install-2.sh            # 安装
-exec zsh                                  # 重启 shell
+dotcfg switch desktop --dry-run  # 预览
+dotcfg switch desktop            # 安装
+exec zsh                         # 重启 shell
 ```
 
 ### 场景 2：服务器部署
 ```bash
-curl -fsSL https://github.com/darkroam/dotfiles/raw/master/.local/bin/install-server.sh | bash
-source ~/.profile
+dotcfg switch server --dry-run   # 预览
+dotcfg switch server             # 安装
 ```
 
 ### 场景 3：桌面 ↔ 服务器切换
 ```bash
-bash ~/.local/bin/restore-server.sh    # 桌面 → 服务器
-bash ~/.local/bin/restore-desktop.sh   # 服务器 → 桌面
+dotcfg switch server             # 桌面 → 服务器
+dotcfg switch desktop            # 服务器 → 桌面
 ```
 
-### 场景 4：完全卸载
+### 场景 4：查看状态和历史
 ```bash
-bash ~/.local/bin/uninstall.sh  # 移除符号链接
-rm -rf ~/.cfg                   # 手动删除仓库
+dotcfg                           # 当前状态
+dotcfg graph                     # 状态图
+dotcfg history                   # 转换历史
+dotcfg validate                  # 仓库验证详情
+```
+
+### 场景 5：完全卸载
+```bash
+dotcfg switch fresh              # 卸载并恢复备份
+rm -rf ~/.cfg                    # 手动删除仓库
 ```
 
 ---
@@ -316,10 +437,11 @@ rm -rf ~/.cfg                   # 手动删除仓库
 
 ### 安装失败后恢复
 ```bash
-ls ~/.config-backup-*/                    # 检查备份
-cp ~/.config-backup-*/.bashrc ~/          # 手动恢复
-rm -rf ~/.cfg                             # 删除仓库
-bash ~/.local/bin/install-2.sh            # 重新安装
+ls ~/.config-backup/                          # 检查备份会话
+dotcfg history                                # 查看转换历史
+cp ~/.config-backup/*/path/to/file ~/         # 手动恢复
+rm -rf ~/.cfg                                 # 删除仓库
+dotcfg switch desktop                         # 重新安装
 ```
 
 ### 符号链接指向错误
@@ -330,34 +452,20 @@ git --git-dir=$HOME/.cfg/ --work-tree=$HOME checkout HEAD -- .bashrc
 
 ### 状态检测不准确
 ```bash
-ls -la ~/.xinitrc ~/.xprofile ~/.asoundrc  # 检查桌面文件
-git --git-dir=$HOME/.cfg/ --work-tree=$HOME checkout HEAD -- .xinitrc .xprofile .asoundrc
+dotcfg validate                               # 检查仓库状态
+ls -la ~/.xinitrc ~/.xprofile ~/.config/x11   # 检查桌面指标文件
 ```
-
----
-
-## 已知问题
-
-以下问题已记录，待修复。详见 [installation-fixes.md](../planning/installation-fixes.md)。
-
-- B1: `uninstall.sh` 备份匹配模式与 Gen 2 命名不一致
-- B2: `uninstall.sh` MANIFEST 解析捕获 `(modified)` 后缀为文件路径
-- B3: `install-2.sh --force` 对有效仓库执行 `rm -rf` 无备份
-- B4: install-server.sh 与 restore-server.sh 白名单不一致
-- B5: `restore-desktop.sh --auto-stash` 可解析但未实现
-- B6: Gen 2 脚本 checkout 失败时无回滚机制
-- B7: `scripts/test/helpers.sh` 存在但未被任何脚本加载
 
 ---
 
 ## 相关文档
 
-- [安装测试系统](installation-testing.md) — 状态机测试框架
+- [安装测试系统](installation-testing.md) — 测试框架和 72 个测试用例
 - [安装系统修复记录](../planning/installation-fixes.md) — 已知问题和修复方案
 - [依赖清单](dependencies.md) — 项目依赖的软件包
 - [架构文档](architecture.md) — 配置库整体架构
 
 ---
 
-**最后更新**: 2026-08-04
-**版本**: 1.0 — 合并 idempotent-installation.md + server-mode.md + optimization-report
+**最后更新**: 2026-08-05
+**版本**: 2.0 — 备份系统重设计 + dotcfg 统一 CLI + 完整可恢复性保障

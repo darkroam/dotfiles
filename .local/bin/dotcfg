@@ -1,0 +1,306 @@
+#!/usr/bin/env bash
+# dotcfg - Unified CLI for dotfiles state management
+# Usage: dotcfg <subcommand> [options]
+#
+# Subcommands:
+#   status              Show current state and available transitions (default)
+#   graph               Show state graph with current position
+#   history             Show transition history from backup manifests
+#   switch <target>     Transition to target state (fresh|desktop|server)
+#   validate            Show detailed repository validation
+#   help                Show this help message
+#   version             Show version
+
+set -euo pipefail
+
+DOTCFG_VERSION="1.0.0"
+GIT_DIR="${DOTCFG_GIT_DIR:-$HOME/.cfg}"
+BACKUP_ROOT="$HOME/.config-backup"
+BIN_DIR="${DOTCFG_BIN_DIR:-$HOME/.local/bin}"
+
+DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/share/dotfiles-lib}"
+if [ -f "$DOTFILES_LIB_DIR/cfg-validate.sh" ]; then
+    . "$DOTFILES_LIB_DIR/cfg-validate.sh"
+else
+    printf 'ERROR: validation library not found at %s\n' "$DOTFILES_LIB_DIR/cfg-validate.sh" >&2
+    exit 1
+fi
+
+# ── Helpers ─────────────────────────────────────────────────────────────
+
+_print_transitions_from() {
+    local state="$1"
+    case "$state" in
+        fresh)
+            printf '  -> desktop    (install full desktop configuration)\n'
+            printf '  -> server     (install server configuration)\n'
+            ;;
+        desktop)
+            printf '  -> server     (remove graphical configs, keep server files)\n'
+            printf '  -> fresh      (uninstall all dotfiles)\n'
+            ;;
+        server)
+            printf '  -> desktop    (restore full desktop configuration)\n'
+            printf '  -> fresh      (uninstall all dotfiles)\n'
+            ;;
+    esac
+}
+
+_transition_script_for() {
+    local current="$1" target="$2"
+    case "${current}.${target}" in
+        fresh.desktop)    printf '%s' "$BIN_DIR/install-2.sh" ;;
+        fresh.server)     printf '%s' "$BIN_DIR/install-server.sh" ;;
+        desktop.server)   printf '%s' "$BIN_DIR/restore-server.sh" ;;
+        desktop.fresh)    printf '%s' "$BIN_DIR/uninstall.sh" ;;
+        server.desktop)   printf '%s' "$BIN_DIR/restore-desktop.sh" ;;
+        server.fresh)     printf '%s' "$BIN_DIR/uninstall.sh" ;;
+        *)                return 1 ;;
+    esac
+}
+
+_transition_description() {
+    local current="$1" target="$2"
+    case "${current}.${target}" in
+        fresh.desktop)    printf 'Install full desktop configuration' ;;
+        fresh.server)     printf 'Install server configuration (no graphical tools)' ;;
+        desktop.server)   printf 'Switch to server mode (remove desktop configs)' ;;
+        desktop.fresh)    printf 'Uninstall all dotfiles and restore backups' ;;
+        server.desktop)   printf 'Restore full desktop configuration' ;;
+        server.fresh)     printf 'Uninstall all dotfiles and restore backups' ;;
+    esac
+}
+
+# ── Subcommands ─────────────────────────────────────────────────────────
+
+cmd_status() {
+    cfg_validate "$GIT_DIR"
+    cfg_print_validation_result "$GIT_DIR"
+
+    local current_state
+    current_state=$(cfg_detect_state "$GIT_DIR")
+
+    printf '\nCurrent state: %s\n' "$current_state"
+    printf '\nAvailable transitions:\n'
+    _print_transitions_from "$current_state"
+
+    printf '\nRun '\''dotcfg switch <target>'\'' to transition.\n'
+    printf 'Run '\''dotcfg graph'\'' to see the full state graph.\n'
+    printf 'Run '\''dotcfg history'\'' to see past transitions.\n'
+}
+
+cmd_graph() {
+    local current_state
+    current_state=$(cfg_detect_state "$GIT_DIR")
+
+    printf 'State Graph:\n\n'
+    printf '            fresh\n'
+    printf '           /    \\\n'
+    printf '       server <-> desktop\n'
+    printf '\n'
+
+    case "$current_state" in
+        fresh)   printf 'Current:      *\n' ;;
+        server)  printf 'Current:       *\n' ;;
+        desktop) printf 'Current:                 *\n' ;;
+    esac
+
+    printf '\nTransitions from %s:\n' "$current_state"
+    local target script
+    for target in fresh desktop server; do
+        [ "$target" = "$current_state" ] && continue
+        script=$(_transition_script_for "$current_state" "$target" 2>/dev/null) || continue
+        printf '  -> %s    via %s\n' "$target" "$(basename "$script")"
+    done
+}
+
+cmd_history() {
+    local current_state
+    current_state=$(cfg_detect_state "$GIT_DIR")
+
+    if [ ! -d "$BACKUP_ROOT" ]; then
+        printf 'No backup history found at %s\n' "$BACKUP_ROOT"
+        printf 'Current state: %s (no transitions recorded)\n' "$current_state"
+        return
+    fi
+
+    local -a from_states=()
+    local -a to_states=()
+    local -a display_times=()
+    local count=0
+
+    while IFS= read -r session_dir; do
+        [ -n "$session_dir" ] || continue
+        local full_path="$BACKUP_ROOT/$session_dir"
+        [ -d "$full_path" ] || continue
+
+        local manifest="$full_path/MANIFEST.txt"
+        local from="" to="" display_ts=""
+
+        if [[ "$session_dir" =~ ^(fresh|desktop|server)-to-(fresh|desktop|server)-([0-9]{8}T[0-9]{6})$ ]]; then
+            from="${BASH_REMATCH[1]}"
+            to="${BASH_REMATCH[2]}"
+            local ts="${BASH_REMATCH[3]}"
+            display_ts="${ts:0:4}-${ts:4:2}-${ts:6:2} ${ts:9:2}:${ts:11:2}:${ts:13:2}"
+        elif [ -f "$manifest" ]; then
+            local transition_line
+            transition_line=$(grep '^# Transition:' "$manifest" 2>/dev/null | head -1) || continue
+            if [[ "$transition_line" =~ Transition:[[:space:]]*([a-z]+)[[:space:]]*-\>[[:space:]]*([a-z]+) ]]; then
+                from="${BASH_REMATCH[1]}"
+                to="${BASH_REMATCH[2]}"
+            else
+                continue
+            fi
+            display_ts="(unknown time)"
+        else
+            continue
+        fi
+
+        if [ -f "$manifest" ]; then
+            local created_line
+            created_line=$(grep '^# Created:' "$manifest" 2>/dev/null | head -1) || true
+            if [ -n "$created_line" ]; then
+                display_ts="${created_line#\# Created: }"
+            fi
+        fi
+
+        count=$((count + 1))
+        from_states+=("$from")
+        to_states+=("$to")
+        display_times+=("$display_ts")
+    done < <(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort)
+
+    if [ "$count" -eq 0 ]; then
+        printf 'No transition history found in %s\n' "$BACKUP_ROOT"
+        printf 'Current state: %s\n' "$current_state"
+        return
+    fi
+
+    printf 'Transition History:\n\n'
+
+    local i
+    for ((i = 0; i < count; i++)); do
+        local marker=""
+        if (( i == count - 1 )) && [ "${to_states[$i]}" = "$current_state" ]; then
+            marker="  <- current"
+        fi
+        printf '  #%d  %s -> %s    %s%s\n' \
+            $((i + 1)) "${from_states[$i]}" "${to_states[$i]}" "${display_times[$i]}" "$marker"
+    done
+
+    printf '\nCurrent state: %s\n' "$current_state"
+}
+
+cmd_switch() {
+    local target="${1:-}"
+    if [ -z "$target" ]; then
+        printf 'Usage: dotcfg switch <fresh|desktop|server> [options]\n' >&2
+        exit 1
+    fi
+    shift
+
+    case "$target" in
+        fresh|desktop|server) ;;
+        *)
+            printf 'Error: unknown target state "%s"\n' "$target" >&2
+            printf 'Valid targets: fresh, desktop, server\n' >&2
+            exit 1
+            ;;
+    esac
+
+    cfg_validate "$GIT_DIR"
+    local current_state
+    current_state=$(cfg_detect_state "$GIT_DIR")
+
+    if [ "$current_state" = "$target" ]; then
+        printf 'Already in %s state. Nothing to do.\n' "$current_state"
+        exit 0
+    fi
+
+    local script
+    script=$(_transition_script_for "$current_state" "$target") || {
+        printf 'Error: no direct transition from %s to %s\n' "$current_state" "$target" >&2
+        exit 1
+    }
+
+    if [ ! -x "$script" ]; then
+        printf 'Error: transition script not found or not executable: %s\n' "$script" >&2
+        exit 1
+    fi
+
+    local description
+    description=$(_transition_description "$current_state" "$target")
+
+    printf 'Transition: %s -> %s\n' "$current_state" "$target"
+    printf 'Script: %s\n' "$(basename "$script")"
+    printf 'Description: %s\n\n' "$description"
+
+    exec "$script" "$@"
+}
+
+cmd_validate() {
+    cfg_validate "$GIT_DIR"
+    cfg_print_validation_result "$GIT_DIR"
+
+    if [ "$CFG_STATE" = "valid" ] && [ "$CFG_IS_OURS" = "true" ]; then
+        cfg_check_updates "$GIT_DIR"
+        if [ "$CFG_NEEDS_PULL" = "true" ]; then
+            printf '  Updates available: yes\n'
+        else
+            printf '  Updates available: no\n'
+        fi
+    fi
+
+    local state
+    state=$(cfg_detect_state "$GIT_DIR")
+    printf '\nInstallation state: %s\n' "$state"
+}
+
+cmd_help() {
+    printf 'Usage: dotcfg <subcommand> [options]\n'
+    printf '\n'
+    printf 'Dotfiles state management CLI\n'
+    printf '\n'
+    printf 'Subcommands:\n'
+    printf '  status              Show current state and available transitions (default)\n'
+    printf '  graph               Show state graph with current position\n'
+    printf '  history             Show transition history from backup manifests\n'
+    printf '  switch <target>     Transition to target state (fresh|desktop|server)\n'
+    printf '  validate            Show detailed repository validation\n'
+    printf '  help                Show this help message\n'
+    printf '  version             Show version\n'
+    printf '\n'
+    printf 'Switch options:\n'
+    printf '  --dry-run           Preview changes without applying (passed to script)\n'
+    printf '  --force             Force operation (passed to script)\n'
+    printf '\n'
+    printf 'States: fresh, desktop, server\n'
+    printf '\n'
+    printf 'Examples:\n'
+    printf '  dotcfg                        # show current status\n'
+    printf '  dotcfg graph                  # show state graph\n'
+    printf '  dotcfg history                # show transition history\n'
+    printf '  dotcfg switch desktop         # install desktop config\n'
+    printf '  dotcfg switch server --dry-run # preview server switch\n'
+}
+
+# ── Main dispatch ───────────────────────────────────────────────────────
+
+subcmd="${1:-status}"
+shift || true
+
+case "$subcmd" in
+    status)   cmd_status "$@" ;;
+    graph)    cmd_graph "$@" ;;
+    history)  cmd_history "$@" ;;
+    switch)   cmd_switch "$@" ;;
+    validate) cmd_validate "$@" ;;
+    help|-h|--help) cmd_help ;;
+    version|--version) printf 'dotcfg %s\n' "$DOTCFG_VERSION" ;;
+    *)
+        printf 'Unknown subcommand: %s\n' "$subcmd" >&2
+        printf '\n' >&2
+        cmd_help >&2
+        exit 1
+        ;;
+esac

@@ -152,7 +152,7 @@ done
 
 # Determine backup directory name
 if ((${#to_backup_conflicts[@]} > 0)); then
-	backup_dir="$HOME/.config-backup-${current_state}-to-${target_state}-${timestamp}"
+	backup_dir="$HOME/.config-backup/${current_state}-to-${target_state}-${timestamp}"
 fi
 
 # Print analysis report
@@ -221,9 +221,9 @@ if ((${#to_backup_conflicts[@]} > 0)); then
 
 		# Create manifest
 		manifest="$backup_dir/MANIFEST.txt"
-		printf '# Backup manifest created at %s\n' "$(date)" > "$manifest"
-		printf '# State transition: %s -> %s\n' "$current_state" "$target_state" >> "$manifest"
-		printf '# Format: original_path -> backup_path (status)\n\n' >> "$manifest"
+		printf '# Created: %s\n' "$(date)" > "$manifest"
+		printf '# Transition: %s -> %s\n' "$current_state" "$target_state" >> "$manifest"
+		printf '#\n# relative_path\tmd5\tstatus\n' >> "$manifest"
 
 		printf '\nBacking up %d files...\n' "${#to_backup_conflicts[@]}"
 		for path in "${to_backup_conflicts[@]}"; do
@@ -237,8 +237,11 @@ if ((${#to_backup_conflicts[@]} > 0)); then
 				status="modified"
 			fi
 
+			# Compute MD5 before moving
+			md5=$(md5sum < "$source_path" 2>/dev/null | cut -d' ' -f1)
+
 			mv -- "$source_path" "$backup_path"
-			printf '%s -> %s (%s)\n' "$source_path" "$backup_path" "$status" >> "$manifest"
+			printf '%s\t%s\t%s\n' "$path" "$md5" "$status" >> "$manifest"
 			printf 'Backed up: %s\n' "$path"
 		done
 
@@ -270,8 +273,8 @@ rollback_from_backup() {
 # Checkout all tracked files
 checkout_success=true
 failed_files=()
-total_checkout=$((${#to_add[@]} + ${#to_skip[@]}))
-for path in "${to_add[@]}" "${to_skip[@]}"; do
+total_checkout=$((${#to_add[@]} + ${#to_backup_conflicts[@]} + ${#to_skip[@]}))
+for path in "${to_add[@]}" "${to_backup_conflicts[@]}" "${to_skip[@]}"; do
 	if ! config checkout HEAD -- "$path" 2>/dev/null; then
 		failed_files+=("$path")
 		checkout_success=false

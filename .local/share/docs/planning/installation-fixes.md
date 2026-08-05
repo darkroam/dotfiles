@@ -4,10 +4,15 @@
 
 相关文档：[安装系统设计](../project/installation-system.md)、[安装测试](../project/installation-testing.md)、[当前待办](todo.md)
 
-**状态**: 已修复（2026-08-04）
+**状态**: 全部已修复
 **创建日期**: 2026-08-04
+**最终修复**: 2026-08-05
 
-本文档记录安装系统代码审查中发现的问题，按严重程度排序。全部 7 项已修复。
+本文档记录安装系统代码审查中发现的问题，按严重程度排序。全部 8 项已修复。
+
+> **注**：B1 和 B2 在 2026-08-05 的备份系统重设计中被根本性解决——备份目录结构改为嵌套
+> `.config-backup/{from}-to-{to}-{ts}/`，MANIFEST 格式改为 tab 分隔的 `relative_path\tmd5\tstatus`，
+> uninstall.sh 完全重写为备份链扫描模式。原始修复方案记录在此但已被更彻底的重设计取代。
 
 ---
 
@@ -119,7 +124,7 @@ if [[ "$line" =~ ^(.+)\ -\>\ (.+)\ \((modified|untracked)\)$ ]]; then
 
 ## B7（低）：helpers.sh 存在但未被加载
 
-**文件**: `scripts/test/helpers.sh`
+**文件**: `scripts/test/helpers.sh`（已移除，迁移到 `.local/share/test/installation/helpers.bash`）
 
 **问题**: 该文件定义了 `check_backup_structure()`、`verify_manifest()` 等辅助函数，但 `state-machine-tester.sh` 和 `cfg-validate-test.sh` 都没有 source 它。测试脚本内嵌了所有验证逻辑。
 
@@ -171,4 +176,4 @@ fi
 
 ---
 
-**下一步**: 运行状态机全量测试验证修复效果，确认后将 Gen 2 脚本纳入 Git 跟踪。
+**状态**: 全部 8 项已修复并验证（72 个 Bats 测试通过，2026-08-05）。
