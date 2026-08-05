@@ -136,6 +136,9 @@ teardown() {
 	# Modify .bashrc to simulate user change
 	echo "version 2" > "$HOME/.bashrc"
 
+	# Wait to ensure different timestamp for next backup
+	sleep 1
+
 	# Reinstall (will backup "version 2" as modified)
 	run run_install_desktop --reinstall
 	[ "$status" -eq 0 ]
@@ -165,6 +168,9 @@ teardown() {
 
 	# Modify a file that will be backed up in next transition
 	echo "user modified gitconfig" > "$HOME/.gitconfig"
+
+	# Wait to ensure different timestamp for next backup
+	sleep 1
 
 	# desktop → server: backs up modified .gitconfig, removes desktop files
 	run run_restore_server
@@ -236,4 +242,94 @@ teardown() {
 	assert_file_not_exists ".xinitrc"
 	assert_file_not_exists ".bashrc"
 	assert_file_not_exists ".gitconfig"
+}
+
+# TC-44: Backup sessions are sorted by directory name timestamp, not mtime
+
+@test "TC-44: uninstall restores earliest backup by default (timestamp sorting)" {
+	setup_source_repo
+	setup_installed_state
+
+	# Create multiple backup sessions with different timestamps in directory names
+	# Session 1: oldest (20240101T100000)
+	mkdir -p "$HOME/.config-backup/desktop-to-server-20240101T100000"
+	echo "original bashrc v1" > "$HOME/.config-backup/desktop-to-server-20240101T100000/.bashrc"
+	cat > "$HOME/.config-backup/desktop-to-server-20240101T100000/MANIFEST.txt" <<'EOF'
+# Created: 2024-01-01 10:00:00
+# Transition: desktop -> server
+#
+# relative_path	md5	status
+.bashrc	abc123	modified
+EOF
+
+	# Session 2: middle (20240201T100000)
+	mkdir -p "$HOME/.config-backup/desktop-to-server-20240201T100000"
+	echo "modified bashrc v2" > "$HOME/.config-backup/desktop-to-server-20240201T100000/.bashrc"
+	cat > "$HOME/.config-backup/desktop-to-server-20240201T100000/MANIFEST.txt" <<'EOF'
+# Created: 2024-02-01 10:00:00
+# Transition: desktop -> server
+#
+# relative_path	md5	status
+.bashrc	def456	modified
+EOF
+
+	# Session 3: newest (20240301T100000)
+	mkdir -p "$HOME/.config-backup/desktop-to-server-20240301T100000"
+	echo "latest bashrc v3" > "$HOME/.config-backup/desktop-to-server-20240301T100000/.bashrc"
+	cat > "$HOME/.config-backup/desktop-to-server-20240301T100000/MANIFEST.txt" <<'EOF'
+# Created: 2024-03-01 10:00:00
+# Transition: desktop -> server
+#
+# relative_path	md5	status
+.bashrc	ghi789	modified
+EOF
+
+	# Modify mtime to be out of order (newest directory has oldest mtime)
+	touch -t 202301010000 "$HOME/.config-backup/desktop-to-server-20240301T100000"
+	touch -t 202501010000 "$HOME/.config-backup/desktop-to-server-20240101T100000"
+
+	# Current .bashrc
+	echo "current bashrc" > "$HOME/.bashrc"
+
+	run run_uninstall
+	[ "$status" -eq 0 ]
+
+	# Should restore EARLIEST (by directory name timestamp), not by mtime
+	assert_file_exists ".bashrc"
+	assert_file_contains ".bashrc" "original bashrc v1"
+}
+
+@test "TC-44b: uninstall --latest restores newest backup (timestamp sorting)" {
+	setup_source_repo
+	setup_installed_state
+
+	# Create multiple backup sessions (same as TC-44)
+	mkdir -p "$HOME/.config-backup/desktop-to-server-20240101T100000"
+	echo "original bashrc v1" > "$HOME/.config-backup/desktop-to-server-20240101T100000/.bashrc"
+	cat > "$HOME/.config-backup/desktop-to-server-20240101T100000/MANIFEST.txt" <<'EOF'
+# Created: 2024-01-01 10:00:00
+# Transition: desktop -> server
+#
+# relative_path	md5	status
+.bashrc	abc123	modified
+EOF
+
+	mkdir -p "$HOME/.config-backup/desktop-to-server-20240301T100000"
+	echo "latest bashrc v3" > "$HOME/.config-backup/desktop-to-server-20240301T100000/.bashrc"
+	cat > "$HOME/.config-backup/desktop-to-server-20240301T100000/MANIFEST.txt" <<'EOF'
+# Created: 2024-03-01 10:00:00
+# Transition: desktop -> server
+#
+# relative_path	md5	status
+.bashrc	ghi789	modified
+EOF
+
+	echo "current bashrc" > "$HOME/.bashrc"
+
+	run run_uninstall --latest
+	[ "$status" -eq 0 ]
+
+	# Should restore LATEST (by directory name timestamp)
+	assert_file_exists ".bashrc"
+	assert_file_contains ".bashrc" "latest bashrc v3"
 }

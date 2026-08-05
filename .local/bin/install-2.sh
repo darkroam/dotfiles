@@ -295,6 +295,24 @@ else
 	git clone --bare "$repository" "$temporary_git_dir"
 	git_dir=$temporary_git_dir
 	config() { git --git-dir="$git_dir/" --work-tree="$HOME" "$@"; }
+
+	# Re-validate the cloned repository to ensure it's correct
+	printf 'Validating cloned repository...\n'
+	cfg_validate "$git_dir"
+	if [ "$CFG_STATE" != "valid" ]; then
+		printf 'ERROR: Cloned repository failed validation (state: %s)\n' "$CFG_STATE" >&2
+		printf 'This could indicate:\n' >&2
+		printf '  - Repository URL is incorrect\n' >&2
+		printf '  - Repository is corrupted\n' >&2
+		printf '  - Network issue during clone\n' >&2
+		exit 1
+	fi
+	if [ "$CFG_IS_OURS" != "true" ]; then
+		printf 'ERROR: Cloned repository is not the dotfiles repository\n' >&2
+		printf 'Remote URL: %s\n' "$CFG_REMOTE_URL" >&2
+		exit 1
+	fi
+	printf 'Repository validation passed.\n'
 fi
 
 config rev-parse --verify HEAD >/dev/null

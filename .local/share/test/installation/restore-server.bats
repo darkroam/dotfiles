@@ -111,3 +111,30 @@ teardown() {
 	assert_file_not_exists ".xinitrc"
 	assert_file_not_exists ".asoundrc"
 }
+
+# TC-30: restore-server.sh fails when not in desktop state
+
+@test "TC-30: restore-server fails in fresh state" {
+	setup_source_repo
+	# Don't setup any .cfg - fresh state
+
+	run run_restore_server
+	[ "$status" -eq 1 ]
+	# In fresh state, fails at validation before state check
+	[[ "$output" == *"not found"* ]] || [[ "$output" == *"Run install"* ]]
+}
+
+@test "TC-30b: restore-server fails in server state" {
+	setup_source_repo
+
+	# Setup server state (has .cfg but no desktop indicators)
+	git clone --bare "$SOURCE_REPO_DIR" "$HOME/.cfg" >/dev/null 2>&1
+	git --git-dir="$HOME/.cfg/" --work-tree="$HOME" checkout HEAD -- \
+		. ':!.xinitrc' ':!.xprofile' ':!.asoundrc' \
+		':!.config/x11' ':!.config/alsa' ':!.gtkrc-2.0' >/dev/null 2>&1
+
+	run run_restore_server
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"requires desktop state"* ]]
+	[[ "$output" == *"current state is server"* ]]
+}

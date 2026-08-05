@@ -4,6 +4,17 @@
 
 ## 最近记录的变更
 
+- [x] 2026-08-05：代码审查修复与安全性增强。
+  **Q4 修复 - 时间排序**：uninstall.sh 改用目录名称时间戳排序（格式：`{from}-to-{to}-{YYYYMMDDTHHMMSS}`），
+  mtime 作为回退。解决目录重命名、cp -rp、同一秒创建等场景的排序不确定性。
+  **Q6 修复 - 克隆后验证**：install-2.sh 和 install-server.sh 在克隆仓库后重新执行 `cfg_validate`，
+  确保克隆的仓库身份正确，防止 URL 错误或仓库损坏导致的安全问题。
+  **状态检查**：restore-desktop.sh 和 restore-server.sh 添加状态检查，确保只在正确的前置状态下执行
+  （restore-desktop 要求 server 状态，restore-server 要求 desktop 状态），避免误操作。
+  **测试**：新增 6 个测试用例（TC-26/26b、TC-30/30b、TC-44/44b），覆盖状态检查和 timestamp 排序。
+  全部 77 个测试通过。
+  **文档同步**：更新 installation-system.md 反映新的排序逻辑、克隆后验证和状态检查。
+
 - [x] 2026-08-05：安全性改进与库重构。
   **库重构**：将共享验证库从 `.local/share/dotfiles-lib/` 移到 `.local/lib/dotfiles/`，
   符合 XDG 规范（share/ 用于数据，lib/ 用于库）。更新所有引用路径。

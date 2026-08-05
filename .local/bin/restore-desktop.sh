@@ -128,6 +128,18 @@ detect_state() {
 current_state=$(detect_state)
 target_state="desktop"
 
+# Verify we're in server state before proceeding
+if [ "$current_state" != "server" ]; then
+	printf 'Error: restore-desktop.sh requires server state, but current state is %s\n' "$current_state" >&2
+	printf 'This script is designed to restore desktop configuration from server mode.\n' >&2
+	if [ "$current_state" = "fresh" ]; then
+		printf 'For fresh installation, use: install-2.sh\n' >&2
+	elif [ "$current_state" = "desktop" ]; then
+		printf 'Already in desktop state. No action needed.\n' >&2
+	fi
+	exit 1
+fi
+
 # Analyze what will change
 printf 'Analyzing current state...\n'
 

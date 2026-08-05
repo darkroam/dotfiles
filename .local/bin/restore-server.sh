@@ -127,6 +127,18 @@ detect_state() {
 current_state=$(detect_state)
 target_state="server"
 
+# Verify we're in desktop state before proceeding
+if [ "$current_state" != "desktop" ]; then
+	printf 'Error: restore-server.sh requires desktop state, but current state is %s\n' "$current_state" >&2
+	printf 'This script is designed to switch from desktop to server mode.\n' >&2
+	if [ "$current_state" = "fresh" ]; then
+		printf 'For fresh installation, use: install-server.sh\n' >&2
+	elif [ "$current_state" = "server" ]; then
+		printf 'Already in server state. No action needed.\n' >&2
+	fi
+	exit 1
+fi
+
 # Desktop-only symlinks to remove
 desktop_symlinks=(
 	".xinitrc"

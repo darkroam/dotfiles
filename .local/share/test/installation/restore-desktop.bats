@@ -51,7 +51,13 @@ teardown() {
 
 @test "TC-23: restore-desktop backs up modified files" {
 	setup_source_repo
-	setup_installed_state
+
+	# Simulate server-mode install: .cfg exists but no desktop indicators
+	git clone --bare "$SOURCE_REPO_DIR" "$HOME/.cfg" >/dev/null 2>&1
+	git --git-dir="$HOME/.cfg/" --work-tree="$HOME" checkout HEAD -- \
+		. ':!.xinitrc' ':!.xprofile' ':!.asoundrc' \
+		':!.config/x11' ':!.config/alsa' ':!.gtkrc-2.0' >/dev/null 2>&1
+	git --git-dir="$HOME/.cfg/" --work-tree="$HOME" config status.showUntrackedFiles no
 
 	# Modify some files to create conflicts
 	echo "user modified bashrc" > "$HOME/.bashrc"
@@ -106,7 +112,13 @@ teardown() {
 
 @test "TC-25: restore-desktop --auto-stash overwrites without backup" {
 	setup_source_repo
-	setup_installed_state
+
+	# Simulate server-mode install: .cfg exists but no desktop indicators
+	git clone --bare "$SOURCE_REPO_DIR" "$HOME/.cfg" >/dev/null 2>&1
+	git --git-dir="$HOME/.cfg/" --work-tree="$HOME" checkout HEAD -- \
+		. ':!.xinitrc' ':!.xprofile' ':!.asoundrc' \
+		':!.config/x11' ':!.config/alsa' ':!.gtkrc-2.0' >/dev/null 2>&1
+	git --git-dir="$HOME/.cfg/" --work-tree="$HOME" config status.showUntrackedFiles no
 
 	# Modify files to create conflicts
 	echo "user modified" > "$HOME/.bashrc"
@@ -124,4 +136,27 @@ teardown() {
 
 	# Output should mention auto-stash
 	[[ "$output" == *"auto-stash"* ]]
+}
+
+# TC-26: restore-desktop.sh fails when not in server state
+
+@test "TC-26: restore-desktop fails in fresh state" {
+	setup_source_repo
+	# Don't setup any .cfg - fresh state
+
+	run run_restore_desktop
+	[ "$status" -eq 1 ]
+	# In fresh state, fails at validation before state check
+	[[ "$output" == *"not found"* ]] || [[ "$output" == *"Run install"* ]]
+}
+
+@test "TC-26b: restore-desktop fails in desktop state" {
+	setup_source_repo
+	setup_installed_state
+
+	# We're in desktop state (has desktop indicators)
+	run run_restore_desktop
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"requires server state"* ]]
+	[[ "$output" == *"current state is desktop"* ]]
 }

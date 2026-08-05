@@ -161,11 +161,12 @@ dotcfg help                   # 使用帮助
 2. 检测当前状态（`cfg_detect_state`）
 3. 处理无效仓库（`--force` 时备份到 `.config-backup/invalid-{ts}/` 或 `foreign-{ts}/`）
 4. 克隆或复用仓库
-5. 分析所有跟踪文件（未跟踪 → 备份 / 已跟踪已修改 → 备份 / 已跟踪相同 → 跳过）
-6. 创建备份 `.config-backup/{from}-to-desktop-{ts}/`
-7. Checkout 所有桌面配置
-8. 若 checkout 失败率 >50% 则自动回滚
-9. 记录 `.cfg-checkout-state`，设置 `showUntrackedFiles = no`
+5. **克隆后重新验证**：确保克隆的仓库身份正确（防止 URL 错误或仓库损坏）
+6. 分析所有跟踪文件（未跟踪 → 备份 / 已跟踪已修改 → 备份 / 已跟踪相同 → 跳过）
+7. 创建备份 `.config-backup/{from}-to-desktop-{ts}/`
+8. Checkout 所有桌面配置
+9. 若 checkout 失败率 >50% 则自动回滚
+10. 记录 `.cfg-checkout-state`，设置 `showUntrackedFiles = no`
 
 ### 2. install-server.sh — 服务器模式安装
 
@@ -186,17 +187,19 @@ LF:       .config/lf/lfrc, .config/lf/scope, .config/lf/cleaner,
 ### 3. restore-desktop.sh — 切换到桌面模式
 
 从 SERVER → DESKTOP，不克隆仓库，仅操作 work-tree：
-1. 验证 `.cfg` 存在且有效（无 `--force` 选项）
-2. 分析冲突文件并备份（或 `--auto-stash` 直接覆盖）
-3. Checkout 所有桌面配置
-4. 回滚保护（失败率 >50% 时从备份恢复）
-5. 更新 `.cfg-checkout-state`
+1. **状态检查**：验证当前状态为 server（否则报错退出）
+2. 验证 `.cfg` 存在且有效（无 `--force` 选项）
+3. 分析冲突文件并备份（或 `--auto-stash` 直接覆盖）
+4. Checkout 所有桌面配置
+5. 回滚保护（失败率 >50% 时从备份恢复）
+6. 更新 `.cfg-checkout-state`
 
 ### 4. restore-server.sh — 切换到服务器模式
 
 从 DESKTOP → SERVER，**移除式**策略：
-1. 验证 `.cfg` 存在且有效
-2. 识别桌面特有产物（符号链接、目录、已修改文件）
+1. **状态检查**：验证当前状态为 desktop（否则报错退出）
+2. 验证 `.cfg` 存在且有效
+3. 识别桌面特有产物（符号链接、目录、已修改文件）
 3. 备份已修改文件，直接删除符号链接和目录
 4. 验证服务器配置（checkout 服务器白名单文件）
 5. 回滚保护
@@ -214,12 +217,15 @@ LF:       .config/lf/lfrc, .config/lf/scope, .config/lf/cleaner,
 2. 过滤出安装基础设施文件（不删除）：
    - `.local/bin/{install-*,restore-*,uninstall,dotcfg}`
    - `.local/lib/dotfiles/*`
-3. 扫描 `.config-backup/` 下所有会话目录（按文件系统 mtime 排序）
-4. 解析每个 MANIFEST.txt，构建文件→备份会话的关联映射
-5. 选择恢复源：默认恢复**最早**版本（原始文件），`--latest` 恢复**最新**版本
-6. 移除用户配置文件（保留安装基础设施）
-7. 从备份中 `cp`（非 `mv`）恢复用户文件——保持备份完整，支持幂等
-8. 打印手动清理说明（可选）：
+3. 扫描 `.config-backup/` 下所有会话目录
+4. **按目录名称时间戳排序**（格式：`{from}-to-{to}-{YYYYMMDDTHHMMSS}`）
+   - 优先使用目录名中的时间戳（确定性高，不受文件系统影响）
+   - 如果目录名不符合格式，回退到 mtime 排序
+5. 解析每个 MANIFEST.txt，构建文件→备份会话的关联映射
+6. 选择恢复源：默认恢复**最早**版本（原始文件），`--latest` 恢复**最新**版本
+7. 移除用户配置文件（保留安装基础设施）
+8. 从备份中 `cp`（非 `mv`）恢复用户文件——保持备份完整，支持幂等
+9. 打印手动清理说明（可选）：
    - 备份目录：`~/.config-backup`
    - 仓库：`~/.cfg`
    - 安装脚本和库

@@ -113,6 +113,28 @@ declare -A file_backup_sessions  # file -> newline-separated list of session dir
 
 backup_session_count=0
 if [ -d "$backup_root" ]; then
+	# Sort by directory name timestamp first, fallback to mtime
+	# Directory name format: {from}-to-{to}-{YYYYMMDDTHHMMSS}
+	sort_sessions() {
+		local session_dir basename timestamp
+		for session_dir in "$backup_root"/*/; do
+			[ -d "$session_dir" ] || continue
+			basename=$(basename "$session_dir")
+			# Extract timestamp from directory name (last component after -)
+			if [[ "$basename" =~ -([0-9]{8}T[0-9]{6})$ ]]; then
+				timestamp="${BASH_REMATCH[1]}"
+				printf '%s\t%s\n' "$timestamp" "$session_dir"
+			else
+				# Fallback to mtime if directory name doesn't match pattern
+				local mtime
+				mtime=$(stat -c '%Y' "$session_dir" 2>/dev/null || stat -f '%m' "$session_dir" 2>/dev/null)
+				# Convert to comparable format (YYYYMMDDTHHMMSS)
+				timestamp=$(date -d "@$mtime" '+%Y%m%dT%H%M%S' 2>/dev/null || date -r "$mtime" '+%Y%m%dT%H%M%S' 2>/dev/null)
+				printf '%s\t%s\n' "$timestamp" "$session_dir"
+			fi
+		done | sort -t$'\t' -k1,1 -k2,2 | cut -f2-
+	}
+
 	while IFS= read -r session_dir; do
 		[ -n "$session_dir" ] || continue
 		((backup_session_count++)) || true
@@ -130,7 +152,7 @@ if [ -d "$backup_root" ]; then
 				fi
 			done < "$manifest"
 		fi
-	done < <(find "$backup_root" -mindepth 1 -maxdepth 1 -type d -printf '%T@\t%p\n' 2>/dev/null | sort -n | cut -f2-)
+	done < <(sort_sessions)
 fi
 
 printf '\nFound %d backup session(s) in %s.\n' "$backup_session_count" "$backup_root"
