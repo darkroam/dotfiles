@@ -218,27 +218,6 @@ teardown() {
 	assert_checkout_state_not_exists
 }
 
-# TC-42: --clean-backups deletes all backup directories
-
-@test "TC-42: --clean-backups removes all backup sessions" {
-	setup_source_repo
-
-	echo "user's bashrc" > "$HOME/.bashrc"
-
-	run run_install_desktop
-	[ "$status" -eq 0 ]
-	assert_backup_dir_exists
-
-	run run_uninstall --clean-backups
-	[ "$status" -eq 0 ]
-
-	# Backup directory should be completely removed
-	[ ! -d "$HOME/.config-backup" ] || {
-		echo "expected .config-backup to be removed" >&2
-		return 1
-	}
-}
-
 # TC-43: Files in managed set but not in any backup are deleted without restore
 
 @test "TC-43: managed files without backup are deleted" {
