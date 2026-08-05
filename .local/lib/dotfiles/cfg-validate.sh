@@ -147,7 +147,21 @@ cfg_detect_state() {
     fi
 
     # Check for desktop-specific files
-    local desktop_indicators=(.xinitrc .xprofile .config/x11)
+    # These are files/directories that only exist in desktop mode
+    local desktop_indicators=(
+        # X11 session core files
+        ".xinitrc"
+        ".xprofile"
+        ".config/x11"
+        # Desktop application configs
+        ".asoundrc"
+        ".gtkrc-2.0"
+        # Desktop application config directories
+        ".config/alsa"
+        ".config/mpd"
+        ".config/nsxiv"
+        ".config/zathura"
+    )
     for indicator in "${desktop_indicators[@]}"; do
         if [ -e "$HOME/$indicator" ] || [ -L "$HOME/$indicator" ]; then
             echo "desktop"

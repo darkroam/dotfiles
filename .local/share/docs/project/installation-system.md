@@ -75,8 +75,14 @@
 - `.xinitrc`（文件或符号链接）
 - `.xprofile`（文件或符号链接）
 - `.config/x11`（目录或符号链接）
+- `.asoundrc`（文件或符号链接）
+- `.gtkrc-2.0`（文件或符号链接）
+- `.config/alsa`（目录或符号链接）
+- `.config/mpd`（目录或符号链接）
+- `.config/nsxiv`（目录或符号链接）
+- `.config/zathura`（目录或符号链接）
 
-这些文件仅在桌面模式安装时被 checkout，因此是区分 desktop/server 的可靠信号。
+这些文件仅在桌面模式安装时被 checkout，因此是区分 desktop/server 的可靠信号。状态检测与 switch-server.sh 的移除列表保持一致。
 
 ### 状态转换矩阵
 
@@ -213,9 +219,11 @@ LF:       .config/lf/lfrc, .config/lf/scope, .config/lf/cleaner,
 
 **桌面指标文件移除**（从 desktop 切换时）：
 
-**符号链接**：`.xinitrc`、`.xprofile`、`.asoundrc`、`.gtkrc-2.0`、`.tmux.conf`、`.gitconfig`、`.gitignore`
+**符号链接**（7 个）：`.xinitrc`、`.xprofile`、`.asoundrc`、`.gtkrc-2.0`、`.tmux.conf`、`.gitconfig`、`.gitignore`
 
-**目录**：`.config/x11`、`.config/alsa`
+**目录**（5 个）：`.config/x11`、`.config/alsa`、`.config/mpd`、`.config/nsxiv`、`.config/zathura`
+
+其中 `.tmux.conf`、`.gitconfig`、`.gitignore` 属于服务器文件白名单，移除后会立即重新 checkout 服务器版本。
 
 ### 3. uninstall.sh — 恢复到 fresh 状态
 
@@ -286,9 +294,13 @@ LF:       .config/lf/lfrc, .config/lf/scope, .config/lf/cleaner,
 
 ### 桌面特有产物（switch-server.sh 移除列表）
 
-**符号链接**：`.xinitrc`、`.xprofile`、`.asoundrc`、`.gtkrc-2.0`、`.tmux.conf`、`.gitconfig`、`.gitignore`
+switch-server.sh 从 desktop 切换到 server 时，移除以下桌面特有文件和目录：
 
-**目录**：`.config/x11`、`.config/alsa`、`.config/mpd`、`.config/nsxiv`、`.config/zathura`
+**符号链接**（7 个）：`.xinitrc`、`.xprofile`、`.asoundrc`、`.gtkrc-2.0`、`.tmux.conf`、`.gitconfig`、`.gitignore`
+
+**目录**（5 个）：`.config/x11`、`.config/alsa`、`.config/mpd`、`.config/nsxiv`、`.config/zathura`
+
+**状态检测指标**（9 个）：上述列表中除去 `.tmux.conf`、`.gitconfig`、`.gitignore` 的剩余 9 项。这 3 个文件在服务器模式下也存在（属于 CFG_SERVER_FILES），因此不作为桌面指标。switch-server.sh 会先移除它们，然后立即从服务器白名单重新 checkout。
 
 ---
 
