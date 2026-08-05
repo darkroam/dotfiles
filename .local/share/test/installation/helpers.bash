@@ -109,6 +109,13 @@ create_valid_existing_cfg() {
 	fi
 	local bare_dir="$HOME/.cfg"
 	local temp_work
+	
+	# Safety check: refuse to operate on REAL_HOME
+	if [[ "${HOME:-}" == "$REAL_HOME" ]]; then
+		echo "FATAL: create_valid_existing_cfg refusing to operate on REAL_HOME" >&2
+		return 1
+	fi
+	
 	temp_work=$(mktemp -d "/tmp/dotfiles-test-work.XXXXXX")
 	git init --bare "$bare_dir" >/dev/null 2>&1
 	(cd "$temp_work" && {
@@ -131,6 +138,12 @@ create_valid_existing_cfg() {
 # Simulates a completed install: clones source repo as .cfg, checks out all files,
 # creates checkout state and configures git. Requires setup_source_repo to be called first.
 setup_installed_state() {
+	# Safety check: refuse to operate on REAL_HOME
+	if [[ "${HOME:-}" == "$REAL_HOME" ]]; then
+		echo "FATAL: setup_installed_state refusing to operate on REAL_HOME" >&2
+		return 1
+	fi
+	
 	git clone --bare "$SOURCE_REPO_DIR" "$HOME/.cfg" >/dev/null 2>&1
 	git --git-dir="$HOME/.cfg/" --work-tree="$HOME" checkout HEAD -- . >/dev/null 2>&1
 	git --git-dir="$HOME/.cfg/" --work-tree="$HOME" config status.showUntrackedFiles no
@@ -180,6 +193,13 @@ create_mock_cfg_repo() {
 	local files=("$@")
 	local bare_dir="$HOME/.cfg"
 	local temp_work
+	
+	# Safety check: refuse to operate on REAL_HOME
+	if [[ "${HOME:-}" == "$REAL_HOME" ]]; then
+		echo "FATAL: create_mock_cfg_repo refusing to operate on REAL_HOME" >&2
+		return 1
+	fi
+	
 	temp_work=$(mktemp -d "/tmp/dotfiles-test-work.XXXXXX")
 
 	git init --bare "$bare_dir" >/dev/null 2>&1
@@ -207,6 +227,13 @@ create_mock_cfg_repo_with_remote() {
 	local remote_url="$1"
 	shift
 	local files=("$@")
+	
+	# Safety check: refuse to operate on REAL_HOME
+	if [[ "${HOME:-}" == "$REAL_HOME" ]]; then
+		echo "FATAL: create_mock_cfg_repo_with_remote refusing to operate on REAL_HOME" >&2
+		return 1
+	fi
+	
 	create_mock_cfg_repo "${files[@]}"
 	git --git-dir="$HOME/.cfg/" remote set-url origin "$remote_url" 2>/dev/null || \
 		git --git-dir="$HOME/.cfg/" remote add origin "$remote_url" 2>/dev/null
