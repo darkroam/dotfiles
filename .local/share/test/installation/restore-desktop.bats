@@ -138,25 +138,33 @@ teardown() {
 	[[ "$output" == *"auto-stash"* ]]
 }
 
-# TC-26: restore-desktop.sh fails when not in server state
+# TC-26: switch-desktop handles fresh state (installs from scratch)
 
-@test "TC-26: restore-desktop fails in fresh state" {
+@test "TC-26: switch-desktop installs from fresh state" {
 	setup_source_repo
 	# Don't setup any .cfg - fresh state
 
 	run run_restore_desktop
-	[ "$status" -eq 1 ]
-	# In fresh state, fails at validation before state check
-	[[ "$output" == *"not found"* ]] || [[ "$output" == *"Run install"* ]]
+	[ "$status" -eq 0 ]
+
+	# Should have created .cfg and installed files
+	assert_cfg_exists
+	assert_file_exists ".bashrc"
+	assert_file_exists ".xinitrc"
+	assert_state_is "desktop"
 }
 
-@test "TC-26b: restore-desktop fails in desktop state" {
+@test "TC-26b: switch-desktop in desktop state accepts --reinstall" {
 	setup_source_repo
 	setup_installed_state
 
 	# We're in desktop state (has desktop indicators)
-	run run_restore_desktop
-	[ "$status" -eq 1 ]
-	[[ "$output" == *"requires server state"* ]]
-	[[ "$output" == *"current state is desktop"* ]]
+	# Use --reinstall to avoid interactive prompt
+	run run_restore_desktop --reinstall
+	[ "$status" -eq 0 ]
+
+	# Should have reinstalled (files still exist)
+	assert_file_exists ".bashrc"
+	assert_file_exists ".xinitrc"
+	assert_state_is "desktop"
 }

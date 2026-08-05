@@ -112,19 +112,25 @@ teardown() {
 	assert_file_not_exists ".asoundrc"
 }
 
-# TC-30: restore-server.sh fails when not in desktop state
+# TC-30: switch-server handles fresh state (installs from scratch)
 
-@test "TC-30: restore-server fails in fresh state" {
+@test "TC-30: switch-server installs from fresh state" {
 	setup_source_repo
 	# Don't setup any .cfg - fresh state
 
 	run run_restore_server
-	[ "$status" -eq 1 ]
-	# In fresh state, fails at validation before state check
-	[[ "$output" == *"not found"* ]] || [[ "$output" == *"Run install"* ]]
+	[ "$status" -eq 0 ]
+
+	# Should have created .cfg and installed server files
+	assert_cfg_exists
+	assert_file_exists ".bashrc"
+	assert_file_exists ".gitconfig"
+	# Desktop files should NOT be installed
+	assert_file_not_exists ".xinitrc"
+	assert_state_is "server"
 }
 
-@test "TC-30b: restore-server fails in server state" {
+@test "TC-30b: switch-server in server state accepts --reinstall" {
 	setup_source_repo
 
 	# Setup server state (has .cfg but no desktop indicators)
@@ -133,8 +139,11 @@ teardown() {
 		. ':!.xinitrc' ':!.xprofile' ':!.asoundrc' \
 		':!.config/x11' ':!.config/alsa' ':!.gtkrc-2.0' >/dev/null 2>&1
 
-	run run_restore_server
-	[ "$status" -eq 1 ]
-	[[ "$output" == *"requires desktop state"* ]]
-	[[ "$output" == *"current state is server"* ]]
+	# Use --reinstall to avoid interactive prompt
+	run run_restore_server --reinstall
+	[ "$status" -eq 0 ]
+
+	# Should have reinstalled server files
+	assert_file_exists ".bashrc"
+	assert_state_is "server"
 }

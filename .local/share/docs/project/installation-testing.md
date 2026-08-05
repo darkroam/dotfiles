@@ -72,11 +72,11 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
     ├── helpers.bash            ← 共享辅助函数（460+ 行）
     ├── detect-state.bats       ← TC-01..03  状态检测
     ├── backup-logic.bats       ← TC-04..10  备份逻辑
-    ├── install-desktop.bats    ← TC-11..16  桌面安装
-    ├── install-server.bats     ← TC-17..21  服务器安装
-    ├── restore-desktop.bats    ← TC-22..25  恢复桌面
-    ├── restore-server.bats     ← TC-26..29  恢复服务器
-    ├── uninstall.bats          ← TC-30..33, TC-38..43  卸载与恢复
+    ├── install-desktop.bats    ← TC-11..16  桌面安装（调用 switch-desktop.sh）
+    ├── install-server.bats     ← TC-17..21  服务器安装（调用 switch-server.sh）
+    ├── restore-desktop.bats    ← TC-22..26b 恢复桌面（调用 switch-desktop.sh）
+    ├── restore-server.bats     ← TC-27..30b 恢复服务器（调用 switch-server.sh）
+    ├── uninstall.bats          ← TC-31..33, TC-38..43  卸载与恢复
     ├── validate.bats           ← TC-34a..34k, TC-35  仓库验证
     ├── e2e-state-machine.bats  ← TC-36..37  端到端生命周期
     ├── dotcfg.bats             ← TC-44..58  统一 CLI
@@ -107,7 +107,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-09 | 备份目录权限 0700 |
 | TC-10 | MANIFEST 格式：`relative_path\tmd5\tstatus`（tab 分隔） |
 
-### TC-11..16：桌面安装（install-desktop.bats）
+### TC-11..16：桌面安装（install-desktop.bats → switch-desktop.sh）
 
 | 用例 | 描述 |
 |------|------|
@@ -118,7 +118,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-15 | checkout state 文件记录所有跟踪文件 |
 | TC-16 | `showUntrackedFiles = no` 配置 |
 
-### TC-17..21：服务器安装（install-server.bats）
+### TC-17..21：服务器安装（install-server.bats → switch-server.sh）
 
 | 用例 | 描述 |
 |------|------|
@@ -128,7 +128,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-20 | 白名单排除桌面文件 |
 | TC-21 | checkout state 和 git 配置 |
 
-### TC-22..25：恢复桌面（restore-desktop.bats）
+### TC-22..26b：恢复桌面（restore-desktop.bats → switch-desktop.sh）
 
 | 用例 | 描述 |
 |------|------|
@@ -137,7 +137,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-24 | `--dry-run` 预览 |
 | TC-25 | `--auto-stash` 覆盖不备份 |
 
-### TC-26..29：恢复服务器（restore-server.bats）
+### TC-27..30b：恢复服务器（restore-server.bats → switch-server.sh）
 
 | 用例 | 描述 |
 |------|------|
@@ -213,10 +213,10 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 
 | 函数 | 用途 |
 |------|------|
-| `run_install_desktop [args...]` | `yes \| bash install-2.sh` |
-| `run_install_server [args...]` | `yes \| bash install-server.sh` |
-| `run_restore_desktop [args...]` | `yes \| bash restore-desktop.sh` |
-| `run_restore_server [args...]` | `yes \| bash restore-server.sh` |
+| `run_install_desktop [args...]` | `yes \| bash switch-desktop.sh` |
+| `run_install_server [args...]` | `yes \| bash switch-server.sh` |
+| `run_restore_desktop [args...]` | `yes \| bash switch-desktop.sh` |
+| `run_restore_server [args...]` | `yes \| bash switch-server.sh` |
 | `run_uninstall [args...]` | `yes \| yes \| bash uninstall.sh` |
 | `run_dotcfg [args...]` | `bash dotcfg` |
 

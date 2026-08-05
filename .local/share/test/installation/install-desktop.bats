@@ -103,7 +103,7 @@ teardown() {
 
 @test "TC-14: --force replaces existing valid repository" {
 	setup_source_repo
-	create_valid_existing_cfg ".bashrc" ".gitconfig" ".local/bin/install.sh"
+	create_valid_existing_cfg ".bashrc" ".gitconfig" ".local/bin/dotcfg"
 
 	run run_install_desktop --force
 	[ "$status" -eq 0 ]

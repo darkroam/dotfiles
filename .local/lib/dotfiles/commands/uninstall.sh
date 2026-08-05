@@ -5,30 +5,18 @@
 
 set -euo pipefail
 
-# Parse arguments
-DRY_RUN=false
-LATEST=false
-for arg in "$@"; do
-	case $arg in
-		--dry-run) DRY_RUN=true ;;
-		--latest) LATEST=true ;;
-	esac
-done
+DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
+. "$DOTFILES_LIB_DIR/utils/common.sh"
+
+cfg_parse_common_args "$@"
 
 git_dir=$HOME/.cfg
 backup_root="$HOME/.config-backup"
 state_file="$HOME/.cfg-checkout-state"
 
-# Installation-related files that should never be deleted
-# Only executable scripts and runtime libraries needed for operation
 is_installation_file() {
 	local path="$1"
 	case "$path" in
-		.local/bin/install-2.sh|\
-		.local/bin/install-server.sh|\
-		.local/bin/restore-desktop.sh|\
-		.local/bin/restore-server.sh|\
-		.local/bin/uninstall.sh|\
 		.local/bin/dotcfg|\
 		.local/lib/dotfiles/*)
 			return 0
@@ -39,31 +27,26 @@ is_installation_file() {
 	esac
 }
 
-# Source shared validation library
-DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
-if [ -f "$DOTFILES_LIB_DIR/cfg-validate.sh" ]; then
-	. "$DOTFILES_LIB_DIR/cfg-validate.sh"
-	cfg_validate "$git_dir"
-	case "$CFG_STATE" in
-		valid)
-			printf 'Verified: %s is the dotfiles repository.\n' "$git_dir"
-			;;
-		not_git)
-			printf 'WARNING: %s exists but is not a valid git repository.\n' "$git_dir"
-			;;
-		foreign_repo)
-			printf 'WARNING: %s is a git repository but not the dotfiles repository.\n' "$git_dir"
-			;;
-		missing)
-			# Will be caught below
-			;;
-	esac
-fi
+# ── Validate repository ─────────────────────────────────────────────────
+cfg_validate "$git_dir"
+case "$CFG_STATE" in
+	valid)
+		printf 'Verified: %s is the dotfiles repository.\n' "$git_dir"
+		;;
+	not_git)
+		printf 'WARNING: %s exists but is not a valid git repository.\n' "$git_dir"
+		;;
+	foreign_repo)
+		printf 'WARNING: %s is a git repository but not the dotfiles repository.\n' "$git_dir"
+		;;
+	missing)
+		;;
+esac
 
 printf '=== Dotfiles Uninstallation ===\n\n'
 printf 'This will:\n'
 printf '  1. Remove user configuration files (preserves installation infrastructure)\n'
-if [ "$LATEST" = true ]; then
+if [ "$CFG_LATEST" = true ]; then
 	printf '  2. Restore backed up configs (latest version from backup chain)\n'
 else
 	printf '  2. Restore backed up configs (original version from backup chain)\n'
@@ -77,8 +60,7 @@ if [ ! -d "$git_dir" ] && [ ! -L "$git_dir" ]; then
 	exit 1
 fi
 
-# Get list of managed files (from checkout state or git ls-tree)
-# Exclude installation infrastructure files
+# Get list of managed files
 all_tracked_files=()
 if [ -f "$state_file" ]; then
 	while IFS=: read -r path _hash; do
@@ -107,28 +89,22 @@ if ((${#installation_files_preserved[@]} > 0)); then
 	printf 'Preserving %d installation infrastructure file(s).\n' "${#installation_files_preserved[@]}"
 fi
 
-# Scan backup chain and build file history index
-# For each file, track which backup sessions contain it (in chronological order)
-declare -A file_backup_sessions  # file -> newline-separated list of session dirs containing it
+# ── Scan backup chain ───────────────────────────────────────────────────
+declare -A file_backup_sessions
 
 backup_session_count=0
 if [ -d "$backup_root" ]; then
-	# Sort by directory name timestamp first, fallback to mtime
-	# Directory name format: {from}-to-{to}-{YYYYMMDDTHHMMSS}
 	sort_sessions() {
 		local session_dir basename timestamp
 		for session_dir in "$backup_root"/*/; do
 			[ -d "$session_dir" ] || continue
 			basename=$(basename "$session_dir")
-			# Extract timestamp from directory name (last component after -)
 			if [[ "$basename" =~ -([0-9]{8}T[0-9]{6})$ ]]; then
 				timestamp="${BASH_REMATCH[1]}"
 				printf '%s\t%s\n' "$timestamp" "$session_dir"
 			else
-				# Fallback to mtime if directory name doesn't match pattern
 				local mtime
 				mtime=$(stat -c '%Y' "$session_dir" 2>/dev/null || stat -f '%m' "$session_dir" 2>/dev/null)
-				# Convert to comparable format (YYYYMMDDTHHMMSS)
 				timestamp=$(date -d "@$mtime" '+%Y%m%dT%H%M%S' 2>/dev/null || date -r "$mtime" '+%Y%m%dT%H%M%S' 2>/dev/null)
 				printf '%s\t%s\n' "$timestamp" "$session_dir"
 			fi
@@ -141,7 +117,6 @@ if [ -d "$backup_root" ]; then
 		manifest="$session_dir/MANIFEST.txt"
 		if [ -f "$manifest" ]; then
 			while IFS=$'\t' read -r rel_path md5 status; do
-				# Skip comments and empty lines
 				[[ "$rel_path" =~ ^#.*$ ]] && continue
 				[[ -z "$rel_path" ]] && continue
 
@@ -157,18 +132,16 @@ fi
 
 printf '\nFound %d backup session(s) in %s.\n' "$backup_session_count" "$backup_root"
 
-# Determine which files can be restored and from which session
-declare -A file_restore_session  # file -> session dir to restore from
+# ── Determine restore targets ───────────────────────────────────────────
+declare -A file_restore_session
 restorable_count=0
 not_in_backup=()
 
 for path in "${files_to_remove[@]}"; do
 	if [ -n "${file_backup_sessions[$path]+x}" ]; then
-		if [ "$LATEST" = true ]; then
-			# Sessions are in chronological order; last = latest
+		if [ "$CFG_LATEST" = true ]; then
 			file_restore_session[$path]=$(printf '%s' "${file_backup_sessions[$path]}" | tail -1)
 		else
-			# Sessions are in chronological order; first = earliest
 			file_restore_session[$path]=$(printf '%s' "${file_backup_sessions[$path]}" | head -1)
 		fi
 		((restorable_count++)) || true
@@ -184,7 +157,7 @@ if ((${#not_in_backup[@]} > 0)); then
 	printf 'Files not in any backup (will be deleted): %d\n' "${#not_in_backup[@]}"
 fi
 
-if [ "$DRY_RUN" = true ]; then
+if [ "$CFG_DRY_RUN" = true ]; then
 	printf '\n=== DRY RUN MODE - No changes will be made ===\n'
 	printf '\nWould remove %d files:\n' "${#files_to_remove[@]}"
 	for path in "${files_to_remove[@]}"; do
@@ -221,7 +194,7 @@ if [[ "$confirm" != [yY] && "$confirm" != [yY][eE][sS] ]]; then
 	exit 0
 fi
 
-# Step 1: Remove all managed files
+# ── Step 1: Remove managed files ────────────────────────────────────────
 printf '\n=== Step 1: Removing repository files ===\n'
 removed=0
 for path in "${files_to_remove[@]}"; do
@@ -233,13 +206,12 @@ for path in "${files_to_remove[@]}"; do
 done
 printf 'Removed %d files.\n' "$removed"
 
-# Remove checkout state file
 if [ -f "$state_file" ]; then
 	rm -f -- "$state_file"
 	printf 'Removed checkout state file.\n'
 fi
 
-# Step 2: Restore from backup chain
+# ── Step 2: Restore from backup chain ───────────────────────────────────
 restored=0
 failed=0
 if ((restorable_count > 0)); then
@@ -272,7 +244,7 @@ if ((restorable_count > 0)); then
 	printf '  Failed: %d\n' "$failed"
 fi
 
-# Final summary and manual cleanup instructions
+# ── Final summary ───────────────────────────────────────────────────────
 printf '\n=== Uninstall Complete ===\n'
 printf 'Files removed: %d\n' "$removed"
 printf 'Files restored from backup: %d\n' "$restored"

@@ -78,7 +78,7 @@ cfg_validate() {
     # Method B: Check for signature files unique to our dotfiles repo
     local has_signature=false
     if git --git-dir="$target/" ls-tree -r --name-only HEAD 2>/dev/null | \
-       grep -qx ".local/bin/install.sh"; then
+       grep -qx ".local/bin/dotcfg"; then
         has_signature=true
     fi
 

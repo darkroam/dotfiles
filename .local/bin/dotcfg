@@ -13,7 +13,7 @@
 
 set -euo pipefail
 
-DOTCFG_VERSION="1.0.0"
+DOTCFG_VERSION="2.0.0"
 GIT_DIR="${DOTCFG_GIT_DIR:-$HOME/.cfg}"
 BACKUP_ROOT="$HOME/.config-backup"
 BIN_DIR="${DOTCFG_BIN_DIR:-$HOME/.local/bin}"
@@ -48,14 +48,12 @@ _print_transitions_from() {
 
 _transition_script_for() {
     local current="$1" target="$2"
+    local cmd_dir="$DOTFILES_LIB_DIR/commands"
     case "${current}.${target}" in
-        fresh.desktop)    printf '%s' "$BIN_DIR/install-2.sh" ;;
-        fresh.server)     printf '%s' "$BIN_DIR/install-server.sh" ;;
-        desktop.server)   printf '%s' "$BIN_DIR/restore-server.sh" ;;
-        desktop.fresh)    printf '%s' "$BIN_DIR/uninstall.sh" ;;
-        server.desktop)   printf '%s' "$BIN_DIR/restore-desktop.sh" ;;
-        server.fresh)     printf '%s' "$BIN_DIR/uninstall.sh" ;;
-        *)                return 1 ;;
+        fresh.desktop|server.desktop)   printf '%s' "$cmd_dir/switch-desktop.sh" ;;
+        fresh.server|desktop.server)    printf '%s' "$cmd_dir/switch-server.sh" ;;
+        desktop.fresh|server.fresh)     printf '%s' "$cmd_dir/uninstall.sh" ;;
+        *)                              return 1 ;;
     esac
 }
 
@@ -271,8 +269,12 @@ cmd_help() {
     printf '  version             Show version\n'
     printf '\n'
     printf 'Switch options:\n'
-    printf '  --dry-run           Preview changes without applying (passed to script)\n'
-    printf '  --force             Force operation (passed to script)\n'
+    printf '  --dry-run           Preview changes without applying\n'
+    printf '  --force             Force operation (replace existing repos, etc.)\n'
+    printf '  --reinstall         Reinstall without prompting (desktop/server)\n'
+    printf '  --auto-stash        Remove conflicting files without backup (desktop)\n'
+    printf '  --latest            Restore latest backup instead of earliest (uninstall)\n'
+    printf '  --clean-backups     Remove backup directories after uninstall\n'
     printf '\n'
     printf 'States: fresh, desktop, server\n'
     printf '\n'

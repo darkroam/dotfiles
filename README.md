@@ -4,7 +4,7 @@ Personal Linux configuration managed as a bare Git repository. Tracked files
 are intended to work from `$HOME`; untracked files are deliberately outside the
 repository.
 
-Last reviewed: 2026-07-18.
+Last reviewed: 2026-08-05.
 
 ## Repository Usage
 
@@ -27,21 +27,28 @@ uses `git@github.com`.
 Quick install:
 
 ```sh
-curl -fsSL https://github.com/darkroam/dotfiles/raw/master/.local/bin/install.sh | bash
+curl -fsSL https://github.com/darkroam/dotfiles/raw/master/.local/bin/dotcfg | bash
 ```
 
 Or download and inspect before running:
 
 ```sh
 installer=$(mktemp)
-curl -fsSL https://github.com/darkroam/dotfiles/raw/master/.local/bin/install.sh -o "$installer"
-sed -n '1,240p' "$installer"
+curl -fsSL https://github.com/darkroam/dotfiles/raw/master/.local/bin/dotcfg -o "$installer"
+less "$installer"
 /bin/bash "$installer"
 rm -f "$installer"
 unset installer
 ```
 
-It first clones into a temporary private directory and preflights tracked targets,
+Then choose your configuration:
+
+```sh
+dotcfg switch desktop    # full desktop environment
+dotcfg switch server     # server/terminal only
+```
+
+The installer clones into a temporary private directory and preflights tracked targets,
 including file or symlink ancestors that would block a nested path. It then backs
 up conflicts to the Git-ignored, mode `0700` `.config-backup`, preserving their
 directory structure; activates `$HOME/.cfg`; checks out into `$HOME`; and hides
@@ -110,7 +117,7 @@ runtime resources remain in `.local/share/larbs/`:
 - [Display device adapter guide](.local/share/docs/project/display-device-adapter.md):
   the planned single-file extension contract for nonstandard hardware.
 - [Installation system](.local/share/docs/project/installation-system.md):
-  three-state idempotent installation architecture, Gen 2 scripts, and shared
+  three-state idempotent installation architecture, unified CLI, and shared
   validation library.
 - [Installation testing](.local/share/docs/project/installation-testing.md):
   state machine test framework and 9-transition verification.

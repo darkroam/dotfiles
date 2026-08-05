@@ -25,7 +25,7 @@ teardown() {
 }
 
 @test "TC-45: status shows desktop state when indicators present" {
-	create_mock_cfg_repo ".bashrc" ".local/bin/install.sh"
+	create_mock_cfg_repo ".bashrc" ".local/bin/dotcfg"
 	touch "$HOME/.xinitrc"
 
 	run run_dotcfg status
@@ -34,7 +34,7 @@ teardown() {
 }
 
 @test "TC-46: status shows server state without desktop indicators" {
-	create_mock_cfg_repo ".bashrc" ".local/bin/install.sh"
+	create_mock_cfg_repo ".bashrc" ".local/bin/dotcfg"
 
 	run run_dotcfg status
 	[ "$status" -eq 0 ]
@@ -44,7 +44,7 @@ teardown() {
 # ── graph subcommand ───────────────────────────────────────────────────
 
 @test "TC-47: graph shows state graph with desktop marker" {
-	create_mock_cfg_repo ".bashrc" ".local/bin/install.sh"
+	create_mock_cfg_repo ".bashrc" ".local/bin/dotcfg"
 	touch "$HOME/.xinitrc"
 
 	run run_dotcfg graph
@@ -54,7 +54,7 @@ teardown() {
 	assert_output_contains "server"
 	assert_output_contains "desktop"
 	assert_output_contains "Current:"
-	assert_output_contains "restore-server.sh"
+	assert_output_contains "switch-server.sh"
 	assert_output_contains "uninstall.sh"
 }
 
@@ -63,8 +63,8 @@ teardown() {
 	[ "$status" -eq 0 ]
 	assert_output_contains "State Graph"
 	assert_output_contains "Current:"
-	assert_output_contains "install-2.sh"
-	assert_output_contains "install-server.sh"
+	assert_output_contains "switch-desktop.sh"
+	assert_output_contains "switch-server.sh"
 }
 
 # ── history subcommand ─────────────────────────────────────────────────
@@ -84,7 +84,7 @@ teardown() {
 	printf '# Created: Mon Aug  4 14:30:00 UTC 2026\n# Transition: desktop -> server\n#\n# relative_path\tmd5\tstatus\n' \
 		> "$HOME/.config-backup/desktop-to-server-20260804T143000/MANIFEST.txt"
 
-	create_mock_cfg_repo ".bashrc" ".local/bin/install.sh"
+	create_mock_cfg_repo ".bashrc" ".local/bin/dotcfg"
 
 	run run_dotcfg history
 	[ "$status" -eq 0 ]
@@ -103,7 +103,7 @@ teardown() {
 	mkdir -p "$HOME/.config-backup/invalid-20260804T120000"
 	mkdir -p "$HOME/.config-backup/random-garbage"
 
-	create_mock_cfg_repo ".bashrc" ".local/bin/install.sh"
+	create_mock_cfg_repo ".bashrc" ".local/bin/dotcfg"
 
 	run run_dotcfg history
 	[ "$status" -eq 0 ]
@@ -157,7 +157,7 @@ teardown() {
 # ── validate subcommand ────────────────────────────────────────────────
 
 @test "TC-57: validate shows validation detail and state" {
-	create_mock_cfg_repo ".bashrc" ".local/bin/install.sh"
+	create_mock_cfg_repo ".bashrc" ".local/bin/dotcfg"
 
 	run run_dotcfg validate
 	[ "$status" -eq 0 ]

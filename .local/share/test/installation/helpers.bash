@@ -10,11 +10,9 @@ REAL_HOME="${REAL_HOME:-$HOME}"
 # ── Paths ──────────────────────────────────────────────────────────────
 DOTFILES_ROOT="${DOTFILES_ROOT:-$(cd "$(dirname "${BATS_TEST_FILENAME:-}")/../../../.." && pwd)}"
 VALIDATE_LIB="$DOTFILES_ROOT/.local/lib/dotfiles/cfg-validate.sh"
-INSTALL_DESKTOP="$DOTFILES_ROOT/.local/bin/install-2.sh"
-INSTALL_SERVER="$DOTFILES_ROOT/.local/bin/install-server.sh"
-RESTORE_DESKTOP="$DOTFILES_ROOT/.local/bin/restore-desktop.sh"
-RESTORE_SERVER="$DOTFILES_ROOT/.local/bin/restore-server.sh"
-UNINSTALL="$DOTFILES_ROOT/.local/bin/uninstall.sh"
+SWITCH_DESKTOP="$DOTFILES_ROOT/.local/lib/dotfiles/commands/switch-desktop.sh"
+SWITCH_SERVER="$DOTFILES_ROOT/.local/lib/dotfiles/commands/switch-server.sh"
+COMMANDS_UNINSTALL="$DOTFILES_ROOT/.local/lib/dotfiles/commands/uninstall.sh"
 GENERATE_CONFLICTS="${BATS_TEST_FILENAME%/*}/generate-conflicts.sh"
 DOTCFG="$DOTFILES_ROOT/.local/bin/dotcfg"
 
@@ -43,7 +41,7 @@ setup_git_mirror() {
 # ── Source repository for integration tests ────────────────────────────
 # setup_source_repo [file1 file2 ...]
 # Creates a bare git repo that install scripts can clone from via DOTFILES_REPOSITORY.
-# Always includes .local/bin/install.sh as the repo signature for cfg_validate.
+# Always includes .local/bin/dotcfg as the repo signature for cfg_validate.
 SOURCE_REPO_DIR=""
 setup_source_repo() {
 	if [ -n "$SOURCE_REPO_DIR" ] && [ -d "$SOURCE_REPO_DIR" ]; then
@@ -67,8 +65,7 @@ setup_source_repo() {
 			".config/git/gitconfig" ".config/git/ignore"
 			".config/lf/lfrc" ".config/lf/scope" ".config/lf/cleaner" ".config/lf/icons"
 			".config/alsa/asoundrc"
-			".local/bin/install.sh"
-			".local/bin/uninstall.sh"
+			".local/bin/dotcfg"
 			".local/share/docs/README.md"
 			".local/share/docs/user/desktop-guide-zh.md"
 			".local/lib/dotfiles/cfg-validate.sh"
@@ -105,7 +102,7 @@ teardown_source_repo() {
 create_valid_existing_cfg() {
 	local files=("$@")
 	if [ ${#files[@]} -eq 0 ]; then
-		files=(".bashrc" ".gitconfig" ".local/bin/install.sh")
+		files=(".bashrc" ".gitconfig" ".local/bin/dotcfg")
 	fi
 	local bare_dir="$HOME/.cfg"
 	local temp_work
@@ -252,29 +249,29 @@ source_validate_lib() {
 }
 
 # ── Script execution helpers ───────────────────────────────────────────
-# run_install_desktop [args...]
+# run_install_desktop [args...] - calls switch-desktop.sh
 run_install_desktop() {
-	yes | bash "$INSTALL_DESKTOP" "$@" 2>&1
+	yes | bash "$SWITCH_DESKTOP" "$@" 2>&1
 }
 
-# run_install_server [args...]
+# run_install_server [args...] - calls switch-server.sh
 run_install_server() {
-	yes | bash "$INSTALL_SERVER" "$@" 2>&1
+	yes | bash "$SWITCH_SERVER" "$@" 2>&1
 }
 
-# run_restore_desktop [args...]
+# run_restore_desktop [args...] - calls switch-desktop.sh
 run_restore_desktop() {
-	yes | bash "$RESTORE_DESKTOP" "$@" 2>&1
+	yes | bash "$SWITCH_DESKTOP" "$@" 2>&1
 }
 
-# run_restore_server [args...]
+# run_restore_server [args...] - calls switch-server.sh
 run_restore_server() {
-	yes | bash "$RESTORE_SERVER" "$@" 2>&1
+	yes | bash "$SWITCH_SERVER" "$@" 2>&1
 }
 
-# run_uninstall [args...]
+# run_uninstall [args...] - calls commands/uninstall.sh
 run_uninstall() {
-	yes | yes | bash "$UNINSTALL" "$@" 2>&1
+	yes | yes | bash "$COMMANDS_UNINSTALL" "$@" 2>&1
 }
 
 # run_dotcfg [args...]

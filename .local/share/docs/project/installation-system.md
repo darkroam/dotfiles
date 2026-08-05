@@ -40,7 +40,7 @@
 共享验证库 `cfg-validate.sh` 通过双重验证确认仓库身份：
 
 - **方法 A**：规范化 remote URL（SSH→HTTPS 统一比较）匹配 `git@github.com:darkroam/dotfiles.git`
-- **方法 B**：检查 HEAD 中是否存在签名文件 `.local/bin/install.sh`
+- **方法 B**：检查 HEAD 中是否存在签名文件 `.local/bin/dotcfg`
 - 任一方法通过即确认为本项目的 dotfiles 仓库
 
 仓库状态分类：`missing`（不存在）、`not_git`（非 git 目录）、`foreign_repo`（其他 git 仓库）、`valid`（本项目的仓库）。
@@ -57,7 +57,7 @@
 | `cfg_check_updates()` | 检查远程是否有新提交 |
 | `cfg_print_validation_result()` | 人类可读的验证结果输出 |
 
-安装脚本通过 `DOTFILES_LIB_DIR` 加载此库。如果库不可用，脚本回退到内联副本（打印弃用警告）。
+安装脚本通过 `DOTFILES_LIB_DIR` 加载此库。命令脚本位于 `.local/lib/dotfiles/commands/`，通过 `.local/lib/dotfiles/utils/common.sh` 加载所有工具库。
 
 ---
 
@@ -85,24 +85,24 @@
 │   FRESH     │
 └──────┬──────┘
        │
-       ├─ install-2.sh ──────────────→ DESKTOP
-       └─ install-server.sh ─────────→ SERVER
+       ├─ dotcfg switch desktop ──→ DESKTOP   (switch-desktop.sh)
+       └─ dotcfg switch server ───→ SERVER    (switch-server.sh)
 
 ┌─────────────┐
 │  DESKTOP    │
 └──────┬──────┘
        │
-       ├─ install-2.sh --reinstall ──→ DESKTOP  (幂等重装)
-       ├─ restore-server.sh ─────────→ SERVER
-       └─ uninstall.sh ──────────────→ FRESH*
+       ├─ dotcfg switch desktop --reinstall ─→ DESKTOP  (幂等重装)
+       ├─ dotcfg switch server ──────────────→ SERVER   (switch-server.sh)
+       └─ dotcfg switch fresh ───────────────→ FRESH*   (uninstall.sh)
 
 ┌─────────────┐
 │   SERVER    │
 └──────┬──────┘
        │
-       ├─ install-server.sh --reinstall → SERVER  (幂等重装)
-       ├─ restore-desktop.sh ────────→ DESKTOP
-       └─ uninstall.sh ──────────────→ FRESH*
+       ├─ dotcfg switch server --reinstall ──→ SERVER   (幂等重装)
+       ├─ dotcfg switch desktop ─────────────→ DESKTOP  (switch-desktop.sh)
+       └─ dotcfg switch fresh ───────────────→ FRESH*   (uninstall.sh)
 ```
 
 \* uninstall.sh 移除 checkout 的文件但保留 `.cfg` 仓库，需用户手动删除。
@@ -129,48 +129,77 @@ dotcfg help                   # 使用帮助
 
 ### 脚本总览
 
+**命令脚本**（位于 `.local/lib/dotfiles/commands/`）：
+
 | 脚本 | 用途 | 转换 |
 |------|------|------|
-| `install-2.sh` | 桌面模式安装（推荐） | FRESH → DESKTOP |
-| `install-server.sh` | 服务器模式安装 | FRESH → SERVER |
-| `restore-desktop.sh` | 切换到桌面模式 | SERVER → DESKTOP |
-| `restore-server.sh` | 切换到服务器模式 | DESKTOP → SERVER |
+| `switch-desktop.sh` | 切换到桌面模式 | FRESH/SERVER → DESKTOP |
+| `switch-server.sh` | 切换到服务器模式 | FRESH/DESKTOP → SERVER |
 | `uninstall.sh` | 卸载并恢复备份 | DESKTOP/SERVER → FRESH |
-| `install.sh` | 桌面安装（Gen 1 兼容版） | FRESH → DESKTOP |
-| `dotcfg` | 统一命令行入口 | 调度到上述脚本 |
+
+**工具库**（位于 `.local/lib/dotfiles/utils/`）：
+
+| 文件 | 职责 |
+|------|------|
+| `common.sh` | 顶层加载器，source 所有工具库 |
+| `args.sh` | 参数解析（`cfg_parse_common_args`） |
+| `backup.sh` | 备份创建和文件备份（`cfg_create_backup_dir`, `cfg_backup_file`） |
+| `rollback.sh` | 失败时从备份恢复（`cfg_rollback_from_backup`） |
+| `checkout.sh` | 文件 checkout 和状态记录（`cfg_checkout_files`, `cfg_record_checkout_state`） |
+| `repo.sh` | 仓库克隆和激活（`cfg_setup_repository`, `cfg_activate_repository`） |
+| `files.sh` | 文件分类和常量定义（`cfg_analyze_files`, `CFG_SERVER_FILES`） |
 
 ### 通用参数
 
-所有 Gen 2 脚本支持：
+所有命令脚本支持：
 - `--dry-run` — 预览操作，不修改文件
-- `--reinstall` — 跳过交互提示，直接重新安装（仅 install-2.sh / install-server.sh）
+- `--force` — 强制操作（备份并替换无效/外部仓库）
 
-### 1. install-2.sh — 桌面模式安装
+特定脚本额外支持：
+- `--reinstall` — 跳过交互提示，直接重新安装（switch-desktop / switch-server）
+- `--auto-stash` — 移除冲突文件而不备份（仅 switch-desktop）
+- `--latest` — 恢复最新备份而非最早（仅 uninstall）
+- `--clean-backups` — 卸载后清理备份目录（仅 uninstall）
+
+### 1. switch-desktop.sh — 桌面模式切换
+
+合并了原 install-2.sh 和 restore-desktop.sh 的功能。
 
 **状态检测与自主决策**：
 ```
-检测到 .cfg？
-  ├─ 否（fresh）→ 直接全新安装
-  └─ 是
-      ├─ desktop → 提示：1. 重新安装  2. 取消
-      └─ server  → 提示：1. 用 restore-desktop.sh  2. 强制安装  3. 取消
+当前状态？
+  ├─ fresh   → 全新安装：克隆仓库，checkout 所有文件
+  ├─ server  → 复用现有 .cfg，获取更新，checkout 桌面文件
+  └─ desktop → 提示重新安装（--reinstall 跳过提示）
 ```
 
 **执行流程**：
-1. 验证仓库身份（`cfg_validate`）
-2. 检测当前状态（`cfg_detect_state`）
-3. 处理无效仓库（`--force` 时备份到 `.config-backup/invalid-{ts}/` 或 `foreign-{ts}/`）
-4. 克隆或复用仓库
-5. **克隆后重新验证**：确保克隆的仓库身份正确（防止 URL 错误或仓库损坏）
-6. 分析所有跟踪文件（未跟踪 → 备份 / 已跟踪已修改 → 备份 / 已跟踪相同 → 跳过）
-7. 创建备份 `.config-backup/{from}-to-desktop-{ts}/`
-8. Checkout 所有桌面配置
-9. 若 checkout 失败率 >50% 则自动回滚
-10. 记录 `.cfg-checkout-state`，设置 `showUntrackedFiles = no`
+1. 解析参数（`cfg_parse_common_args`）
+2. 验证仓库身份（`cfg_validate`）
+3. 处理无效/外部仓库（`--force` 时备份并删除）
+4. 根据当前状态准备仓库（克隆或复用）
+5. 分析所有跟踪文件（`cfg_analyze_files`）
+6. 打印安装前报告
+7. 如果 `--dry-run`，退出
+8. 如果 `--auto-stash`，删除冲突文件；否则创建备份
+9. Checkout 所有桌面配置（`cfg_checkout_files`）
+10. 若 checkout 失败率 >50% 则自动回滚（`cfg_rollback_from_backup`）
+11. 激活仓库（如果是 fresh 克隆）
+12. 记录 `.cfg-checkout-state`，设置 `showUntrackedFiles = no`
 
-### 2. install-server.sh — 服务器模式安装
+### 2. switch-server.sh — 服务器模式切换
 
-与 install-2.sh 相同的决策模式，但只 checkout **服务器文件白名单**：
+合并了原 install-server.sh 和 restore-server.sh 的功能。
+
+**状态检测与自主决策**：
+```
+当前状态？
+  ├─ fresh   → 全新安装：克隆仓库，只 checkout 服务器白名单文件
+  ├─ desktop → 复用现有 .cfg，先删除桌面指标文件，再 checkout 服务器文件
+  └─ server  → 提示重新安装（--reinstall 跳过提示）
+```
+
+**服务器文件白名单**（`CFG_SERVER_FILES`）：
 
 ```
 Shell:    .config/shell/profile, .config/shell/aliasrc, .config/shell/zshrc,
@@ -182,40 +211,24 @@ LF:       .config/lf/lfrc, .config/lf/scope, .config/lf/cleaner,
 文档:     .local/share/docs/README.md, .local/share/docs/user/desktop-guide-zh.md
 ```
 
-> **注意**：restore-server.sh 的桌面文件移除列表与 install-server.sh 的白名单不完全一致（B4）。restore-server.sh 只移除已知的桌面指标文件，不保证移除所有非服务器文件。
+**桌面指标文件移除**（从 desktop 切换时）：
 
-### 3. restore-desktop.sh — 切换到桌面模式
+**符号链接**：`.xinitrc`、`.xprofile`、`.asoundrc`、`.gtkrc-2.0`、`.tmux.conf`、`.gitconfig`、`.gitignore`
 
-从 SERVER → DESKTOP，不克隆仓库，仅操作 work-tree：
-1. **状态检查**：验证当前状态为 server（否则报错退出）
-2. 验证 `.cfg` 存在且有效（无 `--force` 选项）
-3. 分析冲突文件并备份（或 `--auto-stash` 直接覆盖）
-4. Checkout 所有桌面配置
-5. 回滚保护（失败率 >50% 时从备份恢复）
-6. 更新 `.cfg-checkout-state`
+**目录**：`.config/x11`、`.config/alsa`
 
-### 4. restore-server.sh — 切换到服务器模式
-
-从 DESKTOP → SERVER，**移除式**策略：
-1. **状态检查**：验证当前状态为 desktop（否则报错退出）
-2. 验证 `.cfg` 存在且有效
-3. 识别桌面特有产物（符号链接、目录、已修改文件）
-3. 备份已修改文件，直接删除符号链接和目录
-4. 验证服务器配置（checkout 服务器白名单文件）
-5. 回滚保护
-
-### 5. uninstall.sh — 恢复到 fresh 状态
+### 3. uninstall.sh — 恢复到 fresh 状态
 
 **安全性设计**：
 - 只删除用户配置文件，恢复到 fresh 状态（如同从未安装）
 - 安装基础设施（脚本、库）永远不被删除，支持重新安装
-- 不自动删除备份，由用户手动决定是否清理
+- 不自动删除备份，由用户手动决定是否清理（或使用 `--clean-backups`）
 - 任何状态都可恢复，所有操作幂等
 
 **恢复流程**：
 1. 确定要移除的文件（优先从 `.cfg-checkout-state` 读取，回退到 `git ls-tree`）
 2. 过滤出安装基础设施文件（不删除）：
-   - `.local/bin/{install-*,restore-*,uninstall,dotcfg}`
+   - `.local/bin/dotcfg`
    - `.local/lib/dotfiles/*`
 3. 扫描 `.config-backup/` 下所有会话目录
 4. **按目录名称时间戳排序**（格式：`{from}-to-{to}-{YYYYMMDDTHHMMSS}`）
@@ -228,12 +241,11 @@ LF:       .config/lf/lfrc, .config/lf/scope, .config/lf/cleaner,
 9. 打印手动清理说明（可选）：
    - 备份目录：`~/.config-backup`
    - 仓库：`~/.cfg`
-   - 安装脚本和库
 
 **保护的安装文件**：
 以下文件在 uninstall 时永远不被删除，确保系统可以重新安装或恢复：
-- 可执行脚本：`install-2.sh`, `install-server.sh`, `restore-desktop.sh`, `restore-server.sh`, `uninstall.sh`, `dotcfg`
-- 运行时库：`.local/lib/dotfiles/cfg-validate.sh`
+- 入口脚本：`dotcfg`
+- 运行时库：`.local/lib/dotfiles/*`
 
 文档和测试文件不保护，会在 uninstall 时删除。
 
@@ -268,13 +280,11 @@ LF:       .config/lf/lfrc, .config/lf/scope, .config/lf/cleaner,
 
 | 脚本 | 处理的文件范围 | 特殊逻辑 |
 |------|----------------|----------|
-| `install-2.sh` | 仓库中所有跟踪文件 | 全量 checkout |
-| `install-server.sh` | 服务器白名单内的文件 | 只 checkout 白名单 |
-| `restore-desktop.sh` | 所有跟踪文件 | 不克隆 repo，只 checkout |
-| `restore-server.sh` | 桌面指标文件 + 服务器白名单 | 移除桌面产物 + 验证服务器文件 |
+| `switch-desktop.sh` | 仓库中所有跟踪文件 | fresh 时克隆仓库；server 时复用现有仓库 |
+| `switch-server.sh` | 服务器白名单内的文件 | desktop 时先删除桌面指标文件 |
 | `uninstall.sh` | `.cfg-checkout-state` 或 `git ls-tree` 列出的文件 | 移除 + 从备份恢复 |
 
-### 桌面特有产物（restore-server.sh 移除列表）
+### 桌面特有产物（switch-server.sh 移除列表）
 
 **符号链接**：`.xinitrc`、`.xprofile`、`.asoundrc`、`.gtkrc-2.0`、`.tmux.conf`、`.gitconfig`、`.gitignore`
 
@@ -361,19 +371,19 @@ LF:       .config/lf/lfrc, .config/lf/scope, .config/lf/cleaner,
 
 ### 安装幂等性
 
-- 重复执行 `install-2.sh` 或 `install-server.sh` 不会产生多余备份
+- 重复执行 `dotcfg switch desktop --reinstall` 或 `dotcfg switch server --reinstall` 不会产生多余备份
 - 已跟踪且内容相同的文件被跳过（不备份、不重新 checkout）
 - `.cfg-checkout-state` 记录上次 checkout 的文件指纹，用于快速对比
 
 ### 卸载幂等性
 
-- 重复执行 `uninstall.sh` 产生相同结果
+- 重复执行 `dotcfg switch fresh` 产生相同结果
 - 恢复使用 `cp`（非 `mv`），备份文件不被消耗
 - 已移除的文件再次执行时直接跳过
 
 ### 切换幂等性
 
-- `restore-desktop.sh` 和 `restore-server.sh` 重复执行结果一致
+- `switch-desktop.sh` 和 `switch-server.sh` 重复执行结果一致
 - 无冲突文件时不创建备份目录
 - `--auto-stash` 模式直接覆盖，不创建备份
 
@@ -484,7 +494,7 @@ ls -la ~/.xinitrc ~/.xprofile ~/.config/x11   # 检查桌面指标文件
 
 ## 相关文档
 
-- [安装测试系统](installation-testing.md) — 测试框架和 72 个测试用例
+- [安装测试系统](installation-testing.md) — 测试框架和 77 个测试用例
 - [安装系统修复记录](../planning/installation-fixes.md) — 已知问题和修复方案
 - [依赖清单](dependencies.md) — 项目依赖的软件包
 - [架构文档](architecture.md) — 配置库整体架构

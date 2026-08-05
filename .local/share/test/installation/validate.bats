@@ -54,7 +54,7 @@ teardown() {
 }
 
 @test "TC-34f: bare repo with correct SSH remote → valid" {
-	create_mock_cfg_repo_with_remote "git@github.com:darkroam/dotfiles.git" ".bashrc" ".local/bin/install.sh"
+	create_mock_cfg_repo_with_remote "git@github.com:darkroam/dotfiles.git" ".bashrc" ".local/bin/dotcfg"
 	source_validate_lib
 	cfg_validate "$HOME/.cfg"
 	[ "$CFG_STATE" = "valid" ]
@@ -62,7 +62,7 @@ teardown() {
 }
 
 @test "TC-34g: bare repo with signature file, no remote → valid" {
-	create_mock_cfg_repo ".local/bin/install.sh" ".bashrc"
+	create_mock_cfg_repo ".local/bin/dotcfg" ".bashrc"
 	git --git-dir="$HOME/.cfg/" remote remove origin 2>/dev/null || true
 	source_validate_lib
 	cfg_validate "$HOME/.cfg"
@@ -72,7 +72,7 @@ teardown() {
 
 @test "TC-34h: .cfg is a symlink to valid bare repo → valid" {
 	local real_dir="$HOME/real-cfg"
-	create_mock_cfg_repo ".local/bin/install.sh" ".bashrc"
+	create_mock_cfg_repo ".local/bin/dotcfg" ".bashrc"
 	mv "$HOME/.cfg" "$real_dir"
 	ln -s "$real_dir" "$HOME/.cfg"
 	source_validate_lib
@@ -96,15 +96,17 @@ teardown() {
 }
 
 @test "TC-34k: HTTPS URL normalized to match SSH → valid" {
-	create_mock_cfg_repo_with_remote "https://github.com/darkroam/dotfiles.git" ".bashrc" ".local/bin/install.sh"
+	create_mock_cfg_repo_with_remote "https://github.com/darkroam/dotfiles.git" ".bashrc" ".local/bin/dotcfg"
 	source_validate_lib
 	cfg_validate "$HOME/.cfg"
 	[ "$CFG_STATE" = "valid" ]
 }
 
-# TC-35: fallback when library is unavailable
+# TC-35: new scripts require validation library
 
-@test "TC-35: scripts fall back to inline validation when library missing" {
-	# Verify the inline fallback exists in install-2.sh
-	grep -q "cfg_validate()" "$INSTALL_DESKTOP"
+@test "TC-35: consolidated scripts require validation library" {
+	# Verify the new scripts source utils/common.sh (which requires cfg-validate.sh)
+	grep -q "utils/common.sh" "$SWITCH_DESKTOP"
+	grep -q "utils/common.sh" "$SWITCH_SERVER"
+	grep -q "utils/common.sh" "$COMMANDS_UNINSTALL"
 }
