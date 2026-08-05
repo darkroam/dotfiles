@@ -4,6 +4,16 @@
 
 ## 最近记录的变更
 
+- [x] 2026-08-05：安全性改进与库重构。
+  **库重构**：将共享验证库从 `.local/share/dotfiles-lib/` 移到 `.local/lib/dotfiles/`，
+  符合 XDG 规范（share/ 用于数据，lib/ 用于库）。更新所有引用路径。
+  **测试隔离**：为 4 个关键函数添加安全检查（create_mock_cfg_repo、create_mock_cfg_repo_with_remote、
+  create_valid_existing_cfg、setup_installed_state），拒绝在 REAL_HOME 下执行，防止测试污染真实环境。
+  **uninstall 安全性**：重新设计为"恢复到 fresh 状态"而非"完全卸载"。只删除用户配置文件，
+  保护安装基础设施（脚本、运行时库）永远不被删除。移除 `--clean-backups` 选项，改为打印手动清理说明。
+  确保系统自洽：任何状态都可恢复，所有操作幂等，没有破坏性命令。
+  **文档同步**：更新 installation-system.md 反映新的 uninstall 行为和保护文件列表。
+
 - [x] 2026-08-05：备份系统重设计与统一 CLI。
   **备份系统**：将备份目录从扁平 `$HOME/.config-backup-{from}-to-{to}-{ts}/` 改为嵌套
   `$HOME/.config-backup/{from}-to-{to}-{ts}/`。MANIFEST 格式从绝对路径改为 tab 分隔的

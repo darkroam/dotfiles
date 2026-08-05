@@ -201,17 +201,35 @@ LF:       .config/lf/lfrc, .config/lf/scope, .config/lf/cleaner,
 4. 验证服务器配置（checkout 服务器白名单文件）
 5. 回滚保护
 
-### 5. uninstall.sh — 完全卸载
+### 5. uninstall.sh — 恢复到 fresh 状态
 
-**备份链扫描与双模式恢复**：
+**安全性设计**：
+- 只删除用户配置文件，恢复到 fresh 状态（如同从未安装）
+- 安装基础设施（脚本、库）永远不被删除，支持重新安装
+- 不自动删除备份，由用户手动决定是否清理
+- 任何状态都可恢复，所有操作幂等
+
+**恢复流程**：
 1. 确定要移除的文件（优先从 `.cfg-checkout-state` 读取，回退到 `git ls-tree`）
-2. 扫描 `.config-backup/` 下所有会话目录（按文件系统 mtime 排序）
-3. 解析每个 MANIFEST.txt，构建文件→备份会话的关联映射
-4. 选择恢复源：默认恢复**最早**版本（原始文件），`--latest` 恢复**最新**版本
-5. 移除所有 checkout 的文件
-6. 从备份中 `cp`（非 `mv`）恢复用户文件——保持备份完整，支持幂等
-7. `--clean-backups` 删除所有备份会话
-8. 提示手动删除 `.cfg` 仓库
+2. 过滤出安装基础设施文件（不删除）：
+   - `.local/bin/{install-*,restore-*,uninstall,dotcfg}`
+   - `.local/lib/dotfiles/*`
+3. 扫描 `.config-backup/` 下所有会话目录（按文件系统 mtime 排序）
+4. 解析每个 MANIFEST.txt，构建文件→备份会话的关联映射
+5. 选择恢复源：默认恢复**最早**版本（原始文件），`--latest` 恢复**最新**版本
+6. 移除用户配置文件（保留安装基础设施）
+7. 从备份中 `cp`（非 `mv`）恢复用户文件——保持备份完整，支持幂等
+8. 打印手动清理说明（可选）：
+   - 备份目录：`~/.config-backup`
+   - 仓库：`~/.cfg`
+   - 安装脚本和库
+
+**保护的安装文件**：
+以下文件在 uninstall 时永远不被删除，确保系统可以重新安装或恢复：
+- 可执行脚本：`install-2.sh`, `install-server.sh`, `restore-desktop.sh`, `restore-server.sh`, `uninstall.sh`, `dotcfg`
+- 运行时库：`.local/lib/dotfiles/cfg-validate.sh`
+
+文档和测试文件不保护，会在 uninstall 时删除。
 
 ---
 
