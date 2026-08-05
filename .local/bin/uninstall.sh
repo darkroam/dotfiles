@@ -8,18 +8,36 @@ set -euo pipefail
 # Parse arguments
 DRY_RUN=false
 LATEST=false
-CLEAN_BACKUPS=false
 for arg in "$@"; do
 	case $arg in
 		--dry-run) DRY_RUN=true ;;
 		--latest) LATEST=true ;;
-		--clean-backups) CLEAN_BACKUPS=true ;;
 	esac
 done
 
 git_dir=$HOME/.cfg
 backup_root="$HOME/.config-backup"
 state_file="$HOME/.cfg-checkout-state"
+
+# Installation-related files that should never be deleted
+# Only executable scripts and runtime libraries needed for operation
+is_installation_file() {
+	local path="$1"
+	case "$path" in
+		.local/bin/install-2.sh|\
+		.local/bin/install-server.sh|\
+		.local/bin/restore-desktop.sh|\
+		.local/bin/restore-server.sh|\
+		.local/bin/uninstall.sh|\
+		.local/bin/dotcfg|\
+		.local/lib/dotfiles/*)
+			return 0
+			;;
+		*)
+			return 1
+			;;
+	esac
+}
 
 # Source shared validation library
 DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
@@ -44,13 +62,14 @@ fi
 
 printf '=== Dotfiles Uninstallation ===\n\n'
 printf 'This will:\n'
-printf '  1. Remove all files checked out from the repository\n'
+printf '  1. Remove user configuration files (preserves installation infrastructure)\n'
 if [ "$LATEST" = true ]; then
 	printf '  2. Restore backed up configs (latest version from backup chain)\n'
 else
 	printf '  2. Restore backed up configs (original version from backup chain)\n'
 fi
-printf '  3. Prompt for manual repository removal\n'
+printf '  3. Print manual cleanup instructions for complete removal\n'
+printf '\nInstallation files (scripts, libraries, docs) will be preserved.\n'
 
 # Check if repository exists
 if [ ! -d "$git_dir" ] && [ ! -L "$git_dir" ]; then
@@ -59,17 +78,33 @@ if [ ! -d "$git_dir" ] && [ ! -L "$git_dir" ]; then
 fi
 
 # Get list of managed files (from checkout state or git ls-tree)
-files_to_remove=()
+# Exclude installation infrastructure files
+all_tracked_files=()
 if [ -f "$state_file" ]; then
 	while IFS=: read -r path _hash; do
-		files_to_remove+=("$path")
+		all_tracked_files+=("$path")
 	done < "$state_file"
-	printf '\nFound %d tracked files in checkout state.\n' "${#files_to_remove[@]}"
+	printf '\nFound %d tracked files in checkout state.\n' "${#all_tracked_files[@]}"
 elif [ -d "$git_dir" ]; then
-	mapfile -t files_to_remove < <(git --git-dir="$git_dir/" --work-tree="$HOME" ls-tree -r --name-only HEAD 2>/dev/null || true)
-	printf '\nFound %d tracked files in repository.\n' "${#files_to_remove[@]}"
+	mapfile -t all_tracked_files < <(git --git-dir="$git_dir/" --work-tree="$HOME" ls-tree -r --name-only HEAD 2>/dev/null || true)
+	printf '\nFound %d tracked files in repository.\n' "${#all_tracked_files[@]}"
 else
 	printf '\nNo checkout state or repository found. Nothing to remove.\n'
+fi
+
+# Filter out installation files
+files_to_remove=()
+installation_files_preserved=()
+for path in "${all_tracked_files[@]}"; do
+	if is_installation_file "$path"; then
+		installation_files_preserved+=("$path")
+	else
+		files_to_remove+=("$path")
+	fi
+done
+
+if ((${#installation_files_preserved[@]} > 0)); then
+	printf 'Preserving %d installation infrastructure file(s).\n' "${#installation_files_preserved[@]}"
 fi
 
 # Scan backup chain and build file history index
@@ -127,10 +162,6 @@ if ((${#not_in_backup[@]} > 0)); then
 	printf 'Files not in any backup (will be deleted): %d\n' "${#not_in_backup[@]}"
 fi
 
-if [ "$CLEAN_BACKUPS" = true ]; then
-	printf '\nWARNING: --clean-backups will delete ALL %d backup session(s).\n' "$backup_session_count"
-fi
-
 if [ "$DRY_RUN" = true ]; then
 	printf '\n=== DRY RUN MODE - No changes will be made ===\n'
 	printf '\nWould remove %d files:\n' "${#files_to_remove[@]}"
@@ -152,10 +183,11 @@ if [ "$DRY_RUN" = true ]; then
 			printf '  ! %s\n' "$path"
 		done
 	fi
-	if [ "$CLEAN_BACKUPS" = true ]; then
-		printf '\nWould delete backup directory: %s\n' "$backup_root"
-	fi
-	printf '\nNote: Repository at %s will NOT be automatically removed.\n' "$git_dir"
+	printf '\nInstallation infrastructure files would be preserved:\n'
+	for path in "${installation_files_preserved[@]}"; do
+		printf '  = %s\n' "$path"
+	done
+	printf '\nNote: Repository and backups will NOT be automatically removed.\n'
 	exit 0
 fi
 
@@ -218,26 +250,31 @@ if ((restorable_count > 0)); then
 	printf '  Failed: %d\n' "$failed"
 fi
 
-# Step 3: Clean backups if requested
-if [ "$CLEAN_BACKUPS" = true ] && [ -d "$backup_root" ]; then
-	printf '\n=== Step 3: Cleaning backup directory ===\n'
-	rm -rf -- "$backup_root"
-	printf 'Deleted %s\n' "$backup_root"
-fi
-
-# Prompt for manual repository removal
-printf '\n=== Manual Repository Removal ===\n'
-printf 'The bare repository is located at: %s\n' "$git_dir"
-printf '\nTo complete the uninstallation, you must manually remove it:\n'
-printf '  rm -rf %s\n' "$git_dir"
-printf '\nIMPORTANT: Verify that all your configurations are working correctly before removing the repository.\n'
-
+# Final summary and manual cleanup instructions
 printf '\n=== Uninstall Complete ===\n'
 printf 'Files removed: %d\n' "$removed"
 printf 'Files restored from backup: %d\n' "$restored"
-if [ "$CLEAN_BACKUPS" = false ] && [ -d "$backup_root" ]; then
-	printf '\nBackup directory preserved at: %s\n' "$backup_root"
-	printf 'To remove all backups: rm -rf %s\n' "$backup_root"
+printf 'Installation files preserved: %d\n' "${#installation_files_preserved[@]}"
+
+printf '\n=== System State: Fresh ===\n'
+printf 'Your system has been restored to a fresh state (as if dotfiles were never installed).\n'
+printf 'Installation infrastructure has been preserved for potential re-installation.\n'
+
+if [ -d "$backup_root" ] || [ -d "$git_dir" ]; then
+	printf '\n=== Manual Cleanup (Optional) ===\n'
+	printf 'To completely remove all traces of the dotfiles system, delete:\n'
+	if [ -d "$backup_root" ]; then
+		printf '  1. Backup directory: rm -rf %s\n' "$backup_root"
+	fi
+	if [ -d "$git_dir" ] || [ -L "$git_dir" ]; then
+		printf '  2. Repository: rm -rf %s\n' "$git_dir"
+	fi
+	if ((${#installation_files_preserved[@]} > 0)); then
+		printf '  3. Installation scripts and libraries (see list above)\n'
+	fi
+	printf '\nWARNING: Only delete these if you are certain you will not need to re-install or recover.\n'
+	printf 'Keeping them allows you to:\n'
+	printf '  - Re-install dotfiles later\n'
+	printf '  - View transition history\n'
+	printf '  - Recover configurations if needed\n'
 fi
-printf '\nRemember to manually remove the repository when ready:\n'
-printf '  rm -rf %s\n' "$git_dir"
