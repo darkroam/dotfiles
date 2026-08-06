@@ -702,6 +702,25 @@ ls -la ~/.xinitrc ~/.xprofile ~/.config/x11 ~/.asoundrc ~/.gtkrc-2.0 \
        ~/.config/alsa ~/.config/mpd ~/.config/nsxiv ~/.config/zathura
 ```
 
+### 急救：使用独立安装脚本
+
+如果节点系统完全损坏或不可用，可以使用独立的 `install.sh` 脚本进行急救安装：
+
+```bash
+# 从仓库历史恢复 install.sh（如果不存在）
+git --git-dir=$HOME/.cfg --work-tree=$HOME checkout HEAD -- .local/bin/install.sh
+
+# 或直接下载
+curl -fsSL https://raw.githubusercontent.com/darkroam/dotfiles/main/.local/bin/install.sh -o ~/.local/bin/install.sh
+chmod +x ~/.local/bin/install.sh
+
+# 执行急救安装
+~/.local/bin/install.sh
+```
+
+`install.sh` 是独立的安装脚本，不依赖节点系统。它直接克隆仓库并 checkout 配置文件，
+适用于节点系统损坏、需要全新安装或绕过节点管理的场景。
+
 ---
 
 ## 相关文档
