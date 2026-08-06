@@ -84,6 +84,8 @@
 
 这些文件仅在桌面模式安装时被 checkout，因此是区分 desktop/server 的可靠信号。状态检测与 switch-server.sh 的移除列表保持一致。
 
+注：switch-server.sh 移除列表包含 12 项（7 符号链接 + 5 目录），其中 `.tmux.conf`、`.gitconfig`、`.gitignore` 属于 server 共用文件，移除后会立即重新 checkout，因此不作为状态检测指标。
+
 ### 状态转换矩阵
 
 ```
@@ -415,7 +417,7 @@ switch-server.sh 从 desktop 切换到 server 时，移除以下桌面特有文�
 
 ### 时间排序策略
 
-备份会话按文件系统 mtime 排序（`find -printf '%T@\t%p\n' | sort -n`），而非目录名称排序。这解决了同一秒内创建的多个会话目录名称排序与创建顺序不一致的问题。
+备份会话优先按目录名称时间戳排序（格式：`{from}-to-{to}-{YYYYMMDDTHHMMSS}`）。如果目录名不符合格式，回退到文件系统 mtime 排序。
 
 ---
 
@@ -539,7 +541,10 @@ git --git-dir=$HOME/.cfg/ --work-tree=$HOME checkout HEAD -- .bashrc
 ### 状态检测不准确
 ```bash
 dotcfg validate                               # 检查仓库状态
-ls -la ~/.xinitrc ~/.xprofile ~/.config/x11   # 检查桌面指标文件
+dotcfg status                                 # 检查当前安装状态
+# 或手动检查全部 9 个桌面指标文件
+ls -la ~/.xinitrc ~/.xprofile ~/.config/x11 ~/.asoundrc ~/.gtkrc-2.0 \
+       ~/.config/alsa ~/.config/mpd ~/.config/nsxiv ~/.config/zathura
 ```
 
 ---
