@@ -38,11 +38,12 @@ CFG_SERVER_FILES_DEFAULT=(
 # Sets CFG_SERVER_FILES array
 cfg_load_server_files() {
 	local git_dir="${1:-$HOME/.cfg}"
-	local config_file="$git_dir/server-files.txt"
 
 	CFG_SERVER_FILES=()
 
-	if [ -f "$config_file" ]; then
+	# Try to read from git (bare repo stores files in objects, not working dir)
+	local content
+	if content=$(git --git-dir="$git_dir/" show HEAD:server-files.txt 2>/dev/null); then
 		local line
 		while IFS= read -r line || [ -n "$line" ]; do
 			# Skip empty lines and comments
@@ -53,7 +54,7 @@ cfg_load_server_files() {
 			line="${line%"${line##*[![:space:]]}"}"
 			[ -z "$line" ] && continue
 			CFG_SERVER_FILES+=("$line")
-		done < "$config_file"
+		done <<< "$content"
 	else
 		# Fallback to default list
 		CFG_SERVER_FILES=("${CFG_SERVER_FILES_DEFAULT[@]}")

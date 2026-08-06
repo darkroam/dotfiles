@@ -86,6 +86,12 @@ cfg_checkout_files() {
 
 	local path
 	for path in "${files[@]}"; do
+		# Create parent directory if needed
+		local parent_dir
+		parent_dir=$(dirname "$path")
+		if [ "$parent_dir" != "." ]; then
+			mkdir -p "$HOME/$parent_dir" 2>/dev/null
+		fi
 		if config_fn checkout HEAD -- "$path" 2>/dev/null; then
 			((installed++)) || true
 		else
