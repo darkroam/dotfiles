@@ -26,6 +26,10 @@ else
     exit 1
 fi
 
+if [ -f "$DOTFILES_LIB_DIR/utils/nodes.sh" ]; then
+    . "$DOTFILES_LIB_DIR/utils/nodes.sh"
+fi
+
 # ── Helpers ─────────────────────────────────────────────────────────────
 
 _print_transitions_from() {
@@ -78,162 +82,488 @@ cmd_status() {
     local current_state
     current_state=$(cfg_detect_state "$GIT_DIR")
 
-    printf '\nCurrent state: %s\n' "$current_state"
-    printf '\nAvailable transitions:\n'
-    _print_transitions_from "$current_state"
+    cfg_nodes_init "$BACKUP_ROOT"
 
-    printf '\nRun '\''dotcfg switch <target>'\'' to transition.\n'
-    printf 'Run '\''dotcfg graph'\'' to see the full state graph.\n'
-    printf 'Run '\''dotcfg history'\'' to see past transitions.\n'
+    local head_code=""
+    head_code=$(cfg_head_get 2>/dev/null) || true
+
+    if [ -n "$head_code" ] && cfg_nodes_read_index 2>/dev/null; then
+        local i node_type="" node_ts=""
+        for ((i = 0; i < ${#_CFG_NODE_CODES[@]}; i++)); do
+            if [ "${_CFG_NODE_CODES[$i]}" = "$head_code" ]; then
+                node_type="${_CFG_NODE_TYPES[$i]}"
+                node_ts="${_CFG_NODE_TIMESTAMPS[$i]}"
+                break
+            fi
+        done
+
+        local deploy_status
+        deploy_status=$(cfg_deploy_status_get)
+
+        printf '\nCurrent node: %s (%s)\n' "$head_code" "${node_type:-unknown}"
+        if [ -n "$node_ts" ]; then
+            printf 'Created: %s\n' "$node_ts"
+        fi
+        printf 'Deploy status: %s\n' "$deploy_status"
+
+        local ancestors
+        ancestors=$(cfg_nodes_ancestors "$head_code" 2>/dev/null) || true
+        if [ -n "$ancestors" ]; then
+            local chain=""
+            local first=true
+            while IFS= read -r code; do
+                [ -z "$code" ] && continue
+                local atype=""
+                for ((i = 0; i < ${#_CFG_NODE_CODES[@]}; i++)); do
+                    if [ "${_CFG_NODE_CODES[$i]}" = "$code" ]; then
+                        atype="${_CFG_NODE_TYPES[$i]}"
+                        break
+                    fi
+                done
+                if $first; then
+                    chain="$atype"
+                    first=false
+                else
+                    chain="$atype -> $chain"
+                fi
+            done <<< "$ancestors"
+            printf 'Chain: %s\n' "$chain"
+        fi
+    else
+        printf '\nCurrent state: %s\n' "$current_state"
+        printf 'No nodes found. Run "dotcfg switch desktop" or "dotcfg switch server".\n'
+    fi
+
+    printf '\nAvailable operations:\n'
+    printf '  dotcfg switch desktop    Install/switch to desktop mode\n'
+    printf '  dotcfg switch server     Install/switch to server mode\n'
+    printf '  dotcfg deploy            Deploy current node\n'
+    printf '  dotcfg undeploy          Undeploy current node\n'
+    printf '  dotcfg uninstall         Return to fresh state\n'
+    printf '  dotcfg list              List all nodes\n'
+    printf '  dotcfg history           Show node tree\n'
 }
 
-cmd_graph() {
-    local current_state
-    current_state=$(cfg_detect_state "$GIT_DIR")
+cmd_list() {
+    cfg_nodes_init "$BACKUP_ROOT"
 
-    printf 'State Graph:\n\n'
-    printf '            fresh\n'
-    printf '           /    \\\n'
-    printf '       server <-> desktop\n'
-    printf '\n'
+    if ! cfg_nodes_read_index 2>/dev/null || [ ${#_CFG_NODE_CODES[@]} -eq 0 ]; then
+        printf 'No nodes found.\n'
+        printf 'Run "dotcfg switch desktop" or "dotcfg switch server" to create nodes.\n'
+        return
+    fi
 
-    case "$current_state" in
-        fresh)   printf 'Current:      *\n' ;;
-        server)  printf 'Current:       *\n' ;;
-        desktop) printf 'Current:                 *\n' ;;
-    esac
+    local head_code
+    head_code=$(cfg_head_get 2>/dev/null) || true
+    local deploy_status
+    deploy_status=$(cfg_deploy_status_get)
 
-    printf '\nTransitions from %s:\n' "$current_state"
-    local target script
-    for target in fresh desktop server; do
-        [ "$target" = "$current_state" ] && continue
-        script=$(_transition_script_for "$current_state" "$target" 2>/dev/null) || continue
-        printf '  -> %s    via %s\n' "$target" "$(basename "$script")"
+    printf '  %-6s %-10s %-20s %s\n' "DEPLOY" "TYPE" "TIME" "CODE"
+
+    local i
+    for ((i = ${#_CFG_NODE_CODES[@]} - 1; i >= 0; i--)); do
+        local code="${_CFG_NODE_CODES[$i]}"
+        local type="${_CFG_NODE_TYPES[$i]}"
+        local ts="${_CFG_NODE_TIMESTAMPS[$i]}"
+        local display_ts
+        display_ts=$(printf '%s' "$ts" | sed 's/T/ /;s/\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\) \([0-9]\{2\}\):\([0-9]\{2\}\):\([0-9]\{2\}\)/\1 \2:\3:\4/')
+
+        local marker="[ ]"
+        if [ "$code" = "$head_code" ] && [ "$deploy_status" = "deployed" ]; then
+            marker="[*]"
+        elif [ "$code" = "$head_code" ]; then
+            marker="[>]"
+        fi
+
+        printf '  %-6s %-10s %-20s %s\n' "$marker" "$type" "$display_ts" "$code"
     done
 }
 
 cmd_history() {
-    local current_state
-    current_state=$(cfg_detect_state "$GIT_DIR")
+    cfg_nodes_init "$BACKUP_ROOT"
 
-    if [ ! -d "$BACKUP_ROOT" ]; then
-        printf 'No backup history found at %s\n' "$BACKUP_ROOT"
-        printf 'Current state: %s (no transitions recorded)\n' "$current_state"
+    if ! cfg_nodes_read_index 2>/dev/null || [ ${#_CFG_NODE_CODES[@]} -eq 0 ]; then
+        printf 'No history found.\n'
         return
     fi
 
-    local -a from_states=()
-    local -a to_states=()
-    local -a display_times=()
-    local count=0
+    local head_code=""
+    head_code=$(cfg_head_get 2>/dev/null) || true
+    local deploy_status
+    deploy_status=$(cfg_deploy_status_get)
 
-    while IFS= read -r session_dir; do
-        [ -n "$session_dir" ] || continue
-        local full_path="$BACKUP_ROOT/$session_dir"
-        [ -d "$full_path" ] || continue
+    _history_init_colors
 
-        local manifest="$full_path/MANIFEST.txt"
-        local from="" to="" display_ts=""
+    local -a main_line=()
+    _history_compute_main_line main_line
 
-        if [[ "$session_dir" =~ ^(fresh|desktop|server)-to-(fresh|desktop|server)-([0-9]{8}T[0-9]{6})$ ]]; then
-            from="${BASH_REMATCH[1]}"
-            to="${BASH_REMATCH[2]}"
-            local ts="${BASH_REMATCH[3]}"
-            display_ts="${ts:0:4}-${ts:4:2}-${ts:6:2} ${ts:9:2}:${ts:11:2}:${ts:13:2}"
-        elif [ -f "$manifest" ]; then
-            local transition_line
-            transition_line=$(grep '^# Transition:' "$manifest" 2>/dev/null | head -1) || continue
-            if [[ "$transition_line" =~ Transition:[[:space:]]*([a-z]+)[[:space:]]*-\>[[:space:]]*([a-z]+) ]]; then
-                from="${BASH_REMATCH[1]}"
-                to="${BASH_REMATCH[2]}"
-            else
-                continue
-            fi
-            display_ts="(unknown time)"
-        else
-            continue
+    local -A on_main_line=()
+    local c
+    for c in "${main_line[@]}"; do on_main_line["$c"]=1; done
+
+    local -a disp_codes=() disp_lanes=() disp_types=()
+    _history_build_display main_line on_main_line disp_codes disp_lanes disp_types
+
+    _history_render disp_codes disp_lanes disp_types "$head_code" "$deploy_status"
+}
+
+_history_init_colors() {
+    _C_GREEN="" _C_YELLOW="" _C_GRAY="" _C_BLUE="" _C_RESET=""
+    if [ -t 1 ] && tput colors >/dev/null 2>&1; then
+        local ncolors
+        ncolors=$(tput colors 2>/dev/null) || ncolors=0
+        if (( ncolors >= 8 )); then
+            _C_GREEN=$'\033[32m'
+            _C_YELLOW=$'\033[33m'
+            _C_GRAY=$'\033[90m'
+            _C_BLUE=$'\033[34m'
+            _C_RESET=$'\033[0m'
         fi
-
-        if [ -f "$manifest" ]; then
-            local created_line
-            created_line=$(grep '^# Created:' "$manifest" 2>/dev/null | head -1) || true
-            if [ -n "$created_line" ]; then
-                display_ts="${created_line#\# Created: }"
-            fi
-        fi
-
-        count=$((count + 1))
-        from_states+=("$from")
-        to_states+=("$to")
-        display_times+=("$display_ts")
-    done < <(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort)
-
-    if [ "$count" -eq 0 ]; then
-        printf 'No transition history found in %s\n' "$BACKUP_ROOT"
-        printf 'Current state: %s\n' "$current_state"
-        return
     fi
+}
 
-    printf 'Transition History:\n\n'
-
+_history_compute_main_line() {
+    local -n _ml_ref=$1
+    local newest_code="" newest_ts=""
     local i
-    for ((i = 0; i < count; i++)); do
-        local marker=""
-        if (( i == count - 1 )) && [ "${to_states[$i]}" = "$current_state" ]; then
-            marker="  <- current"
+    for ((i = 0; i < ${#_CFG_NODE_CODES[@]}; i++)); do
+        local code="${_CFG_NODE_CODES[$i]}"
+        local children="${_CFG_NODE_CHILDREN[$i]}"
+        local ts="${_CFG_NODE_TIMESTAMPS[$i]}"
+        if [ -z "$children" ]; then
+            if [ -z "$newest_ts" ] || [[ "$ts" > "$newest_ts" ]]; then
+                newest_code="$code"
+                newest_ts="$ts"
+            fi
         fi
-        printf '  #%d  %s -> %s    %s%s\n' \
-            $((i + 1)) "${from_states[$i]}" "${to_states[$i]}" "${display_times[$i]}" "$marker"
     done
 
-    printf '\nCurrent state: %s\n' "$current_state"
+    if [ -z "$newest_code" ]; then
+        newest_code=$(cfg_head_get 2>/dev/null) || newest_code="${_CFG_NODE_CODES[${#_CFG_NODE_CODES[@]}-1]}"
+    fi
+
+    local -a chain=()
+    local current="$newest_code"
+    while [ -n "$current" ] && [ "$current" != "null" ]; do
+        chain+=("$current")
+        current=$(cfg_node_get "$current" "parent" 2>/dev/null) || break
+    done
+
+    local j
+    for ((j = ${#chain[@]} - 1; j >= 0; j--)); do
+        _ml_ref+=("${chain[$j]}")
+    done
+}
+
+_history_collect_descendants() {
+    local root_code="$1"
+    local -n _desc_ref=$2
+    local -a stack=("$root_code")
+    local -a all=()
+
+    while ((${#stack[@]} > 0)); do
+        local node="${stack[-1]}"
+        unset 'stack[-1]'
+        stack=("${stack[@]+"${stack[@]}"}")
+        all+=("$node")
+        local children
+        children=$(cfg_node_get "$node" "children" 2>/dev/null) || true
+        if [ -n "$children" ]; then
+            IFS=',' read -ra carr <<< "$children"
+            local ch
+            for ch in "${carr[@]}"; do
+                ch="${ch// /}"
+                [ -z "$ch" ] && continue
+                stack+=("$ch")
+            done
+        fi
+    done
+
+    local -a sorted=()
+    local i j
+    for ((i = 0; i < ${#all[@]}; i++)); do
+        for ((j = i + 1; j < ${#all[@]}; j++)); do
+            local ts_i ts_j
+            ts_i=$(cfg_node_get "${all[$i]}" "timestamp" 2>/dev/null) || true
+            ts_j=$(cfg_node_get "${all[$j]}" "timestamp" 2>/dev/null) || true
+            if [[ "$ts_j" > "$ts_i" ]]; then
+                local tmp="${all[$i]}"
+                all[$i]="${all[$j]}"
+                all[$j]="$tmp"
+            fi
+        done
+    done
+
+    for i in "${all[@]}"; do _desc_ref+=("$i"); done
+}
+
+_history_build_display() {
+    local -n _ml=$1
+    local -n _oml=$2
+    local -n _dc=$3
+    local -n _dl=$4
+    local -n _dt=$5
+
+    local main_count=${#_ml[@]}
+    local next_side_lane=1
+    local mi
+
+    for ((mi = main_count - 1; mi >= 0; mi--)); do
+        local code="${_ml[$mi]}"
+        _dc+=("$code")
+        _dl+=(0)
+        _dt+=("node")
+
+        local children
+        children=$(cfg_node_get "$code" "children" 2>/dev/null) || true
+
+        local -a side_roots=()
+        if [ -n "$children" ]; then
+            IFS=',' read -ra carr <<< "$children"
+            local ch
+            for ch in "${carr[@]}"; do
+                ch="${ch// /}"
+                [ -z "$ch" ] && continue
+                if [ -z "${_oml[$ch]+x}" ]; then
+                    side_roots+=("$ch")
+                fi
+            done
+        fi
+
+        local had_side_branches=false
+
+        if ((${#side_roots[@]} > 0)); then
+            had_side_branches=true
+            local sr
+            for sr in "${side_roots[@]}"; do
+                _dc+=("__fork__")
+                _dl+=(0)
+                _dt+=("fork")
+
+                local -a descendants=()
+                _history_collect_descendants "$sr" descendants
+
+                local di
+                for ((di = 0; di < ${#descendants[@]}; di++)); do
+                    _dc+=("${descendants[$di]}")
+                    _dl+=(1)
+                    _dt+=("node")
+
+                    if ((di < ${#descendants[@]} - 1)); then
+                        _dc+=("__connect__")
+                        _dl+=(1)
+                        _dt+=("side_connect")
+                    fi
+                done
+
+                _dc+=("__merge__")
+                _dl+=(0)
+                _dt+=("merge")
+            done
+        fi
+
+        if ((mi > 0)) && ! $had_side_branches; then
+            _dc+=("__connect__")
+            _dl+=(0)
+            _dt+=("connect")
+        fi
+    done
+}
+
+_history_render() {
+    local -n _rc=$1
+    local -n _rl=$2
+    local -n _rt=$3
+    local head_code="$4"
+    local deploy_status="$5"
+
+    local count=${#_rc[@]}
+    local i
+
+    for ((i = 0; i < count; i++)); do
+        local code="${_rc[$i]}"
+        local lane="${_rl[$i]}"
+        local ltype="${_rt[$i]}"
+
+        case "$ltype" in
+            node)
+                local type ts display_ts
+                type=$(cfg_node_get "$code" "type" 2>/dev/null) || continue
+                ts=$(cfg_node_get "$code" "timestamp" 2>/dev/null) || continue
+                display_ts="${ts/T/ }"
+
+                local marker="o"
+                local head_label=""
+                local marker_color=""
+                if [ "$code" = "$head_code" ]; then
+                    marker="*"
+                    marker_color="$_C_GREEN"
+                    if [ "$deploy_status" = "deployed" ]; then
+                        head_label="  ${_C_GREEN}<- HEAD${_C_RESET}"
+                    else
+                        head_label="  ${_C_GREEN}<- HEAD${_C_RESET} ${_C_GRAY}[uninstalled]${_C_RESET}"
+                    fi
+                fi
+
+                local status_str=""
+                if [ "$code" = "$head_code" ]; then
+                    if [ "$deploy_status" = "deployed" ]; then
+                        status_str=" ${_C_YELLOW}[deployed]${_C_RESET}"
+                    fi
+                fi
+
+                local prefix
+                prefix=$(_history_graph_prefix "$lane" "node" "$ltype" "$marker")
+
+                printf '%s%s%s %s  %-7s  %s%s%s\n' \
+                    "$_C_BLUE" "$prefix" "$_C_RESET" \
+                    "$code" "$type" "$display_ts" "$status_str" "$head_label"
+                ;;
+            connect)
+                local prefix
+                prefix=$(_history_graph_prefix 0 "connect" "$ltype")
+                printf '%s%s%s\n' "$_C_BLUE" "$prefix" "$_C_RESET"
+                ;;
+            fork)
+                local prefix
+                prefix=$(_history_graph_prefix "$lane" "fork" "$ltype")
+                printf '%s%s%s\n' "$_C_BLUE" "$prefix" "$_C_RESET"
+                ;;
+            merge)
+                local prefix
+                prefix=$(_history_graph_prefix "$lane" "merge" "$ltype")
+                printf '%s%s%s\n' "$_C_BLUE" "$prefix" "$_C_RESET"
+                ;;
+            side_connect)
+                local prefix
+                prefix=$(_history_graph_prefix "$lane" "side_connect" "$ltype")
+                printf '%s%s%s\n' "$_C_BLUE" "$prefix" "$_C_RESET"
+                ;;
+        esac
+    done
+}
+
+_history_graph_prefix() {
+    local node_lane="$1"
+    local max_lane="$2"
+    local line_type="$3"
+    local marker="${4:-*}"
+
+    local prefix=""
+    local lane
+
+    case "$line_type" in
+        node)
+            for ((lane = 0; lane < node_lane; lane++)); do
+                prefix+="| "
+            done
+            prefix+="${marker} "
+            ;;
+        connect)
+            for ((lane = 0; lane <= 0; lane++)); do
+                prefix+="| "
+            done
+            ;;
+        fork)
+            for ((lane = 0; lane < node_lane; lane++)); do
+                prefix+="| "
+            done
+            prefix+="|\\"
+            ;;
+        merge)
+            for ((lane = 0; lane < node_lane; lane++)); do
+                prefix+="| "
+            done
+            prefix+="|/"
+            ;;
+        side_connect)
+            for ((lane = 0; lane <= node_lane; lane++)); do
+                prefix+="| "
+            done
+            ;;
+    esac
+
+    printf '%s' "$prefix"
 }
 
 cmd_switch() {
     local target="${1:-}"
     if [ -z "$target" ]; then
-        printf 'Usage: dotcfg switch <fresh|desktop|server> [options]\n' >&2
+        printf 'Usage: dotcfg switch <desktop|server|CODE> [options]\n' >&2
         exit 1
     fi
     shift
 
+    if [[ "$target" =~ ^[a-z0-9]{8}$ ]]; then
+        _cmd_switch_to_code "$target" "$@"
+        return
+    fi
+
     case "$target" in
-        fresh|desktop|server) ;;
+        desktop|server) ;;
+        fresh)
+            printf 'Use "dotcfg uninstall" to return to fresh state.\n' >&2
+            exit 1
+            ;;
         *)
-            printf 'Error: unknown target state "%s"\n' "$target" >&2
-            printf 'Valid targets: fresh, desktop, server\n' >&2
+            printf 'Error: unknown target "%s"\n' "$target" >&2
+            printf 'Valid targets: desktop, server, or an 8-char node CODE\n' >&2
             exit 1
             ;;
     esac
 
-    cfg_validate "$GIT_DIR"
-    local current_state
-    current_state=$(cfg_detect_state "$GIT_DIR")
+    local switch_script="$DOTFILES_LIB_DIR/commands/switch.sh"
+    if [ ! -f "$switch_script" ]; then
+        printf 'Error: switch script not found at %s\n' "$switch_script" >&2
+        exit 1
+    fi
 
-    if [ "$current_state" = "$target" ]; then
-        printf 'Already in %s state. Nothing to do.\n' "$current_state"
+    exec bash "$switch_script" --type="$target" "$@"
+}
+
+_cmd_switch_to_code() {
+    local target_code="$1"
+    shift
+
+    cfg_nodes_init "$BACKUP_ROOT"
+
+    if ! cfg_node_exists "$target_code"; then
+        printf 'Error: node CODE "%s" not found\n' "$target_code" >&2
+        printf 'Run "dotcfg list" to see available nodes.\n' >&2
+        exit 1
+    fi
+
+    local current_code
+    current_code=$(cfg_head_get 2>/dev/null) || true
+
+    if [ "$current_code" = "$target_code" ]; then
+        printf 'Already at node %s.\n' "$target_code"
         exit 0
     fi
 
-    local script
-    script=$(_transition_script_for "$current_state" "$target") || {
-        printf 'Error: no direct transition from %s to %s\n' "$current_state" "$target" >&2
-        exit 1
-    }
+    local target_type
+    target_type=$(cfg_node_get "$target_code" "type")
 
-    if [ ! -x "$script" ]; then
-        printf 'Error: transition script not found or not executable: %s\n' "$script" >&2
-        exit 1
+    printf 'Switching to node %s (%s)...\n' "$target_code" "$target_type"
+
+    local deploy_status
+    deploy_status=$(cfg_deploy_status_get)
+
+    if [ "$deploy_status" = "deployed" ] && [ -n "$current_code" ]; then
+        printf 'Undeploying current node %s...\n' "$current_code"
+        bash "$DOTFILES_LIB_DIR/commands/undeploy.sh" --force "$@" || exit 1
     fi
 
-    local description
-    description=$(_transition_description "$current_state" "$target")
+    cfg_head_set "$target_code"
 
-    printf 'Transition: %s -> %s\n' "$current_state" "$target"
-    printf 'Script: %s\n' "$(basename "$script")"
-    printf 'Description: %s\n\n' "$description"
+    if [ "$target_type" != "fresh" ]; then
+        printf 'Deploying node %s...\n' "$target_code"
+        bash "$DOTFILES_LIB_DIR/commands/deploy.sh" --force "$@" || exit 1
+    else
+        cfg_deploy_status_set "deployed"
+    fi
 
-    exec "$script" "$@"
+    printf '\nSwitched to node %s (%s)\n' "$target_code" "$target_type"
 }
 
 cmd_validate() {
@@ -257,13 +587,17 @@ cmd_validate() {
 cmd_help() {
     printf 'Usage: dotcfg <subcommand> [options]\n'
     printf '\n'
-    printf 'Dotfiles state management CLI\n'
+    printf 'Dotfiles state management CLI (node-based)\n'
     printf '\n'
     printf 'Subcommands:\n'
-    printf '  status              Show current state and available transitions (default)\n'
-    printf '  graph               Show state graph with current position\n'
-    printf '  history             Show transition history from backup manifests\n'
-    printf '  switch <target>     Transition to target state (fresh|desktop|server)\n'
+    printf '  status              Show current node and deploy status (default)\n'
+    printf '  list                List all nodes (DEPLOY, TYPE, TIME, CODE)\n'
+    printf '  history             Show node tree (git log --graph style)\n'
+    printf '  switch <target>     Switch to state (desktop|server) or node CODE\n'
+    printf '  deploy              Deploy current node configuration\n'
+    printf '  undeploy            Undeploy current node, restore original files\n'
+    printf '  uninstall           Return to root fresh node\n'
+    printf '  migrate             Migrate old backup sessions to node system\n'
     printf '  validate            Show detailed repository validation\n'
     printf '  help                Show this help message\n'
     printf '  version             Show version\n'
@@ -272,18 +606,17 @@ cmd_help() {
     printf '  --dry-run           Preview changes without applying\n'
     printf '  --force             Force operation (replace existing repos, etc.)\n'
     printf '  --reinstall         Reinstall without prompting (desktop/server)\n'
-    printf '  --auto-stash        Remove conflicting files without backup (desktop)\n'
-    printf '  --latest            Restore latest backup instead of earliest (uninstall)\n'
-    printf '  --clean-backups     Remove backup directories after uninstall\n'
-    printf '\n'
-    printf 'States: fresh, desktop, server\n'
+    printf '  --auto-stash        Auto-backup conflicting files (desktop)\n'
     printf '\n'
     printf 'Examples:\n'
-    printf '  dotcfg                        # show current status\n'
-    printf '  dotcfg graph                  # show state graph\n'
-    printf '  dotcfg history                # show transition history\n'
-    printf '  dotcfg switch desktop         # install desktop config\n'
-    printf '  dotcfg switch server --dry-run # preview server switch\n'
+    printf '  dotcfg                          # show current status\n'
+    printf '  dotcfg list                     # list all nodes\n'
+    printf '  dotcfg history                  # show node tree\n'
+    printf '  dotcfg switch desktop           # switch to desktop (creates node)\n'
+    printf '  dotcfg switch xk7f9a2m          # switch to historical node\n'
+    printf '  dotcfg deploy                   # deploy current node\n'
+    printf '  dotcfg undeploy                 # undeploy current node\n'
+    printf '  dotcfg uninstall                # return to fresh root node\n'
 }
 
 # ── Main dispatch ───────────────────────────────────────────────────────
@@ -292,10 +625,28 @@ subcmd="${1:-status}"
 shift || true
 
 case "$subcmd" in
+    help|-h|--help|version|--version|migrate) ;;
+    *)
+        cfg_nodes_init "$BACKUP_ROOT"
+        if cfg_nodes_needs_migration "$BACKUP_ROOT"; then
+            printf 'Old backup sessions detected. Running migration...\n\n'
+            bash "$DOTFILES_LIB_DIR/commands/migrate.sh" || {
+                printf 'Migration failed. Run "dotcfg migrate" manually.\n' >&2
+                exit 1
+            }
+            printf '\n'
+        fi
+        ;;
+esac
+
+case "$subcmd" in
     status)   cmd_status "$@" ;;
-    graph)    cmd_graph "$@" ;;
+    list)     cmd_list "$@" ;;
     history)  cmd_history "$@" ;;
     switch)   cmd_switch "$@" ;;
+    deploy)   exec bash "$DOTFILES_LIB_DIR/commands/deploy.sh" "$@" ;;
+    undeploy) exec bash "$DOTFILES_LIB_DIR/commands/undeploy.sh" "$@" ;;
+    migrate)  exec bash "$DOTFILES_LIB_DIR/commands/migrate.sh" "$@" ;;
     validate) cmd_validate "$@" ;;
     help|-h|--help) cmd_help ;;
     version|--version) printf 'dotcfg %s\n' "$DOTCFG_VERSION" ;;

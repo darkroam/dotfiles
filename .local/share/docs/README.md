@@ -34,8 +34,8 @@
 
 安装脚本、状态机和已知问题：
 
-- [安装系统设计](project/installation-system.md) — 三状态幂等安装系统架构、统一 CLI 和共享验证库
-- [安装测试](project/installation-testing.md) — 状态机测试框架、9 种转换验证和测试方法
+- [安装系统设计](project/installation-system.md) — 节点幂等安装系统架构、统一 CLI 和共享验证库
+- [安装测试](project/installation-testing.md) — 节点系统测试框架、145 个测试用例验证
 - [安装已知问题](planning/installation-fixes.md) — B1-B7 待修复缺陷记录和修复方案
 
 ## 项目跟踪

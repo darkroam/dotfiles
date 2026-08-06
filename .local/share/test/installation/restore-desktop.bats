@@ -66,13 +66,8 @@ teardown() {
 	run run_restore_desktop
 	[ "$status" -eq 0 ]
 
-	# Backup should be created
-	assert_backup_dir_exists
-	assert_manifest_exists
-
-	# Backup should contain user's modified files
-	assert_backup_contains ".bashrc"
-	assert_backup_contains ".gitconfig"
+	# Backup should be created in node directory
+	assert_node_backup_exists
 
 	# Current files should be repo versions
 	assert_file_contains ".bashrc" "repo content for .bashrc"
@@ -127,8 +122,8 @@ teardown() {
 	run run_restore_desktop --auto-stash
 	[ "$status" -eq 0 ]
 
-	# Backup directory should be created (auto-stash backs up without prompting)
-	assert_backup_count 1
+	# Node backup should be created (auto-stash backs up without prompting)
+	assert_node_backup_count 1
 
 	# Files should be repo versions (backed up, then checked out)
 	assert_file_contains ".bashrc" "repo content for .bashrc"

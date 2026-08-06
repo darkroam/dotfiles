@@ -55,7 +55,7 @@ teardown() {
 	[ "$status" -eq 0 ]
 
 	# Verify backup was created
-	assert_backup_dir_exists
+	assert_node_backup_exists
 	assert_file_contains ".bashrc" "repo content for .bashrc"
 
 	# Now uninstall — should restore user's original files from earliest backup
@@ -131,7 +131,7 @@ teardown() {
 	# fresh → desktop: backs up "version 1"
 	run run_install_desktop
 	[ "$status" -eq 0 ]
-	assert_backup_count 1
+	assert_node_backup_count 1
 
 	# Modify .bashrc to simulate user change
 	echo "version 2" > "$HOME/.bashrc"
@@ -164,7 +164,7 @@ teardown() {
 	# fresh → desktop: backs up .bashrc and .gitconfig
 	run run_install_desktop
 	[ "$status" -eq 0 ]
-	assert_backup_count 1
+	assert_node_backup_count 1
 
 	# Modify a file that will be backed up in next transition
 	echo "user modified gitconfig" > "$HOME/.gitconfig"
@@ -175,7 +175,7 @@ teardown() {
 	# desktop → server: backs up modified .gitconfig, removes desktop files
 	run run_restore_server
 	[ "$status" -eq 0 ]
-	assert_backup_count 2
+	assert_node_backup_count 2
 
 	# Uninstall should restore from earliest backup for each file
 	# .bashrc: only in session 1 (fresh-to-desktop) → restored from there

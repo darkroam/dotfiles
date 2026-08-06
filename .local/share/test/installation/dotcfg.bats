@@ -15,13 +15,13 @@ teardown() {
 
 # ── status subcommand ──────────────────────────────────────────────────
 
-@test "TC-44: status shows fresh state with available transitions" {
+@test "TC-44: status shows fresh state with available operations" {
 	run run_dotcfg status
 	[ "$status" -eq 0 ]
 	assert_output_contains "fresh"
 	assert_output_contains "desktop"
 	assert_output_contains "server"
-	assert_output_contains "Available transitions"
+	assert_output_contains "Available operations"
 }
 
 @test "TC-45: status shows desktop state when indicators present" {
@@ -41,30 +41,25 @@ teardown() {
 	assert_output_contains "server"
 }
 
-# ── graph subcommand ───────────────────────────────────────────────────
+# ── list subcommand ────────────────────────────────────────────────────
 
-@test "TC-47: graph shows state graph with desktop marker" {
-	create_mock_cfg_repo ".bashrc" ".local/bin/dotcfg"
-	touch "$HOME/.xinitrc"
-
-	run run_dotcfg graph
+@test "TC-47: list with no nodes shows helpful message" {
+	run run_dotcfg list
 	[ "$status" -eq 0 ]
-	assert_output_contains "State Graph"
-	assert_output_contains "fresh"
-	assert_output_contains "server"
-	assert_output_contains "desktop"
-	assert_output_contains "Current:"
-	assert_output_contains "switch-server.sh"
-	assert_output_contains "uninstall.sh"
+	assert_output_contains "No nodes"
 }
 
-@test "TC-48: graph shows state graph with fresh marker" {
-	run run_dotcfg graph
+@test "TC-48: list shows header row" {
+	source "$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
+	cfg_nodes_init "$HOME/.config-backup"
+	cfg_node_create "fresh" "null" >/dev/null
+	cfg_node_create "desktop" "$(cfg_head_get)" >/dev/null
+
+	run run_dotcfg list
 	[ "$status" -eq 0 ]
-	assert_output_contains "State Graph"
-	assert_output_contains "Current:"
-	assert_output_contains "switch-desktop.sh"
-	assert_output_contains "switch-server.sh"
+	assert_output_contains "DEPLOY"
+	assert_output_contains "TYPE"
+	assert_output_contains "CODE"
 }
 
 # ── history subcommand ─────────────────────────────────────────────────
@@ -72,10 +67,10 @@ teardown() {
 @test "TC-49: history with no backup directory shows message" {
 	run run_dotcfg history
 	[ "$status" -eq 0 ]
-	assert_output_contains "No backup history"
+	assert_output_contains "No history"
 }
 
-@test "TC-50: history parses backup manifests into timeline" {
+@test "TC-50: history auto-migrates old sessions and shows node tree" {
 	mkdir -p "$HOME/.config-backup/fresh-to-desktop-20260804T100000"
 	printf '# Created: Mon Aug  4 10:00:00 UTC 2026\n# Transition: fresh -> desktop\n#\n# relative_path\tmd5\tstatus\n' \
 		> "$HOME/.config-backup/fresh-to-desktop-20260804T100000/MANIFEST.txt"
@@ -88,14 +83,13 @@ teardown() {
 
 	run run_dotcfg history
 	[ "$status" -eq 0 ]
-	assert_output_contains "Transition History"
-	assert_output_contains "#1"
-	assert_output_contains "#2"
-	assert_output_contains "fresh -> desktop"
-	assert_output_contains "desktop -> server"
+	assert_output_contains "fresh"
+	assert_output_contains "desktop"
+	assert_output_contains "server"
+	assert_output_contains "HEAD"
 }
 
-@test "TC-51: history skips malformed directory names" {
+@test "TC-51: history ignores non-session directory names" {
 	mkdir -p "$HOME/.config-backup/fresh-to-desktop-20260804T100000"
 	printf '# Created: Mon Aug  4 10:00:00 UTC 2026\n# Transition: fresh -> desktop\n#\n' \
 		> "$HOME/.config-backup/fresh-to-desktop-20260804T100000/MANIFEST.txt"
@@ -107,18 +101,18 @@ teardown() {
 
 	run run_dotcfg history
 	[ "$status" -eq 0 ]
-	assert_output_contains "#1"
-	assert_output_contains "fresh -> desktop"
+	assert_output_contains "desktop"
+	assert_output_contains "HEAD"
 	[[ "$output" != *"invalid"* ]] || true
 	[[ "$output" != *"random"* ]] || true
 }
 
 # ── switch subcommand ──────────────────────────────────────────────────
 
-@test "TC-52: switch to same state prints message and exits 0" {
+@test "TC-52: switch to fresh suggests uninstall command" {
 	run run_dotcfg switch fresh
-	[ "$status" -eq 0 ]
-	assert_output_contains "Already in fresh"
+	[ "$status" -eq 1 ]
+	assert_output_contains "uninstall"
 }
 
 @test "TC-53: switch to invalid target prints error and exits 1" {

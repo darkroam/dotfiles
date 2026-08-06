@@ -33,11 +33,9 @@ teardown() {
 	assert_checkout_state_exists
 	assert_file_exists ".xinitrc"
 	assert_file_contains ".bashrc" "repo content for .bashrc"
-	assert_backup_dir_exists
-
-	# User's untracked files should be preserved (in backup)
-	assert_backup_contains ".bashrc"
-	assert_backup_contains ".gitconfig"
+	assert_node_backup_exists
+	assert_node_backup_contains ".bashrc"
+	assert_node_backup_contains ".gitconfig"
 
 	# ── desktop → server (restore-server.sh) ──
 	run run_restore_server
@@ -98,8 +96,8 @@ teardown() {
 	assert_file_exists ".bashrc"
 	assert_file_contains ".bashrc" "repo content for .bashrc"
 	assert_file_not_exists ".xinitrc"
-	assert_backup_dir_exists
-	assert_backup_contains ".bashrc"
+	assert_node_backup_exists
+	assert_node_backup_contains ".bashrc"
 
 	# ── server → desktop (restore-desktop.sh) ──
 	run run_restore_desktop

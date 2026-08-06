@@ -94,11 +94,14 @@ declare -A file_backup_sessions
 
 backup_session_count=0
 if [ -d "$backup_root" ]; then
-	sort_sessions() {
+	list_all_sessions() {
 		local session_dir basename timestamp
 		for session_dir in "$backup_root"/*/; do
 			[ -d "$session_dir" ] || continue
 			basename=$(basename "$session_dir")
+			case "$basename" in
+				nodes|sessions) continue ;;
+			esac
 			if [[ "$basename" =~ -([0-9]{8}T[0-9]{6})$ ]]; then
 				timestamp="${BASH_REMATCH[1]}"
 				printf '%s\t%s\n' "$timestamp" "$session_dir"
@@ -108,14 +111,35 @@ if [ -d "$backup_root" ]; then
 				timestamp=$(date -d "@$mtime" '+%Y%m%dT%H%M%S' 2>/dev/null || date -r "$mtime" '+%Y%m%dT%H%M%S' 2>/dev/null)
 				printf '%s\t%s\n' "$timestamp" "$session_dir"
 			fi
-		done | sort -t$'\t' -k1,1 -k2,2 | cut -f2-
+		done
+
+		if [ -d "$backup_root/nodes" ]; then
+			for node_dir in "$backup_root/nodes"/*/; do
+				[ -d "$node_dir" ] || continue
+				[ -f "$node_dir/manifest.txt" ] || continue
+				local ts=""
+				ts=$(grep '^# Created:' "$node_dir/manifest.txt" 2>/dev/null | head -1 | sed 's/.*: //')
+				if [ -z "$ts" ]; then
+					ts=$(stat -c '%Y' "$node_dir" 2>/dev/null || stat -f '%m' "$node_dir" 2>/dev/null)
+					ts=$(date -d "@$ts" '+%Y%m%dT%H%M%S' 2>/dev/null || echo "00000000T000000")
+				else
+					ts=$(date -d "$ts" '+%Y%m%dT%H%M%S' 2>/dev/null || echo "00000000T000000")
+				fi
+				printf '%s\t%s\n' "$ts" "$node_dir"
+			done
+		fi
 	}
 
 	while IFS= read -r session_dir; do
 		[ -n "$session_dir" ] || continue
 		((backup_session_count++)) || true
-		manifest="$session_dir/MANIFEST.txt"
-		if [ -f "$manifest" ]; then
+		manifest=""
+		if [ -f "$session_dir/MANIFEST.txt" ]; then
+			manifest="$session_dir/MANIFEST.txt"
+		elif [ -f "$session_dir/manifest.txt" ]; then
+			manifest="$session_dir/manifest.txt"
+		fi
+		if [ -n "$manifest" ]; then
 			while IFS=$'\t' read -r rel_path md5 status; do
 				[[ "$rel_path" =~ ^#.*$ ]] && continue
 				[[ -z "$rel_path" ]] && continue
@@ -127,7 +151,7 @@ if [ -d "$backup_root" ]; then
 				fi
 			done < "$manifest"
 		fi
-	done < <(sort_sessions)
+	done < <(list_all_sessions | sort -t$'\t' -k1,1 -k2,2 | cut -f2-)
 fi
 
 printf '\nFound %d backup session(s) in %s.\n' "$backup_session_count" "$backup_root"
@@ -228,10 +252,15 @@ if ((restorable_count > 0)); then
 
 	for path in "${!file_restore_session[@]}"; do
 		session_dir="${file_restore_session[$path]}"
-		backup_file="$session_dir/$path"
+		backup_file=""
+		if [ -e "$session_dir/$path" ]; then
+			backup_file="$session_dir/$path"
+		elif [ -e "$session_dir/backup/$path" ]; then
+			backup_file="$session_dir/backup/$path"
+		fi
 		target="$HOME/$path"
 
-		if [ -e "$backup_file" ]; then
+		if [ -n "$backup_file" ]; then
 			mkdir -p "$(dirname "$target")"
 			if cp -- "$backup_file" "$target"; then
 				printf 'Restored: %s (from %s)\n' "$path" "$(basename "$session_dir")"

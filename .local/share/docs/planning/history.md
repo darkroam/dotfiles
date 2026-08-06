@@ -4,6 +4,24 @@
 
 ## 最近记录的变更
 
+- [x] 2026-08-06：history 输出格式优化。将 `dotcfg history` 从简单递归 DFS 渲染重写为
+  Git log --graph 风格：最新节点在顶部、根在底部，使用泳道（lane）算法绘制分支图。主线
+  （newest leaf → root）占 lane 0，侧分支按时间倒序插入 lane 1+。符号：`*` HEAD 节点、
+  `o` 普通节点、`|` 垂直延续、`|\` 分叉、`|/` 合并。支持 ANSI 颜色（终端检测）。
+  更新 history-graph.bats TC-H01 适配新格式。145/145 测试通过。
+  **文档同步**：更新 installation-system.md 的 history 输出示例。
+
+- [x] 2026-08-06：节点系统重构（v3.0）。将三态模型（fresh/desktop/server）+ 会话备份目录
+  重构为 Git 风格的节点管理系统。新增 `utils/nodes.sh`（节点 CRUD、HEAD、deploy status、
+  树操作），`commands/deploy.sh`（部署当前节点），`commands/undeploy.sh`（卸载当前节点），
+  `commands/migrate.sh`（旧会话迁移），`commands/switch.sh`（统一切换逻辑）。节点存储：
+  `~/.config-backup/nodes/{code}/` 含 manifest.txt、backup/、files/。index.json 用 awk
+  解析（无 jq 依赖）。CODE 为 8 位 `[a-z0-9]` 随机码。dotcfg CLI 新增 list（四列表）、
+  history（ASCII 分支图）、deploy、undeploy、migrate 命令，删除 graph 命令。switch 支持
+  CODE 参数切换到历史节点（产生分支）。自动迁移在首次运行时将旧 `{from}-to-{to}-{ts}` 会话
+  转为节点树。uninstall 兼容新旧备份源。145/145 测试通过（新增 18 个迁移测试）。
+  **文档同步**：重写 installation-system.md（v3.0）和 installation-testing.md（v3.0）。
+
 - [x] 2026-08-05：代码审查修复与安全性增强。
   **Q4 修复 - 时间排序**：uninstall.sh 改用目录名称时间戳排序（格式：`{from}-to-{to}-{YYYYMMDDTHHMMSS}`），
   mtime 作为回退。解决目录重命名、cp -rp、同一秒创建等场景的排序不确定性。

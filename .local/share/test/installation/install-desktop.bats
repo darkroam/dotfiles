@@ -54,17 +54,16 @@ teardown() {
 	[ "$status" -eq 0 ]
 
 	# Backup directory should exist with proper naming
-	assert_backup_dir_exists
-	assert_manifest_exists
+	assert_node_backup_exists
+	assert_node_manifest_exists
 
 	# Backup should contain the user's original files
-	assert_backup_contains ".bashrc"
-	assert_backup_contains ".gitconfig"
+	assert_node_backup_contains ".bashrc"
+	assert_node_backup_contains ".gitconfig"
 
 	# MANIFEST should record modified/untracked status
 	local manifest
-	manifest=$(find "$HOME/.config-backup" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | tail -1)
-	manifest="$manifest/MANIFEST.txt"
+	manifest=$(find "$HOME/.config-backup/nodes" -name "manifest.txt" -type f 2>/dev/null | sort | tail -1)
 	grep -q '.bashrc' "$manifest"
 	grep -q '.gitconfig' "$manifest"
 

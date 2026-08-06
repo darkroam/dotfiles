@@ -55,18 +55,17 @@ teardown() {
 	run run_install_server
 	[ "$status" -eq 0 ]
 
-	assert_backup_dir_exists
-	assert_manifest_exists
+	assert_node_backup_exists
+	assert_node_manifest_exists
 
 	# Backup should contain user's files
-	assert_backup_contains ".bashrc"
-	assert_backup_contains ".gitconfig"
+	assert_node_backup_contains ".bashrc"
+	assert_node_backup_contains ".gitconfig"
 
-	# MANIFEST should record the state transition
+	# MANIFEST should record backed-up files
 	local manifest
-	manifest=$(find "$HOME/.config-backup" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | tail -1)
-	manifest="$manifest/MANIFEST.txt"
-	grep -q 'server' "$manifest"
+	manifest=$(find "$HOME/.config-backup/nodes" -name "manifest.txt" -type f 2>/dev/null | sort | tail -1)
+	grep -q '.bashrc' "$manifest"
 
 	# Current files should be repo versions
 	assert_file_contains ".bashrc" "repo content for .bashrc"

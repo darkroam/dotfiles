@@ -377,7 +377,7 @@ assert_backup_dir_exists() {
 		return 1
 	}
 	local count
-	count=$(find "$HOME/.config-backup" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+	count=$(find "$HOME/.config-backup" -mindepth 1 -maxdepth 1 -type d ! -name nodes ! -name sessions 2>/dev/null | wc -l)
 	(( count > 0 )) || {
 		echo "expected at least one backup session directory" >&2
 		return 1
@@ -388,7 +388,7 @@ assert_backup_count() {
 	local expected="$1"
 	local count
 	if [ -d "$HOME/.config-backup" ]; then
-		count=$(find "$HOME/.config-backup" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+		count=$(find "$HOME/.config-backup" -mindepth 1 -maxdepth 1 -type d ! -name nodes ! -name sessions 2>/dev/null | wc -l)
 	else
 		count=0
 	fi
@@ -461,13 +461,93 @@ assert_path_exists() {
 assert_backup_contains() {
 	local relative_path="$1"
 	local backup_dir
-	backup_dir=$(find "$HOME/.config-backup" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | tail -1)
+	backup_dir=$(find "$HOME/.config-backup" -mindepth 1 -maxdepth 1 -type d ! -name nodes ! -name sessions 2>/dev/null | sort | tail -1)
 	[ -n "$backup_dir" ] || {
 		echo "no backup session directory found" >&2
 		return 1
 	}
 	[ -e "$backup_dir/$relative_path" ] || {
 		echo "expected backup to contain: $relative_path" >&2
+		return 1
+	}
+}
+
+# ── Node backup assertions ───────────────────────────────────────────
+assert_node_backup_exists() {
+	local nodes_dir="$HOME/.config-backup/nodes"
+	[ -d "$nodes_dir" ] || {
+		echo "expected nodes directory to exist" >&2
+		return 1
+	}
+	local found=false
+	for node_dir in "$nodes_dir"/*/; do
+		[ -d "$node_dir/backup" ] || continue
+		if find "$node_dir/backup" -type f -print -quit 2>/dev/null | grep -q .; then
+			found=true
+			break
+		fi
+	done
+	$found || {
+		echo "expected at least one node with backup files" >&2
+		return 1
+	}
+}
+
+assert_node_backup_count() {
+	local expected="$1"
+	local nodes_dir="$HOME/.config-backup/nodes"
+	local count=0
+	if [ -d "$nodes_dir" ]; then
+		for node_dir in "$nodes_dir"/*/; do
+			[ -d "$node_dir/backup" ] || continue
+			if find "$node_dir/backup" -type f -print -quit 2>/dev/null | grep -q .; then
+				((count++)) || true
+			fi
+		done
+	fi
+	(( count == expected )) || {
+		echo "expected $expected nodes with backups, found $count" >&2
+		return 1
+	}
+}
+
+assert_node_backup_contains() {
+	local relative_path="$1"
+	local nodes_dir="$HOME/.config-backup/nodes"
+	[ -d "$nodes_dir" ] || {
+		echo "expected nodes directory to exist" >&2
+		return 1
+	}
+	local found=false
+	for node_dir in "$nodes_dir"/*/; do
+		[ -d "$node_dir/backup" ] || continue
+		if [ -e "$node_dir/backup/$relative_path" ]; then
+			found=true
+			break
+		fi
+	done
+	$found || {
+		echo "expected some node backup to contain: $relative_path" >&2
+		return 1
+	}
+}
+
+assert_node_manifest_exists() {
+	local nodes_dir="$HOME/.config-backup/nodes"
+	[ -d "$nodes_dir" ] || {
+		echo "expected nodes directory to exist" >&2
+		return 1
+	}
+	local found=false
+	for node_dir in "$nodes_dir"/*/; do
+		[ -d "$node_dir" ] || continue
+		if [ -f "$node_dir/manifest.txt" ]; then
+			found=true
+			break
+		fi
+	done
+	$found || {
+		echo "expected at least one node with manifest.txt" >&2
 		return 1
 	}
 }

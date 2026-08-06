@@ -55,8 +55,8 @@ teardown() {
 	[ "$status" -eq 0 ]
 
 	# The modified file should be backed up before removal
-	assert_backup_dir_exists
-	assert_manifest_exists
+	assert_node_backup_exists
+	assert_node_manifest_exists
 
 	# Desktop indicators should be gone
 	assert_file_not_exists ".xinitrc"

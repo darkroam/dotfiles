@@ -70,3 +70,68 @@ cfg_rollback_from_backup() {
 		fi
 	done
 }
+
+cfg_restore_node_backup() {
+	local node_code="$1"
+	local backup_root="${2:-$HOME/.config-backup}"
+	local node_dir="$backup_root/nodes/$node_code"
+	local backup_dir="$node_dir/backup"
+	local manifest="$node_dir/manifest.txt"
+
+	if [ ! -d "$backup_dir" ]; then
+		return 0
+	fi
+
+	if [ ! -f "$manifest" ]; then
+		printf 'Warning: no manifest found for node %s\n' "$node_code" >&2
+		return 1
+	fi
+
+	local restored=0
+	local failed=0
+
+	while IFS=$'\t' read -r rel_path md5 status; do
+		[[ "$rel_path" =~ ^# ]] && continue
+		[ -z "$rel_path" ] && continue
+
+		local backup_path="$backup_dir/$rel_path"
+		local target_path="$HOME/$rel_path"
+
+		if [ -e "$backup_path" ]; then
+			{ [ -e "$target_path" ] || [ -L "$target_path" ]; } && rm -f -- "$target_path"
+			mkdir -p -- "$(dirname "$target_path")"
+			if mv -- "$backup_path" "$target_path" 2>/dev/null; then
+				((restored++)) || true
+			else
+				((failed++)) || true
+				printf 'Warning: could not restore %s\n' "$rel_path" >&2
+			fi
+		fi
+	done < "$manifest"
+
+	printf '%d %d' "$restored" "$failed"
+}
+
+cfg_remove_deployed_files() {
+	local node_code="$1"
+	local backup_root="${2:-$HOME/.config-backup}"
+	local node_dir="$backup_root/nodes/$node_code"
+	local files_dir="$node_dir/files"
+
+	if [ ! -d "$files_dir" ]; then
+		return 0
+	fi
+
+	local removed=0
+	local path
+	while IFS= read -r path; do
+		[ -z "$path" ] && continue
+		local target="$HOME/$path"
+		if [ -e "$target" ] || [ -L "$target" ]; then
+			rm -f -- "$target"
+			((removed++)) || true
+		fi
+	done < <(find "$files_dir" -type f -printf '%P\n' 2>/dev/null)
+
+	printf '%d' "$removed"
+}
