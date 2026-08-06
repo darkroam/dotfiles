@@ -131,6 +131,18 @@ dotcfg help                   # 使用帮助
 
 `dotcfg switch` 根据（当前状态, 目标状态）对自动选择脚本，通过 `exec` 调度并透传所有参数（`--dry-run`、`--force` 等）。
 
+**`dotcfg history` 的限制**：
+
+历史记录基于 `.config-backup/` 中的 MANIFEST 文件重建。只有创建备份的转换才会被记录：
+
+| 转换类型 | 是否创建备份 | 是否记录历史 |
+|----------|--------------|--------------|
+| fresh → server/desktop | 否（无文件可备份） | 否 |
+| server ↔ desktop | 是（冲突文件） | 是 |
+| server/desktop → fresh | 否（卸载不备份） | 否 |
+
+因此，从 fresh 状态开始的首次安装不会被 history 命令显示。如需完整的转换日志，建议查看 `.config-backup/` 目录中的备份会话名称（格式：`{from}-to-{to}-{timestamp}`）。
+
 ---
 
 ## 核心脚本
