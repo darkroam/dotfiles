@@ -89,6 +89,29 @@ if ((${#installation_files_preserved[@]} > 0)); then
 	printf 'Preserving %d installation infrastructure file(s).\n' "${#installation_files_preserved[@]}"
 fi
 
+# ── Fresh root node detection ───────────────────────────────────────────
+cfg_nodes_init "$backup_root"
+fresh_root_code=""
+fresh_root_backup=""
+if [ -d "$backup_root/nodes" ]; then
+	fresh_root_code=$(fresh_get_root_code 2>/dev/null) || fresh_root_code=""
+	if [ -n "$fresh_root_code" ] && [ -d "$backup_root/nodes/$fresh_root_code/backup" ]; then
+		fresh_root_backup="$backup_root/nodes/$fresh_root_code/backup"
+	fi
+fi
+
+declare -A fresh_in_manifest=()
+declare -A fresh_md5_map=()
+if [ -n "$fresh_root_backup" ]; then
+	if fresh_manifest_read "$fresh_root_code" 2>/dev/null; then
+		for ((i = 0; i < ${#_FRESH_MANIFEST_PATHS[@]}; i++)); do
+			fresh_in_manifest["${_FRESH_MANIFEST_PATHS[$i]}"]=1
+			fresh_md5_map["${_FRESH_MANIFEST_PATHS[$i]}"]="${_FRESH_MANIFEST_MD5S[$i]}"
+		done
+		printf 'Fresh root backup found: %s (%d files)\n' "$fresh_root_code" "${#_FRESH_MANIFEST_PATHS[@]}"
+	fi
+fi
+
 # ── Scan backup chain ───────────────────────────────────────────────────
 declare -A file_backup_sessions
 
@@ -162,7 +185,10 @@ restorable_count=0
 not_in_backup=()
 
 for path in "${files_to_remove[@]}"; do
-	if [ -n "${file_backup_sessions[$path]+x}" ]; then
+	if [ "$CFG_LATEST" != true ] && [ -n "$fresh_root_backup" ] && [ -n "${fresh_in_manifest[$path]+x}" ] && [ -f "$fresh_root_backup/$path" ]; then
+		file_restore_session[$path]="$backup_root/nodes/$fresh_root_code"
+		((restorable_count++)) || true
+	elif [ -n "${file_backup_sessions[$path]+x}" ]; then
 		if [ "$CFG_LATEST" = true ]; then
 			file_restore_session[$path]=$(printf '%s' "${file_backup_sessions[$path]}" | tail -1)
 		else
@@ -179,6 +205,38 @@ if ((restorable_count > 0)); then
 fi
 if ((${#not_in_backup[@]} > 0)); then
 	printf 'Files not in any backup (will be deleted): %d\n' "${#not_in_backup[@]}"
+fi
+
+# ── Fresh backup pre-check warnings ─────────────────────────────────────
+deleted_no_fresh=()
+restore_changed=()
+for path in "${files_to_remove[@]}"; do
+	if [ -z "${fresh_in_manifest[$path]+x}" ]; then
+		if [ -z "${file_backup_sessions[$path]+x}" ] && { [ -e "$HOME/$path" ] || [ -L "$HOME/$path" ]; }; then
+			deleted_no_fresh+=("$path")
+		fi
+	elif [ -e "$HOME/$path" ]; then
+		cur_md5=$(md5sum "$HOME/$path" 2>/dev/null | awk '{print $1}') || cur_md5=""
+		if [ -n "$cur_md5" ] && [ "$cur_md5" != "${fresh_md5_map[$path]}" ]; then
+			restore_changed+=("$path")
+		fi
+	fi
+done
+
+if [ -n "$fresh_root_backup" ]; then
+	if ((${#deleted_no_fresh[@]} > 0)); then
+		printf '\nWARNING: the following files will be DELETED and are NOT in the fresh backup:\n'
+		for path in "${deleted_no_fresh[@]}"; do
+			printf '  ! %s\n' "$path"
+		done
+		printf 'Run "dotcfg track <file>" first if you want to preserve them.\n'
+	fi
+	if ((${#restore_changed[@]} > 0)); then
+		printf '\nThe following files differ from the fresh backup and will be RESTORED to their pre-install state:\n'
+		for path in "${restore_changed[@]}"; do
+			printf '  ~ %s\n' "$path"
+		done
+	fi
 fi
 
 if [ "$CFG_DRY_RUN" = true ]; then
@@ -218,11 +276,13 @@ if [ "$CFG_DRY_RUN" = true ]; then
 fi
 
 # Confirm removal
-printf '\nProceed with uninstallation? [y/N] '
-read -r confirm
-if [[ "$confirm" != [yY] && "$confirm" != [yY][eE][sS] ]]; then
-	printf 'Aborted.\n'
-	exit 0
+if [ "$CFG_FORCE" != true ]; then
+	printf '\nProceed with uninstallation? [y/N] '
+	read -r confirm
+	if [[ "$confirm" != [yY] && "$confirm" != [yY][eE][sS] ]]; then
+		printf 'Aborted.\n'
+		exit 0
+	fi
 fi
 
 # ── Step 1: Remove managed files ────────────────────────────────────────

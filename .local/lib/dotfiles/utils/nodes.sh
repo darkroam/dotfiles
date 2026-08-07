@@ -215,9 +215,18 @@ cfg_node_create() {
 	local type="$1"
 	local parent_code="${2:-null}"
 	local config_version="${3:-}"
+	local fixed_code="${4:-}"
 
 	local code
-	code=$(cfg_generate_node_code) || return 1
+	if [ -n "$fixed_code" ]; then
+		code="$fixed_code"
+		if cfg_node_exists "$code" 2>/dev/null; then
+			printf 'ERROR: Node code already exists: %s\n' "$code" >&2
+			return 1
+		fi
+	else
+		code=$(cfg_generate_node_code) || return 1
+	fi
 
 	local timestamp
 	timestamp=$(date -u '+%Y-%m-%dT%H:%M:%S')

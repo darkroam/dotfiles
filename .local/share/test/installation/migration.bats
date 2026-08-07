@@ -115,6 +115,7 @@ assert_session_moved() {
 	cfg_nodes_init "$HOME/.config-backup"
 	cfg_nodes_read_index
 	[ ${#_CFG_NODE_CODES[@]} -eq 2 ]
+	[ "${_CFG_NODE_CODES[0]}" = "fresh_root" ]
 	[ "${_CFG_NODE_TYPES[0]}" = "fresh" ]
 	[ "${_CFG_NODE_TYPES[1]}" = "desktop" ]
 }

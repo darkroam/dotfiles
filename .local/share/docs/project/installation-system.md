@@ -97,9 +97,10 @@ nodes/{code}/
 └── files/          ← 该节点 checkout 的文件快照（转换后部署的文件）
 ```
 
-> **注**：原始文件备份存储在第一次 switch 操作创建的子节点中。
-> 根节点（fresh）本身不直接存储备份，其原始文件由第一个子节点的 `backup/` 目录保存。
-> `uninstall` 回到根节点时，从该子节点恢复原始文件。
+> **注**：转换时的原始文件备份存储在 switch 操作创建的子节点中。
+> 根节点（fresh，固定 CODE `fresh_root`）在首次安装/迁移时执行 $HOME 全量备份（按排除规则过滤），
+> 作为 `uninstall` 的恢复锚点。`uninstall` 优先从 `fresh_root/backup/` 恢复原始文件；
+> fresh 备份中不存在的文件回退到子节点备份链（按时间戳排序）。
 
 ### index.json 格式
 
@@ -147,9 +148,17 @@ nodes/{code}/
 
 解析策略：使用 awk 行解析（不依赖 jq），格式由系统控制。
 
+> **metadata 限制说明**：index.json **不存储**额外统计字段（如 fresh 节点的备份文件数/总大小）。
+> awk 行解析器不支持嵌套结构，写入时会丢弃未知字段，因此节点统计信息不进入 JSON schema。
+> fresh 节点的统计（文件数、总大小、按 status 分组）从 `nodes/fresh_root/manifest.txt` 实时派生
+> （`fresh_backup_count` / `fresh_backup_size`，见 utils/fresh.sh）。
+
 ### CODE 生成
 
 8 位随机码，字符集 `[a-z0-9]`（36 个字符），使用 `$RANDOM` 生成。碰撞时递归重试。
+
+**例外**：根节点使用固定 CODE `fresh_root`（新安装与迁移均使用该码；旧的随机码根节点通过
+`parent=null` 识别并继续兼容）。`fresh` 可作为根节点的别名在 `switch` 等命令中使用。
 
 ### 节点管理函数
 
@@ -161,7 +170,7 @@ nodes/{code}/
 | `cfg_generate_node_code` | 生成 8 位随机码，确保唯一 |
 | `cfg_nodes_read_index` | 解析 index.json → shell 数组 |
 | `cfg_nodes_write_index` | 写回 index.json |
-| `cfg_node_create <type> <parent> [version]` | 创建节点，返回 CODE（可选绑定配置版本） |
+| `cfg_node_create <type> <parent> [version] [code]` | 创建节点，返回 CODE（可选绑定配置版本；可选固定 CODE，用于根节点 `fresh_root`） |
 | `cfg_node_get <code> <field>` | 读取节点字段（含 `config_version`、`status`） |
 | `cfg_node_exists <code>` | 检查节点是否存在 |
 | `cfg_head_set / cfg_head_get` | HEAD 指针管理 |
@@ -274,18 +283,29 @@ dotcfg                          # 显示当前节点状态（等同于 dotcfg st
 dotcfg status                   # 当前节点 + 部署状态 + 可用操作
 dotcfg list                     # 六列表：DEPLOY / TYPE / VERSION / STATUS / TIME / CODE
 dotcfg history                  # Git log --graph 风格 ASCII 分支图
-dotcfg switch <target>          # 切换到状态名（desktop|server）或 CODE
+dotcfg switch <target>          # 切换到状态名（desktop|server|fresh）或 CODE；fresh = 根节点别名
 dotcfg deploy                   # 在当前节点部署配置
 dotcfg undeploy                 # 卸载当前节点配置，恢复原始文件
-dotcfg uninstall                # 回到根节点（fresh）
+dotcfg uninstall                # 回到根节点（fresh）；恢复源优先 fresh_root 备份
 dotcfg remove <code>            # 标记节点为待删除
 dotcfg unremove <code>          # 恢复标记的节点
 dotcfg autoclean [--dry-run]    # 智能清理标记删除的节点
 dotcfg categories [subcommand]  # 配置文件版本管理
 dotcfg migrate                  # 手动迁移旧会话到节点系统
 dotcfg validate                 # 详细仓库验证
+dotcfg track <file>             # 把文件增量加入 fresh 根备份
+dotcfg untrack <file>           # 从 fresh 根备份移除文件
+dotcfg fresh-status             # fresh 根备份统计（数量/大小/分组/Top5/最近添加）
+dotcfg fresh-diff [path]        # $HOME 与 fresh 备份对比（Modified/New/Missing）
+dotcfg fresh-update             # 以当前 $HOME 重建 fresh 根备份
+dotcfg doctor                   # 系统完整性自检
+dotcfg repair                   # 自动修复（逐项确认，--force 跳过）
+dotcfg check-exclude <path>     # 查询某路径被哪条排除规则排除
 dotcfg help                     # 使用帮助
 ```
+
+> **库缺失时**：任何 `dotcfg` 命令检测到库不存在都会进入 **bootstrap 安装模式**
+> （见下文「自举安装」章节），因此 `curl dotcfg | bash` 即可完成全新安装。
 
 ### `dotcfg status` 输出
 
@@ -312,11 +332,12 @@ Available operations:
 ```
   DEPLOY TYPE       VERSION  STATUS      TIME                 CODE
   [*]    desktop    1.0.0    active      2026-08-06 10:05:00  xk7f9a2m
-  [ ]    fresh      -        active      2026-08-06 10:00:00  a1b2c3d4
+  [ ]    fresh      bootstrap active     2026-08-06 10:00:00  fresh_root ●
   [ ]    server     1.0.0    [REMOVED]   2026-08-06 09:00:00  e5f6g7h8
 ```
 
 标记说明：`[*]` = HEAD + deployed，`[>]` = HEAD + uninstalled，`[ ]` = 非 HEAD。
+行尾 `●` = fresh 根节点。
 STATUS 列：`active` = 正常节点，`[REMOVED]` = 标记为待删除（`marked_for_removal`）。
 
 ### `dotcfg history` 输出
@@ -335,7 +356,7 @@ Git log --graph 风格，最新节点在顶部，根在底部：
 | 
 o  e5f6g7h8  server   2026-08-06 11:00:00  v1.0.0
 | 
-o  i9j0k1l2  fresh    2026-08-06 10:00:00  v1.0.0
+●  fresh_root fresh    2026-08-06 10:00:00  vbootstrap  [root]
 ```
 
 **分支历史：**
@@ -344,7 +365,7 @@ o  i9j0k1l2  fresh    2026-08-06 10:00:00  v1.0.0
 | 
 o  e5f6g7h8  server   2026-08-06 11:00:00  v1.0.0
 | 
-o  i9j0k1l2  fresh    2026-08-06 10:00:00  v1.0.0
+●  fresh_root fresh    2026-08-06 10:00:00  vbootstrap  [root]
 |\
 | o  m3n4o5p6  server   2026-08-06 10:30:00  v1.0.0  [REMOVED]
 |/
@@ -358,21 +379,22 @@ o  e5f6g7h8  server   2026-08-06 11:00:00  v1.0.0
 |\
 | o  m3n4o5p6  server   2026-08-06 10:30:00  v1.0.0  [REMOVED]
 |/
-o  i9j0k1l2  fresh    2026-08-06 10:00:00  v1.0.0
+●  fresh_root fresh    2026-08-06 10:00:00  vbootstrap  [root]
 ```
 
 **符号说明：**
 - `*` = HEAD 节点（当前所在）
 - `o` = 普通节点
+- `●` = fresh 根节点（附 `[root]` 标签）
 - `|` = 主线垂直延续
 - `|\` = 分支起点（从主线分叉）
 - `|/` = 分支合并（分叉回到主线）
 
 ### 自动迁移
 
-首次运行 `dotcfg` 命令时（除 help/version/migrate 外），系统自动检测旧备份会话目录（格式 `{from}-to-{to}-{timestamp}`）。如果检测到旧会话，自动执行迁移：
+首次运行 `dotcfg` 命令时（除 help/version/migrate/doctor/repair/check-exclude 外），系统自动检测旧备份会话目录（格式 `{from}-to-{to}-{timestamp}`）。如果检测到旧会话，自动执行迁移：
 
-1. 创建根 fresh 节点
+1. 创建根 fresh 节点（固定 CODE `fresh_root`）
 2. 按时间顺序为每个旧会话创建子节点
 3. 复制备份文件和 MANIFEST 到节点目录
 4. 旧会话移入 `sessions/` 归档
@@ -446,10 +468,15 @@ New nodes will use v1.0.0 by default.
 
 `dotcfg uninstall` 返回到初始 fresh 状态：
 
-1. undeploy 当前节点（如有部署）
-2. 移动 HEAD 到根节点（fresh）
-3. 根节点标记为 deployed（恢复原始文件）
-4. 输出清理提示（保留 `.cfg` 仓库，需手动删除）
+1. 检测 fresh 根节点备份（`nodes/fresh_root/backup/`），存在则作为优先恢复源
+2. 卸载前比对 fresh manifest 与 $HOME，输出两类警告：
+   - 系统中存在但 fresh 没有 → 列出"将被删除"，提示 `dotcfg track` 保留
+   - fresh 有且 MD5 不同 → 列出"将被恢复"到安装前状态
+3. y/N 确认（`--force` 跳过）
+4. 删除仓库管理的配置文件（保留安装基础设施）
+5. 恢复备份：优先 `fresh_root/backup/`；fresh 中不存在的文件回退到子节点备份链
+   （`--latest` 取备份链最新，不使用 fresh 优先）
+6. 输出清理提示（保留 `.cfg` 仓库，需手动删除）
 
 ---
 
@@ -460,7 +487,7 @@ New nodes will use v1.0.0 by default.
 `dotcfg remove <code>` 将节点标记为 `marked_for_removal` 状态：
 
 1. 检查节点是否存在
-2. 检查是否为根节点（fresh）→ 拒绝，报错
+2. 检查是否为根节点（type=fresh 或 code=fresh_root）→ 拒绝，报错
 3. 检查是否为 HEAD 指向的节点 → 拒绝，报错
 4. 检查子节点中是否有 `active` 状态的节点 → 如果有，报错（需先处理子节点）
 5. 将节点状态改为 `marked_for_removal`
@@ -468,7 +495,7 @@ New nodes will use v1.0.0 by default.
 **报错信息**：
 ```
 # 根节点
-Error: Cannot remove root node (fresh).
+Error: Cannot remove root node (fresh_root).
 
 # HEAD 节点
 Error: Cannot remove current HEAD node. Please switch to another node first.
@@ -563,6 +590,109 @@ Use 'dotcfg autoclean' without --dry-run to execute.
 
 ---
 
+## 自举安装与 Fresh 根节点
+
+### 自举安装（bootstrap）
+
+`dotcfg` 支持单文件自举安装：当检测到库（`$DOTFILES_LIB_DIR/cfg-validate.sh`）不存在时，
+任意 `dotcfg` 命令都会进入 bootstrap 模式，无需预先安装任何库文件。
+
+```bash
+# 全新机器上一条命令完成安装
+curl -fsSL https://.../dotcfg | bash
+```
+
+bootstrap 流程（内联实现，只依赖 git/md5sum/coreutils）：
+
+1. 检测 `~/.cfg`：
+   - 存在且为 dotfiles 仓库（ours）→ 从 HEAD 恢复库，继续安装
+   - 存在但是外部仓库 → 报错并提示 `rm -rf ~/.cfg` 后重跑
+   - 不存在 → `git clone --bare $REMOTE_URL ~/.cfg`
+2. 从 `HEAD` 提取库文件到 `$DOTFILES_LIB_DIR`（cfg-validate.sh、utils/*、commands/*、categories-*.conf、exclude.conf）
+3. 安装 `dotcfg` 自身到 `$BIN_DIR`
+4. source 新装的库，创建 `fresh_root` 节点并执行 $HOME 全量备份
+5. 按 server 类别过滤后 checkout（冲突文件备份到 `$BACKUP_ROOT/conflict/`）
+6. 写 `HEAD=fresh_root`、`DEPLOY_STATUS=deployed`、`CURRENT_CONFIG_VERSION=bootstrap`
+7. re-exec `dotcfg <原参数>`，保证幂等
+
+**远程地址**：默认 `git@github.com:darkroam/dotfiles.git`，可用环境变量 `DOTCFG_REMOTE_URL` 覆盖
+（测试即通过该变量指向本地 mock 仓库）。
+
+### Fresh 根节点定位与保护
+
+根节点使用固定 CODE `fresh_root`（`parent=null`），是 uninstall 的恢复锚点。
+
+| 保护项 | 行为 |
+|--------|------|
+| `remove fresh_root` | 拒绝（type=fresh 与 code=fresh_root 双重判断） |
+| `autoclean` | `_autoclean_evaluate` 对 `parent=null` 节点直接拒绝 |
+| `switch fresh` | `fresh` 别名解析为根节点 CODE（无根时报错提示 doctor） |
+| `list` / `history` | 行尾 `●` 标记，history 附 `[root]` 标签 |
+
+### Fresh manifest 格式（5 列）
+
+fresh 节点专用，区别于普通节点的 3 列格式：
+
+```
+# Created: 2026-08-07 03:48:42
+# Node: fresh_root
+#
+# relative_path	md5	size_bytes	status	timestamp
+.bashrc	d41d8c…	1024	tracked_at_install	2026-08-07 03:48:42
+.myconfig	abc123…	512	tracked_by_user	2026-08-07 04:00:00
+```
+
+- `status` ∈ {`tracked_at_install`（安装时全量备份）, `tracked_by_user`（用户手动 track）}
+- 备份采用 **cp 语义**（区别于普通节点备份的 mv 语义），原文件保留在 $HOME
+- 统计信息（文件数/大小/分组）从该 manifest 实时派生，不写入 index.json
+
+### track / untrack
+
+```bash
+dotcfg track <file> [--dry-run] [--force] [--no-add]   # 加入 fresh 备份
+dotcfg untrack <file> [--dry-run] [--force]            # 从 fresh 备份移除
+```
+
+- `track`：存在性检查 → fresh manifest 查重 → `.cfg` 仓库查重（已跟踪则警告）→
+  cp 到 `fresh_root/backup/` → manifest 追加 `tracked_by_user` 条目 → 引导 `git add`
+  （默认执行 `git add`，`--no-add` 跳过，不 commit）
+- 命中排除规则时警告但允许继续
+- `untrack`：manifest 查重 → 删除 backup 文件与 manifest 条目 → 提示 uninstall 不再恢复；
+  需 y/N 确认（`--force` 跳过）
+
+### fresh-* 管理命令
+
+```bash
+dotcfg fresh-status        # 总数/大小/按 status 分组/Top5 最大/最近添加
+dotcfg fresh-diff [path]   # 全量：Modified/New/Missing 三组；单文件：diff -u
+dotcfg fresh-diff --summary
+dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重建备份
+```
+
+- `fresh-update` 重建前先把旧节点目录复制为 `fresh_root.bak`（`--no-backup` 跳过）
+- `New` 分组来自对 $HOME 的扫描（应用排除规则），默认限前 50 条
+
+### doctor / repair
+
+`doctor` 执行 9 项完整性检测（仓库有效性、备份目录完整性、index.json、fresh 节点、
+HEAD 指向、类别版本、当前配置版本等），输出 ✅/❌ 并计数；有问题时 exit 1。
+
+`repair` 逐项修复（每项前 y/N 确认，`--force` 跳过）：
+
+| 问题 | 修复策略 |
+|------|----------|
+| HEAD 指向缺失节点 | 重置到根节点 |
+| DEPLOY_STATUS 缺失 | 写 `deployed` |
+| CURRENT_CONFIG_VERSION 缺失 | 重建 |
+| config-backup 缺失 | 初始化并创建 fresh 节点 |
+| index.json 为空 | 报错建议 migrate（不盲目重建） |
+| .cfg 异常 | `git fsck --no-dangling` 输出诊断 |
+
+**启动自检**：`dotcfg` 每次调度前做轻量自检（仅 stat + 一次 HEAD 读取，<0.5s）：
+`.cfg` 缺失但有备份、或 HEAD 指向缺失节点时，打印一行建议 `dotcfg doctor`，不阻塞命令。
+
+---
+
 ## 核心脚本
 
 ### 脚本总览
@@ -576,17 +706,26 @@ Use 'dotcfg autoclean' without --dry-run to execute.
 | `switch-server.sh` | 转发到 `switch.sh --type=server` |
 | `deploy.sh` | 部署当前节点配置 |
 | `undeploy.sh` | 卸载当前节点配置 |
-| `uninstall.sh` | 回到根节点（fresh） |
+| `uninstall.sh` | 回到根节点（fresh），优先从 fresh_root 备份恢复 |
 | `remove.sh` | 标记节点为待删除 |
 | `unremove.sh` | 恢复标记的节点 |
 | `autoclean.sh` | 智能清理标记删除的节点 |
 | `migrate.sh` | 迁移旧会话到节点系统 |
+| `track.sh` | 把文件加入 fresh 根备份 |
+| `untrack.sh` | 从 fresh 根备份移除文件 |
+| `fresh-status.sh` | fresh 根备份统计 |
+| `fresh-diff.sh` | $HOME 与 fresh 备份对比 |
+| `fresh-update.sh` | 重建 fresh 根备份 |
+| `doctor.sh` | 系统完整性自检 |
+| `repair.sh` | 自动修复 |
+| `check-exclude.sh` | 查询路径的排除规则来源 |
+| `bootstrap-lib.sh` | bootstrap 安装收尾逻辑（供 dotcfg 自举调用） |
 
 **工具库**（位于 `.local/lib/dotfiles/utils/`）：
 
 | 文件 | 职责 |
 |------|------|
-| `common.sh` | 顶层加载器，source 所有工具库（含 `nodes.sh`） |
+| `common.sh` | 顶层加载器，source 所有工具库（含 `nodes.sh`、`exclude.sh`、`fresh.sh`） |
 | `nodes.sh` | 节点管理（CRUD、HEAD、deploy status、树操作） |
 | `args.sh` | 参数解析（`cfg_parse_common_args`） |
 | `backup.sh` | 备份创建和文件备份（含节点备份适配） |
@@ -595,6 +734,8 @@ Use 'dotcfg autoclean' without --dry-run to execute.
 | `repo.sh` | 仓库克隆和激活 |
 | `files.sh` | 文件分析（install/backup/skip 分类） |
 | `categories.sh` | 声明式文件类别系统（categories.conf 解析、继承、排除） |
+| `exclude.sh` | fresh 备份排除规则（硬编码 + exclude.conf、$HOME 扫描） |
+| `fresh.sh` | fresh 根节点与 manifest 管理（创建/读写/统计/增删） |
 
 ### 通用参数
 
@@ -647,13 +788,15 @@ Use 'dotcfg autoclean' without --dry-run to execute.
 - 任何状态都可恢复，所有操作幂等
 
 **恢复流程**：
-1. 扫描所有备份源（节点目录 + 旧会话目录）
-2. 按时间戳排序
-3. 解析 MANIFEST，构建文件→备份会话的关联映射
-4. 选择恢复源：默认恢复**最早**版本，`--latest` 恢复**最新**版本
-5. 移除用户配置文件（保留安装基础设施）
-6. 从备份中 `cp`（非 `mv`）恢复用户文件——保持备份完整，支持幂等
-7. 打印手动清理说明
+1. 检测 fresh 根节点备份（`fresh_root`），加载其 manifest 构建 path→md5 映射
+2. 扫描所有备份源（节点目录 + 旧会话目录），按时间戳排序，构建文件→备份会话映射
+3. 卸载前比对 fresh manifest 与 $HOME，输出"将被删除"（提示 track）与"将被恢复"警告
+4. y/N 确认（`--force` 跳过）
+5. 选择恢复源：fresh manifest 中存在的文件优先用 `fresh_root/backup/`；
+   其余默认恢复**最早**版本，`--latest` 恢复备份链**最新**版本（不用 fresh 优先）
+6. 移除用户配置文件（保留安装基础设施）
+7. 从备份中 `cp`（非 `mv`）恢复用户文件——保持备份完整，支持幂等
+8. 打印手动清理说明
 
 ### migrate.sh — 迁移
 
@@ -661,7 +804,7 @@ Use 'dotcfg autoclean' without --dry-run to execute.
 
 1. 扫描旧会话目录（匹配 `{from}-to-{to}-{timestamp}` 格式）
 2. 按时间排序
-3. 创建根 fresh 节点
+3. 创建根 fresh 节点（固定 CODE `fresh_root`）
 4. 为每个旧会话创建子节点，复制备份数据
 5. 设置 HEAD = 最后节点
 6. 旧目录移入 `sessions/`（不删除）
@@ -981,6 +1124,8 @@ include = empty
 
 ### manifest.txt 格式
 
+**普通节点**（3 列）：
+
 ```
 # Created: Wed Aug  6 10:05:00 UTC 2026
 # Node: xk7f9a2m
@@ -989,6 +1134,20 @@ include = empty
 .bashrc	d41d8cd98f00b204e9800998ecf8427e	modified
 .config/shell/zshrc	098f6bcd4621d373cade4e832627b4f6	untracked
 ```
+
+**fresh 根节点**（5 列，fresh_root 专用）：
+
+```
+# Created: 2026-08-07 03:48:42
+# Node: fresh_root
+#
+# relative_path	md5	size_bytes	status	timestamp
+.bashrc	d41d8c…	1024	tracked_at_install	2026-08-07 03:48:42
+.myconfig	abc123…	512	tracked_by_user	2026-08-07 04:00:00
+```
+
+status 取值：`tracked_at_install`（安装时全量备份）/ `tracked_by_user`（用户 `dotcfg track` 添加）。
+节点统计（数量/大小/分组）从该 manifest 派生，不存入 index.json。
 
 ### Checkout 状态记录
 
@@ -1033,8 +1192,8 @@ include = empty
 | 安装过程中断 | 备份已创建，手动恢复或重新运行脚本 |
 | checkout 大面积失败 | 自动回滚（失败数 >5 或失败率 >10%），从节点备份恢复 |
 | 切换后不满意 | `dotcfg switch <旧CODE>` 回到历史节点 |
-| 完全卸载后恢复 | `dotcfg uninstall`（从节点备份恢复） |
-| 多次切换后恢复原始文件 | `dotcfg uninstall`（默认恢复最早备份） |
+| 完全卸载后恢复 | `dotcfg uninstall`（优先从 fresh_root 备份恢复） |
+| 多次切换后恢复原始文件 | `dotcfg uninstall`（优先 fresh_root，其余回退最早备份） |
 
 ---
 
@@ -1136,6 +1295,8 @@ dotcfg switch <parent_code>          # 切换到父节点
 
 ### 节点系统损坏
 ```bash
+dotcfg doctor                        # 诊断（HEAD 悬空、文件缺失等）
+dotcfg repair                        # 自动修复（--force 跳过确认）
 dotcfg migrate                       # 重新迁移（如果旧会话仍在 sessions/）
 # 或手动重建 index.json
 ```
@@ -1155,9 +1316,17 @@ ls -la ~/.xinitrc ~/.xprofile ~/.config/x11 ~/.asoundrc ~/.gtkrc-2.0 \
        ~/.config/alsa ~/.config/mpd ~/.config/nsxiv ~/.config/zathura
 ```
 
-### 急救：使用独立安装脚本
+### 急救：doctor/repair 与自举安装
 
-如果节点系统完全损坏或不可用，可以使用独立的 `install.sh` 脚本进行急救安装：
+节点系统异常时优先使用内置工具：
+
+```bash
+dotcfg doctor          # 诊断问题
+dotcfg repair          # 自动修复（HEAD/DEPLOY_STATUS 等）
+```
+
+如果库文件丢失或系统完全损坏，`dotcfg` 的 bootstrap 模式可重建整个安装
+（见「自举安装与 Fresh 根节点」章节）。独立 `install.sh` 仍可作为最后的绕过手段：
 
 ```bash
 # 从仓库历史恢复 install.sh（如果不存在）
@@ -1178,12 +1347,12 @@ chmod +x ~/.local/bin/install.sh
 
 ## 相关文档
 
-- [安装测试系统](installation-testing.md) — 测试框架和 145 个测试用例
+- [安装测试系统](installation-testing.md) — 测试框架和测试用例
 - [安装系统修复记录](../planning/installation-fixes.md) — 已知问题和修复方案
 - [依赖清单](dependencies.md) — 项目依赖的软件包
 - [架构文档](architecture.md) — 配置库整体架构
 
 ---
 
-**最后更新**: 2026-08-06
-**版本**: 4.0 — 配置文件版本化 + 节点生命周期管理 + 特殊类别
+**最后更新**: 2026-08-07
+**版本**: 5.0 — 自举安装（bootstrap）+ Fresh 根节点全量备份 + track/untrack + doctor/repair + fresh-* 管理命令

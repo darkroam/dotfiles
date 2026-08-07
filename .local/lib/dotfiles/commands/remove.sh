@@ -26,6 +26,11 @@ if [ "$current_status" = "marked_for_removal" ]; then
 	exit 0
 fi
 
+if [ "$code" = "${FRESH_ROOT_CODE:-fresh_root}" ]; then
+	printf 'Error: Cannot remove root node (fresh_root).\n' >&2
+	exit 1
+fi
+
 node_type=$(cfg_node_get "$code" "type")
 if [ "$node_type" = "fresh" ]; then
 	printf 'Error: Cannot remove root node (fresh).\n' >&2

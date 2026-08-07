@@ -109,10 +109,10 @@ teardown() {
 
 # ── switch subcommand ──────────────────────────────────────────────────
 
-@test "TC-52: switch to fresh suggests uninstall command" {
+@test "TC-52: switch fresh resolves to root node (error when no root exists)" {
 	run run_dotcfg switch fresh
 	[ "$status" -eq 1 ]
-	assert_output_contains "uninstall"
+	assert_output_contains "root node not found"
 }
 
 @test "TC-53: switch to invalid target prints error and exits 1" {

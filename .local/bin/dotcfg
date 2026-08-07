@@ -19,11 +19,88 @@ BACKUP_ROOT="$HOME/.config-backup"
 BIN_DIR="${DOTCFG_BIN_DIR:-$HOME/.local/bin}"
 
 DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
+
+# ── Bootstrap installation (self-contained, no library dependencies) ───
+
+_bootstrap_install() {
+    printf 'dotcfg: library not found, starting bootstrap installation...\n'
+
+    local is_ours=false
+    local remote_url=""
+    if [ -d "$GIT_DIR" ]; then
+        if git --git-dir="$GIT_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+            remote_url=$(git --git-dir="$GIT_DIR" remote get-url origin 2>/dev/null) || remote_url=""
+            case "$remote_url" in
+                git@github.com:darkroam/dotfiles.git*|https://github.com/darkroam/dotfiles.git*)
+                    is_ours=true ;;
+            esac
+            if ! $is_ours && git --git-dir="$GIT_DIR" cat-file -e HEAD:.local/bin/dotcfg 2>/dev/null; then
+                is_ours=true
+            fi
+            if $is_ours; then
+                printf 'Repository exists at %s. Restoring library from HEAD...\n' "$GIT_DIR"
+            else
+                printf 'Warning: %s exists but is not a valid dotfiles repository.\n' "$GIT_DIR" >&2
+                printf 'Please remove it manually and rerun installation:\n' >&2
+                printf '  rm -rf %s\n' "$GIT_DIR" >&2
+                exit 1
+            fi
+        else
+            printf 'Warning: %s exists but is not a valid git repository.\n' "$GIT_DIR" >&2
+            printf 'Please remove it manually and rerun installation:\n' >&2
+            printf '  rm -rf %s\n' "$GIT_DIR" >&2
+            exit 1
+        fi
+    else
+        remote_url="${DOTCFG_REMOTE_URL:-git@github.com:darkroam/dotfiles.git}"
+        printf 'Cloning dotfiles repository from %s...\n' "$remote_url"
+        if ! git clone --bare --quiet "$remote_url" "$GIT_DIR"; then
+            printf 'ERROR: failed to clone repository\n' >&2
+            exit 1
+        fi
+    fi
+
+    # Extract library files from HEAD into $DOTFILES_LIB_DIR
+    mkdir -p "$DOTFILES_LIB_DIR/utils" "$DOTFILES_LIB_DIR/commands"
+    local p rel
+    while IFS= read -r p; do
+        case "$p" in
+            .local/lib/dotfiles/cfg-validate.sh|.local/lib/dotfiles/utils/*|.local/lib/dotfiles/commands/*|.local/lib/dotfiles/categories*.conf|.local/lib/dotfiles/exclude.conf)
+                rel="${p#.local/lib/dotfiles/}"
+                git --git-dir="$GIT_DIR" show "HEAD:$p" > "$DOTFILES_LIB_DIR/$rel"
+                ;;
+        esac
+    done < <(git --git-dir="$GIT_DIR" ls-tree -r --name-only HEAD)
+
+    # Install dotcfg itself
+    if git --git-dir="$GIT_DIR" show "HEAD:.local/bin/dotcfg" > "$BIN_DIR/dotcfg.tmp" 2>/dev/null; then
+        mv -- "$BIN_DIR/dotcfg.tmp" "$BIN_DIR/dotcfg"
+        chmod +x "$BIN_DIR/dotcfg" 2>/dev/null || true
+    fi
+
+    if [ ! -f "$DOTFILES_LIB_DIR/cfg-validate.sh" ]; then
+        printf 'ERROR: repository does not contain the dotfiles library\n' >&2
+        exit 1
+    fi
+
+    . "$DOTFILES_LIB_DIR/cfg-validate.sh"
+    export GIT_DIR BACKUP_ROOT DOTFILES_LIB_DIR
+    . "$DOTFILES_LIB_DIR/commands/bootstrap-lib.sh"
+    if ! bootstrap_finish_install; then
+        printf 'ERROR: bootstrap installation failed\n' >&2
+        exit 1
+    fi
+
+    if [ $# -gt 0 ]; then
+        exec bash "$BIN_DIR/dotcfg" "$@"
+    fi
+    exit 0
+}
+
 if [ -f "$DOTFILES_LIB_DIR/cfg-validate.sh" ]; then
     . "$DOTFILES_LIB_DIR/cfg-validate.sh"
 else
-    printf 'ERROR: validation library not found at %s\n' "$DOTFILES_LIB_DIR/cfg-validate.sh" >&2
-    exit 1
+    _bootstrap_install "$@"
 fi
 
 if [ -f "$DOTFILES_LIB_DIR/utils/nodes.sh" ]; then
@@ -32,6 +109,14 @@ fi
 
 if [ -f "$DOTFILES_LIB_DIR/utils/categories.sh" ]; then
     . "$DOTFILES_LIB_DIR/utils/categories.sh"
+fi
+
+if [ -f "$DOTFILES_LIB_DIR/utils/exclude.sh" ]; then
+    . "$DOTFILES_LIB_DIR/utils/exclude.sh"
+fi
+
+if [ -f "$DOTFILES_LIB_DIR/utils/fresh.sh" ]; then
+    . "$DOTFILES_LIB_DIR/utils/fresh.sh"
 fi
 
 # ── Helpers ─────────────────────────────────────────────────────────────
@@ -194,7 +279,12 @@ cmd_list() {
         local node_version="${_CFG_NODE_CONFIG_VERSIONS[$i]:-}"
         [ -z "$node_version" ] && node_version="-"
 
-        printf '  %-6s %-10s %-8s %-10s %-20s %s\n' "$marker" "$type" "$node_version" "$display_status" "$display_ts" "$code"
+        local root_mark=""
+        if [ "$type" = "fresh" ]; then
+            root_mark=" ●"
+        fi
+
+        printf '  %-6s %-10s %-8s %-10s %-20s %s%s\n' "$marker" "$type" "$node_version" "$display_status" "$display_ts" "$code" "$root_mark"
     done
 }
 
@@ -424,6 +514,15 @@ _history_render() {
                     fi
                 fi
 
+                local root_tag=""
+                if [ "$type" = "fresh" ]; then
+                    root_tag=" ${_C_GRAY}[root]${_C_RESET}"
+                    if [ "$code" != "$head_code" ]; then
+                        marker="●"
+                        marker_color="$_C_YELLOW"
+                    fi
+                fi
+
                 local status_str=""
                 if [ "$code" = "$head_code" ]; then
                     if [ "$deploy_status" = "deployed" ]; then
@@ -448,9 +547,9 @@ _history_render() {
                 local prefix
                 prefix=$(_history_graph_prefix "$lane" "node" "$ltype" "$marker")
 
-                printf '%s%s%s %s  %-7s  %s%s%s%s%s\n' \
+                printf '%s%s%s %s  %-7s  %s%s%s%s%s%s\n' \
                     "$_C_BLUE" "$prefix" "$_C_RESET" \
-                    "$code" "$type" "$display_ts" "$status_str" "$version_tag" "$removed_tag" "$head_label"
+                    "$code" "$type" "$display_ts" "$status_str" "$version_tag" "$removed_tag" "$root_tag" "$head_label"
                 ;;
             connect)
                 local prefix
@@ -679,8 +778,17 @@ cmd_switch() {
     case "$target" in
         desktop|server) ;;
         fresh)
-            printf 'Use "dotcfg uninstall" to return to fresh state.\n' >&2
-            exit 1
+            cfg_nodes_init "$BACKUP_ROOT"
+            local root_code=""
+            if declare -F fresh_get_root_code >/dev/null 2>&1; then
+                root_code=$(fresh_get_root_code 2>/dev/null) || root_code=""
+            fi
+            if [ -z "$root_code" ]; then
+                printf 'Error: root node not found. Run "dotcfg doctor" for details.\n' >&2
+                exit 1
+            fi
+            _cmd_switch_to_code "$root_code" "$@"
+            return
             ;;
         *)
             printf 'Error: unknown target "%s"\n' "$target" >&2
@@ -778,7 +886,7 @@ cmd_help() {
     printf '  status              Show current node and deploy status (default)\n'
     printf '  list                List all nodes (DEPLOY, TYPE, VERSION, STATUS, TIME, CODE)\n'
     printf '  history             Show node tree (git log --graph style)\n'
-    printf '  switch <target>     Switch to state (desktop|server) or node CODE\n'
+    printf '  switch <target>     Switch to state (desktop|server|fresh) or node CODE\n'
     printf '  deploy              Deploy current node configuration\n'
     printf '  undeploy            Undeploy current node, restore original files\n'
     printf '  uninstall           Return to root fresh node\n'
@@ -788,6 +896,14 @@ cmd_help() {
     printf '  autoclean           Permanently delete marked nodes\n'
     printf '  categories          Manage config versions\n'
     printf '  validate            Show detailed repository validation\n'
+    printf '  track <file>        Add a file to the fresh root backup\n'
+    printf '  untrack <file>      Remove a file from the fresh root backup\n'
+    printf '  fresh-status        Show fresh root node backup statistics\n'
+    printf '  fresh-diff [path]   Compare $HOME against the fresh root backup\n'
+    printf '  fresh-update        Rebuild the fresh root backup from current $HOME\n'
+    printf '  doctor              Check system integrity\n'
+    printf '  repair              Attempt automatic repairs\n'
+    printf '  check-exclude <p>   Show why a path is excluded from fresh backup\n'
     printf '  help                Show this help message\n'
     printf '  version             Show version\n'
     printf '\n'
@@ -810,11 +926,24 @@ cmd_help() {
 
 # ── Main dispatch ───────────────────────────────────────────────────────
 
+_lightweight_selfcheck() {
+    if [ ! -d "$GIT_DIR" ] && [ -d "$BACKUP_ROOT" ]; then
+        printf 'Note: %s missing but backup system exists. Run "dotcfg doctor" for details.\n' "$GIT_DIR" >&2
+        return 0
+    fi
+    [ -d "$GIT_DIR" ] || return 0
+    local head
+    head=$(cfg_head_get 2>/dev/null) || head=""
+    if [ -n "$head" ] && ! cfg_node_exists "$head" 2>/dev/null; then
+        printf 'Note: HEAD points to a missing node. Run "dotcfg doctor" for details.\n' >&2
+    fi
+}
+
 subcmd="${1:-status}"
 shift || true
 
 case "$subcmd" in
-    help|-h|--help|version|--version|migrate) ;;
+    help|-h|--help|version|--version|migrate|doctor|repair|check-exclude) ;;
     *)
         cfg_nodes_init "$BACKUP_ROOT"
         if cfg_nodes_needs_migration "$BACKUP_ROOT"; then
@@ -825,6 +954,7 @@ case "$subcmd" in
             }
             printf '\n'
         fi
+        _lightweight_selfcheck
         ;;
 esac
 
@@ -835,10 +965,19 @@ case "$subcmd" in
     switch)   cmd_switch "$@" ;;
     deploy)   exec bash "$DOTFILES_LIB_DIR/commands/deploy.sh" "$@" ;;
     undeploy) exec bash "$DOTFILES_LIB_DIR/commands/undeploy.sh" "$@" ;;
+    uninstall) exec bash "$DOTFILES_LIB_DIR/commands/uninstall.sh" "$@" ;;
     migrate)  exec bash "$DOTFILES_LIB_DIR/commands/migrate.sh" "$@" ;;
     remove)   exec bash "$DOTFILES_LIB_DIR/commands/remove.sh" "$@" ;;
     unremove) exec bash "$DOTFILES_LIB_DIR/commands/unremove.sh" "$@" ;;
     autoclean) exec bash "$DOTFILES_LIB_DIR/commands/autoclean.sh" "$@" ;;
+    track)    exec bash "$DOTFILES_LIB_DIR/commands/track.sh" "$@" ;;
+    untrack)  exec bash "$DOTFILES_LIB_DIR/commands/untrack.sh" "$@" ;;
+    fresh-status) exec bash "$DOTFILES_LIB_DIR/commands/fresh-status.sh" "$@" ;;
+    fresh-diff)   exec bash "$DOTFILES_LIB_DIR/commands/fresh-diff.sh" "$@" ;;
+    fresh-update) exec bash "$DOTFILES_LIB_DIR/commands/fresh-update.sh" "$@" ;;
+    doctor)   exec bash "$DOTFILES_LIB_DIR/commands/doctor.sh" "$@" ;;
+    repair)   exec bash "$DOTFILES_LIB_DIR/commands/repair.sh" "$@" ;;
+    check-exclude) exec bash "$DOTFILES_LIB_DIR/commands/check-exclude.sh" "$@" ;;
     categories) cmd_categories "$@" ;;
     validate) cmd_validate "$@" ;;
     help|-h|--help) cmd_help ;;

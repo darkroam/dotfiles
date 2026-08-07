@@ -63,6 +63,12 @@ _autoclean_evaluate() {
 	local children_str="${_CFG_NODE_CHILDREN[$idx]}"
 	local parent_str="${_CFG_NODE_PARENTS[$idx]}"
 
+	if [ "$parent_str" = "null" ]; then
+		printf 'Error: Cannot remove root node (%s).\n' "$code" >&2
+		_autoclean_refused[$code]=1
+		return 1
+	fi
+
 	if [ "$node_status" = "marked_for_removal" ]; then
 		if [ -n "$children_str" ]; then
 			IFS=',' read -ra carr <<< "$children_str"

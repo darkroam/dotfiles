@@ -23,3 +23,5 @@ fi
 . "$DOTFILES_LIB_DIR/utils/categories.sh"
 . "$DOTFILES_LIB_DIR/utils/files.sh"
 . "$DOTFILES_LIB_DIR/utils/nodes.sh"
+. "$DOTFILES_LIB_DIR/utils/exclude.sh"
+. "$DOTFILES_LIB_DIR/utils/fresh.sh"

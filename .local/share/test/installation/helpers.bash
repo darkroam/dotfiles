@@ -97,6 +97,43 @@ teardown_source_repo() {
 	unset DOTFILES_REPOSITORY
 }
 
+# ── Bootstrap test environment ─────────────────────────────────────────
+# setup_bootstrap_env
+# Builds a local bare "remote" from the real working tree (dotcfg + lib)
+# and points DOTCFG_REMOTE_URL at it. Redirects DOTFILES_LIB_DIR and
+# DOTCFG_BIN_DIR into the test HOME so a bootstrap install lands there.
+BOOTSTRAP_REMOTE_DIR=""
+setup_bootstrap_env() {
+	export DOTFILES_LIB_DIR="$HOME/.local/lib/dotfiles"
+	export DOTCFG_BIN_DIR="$HOME/.local/bin"
+	mkdir -p "$DOTCFG_BIN_DIR"
+
+	local temp_work
+	temp_work=$(mktemp -d "/tmp/dotfiles-test-bootwork.XXXXXX")
+	(cd "$temp_work" && {
+		git init >/dev/null 2>&1
+		git config user.email "test@test.com"
+		git config user.name "Test"
+		mkdir -p .local/bin .local/lib
+		cp "$REAL_HOME/.local/bin/dotcfg" .local/bin/dotcfg
+		cp -r "$REAL_HOME/.local/lib/dotfiles" .local/lib/dotfiles
+		git add -A
+		git commit -m "bootstrap remote" >/dev/null 2>&1
+	})
+	BOOTSTRAP_REMOTE_DIR=$(mktemp -u "/tmp/dotfiles-test-bootremote-XXXXXX")
+	git clone --bare --quiet "$temp_work" "$BOOTSTRAP_REMOTE_DIR" >/dev/null 2>&1
+	rm -rf "$temp_work"
+	export DOTCFG_REMOTE_URL="$BOOTSTRAP_REMOTE_DIR"
+}
+
+teardown_bootstrap_env() {
+	if [ -n "$BOOTSTRAP_REMOTE_DIR" ] && [ -d "$BOOTSTRAP_REMOTE_DIR" ]; then
+		rm -rf "$BOOTSTRAP_REMOTE_DIR"
+	fi
+	BOOTSTRAP_REMOTE_DIR=""
+	unset DOTCFG_REMOTE_URL
+}
+
 # create_valid_existing_cfg [file1 file2 ...]
 # Creates a bare repo at $HOME/.cfg that passes cfg_validate (matching remote URL + signature).
 create_valid_existing_cfg() {
@@ -505,6 +542,8 @@ assert_node_backup_count() {
 	local count=0
 	if [ -d "$nodes_dir" ]; then
 		for node_dir in "$nodes_dir"/*/; do
+			# fresh root node always holds a full backup by design
+			[ "$(basename "$node_dir")" = "fresh_root" ] && continue
 			[ -d "$node_dir/backup" ] || continue
 			if find "$node_dir/backup" -type f -print -quit 2>/dev/null | grep -q .; then
 				((count++)) || true
