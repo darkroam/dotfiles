@@ -202,7 +202,10 @@ elif ! cfg_config_version_read "$current_version" >/dev/null 2>&1; then
 fi
 
 if [ -z "$parent_code" ]; then
-	root_code=$(cfg_node_create "fresh" "null" "$current_version" "${FRESH_ROOT_CODE:-fresh_root}") || exit 1
+	root_code=$(fresh_get_root_code 2>/dev/null) || root_code=""
+	if [ -z "$root_code" ]; then
+		root_code=$(cfg_node_create "fresh" "null" "$current_version" "${FRESH_ROOT_CODE:-fresh_root}") || exit 1
+	fi
 	parent_code="$root_code"
 	if [ "$CFG_DRY_RUN" != true ]; then
 		printf '\nCreating fresh root node backup (full scan of $HOME)...\n'

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# commands/doctor.sh - Full system integrity check
+# commands/doctor.sh - Full system integrity check (9 documented checks)
 # Usage: doctor.sh
 set -euo pipefail
 
@@ -7,6 +7,16 @@ DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
 . "$DOTFILES_LIB_DIR/utils/common.sh"
 
 backup_root="${DOTCFG_BACKUP_ROOT:-$HOME/.config-backup}"
+git_dir="${DOTCFG_GIT_DIR:-$HOME/.cfg}"
+
+# Snapshot state before cfg_nodes_init (which creates directories)
+backup_root_existed=false
+[ -d "$backup_root" ] && backup_root_existed=true
+index_existed=false
+[ -f "$backup_root/nodes/index.json" ] && index_existed=true
+fresh_dir_existed=false
+[ -d "$backup_root/nodes/fresh_root" ] && fresh_dir_existed=true
+
 cfg_nodes_init "$backup_root"
 
 issues=0
@@ -16,89 +26,95 @@ fail() { printf '\xe2\x9d\x8c %s\n' "$1"; issues=$((issues + 1)); }
 
 printf 'Checking system integrity...\n\n'
 
-# 1-3. Repository checks
-git_dir="${DOTCFG_GIT_DIR:-$HOME/.cfg}"
-if [ ! -d "$git_dir" ]; then
-	fail "$git_dir: missing (run installation to create)"
+# 1. Repository existence
+if [ -d "$git_dir" ]; then
+	pass "1. Repository exists: $git_dir"
 else
+	fail "1. Repository exists: $git_dir missing (run installation to create)"
+fi
+
+# 2. Repository validity
+if [ -d "$git_dir" ]; then
+	if git --git-dir="$git_dir" rev-parse --git-dir >/dev/null 2>&1; then
+		pass "2. Repository valid: $git_dir is a git repository"
+	else
+		fail "2. Repository valid: $git_dir is not a valid git repository"
+	fi
+else
+	fail "2. Repository valid: skipped (repository missing)"
+fi
+
+# 3. Repository ownership
+if [ -d "$git_dir" ]; then
 	cfg_validate "$git_dir" 2>/dev/null || true
 	case "${CFG_STATE:-missing}" in
 		valid)
 			if [ "${CFG_IS_OURS:-false}" = "true" ]; then
-				pass "$git_dir: exists, valid repository (ours)"
+				pass "3. Repository ownership: belongs to this project"
 			else
-				fail "$git_dir: valid repository but not this project's dotfiles"
+				fail "3. Repository ownership: valid repository but not this project's dotfiles"
 			fi
 			;;
-		not_git) fail "$git_dir: exists but is not a git repository" ;;
-		foreign_repo) fail "$git_dir: foreign repository (not this project)" ;;
-		*) fail "$git_dir: invalid state (${CFG_STATE:-unknown})" ;;
+		*) fail "3. Repository ownership: cannot determine (${CFG_STATE:-unknown})" ;;
 	esac
-fi
-
-# 4. Backup root
-if [ -d "$backup_root" ]; then
-	pass "$backup_root/: exists"
 else
-	fail "$backup_root/: missing"
+	fail "3. Repository ownership: skipped (repository missing)"
 fi
 
-# 5. Required state files
-missing_files=()
-for f in nodes/index.json HEAD DEPLOY_STATUS CURRENT_CONFIG_VERSION; do
-	[ -f "$backup_root/$f" ] || missing_files+=("$f")
-done
-if [ ${#missing_files[@]} -eq 0 ]; then
-	pass "$backup_root/: complete (index.json, HEAD, DEPLOY_STATUS, CURRENT_CONFIG_VERSION)"
+# 4. Backup directory existence
+if $backup_root_existed; then
+	pass "4. Backup directory exists: $backup_root"
 else
-	fail "$backup_root/: incomplete (missing: $(IFS=', '; echo "${missing_files[*]}"))"
+	fail "4. Backup directory exists: $backup_root missing"
 fi
 
-# 6. index.json parseable
-if [ -f "$backup_root/nodes/index.json" ]; then
+# 5. index.json validity
+if $index_existed; then
 	if cfg_nodes_read_index 2>/dev/null; then
-		pass "$backup_root/nodes/index.json: valid (${#_CFG_NODE_CODES[@]} nodes)"
+		pass "5. index.json valid: ${#_CFG_NODE_CODES[@]} nodes"
 	else
-		fail "$backup_root/nodes/index.json: cannot be parsed"
+		fail "5. index.json valid: cannot be parsed"
 	fi
 else
-	fail "$backup_root/nodes/index.json: missing"
+	fail "5. index.json valid: $backup_root/nodes/index.json missing"
 fi
 
-# 7. Fresh node
-root_code=$(fresh_get_root_code 2>/dev/null) || root_code=""
-if [ -n "$root_code" ]; then
-	fcount=0
-	fresh_manifest_read "$root_code" 2>/dev/null && fcount=$(fresh_backup_count)
-	pass "fresh node: exists ($root_code, $fcount files)"
+# 6. Fresh node existence
+if $fresh_dir_existed; then
+	pass "6. Fresh node exists: $backup_root/nodes/fresh_root"
 else
-	fail "fresh node: missing"
+	fail "6. Fresh node exists: $backup_root/nodes/fresh_root missing"
 fi
 
-# 8. HEAD validity
+# 7. HEAD validity
 head_code=$(cfg_head_get 2>/dev/null) || head_code=""
 if [ -z "$head_code" ]; then
-	fail "HEAD: missing"
+	fail "7. HEAD valid: missing"
 elif cfg_node_exists "$head_code" 2>/dev/null; then
-	pass "HEAD: points to $head_code"
+	pass "7. HEAD valid: points to $head_code"
 else
-	fail "HEAD: points to invalid node '$head_code'"
+	fail "7. HEAD valid: HEAD points to invalid node '$head_code'"
 fi
 
-# 9. Config versions
+# 8. DEPLOY_STATUS validity
+if [ -f "$backup_root/DEPLOY_STATUS" ]; then
+	deploy_status=$(head -n1 "$backup_root/DEPLOY_STATUS" 2>/dev/null | tr -d '[:space:]')
+	case "$deploy_status" in
+		deployed|uninstalled) pass "8. DEPLOY_STATUS valid: $deploy_status" ;;
+		*) fail "8. DEPLOY_STATUS valid: unexpected value '${deploy_status:-empty}'" ;;
+	esac
+else
+	fail "8. DEPLOY_STATUS valid: missing"
+fi
+
+# 9. Config version existence
 versions=$(cfg_config_version_list 2>/dev/null) || versions=""
 if [ -n "$versions" ]; then
 	vcount=$(printf '%s\n' "$versions" | wc -l | tr -d ' ')
 	vlist=$(printf '%s\n' "$versions" | tr '\n' ',' | sed 's/,$//')
-	pass "Categories versions: $vcount found ($vlist)"
-	current_ver=$(cfg_config_version_get_current 2>/dev/null) || current_ver=""
-	if [ -n "$current_ver" ]; then
-		pass "Current config version: $current_ver"
-	else
-		fail "Current config version: not set"
-	fi
+	pass "9. Config versions exist: $vcount found ($vlist)"
 else
-	fail "Categories versions: none found"
+	fail "9. Config versions exist: no categories-*.conf found"
 fi
 
 printf '\n'

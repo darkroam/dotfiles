@@ -927,15 +927,29 @@ cmd_help() {
 # ── Main dispatch ───────────────────────────────────────────────────────
 
 _lightweight_selfcheck() {
-    if [ ! -d "$GIT_DIR" ] && [ -d "$BACKUP_ROOT" ]; then
-        printf 'Note: %s missing but backup system exists. Run "dotcfg doctor" for details.\n' "$GIT_DIR" >&2
+    if [ ! -d "$GIT_DIR" ]; then
+        # Repository missing: bootstrap handles first install; otherwise doctor diagnoses
+        if [ -d "$BACKUP_ROOT" ]; then
+            printf '\xe2\x9a\xa0\xef\xb8\x8f  Repository missing. Run '\''dotcfg doctor'\'' to diagnose.\n' >&2
+        fi
         return 0
     fi
-    [ -d "$GIT_DIR" ] || return 0
+    if [ ! -d "$BACKUP_ROOT" ]; then
+        printf '\xe2\x9a\xa0\xef\xb8\x8f  Backup directory missing. Run '\''dotcfg doctor'\'' to diagnose.\n' >&2
+        return 0
+    fi
     local head
     head=$(cfg_head_get 2>/dev/null) || head=""
     if [ -n "$head" ] && ! cfg_node_exists "$head" 2>/dev/null; then
-        printf 'Note: HEAD points to a missing node. Run "dotcfg doctor" for details.\n' >&2
+        printf '\xe2\x9a\xa0\xef\xb8\x8f  HEAD points to missing node. Run '\''dotcfg doctor'\'' to diagnose.\n' >&2
+        return 0
+    fi
+    if [ -n "$head" ] && [ ! -d "$BACKUP_ROOT/nodes/fresh_root" ]; then
+        local root
+        root=$(fresh_get_root_code 2>/dev/null) || root=""
+        if [ -z "$root" ]; then
+            printf '\xe2\x9a\xa0\xef\xb8\x8f  Root node missing. Run '\''dotcfg doctor'\'' to diagnose.\n' >&2
+        fi
     fi
 }
 

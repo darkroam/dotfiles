@@ -77,9 +77,14 @@ cfg_nodes_init "$backup_root"
 
 printf 'Migrating %d old backup session(s) to node system...\n\n' "${#sessions[@]}"
 
-# Create root fresh node (fixed CODE for stable identification)
-root_code=$(cfg_node_create "fresh" "null" "" "${FRESH_ROOT_CODE:-fresh_root}")
-printf 'Created root node: %s (fresh)\n' "$root_code"
+# Create root fresh node (fixed CODE for stable identification; reuse if exists)
+root_code=$(fresh_get_root_code 2>/dev/null) || root_code=""
+if [ -n "$root_code" ]; then
+	printf 'Reusing existing root node: %s (fresh)\n' "$root_code"
+else
+	root_code=$(cfg_node_create "fresh" "null" "" "${FRESH_ROOT_CODE:-fresh_root}")
+	printf 'Created root node: %s (fresh)\n' "$root_code"
+fi
 
 # ── Create nodes for each session ─────────────────────────────────────
 

@@ -52,8 +52,8 @@ teardown() {
 @test "TC-48: list shows header row" {
 	source "$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
 	cfg_nodes_init "$HOME/.config-backup"
-	cfg_node_create "fresh" "null" >/dev/null
-	cfg_node_create "desktop" "$(cfg_head_get)" >/dev/null
+	root_code=$(cfg_node_create "fresh" "null")
+	cfg_node_create "desktop" "$root_code" >/dev/null
 
 	run run_dotcfg list
 	[ "$status" -eq 0 ]

@@ -207,11 +207,10 @@ fresh_create_root_backup() {
 		return 0
 	fi
 
-	# Create the root node with the fixed code
+	# Create the root node with the fixed code (reuse existing root if any)
 	local code
-	if cfg_node_exists "$FRESH_ROOT_CODE" 2>/dev/null; then
-		code="$FRESH_ROOT_CODE"
-	else
+	code=$(fresh_get_root_code 2>/dev/null) || code=""
+	if [ -z "$code" ]; then
 		code=$(cfg_node_create "fresh" "null" "$FRESH_BOOTSTRAP_VERSION" "$FRESH_ROOT_CODE") || return 1
 	fi
 

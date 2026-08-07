@@ -160,6 +160,24 @@ nodes/{code}/
 **例外**：根节点使用固定 CODE `fresh_root`（新安装与迁移均使用该码；旧的随机码根节点通过
 `parent=null` 识别并继续兼容）。`fresh` 可作为根节点的别名在 `switch` 等命令中使用。
 
+### CODE 唯一性保护（全局规则）
+
+CODE 是节点的唯一标识符，整个节点树中**不能存在两个 CODE 相同的节点**。以下所有操作都必须遵守此规则：
+
+| 操作场景 | 保护行为 |
+|----------|----------|
+| **自动生成**（`cfg_generate_node_code`） | 生成的 CODE 必须与 `index.json` 中所有现有节点比对，碰撞时递归重试，直至生成唯一 CODE |
+| **用户/系统指定**（`cfg_node_create` 的 `code` 参数） | 创建前必须检查该 CODE 是否已被占用；如已存在，**拒绝创建**并报错 `Error: Code already exists: <code>` |
+| **显式覆盖** | 不支持任何形式的 CODE 覆盖。如需复用某个 CODE，必须先删除原节点（或通过 `autoclean` 清理）后再创建 |
+
+**适用范围**：
+- `cfg_node_create`（无论 `code` 参数是否指定）
+- `cfg_generate_node_code`
+- 迁移过程中创建节点（`migrate.sh`）
+- bootstrap 安装过程中创建节点（`bootstrap-lib.sh`）
+
+**例外**：无例外。CODE 必须在整个节点树中保持全局唯一。
+
 ### 节点管理函数
 
 `utils/nodes.sh` 提供节点管理的核心函数：
@@ -624,6 +642,7 @@ bootstrap 流程（内联实现，只依赖 git/md5sum/coreutils）：
 
 | 保护项 | 行为 |
 |--------|------|
+| **`cfg_node_create` 创建时** | `cfg_node_create` 必须检查 `code=fresh_root` 是否已存在；如已存在则**拒绝创建**，报错 `Error: Root node already exists. Cannot create another root.` |
 | `remove fresh_root` | 拒绝（type=fresh 与 code=fresh_root 双重判断） |
 | `autoclean` | `_autoclean_evaluate` 对 `parent=null` 节点直接拒绝 |
 | `switch fresh` | `fresh` 别名解析为根节点 CODE（无根时报错提示 doctor） |
@@ -674,22 +693,49 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 
 ### doctor / repair
 
-`doctor` 执行 9 项完整性检测（仓库有效性、备份目录完整性、index.json、fresh 节点、
-HEAD 指向、类别版本、当前配置版本等），输出 ✅/❌ 并计数；有问题时 exit 1。
+`doctor` 执行以下 9 项完整性检测：
 
-`repair` 逐项修复（每项前 y/N 确认，`--force` 跳过）：
+| 序号 | 检测项 | 检测内容 |
+|------|--------|----------|
+| 1 | 仓库存在性 | `~/.cfg` 是否存在 |
+| 2 | 仓库有效性 | `~/.cfg` 是否为有效的 git 仓库（`git rev-parse --git-dir`） |
+| 3 | 仓库归属 | `~/.cfg` 是否为本项目的 dotfiles 仓库（remote URL 或签名文件） |
+| 4 | 备份目录存在性 | `~/.config-backup/` 是否存在 |
+| 5 | index.json 有效性 | `~/.config-backup/nodes/index.json` 是否存在且可解析 |
+| 6 | fresh 节点存在性 | `~/.config-backup/nodes/fresh_root/` 是否存在 |
+| 7 | HEAD 指向有效性 | HEAD 指向的节点 CODE 是否在 index.json 中存在 |
+| 8 | DEPLOY_STATUS 有效性 | `DEPLOY_STATUS` 文件是否存在且值为 `deployed` 或 `uninstalled` |
+| 9 | 配置文件版本存在性 | `$DOTFILES_LIB_DIR/categories-*.conf` 至少存在一个（或存在 `categories.conf` 回退） |
 
-| 问题 | 修复策略 |
-|------|----------|
-| HEAD 指向缺失节点 | 重置到根节点 |
-| DEPLOY_STATUS 缺失 | 写 `deployed` |
-| CURRENT_CONFIG_VERSION 缺失 | 重建 |
-| config-backup 缺失 | 初始化并创建 fresh 节点 |
-| index.json 为空 | 报错建议 migrate（不盲目重建） |
-| .cfg 异常 | `git fsck --no-dangling` 输出诊断 |
+每项输出 ✅/❌ 并计数；有问题时 exit 1。
+
+`repair` 逐项修复（每项前 y/N 确认，`--force` 跳过），修复项与 doctor 检测项对应：
+
+| 序号 | 检测项 | 修复策略 |
+|------|--------|----------|
+| 1 | ~/.cfg 不存在 | 进入 bootstrap 安装模式（需用户确认） |
+| 2 | ~/.cfg 非有效 git 仓库 | 尝试 `git fsck --no-dangling`；失败则报错建议手动处理 |
+| 3 | ~/.cfg 非本项目仓库 | 报错，提示用户手动处理（`rm -rf ~/.cfg` 后重跑） |
+| 4 | ~/.config-backup/ 缺失 | 创建目录，初始化 index.json，创建 fresh 节点 |
+| 5 | index.json 无效/为空 | 尝试从 manifest.txt 重建；失败则报错建议 `migrate` |
+| 6 | fresh 节点缺失 | 从 index.json 中的根节点重建 fresh 节点目录；若无根节点则创建 |
+| 7 | HEAD 指向缺失节点 | 重置到根节点（fresh_root） |
+| 8 | DEPLOY_STATUS 缺失 | 写入 `deployed` |
+| 9 | 配置文件版本缺失 | 使用内置默认类别，写入 `CURRENT_CONFIG_VERSION="default"` |
+
+**注意**：`repair` 不处理需要用户介入的复杂问题（如外部仓库误用），此类问题仅输出诊断和建议。
 
 **启动自检**：`dotcfg` 每次调度前做轻量自检（仅 stat + 一次 HEAD 读取，<0.5s）：
-`.cfg` 缺失但有备份、或 HEAD 指向缺失节点时，打印一行建议 `dotcfg doctor`，不阻塞命令。
+
+| 检测条件 | 触发行为 |
+|----------|----------|
+| `~/.cfg` 不存在 | 自动进入 bootstrap 安装模式（首次安装） |
+| `~/.cfg` 存在但 `~/.config-backup/` 不存在 | 打印 `⚠️  Backup directory missing. Run 'dotcfg doctor' to diagnose.`，不阻塞命令 |
+| HEAD 指向的节点在 index.json 中不存在 | 打印 `⚠️  HEAD points to missing node. Run 'dotcfg doctor' to diagnose.`，不阻塞命令 |
+| `~/.config-backup/nodes/fresh_root/` 不存在 | 打印 `⚠️  Root node missing. Run 'dotcfg doctor' to diagnose.`，不阻塞命令 |
+| 全部正常 | 无输出，直接执行用户命令 |
+
+**设计目标**：启动自检应足够轻量（不扫描文件列表、不解析完整 index.json），仅验证系统关键路径的完整性，避免拖慢每次命令的执行速度。
 
 ---
 

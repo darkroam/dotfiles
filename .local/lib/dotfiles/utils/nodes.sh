@@ -217,11 +217,22 @@ cfg_node_create() {
 	local config_version="${3:-}"
 	local fixed_code="${4:-}"
 
+	cfg_nodes_read_index 2>/dev/null || true
+
+	if [ "$parent_code" = "null" ]; then
+		local existing_root
+		existing_root=$(cfg_nodes_get_root 2>/dev/null) || existing_root=""
+		if [ -n "$existing_root" ]; then
+			printf 'Error: Root node already exists. Cannot create another root.\n' >&2
+			return 1
+		fi
+	fi
+
 	local code
 	if [ -n "$fixed_code" ]; then
 		code="$fixed_code"
 		if cfg_node_exists "$code" 2>/dev/null; then
-			printf 'ERROR: Node code already exists: %s\n' "$code" >&2
+			printf 'Error: Code already exists: %s\n' "$code" >&2
 			return 1
 		fi
 	else
