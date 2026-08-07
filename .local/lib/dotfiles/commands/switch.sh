@@ -171,30 +171,7 @@ config rev-parse --verify HEAD >/dev/null
 # ── Analyze files ───────────────────────────────────────────────────────
 printf '\nAnalyzing configurations...\n'
 
-desktop_server_files=()
-
-case "$target_state" in
-	desktop)
-		cfg_analyze_all_tracked "$git_dir"
-		;;
-	server)
-		cfg_load_server_files "$git_dir"
-		cfg_analyze_server_files "$git_dir"
-
-		if [ "$current_state" = "desktop" ]; then
-			for path in "${CFG_SERVER_FILES[@]}"; do
-				for link in "${CFG_DESKTOP_ONLY_SYMLINKS[@]}"; do
-					if [ "$path" = "$link" ]; then
-						full_path="$HOME/$path"
-						if [ -e "$full_path" ] || [ -L "$full_path" ]; then
-							desktop_server_files+=("$path")
-						fi
-					fi
-				done
-			done
-		fi
-		;;
-esac
+cfg_get_files_for_state "$git_dir" "$target_state"
 
 to_install=("${CFG_TO_INSTALL[@]}")
 to_backup=("${CFG_TO_BACKUP[@]}")
@@ -209,12 +186,27 @@ if [ -f "$CFG_HEAD_FILE" ]; then
 	parent_code=$(cfg_head_get 2>/dev/null) || true
 fi
 
+current_version=$(cfg_config_version_get_current 2>/dev/null) || current_version=""
+
+if [ -z "$current_version" ]; then
+	current_version=$(cfg_config_version_latest 2>/dev/null) || current_version=""
+	[ -n "$current_version" ] && cfg_config_version_set "$current_version"
+elif ! cfg_config_version_read "$current_version" >/dev/null 2>&1; then
+	fallback_version=$(cfg_config_version_latest 2>/dev/null) || fallback_version=""
+	if [ -n "$fallback_version" ]; then
+		printf 'WARNING: Config version %s not found, falling back to %s\n' \
+			"$current_version" "$fallback_version" >&2
+		current_version="$fallback_version"
+		cfg_config_version_set "$current_version"
+	fi
+fi
+
 if [ -z "$parent_code" ]; then
-	root_code=$(cfg_node_create "fresh" "null")
+	root_code=$(cfg_node_create "fresh" "null" "$current_version")
 	parent_code="$root_code"
 fi
 
-new_node_code=$(cfg_node_create "$target_state" "$parent_code")
+new_node_code=$(cfg_node_create "$target_state" "$parent_code" "$current_version")
 
 # ── Print pre-installation report ───────────────────────────────────────
 
@@ -258,12 +250,15 @@ if [ "$CFG_DRY_RUN" = true ]; then
 	if [ "$local_i" -ge 0 ]; then
 		unset '_CFG_NODE_CODES[$local_i]' '_CFG_NODE_TYPES[$local_i]' \
 			'_CFG_NODE_TIMESTAMPS[$local_i]' '_CFG_NODE_PARENTS[$local_i]' \
-			'_CFG_NODE_CHILDREN[$local_i]'
+			'_CFG_NODE_CHILDREN[$local_i]' '_CFG_NODE_CONFIG_VERSIONS[$local_i]' \
+			'_CFG_NODE_STATUSES[$local_i]'
 		_CFG_NODE_CODES=("${_CFG_NODE_CODES[@]}")
 		_CFG_NODE_TYPES=("${_CFG_NODE_TYPES[@]}")
 		_CFG_NODE_TIMESTAMPS=("${_CFG_NODE_TIMESTAMPS[@]}")
 		_CFG_NODE_PARENTS=("${_CFG_NODE_PARENTS[@]}")
 		_CFG_NODE_CHILDREN=("${_CFG_NODE_CHILDREN[@]}")
+		_CFG_NODE_CONFIG_VERSIONS=("${_CFG_NODE_CONFIG_VERSIONS[@]}")
+		_CFG_NODE_STATUSES=("${_CFG_NODE_STATUSES[@]}")
 		cfg_nodes_write_index
 		rm -rf "$backup_root/nodes/$new_node_code"
 	fi
@@ -287,43 +282,23 @@ if ((${#to_backup[@]})); then
 	backup_dir="$backup_root/nodes/$new_node_code/backup"
 fi
 
-# ── Remove desktop indicators (server only, from desktop) ───────────────
+# ── Remove desktop-specific files (server only, from desktop) ────────────
 if [ "$target_state" = "server" ] && [ "$current_state" = "desktop" ]; then
 	printf '\nRemoving desktop-specific files...\n'
-	for link in "${CFG_DESKTOP_ONLY_SYMLINKS[@]}"; do
-		full_path="$HOME/$link"
+	while IFS= read -r path; do
+		[ -z "$path" ] && continue
+		full_path="$HOME/$path"
 		if [ -L "$full_path" ]; then
 			rm -f -- "$full_path"
-			printf 'Removed symlink: %s\n' "$link"
+			printf 'Removed symlink: %s\n' "$path"
 		elif [ -f "$full_path" ]; then
 			rm -f -- "$full_path"
-			printf 'Removed file: %s\n' "$link"
-		fi
-	done
-
-	for dir in "${CFG_DESKTOP_ONLY_DIRS[@]}"; do
-		full_path="$HOME/$dir"
-		if [ -L "$full_path" ]; then
-			rm -f -- "$full_path"
-			printf 'Removed symlink dir: %s\n' "$dir"
+			printf 'Removed file: %s\n' "$path"
 		elif [ -d "$full_path" ]; then
 			rm -rf -- "$full_path"
-			printf 'Removed directory: %s\n' "$dir"
+			printf 'Removed directory: %s\n' "$path"
 		fi
-	done
-
-	for path in "${desktop_server_files[@]}"; do
-		found=false
-		for install_path in "${to_install[@]}"; do
-			[ "$path" = "$install_path" ] && found=true && break
-		done
-		for bp in "${to_backup[@]}"; do
-			[ "$path" = "$bp" ] && found=true && break
-		done
-		if [ "$found" = false ]; then
-			to_install+=("$path")
-		fi
-	done
+	done < <(cfg_category_diff "server" "desktop")
 fi
 
 # ── Checkout configurations ─────────────────────────────────────────────
@@ -361,17 +336,15 @@ cfg_record_checkout_state "$git_dir"
 
 # For server mode, rewrite state file to only include server files
 if [ "$target_state" = "server" ]; then
+	server_file_list=$(cfg_category_get_files "server")
 	state_file="$HOME/.cfg-checkout-state"
 	server_state_file="${state_file}.tmp"
 	> "$server_state_file"
 	while IFS=: read -r path hash; do
 		[ -z "$path" ] && continue
-		for sf in "${CFG_SERVER_FILES[@]}"; do
-			if [ "$path" = "$sf" ]; then
-				echo "$path:$hash" >> "$server_state_file"
-				break
-			fi
-		done
+		if printf '%s\n' "$server_file_list" | grep -qFx "$path"; then
+			echo "$path:$hash" >> "$server_state_file"
+		fi
 	done < "$state_file"
 	mv -- "$server_state_file" "$state_file"
 fi
@@ -381,14 +354,16 @@ fi
 node_files_dir="$backup_root/nodes/$new_node_code/files"
 mkdir -p "$node_files_dir"
 
+if [ "$target_state" = "server" ]; then
+	server_file_list="${server_file_list:-$(cfg_category_get_files "server")}"
+fi
+
 mapfile -t all_tracked < <(config ls-tree -r --name-only HEAD 2>/dev/null)
 for path in "${all_tracked[@]}"; do
 	if [ "$target_state" = "server" ]; then
-		is_server_file=false
-		for sf in "${CFG_SERVER_FILES[@]}"; do
-			[ "$path" = "$sf" ] && is_server_file=true && break
-		done
-		$is_server_file || continue
+		if ! printf '%s\n' "$server_file_list" | grep -qFx "$path"; then
+			continue
+		fi
 	fi
 	if [ -e "$HOME/$path" ] || [ -L "$HOME/$path" ]; then
 		mkdir -p "$node_files_dir/$(dirname "$path")"

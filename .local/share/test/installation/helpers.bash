@@ -246,6 +246,12 @@ source_validate_lib() {
 		echo "WARNING: validate library not found at $VALIDATE_LIB" >&2
 		return 1
 	fi
+	source_categories_lib
+}
+
+source_categories_lib() {
+	unset _CFG_CATEGORIES_LOADED
+	. "$DOTFILES_LIB_DIR/utils/categories.sh"
 }
 
 # ── Script execution helpers ───────────────────────────────────────────

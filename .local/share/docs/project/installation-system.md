@@ -27,13 +27,14 @@
 ~/.cfg/                    ← bare git repo（git --git-dir=~/.cfg/ --work-tree=~）
 ~/.config-backup/
 ├── nodes/
-│   ├── index.json         ← 节点索引（父子关系、时间戳、CODE）
+│   ├── index.json         ← 节点索引（父子关系、时间戳、CODE、config_version、status）
 │   └── {code}/
 │       ├── manifest.txt   ← 备份文件清单
 │       ├── backup/        ← 原始文件备份
 │       └── files/         ← 该节点 checkout 的文件快照
 ├── HEAD                   ← 当前节点 CODE
 ├── DEPLOY_STATUS          ← deployed / uninstalled
+├── CURRENT_CONFIG_VERSION ← 当前使用的配置文件版本号
 └── sessions/              ← 旧会话目录（迁移后归档）
 ~/.cfg-checkout-state      ← 文件指纹记录（path:md5 格式）
 ```
@@ -96,13 +97,14 @@ nodes/{code}/
 └── files/          ← 该节点 checkout 的文件快照（转换后部署的文件）
 ```
 
-> **注**：首次执行 `switch server/desktop` 时，系统创建根节点（fresh, parent=null），
-> 然后创建子节点（desktop/server）。原始文件备份存储在**子节点**的 `backup/` 目录，
-> 根节点的 `backup/` 通常为空。
+> **注**：原始文件备份存储在第一次 switch 操作创建的子节点中。
+> 根节点（fresh）本身不直接存储备份，其原始文件由第一个子节点的 `backup/` 目录保存。
+> `uninstall` 回到根节点时，从该子节点恢复原始文件。
 
 ### index.json 格式
 
-节点索引文件 `~/.config-backup/nodes/index.json` 存储所有节点的元数据：
+节点索引文件 `~/.config-backup/nodes/index.json` 存储所有节点的元数据。
+`timestamp` 格式为 ISO 8601：`YYYY-MM-DDTHH:MM:SS`（UTC 时间）。
 
 ```json
 {
@@ -110,20 +112,38 @@ nodes/{code}/
     {
       "code": "a1b2c3d4",
       "type": "fresh",
+      "config_version": "1.0.0",
       "timestamp": "2026-08-06T10:00:00",
       "parent": null,
-      "children": ["e5f6g7h8"]
+      "children": ["e5f6g7h8"],
+      "status": "active"
     },
     {
       "code": "e5f6g7h8",
       "type": "desktop",
+      "config_version": "1.0.0",
       "timestamp": "2026-08-06T10:05:00",
       "parent": "a1b2c3d4",
-      "children": []
+      "children": [],
+      "status": "active"
     }
   ]
 }
 ```
+
+**字段说明**：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `code` | string | 8 位随机码，唯一标识节点 |
+| `type` | string | 节点类型：`fresh` / `desktop` / `server` |
+| `config_version` | string | 创建该节点时使用的配置文件版本号（如 `"1.0.0"`） |
+| `timestamp` | string | 节点创建时间（ISO 8601） |
+| `parent` | string/null | 父节点 CODE，根节点为 `null` |
+| `children` | array | 子节点 CODE 列表 |
+| `status` | string | 节点状态：`active`（正常）或 `marked_for_removal`（待删除） |
+
+**向后兼容**：旧格式 index.json（无 `config_version`/`status` 字段）可正常读取，缺失字段默认为 `config_version=""` 和 `status="active"`。
 
 解析策略：使用 awk 行解析（不依赖 jq），格式由系统控制。
 
@@ -141,8 +161,8 @@ nodes/{code}/
 | `cfg_generate_node_code` | 生成 8 位随机码，确保唯一 |
 | `cfg_nodes_read_index` | 解析 index.json → shell 数组 |
 | `cfg_nodes_write_index` | 写回 index.json |
-| `cfg_node_create <type> <parent>` | 创建节点，返回 CODE |
-| `cfg_node_get <code> <field>` | 读取节点字段 |
+| `cfg_node_create <type> <parent> [version]` | 创建节点，返回 CODE（可选绑定配置版本） |
+| `cfg_node_get <code> <field>` | 读取节点字段（含 `config_version`、`status`） |
 | `cfg_node_exists <code>` | 检查节点是否存在 |
 | `cfg_head_set / cfg_head_get` | HEAD 指针管理 |
 | `cfg_deploy_status_set / cfg_deploy_status_get` | 部署状态管理 |
@@ -150,6 +170,14 @@ nodes/{code}/
 | `cfg_nodes_ancestors <code>` | 获取祖先链 |
 | `cfg_nodes_count` | 节点总数 |
 | `cfg_nodes_needs_migration` | 检测是否需要从旧系统迁移 |
+| `cfg_node_set_status <code> <status>` | 设置节点状态（`active` / `marked_for_removal`） |
+| `cfg_node_set_config_version <code> <version>` | 设置节点配置文件版本 |
+| `cfg_nodes_list_marked` | 列出所有 `marked_for_removal` 状态的节点 |
+| `cfg_nodes_delete <code>` | 从 index.json 中删除节点并更新父节点 children |
+| `cfg_nodes_orphaned_children <code>` | 列出节点的子节点 CODE |
+| `cfg_config_version_get_current` | 获取当前使用的配置文件版本（读 `CURRENT_CONFIG_VERSION`） |
+| `cfg_config_version_set <version>` | 设置当前使用的配置文件版本 |
+| `cfg_config_version_list` | 列出所有可用的配置文件版本 |
 
 ---
 
@@ -216,6 +244,25 @@ dotcfg switch xk7f9a2m          # 切换到历史节点，产生新分支
 
 切换流程：undeploy 当前节点 → 移动 HEAD → deploy 目标节点。
 
+**节点创建时的版本选择策略**：
+
+执行 `dotcfg switch desktop` 或 `dotcfg switch server` 创建新节点时：
+
+1. 读取 `~/.config-backup/CURRENT_CONFIG_VERSION` 文件
+2. 如果文件存在且对应的版本化配置文件存在：
+   - 使用该版本号，记录到节点的 `config_version` 字段
+3. 如果文件不存在或对应的配置文件不存在：
+   - 扫描 `$DOTFILES_LIB_DIR/categories-*.conf`，使用版本号最大的文件
+   - 更新 `CURRENT_CONFIG_VERSION` 为该版本号，记录到节点的 `config_version` 字段
+4. 如果没有任何版本化配置文件，但存在 `categories.conf`：
+   - `config_version` 设为空字符串 `""`
+5. 如果只有内置默认类别：
+   - `config_version` 设为 `"default"`
+
+**默认行为**：用户无需手动指定版本，版本管理是系统内部行为。系统自动使用 `CURRENT_CONFIG_VERSION` 中记录的版本，若不存在则自动选择最新版本。通过 `dotcfg list` 的 `VERSION` 列可查看每个节点的版本绑定。
+
+**注意**：`dotcfg switch <CODE>`（切换到历史节点）不创建新节点，因此不涉及版本绑定。
+
 ---
 
 ## 统一命令行入口
@@ -225,12 +272,16 @@ dotcfg switch xk7f9a2m          # 切换到历史节点，产生新分支
 ```bash
 dotcfg                          # 显示当前节点状态（等同于 dotcfg status）
 dotcfg status                   # 当前节点 + 部署状态 + 可用操作
-dotcfg list                     # 四列表：DEPLOY / TYPE / TIME / CODE
+dotcfg list                     # 六列表：DEPLOY / TYPE / VERSION / STATUS / TIME / CODE
 dotcfg history                  # Git log --graph 风格 ASCII 分支图
 dotcfg switch <target>          # 切换到状态名（desktop|server）或 CODE
 dotcfg deploy                   # 在当前节点部署配置
 dotcfg undeploy                 # 卸载当前节点配置，恢复原始文件
 dotcfg uninstall                # 回到根节点（fresh）
+dotcfg remove <code>            # 标记节点为待删除
+dotcfg unremove <code>          # 恢复标记的节点
+dotcfg autoclean [--dry-run]    # 智能清理标记删除的节点
+dotcfg categories [subcommand]  # 配置文件版本管理
 dotcfg migrate                  # 手动迁移旧会话到节点系统
 dotcfg validate                 # 详细仓库验证
 dotcfg help                     # 使用帮助
@@ -242,6 +293,8 @@ dotcfg help                     # 使用帮助
 Current node: xk7f9a2m (desktop)
 Created: 2026-08-06 10:05:00
 Deploy status: deployed
+Config version: 1.0.0
+Node status: active
 Chain: fresh -> desktop
 
 Available operations:
@@ -257,12 +310,14 @@ Available operations:
 ### `dotcfg list` 输出
 
 ```
-  DEPLOY TYPE       TIME                 CODE
-  [*]    desktop   2026-08-06 10:05:00  xk7f9a2m
-  [ ]    fresh     2026-08-06 10:00:00  a1b2c3d4
+  DEPLOY TYPE       VERSION  STATUS      TIME                 CODE
+  [*]    desktop    1.0.0    active      2026-08-06 10:05:00  xk7f9a2m
+  [ ]    fresh      -        active      2026-08-06 10:00:00  a1b2c3d4
+  [ ]    server     1.0.0    [REMOVED]   2026-08-06 09:00:00  e5f6g7h8
 ```
 
 标记说明：`[*]` = HEAD + deployed，`[>]` = HEAD + uninstalled，`[ ]` = 非 HEAD。
+STATUS 列：`active` = 正常节点，`[REMOVED]` = 标记为待删除（`marked_for_removal`）。
 
 ### `dotcfg history` 输出
 
@@ -270,40 +325,40 @@ Git log --graph 风格，最新节点在顶部，根在底部：
 
 **颜色方案**（终端支持时启用）：
 - 绿色：`<- HEAD` 标签
-- 黄色：`[deployed]` 状态
+- 黄色：`[deployed]` 状态、`[REMOVED]` 标记
 - 灰色：`[uninstalled]` 状态
 - 蓝色：图形元素（`*`、`o`、`|`、`/`、`\`）
 
 **线性历史：**
 ```
-*  a1b2c3d4  desktop  2026-08-06 12:00:00  [deployed]  <- HEAD
+*  a1b2c3d4  desktop  2026-08-06 12:00:00  [deployed]  v1.0.0  <- HEAD
 | 
-o  e5f6g7h8  server   2026-08-06 11:00:00
+o  e5f6g7h8  server   2026-08-06 11:00:00  v1.0.0
 | 
-o  i9j0k1l2  fresh    2026-08-06 10:00:00
+o  i9j0k1l2  fresh    2026-08-06 10:00:00  v1.0.0
 ```
 
 **分支历史：**
 ```
-*  a1b2c3d4  desktop  2026-08-06 12:00:00  [deployed]  <- HEAD
+*  a1b2c3d4  desktop  2026-08-06 12:00:00  [deployed]  v2.0.0  <- HEAD
 | 
-o  e5f6g7h8  server   2026-08-06 11:00:00
+o  e5f6g7h8  server   2026-08-06 11:00:00  v1.0.0
 | 
-o  i9j0k1l2  fresh    2026-08-06 10:00:00
+o  i9j0k1l2  fresh    2026-08-06 10:00:00  v1.0.0
 |\
-| o  m3n4o5p6  server   2026-08-06 10:30:00
+| o  m3n4o5p6  server   2026-08-06 10:30:00  v1.0.0  [REMOVED]
 |/
 ```
 
 **多分支历史：**
 ```
-*  a1b2c3d4  desktop  2026-08-06 12:00:00  [deployed]  <- HEAD
+*  a1b2c3d4  desktop  2026-08-06 12:00:00  [deployed]  v2.0.0  <- HEAD
 |
-o  e5f6g7h8  server   2026-08-06 11:00:00
+o  e5f6g7h8  server   2026-08-06 11:00:00  v1.0.0
 |\
-| o  m3n4o5p6  server   2026-08-06 10:30:00
+| o  m3n4o5p6  server   2026-08-06 10:30:00  v1.0.0  [REMOVED]
 |/
-o  i9j0k1l2  fresh    2026-08-06 10:00:00
+o  i9j0k1l2  fresh    2026-08-06 10:00:00  v1.0.0
 ```
 
 **符号说明：**
@@ -323,6 +378,44 @@ o  i9j0k1l2  fresh    2026-08-06 10:00:00
 4. 旧会话移入 `sessions/` 归档
 5. 设置 HEAD 为最后节点
 
+### `dotcfg categories` — 配置文件版本管理
+
+```bash
+dotcfg categories                    # 显示所有版本和当前版本（同 list）
+dotcfg categories list               # 列出所有可用版本
+dotcfg categories switch <version>   # 切换当前版本
+dotcfg categories current            # 显示当前版本
+dotcfg categories show <version>     # 显示某个版本的详细信息
+```
+
+**`list` 输出示例**：
+
+```
+Available configuration versions:
+  v1.0.0    (default, 2 categories: server, desktop)
+  v2.0.0    (3 categories: server, desktop, workstation)
+  v2.1.3    (2 categories: server, desktop)
+
+Current version: v2.1.3
+
+Nodes using each version:
+  v1.0.0: a1b2c3d4 (1 node)
+  v2.1.3: xk7f9a2m, e5f6g7h8 (2 nodes)
+```
+
+**版本切换行为**：
+
+```bash
+$ dotcfg categories switch 1.0.0
+
+Switching from v2.1.3 to v1.0.0...
+Warning: Some nodes use v2.1.3. They will continue to use v2.1.3 on recovery.
+Current version set to v1.0.0.
+New nodes will use v1.0.0 by default.
+```
+
+切换版本只影响**新创建的节点**，已有节点的版本绑定不变。
+
 ---
 
 ## 部署与卸载
@@ -333,7 +426,7 @@ o  i9j0k1l2  fresh    2026-08-06 10:00:00
 
 1. 读取 HEAD → current_code，检查部署状态
 2. 如果已部署，提示退出（`--force` 覆盖）
-3. 根据节点类型确定文件列表（desktop=全部跟踪文件，server=白名单文件）
+3. 根据节点类别确定文件列表
 4. 备份当前 `$HOME` 中可能被覆盖的文件 → `nodes/{code}/backup/`
 5. checkout 节点配置 → `$HOME`
 6. 记录到 `nodes/{code}/files/`，更新 manifest
@@ -360,6 +453,116 @@ o  i9j0k1l2  fresh    2026-08-06 10:00:00
 
 ---
 
+## 节点清理
+
+### remove — 标记节点为待删除
+
+`dotcfg remove <code>` 将节点标记为 `marked_for_removal` 状态：
+
+1. 检查节点是否存在
+2. 检查是否为根节点（fresh）→ 拒绝，报错
+3. 检查是否为 HEAD 指向的节点 → 拒绝，报错
+4. 检查子节点中是否有 `active` 状态的节点 → 如果有，报错（需先处理子节点）
+5. 将节点状态改为 `marked_for_removal`
+
+**报错信息**：
+```
+# 根节点
+Error: Cannot remove root node (fresh).
+
+# HEAD 节点
+Error: Cannot remove current HEAD node. Please switch to another node first.
+
+# 有活跃子节点
+Error: Cannot remove node with active children.
+  Active children: a1b2c3d4, e5f6g7h8
+  Remove children first or use 'dotcfg autoclean'.
+```
+
+### unremove — 恢复标记的节点
+
+`dotcfg unremove <code>` 将 `marked_for_removal` 节点恢复为 `active`：
+
+1. 检查节点是否存在
+2. 检查节点状态是否为 `marked_for_removal`
+3. 如果是，将状态改回 `active`
+
+### remove / unremove 对 switch 的影响
+
+- 状态为 `marked_for_removal` 的节点**不能**作为 `switch` 目标
+- 必须先执行 `unremove` 恢复为 `active` 才能 `switch`
+
+### autoclean — 智能清理
+
+```bash
+dotcfg autoclean              # 执行清理
+dotcfg autoclean --dry-run    # 预览，不执行
+```
+
+**清理算法（完整递归）**：
+
+1. 检查 HEAD 节点是否被标记为 `marked_for_removal` → 如果是，报错退出
+2. 从根节点开始，深度优先遍历整棵树
+3. 对每个节点执行以下判断：
+
+   a. 如果节点状态为 `marked_for_removal`：
+      - 递归检查所有子节点（按规则 1-5）
+      - 如果子节点全部可删除 → 当前节点变为叶子 → 可删除
+      - 如果有子节点保留 → 当前节点不能删除
+
+   b. 如果节点状态为 `active`：
+      - 检查子节点中是否有 `marked_for_removal` 的
+      - 如果有，递归处理这些标记的子节点
+      - 处理后，统计保留的 `active` 子节点数量：
+        * 0 个 → 当前节点变为叶子 → 可删除（删除此节点，注意父节点处理见下方接续规则）
+        * 1 个 → 将该子节点接到父节点，当前节点可删除（见接续规则）
+        * ≥2 个 → 当前节点不能删除
+
+4. 如果指定 `--dry-run`：打印候选删除列表和接续操作，不执行
+5. 否则：按候选列表执行物理删除
+
+**接续规则（删除中间节点时）**：
+
+当删除一个中间节点时，其 `active` 子节点需要重新连接到父节点：
+
+| 被删除节点的子节点情况 | 处理方式 |
+|------------------------|----------|
+| 0 个子节点 | 直接删除 |
+| 1 个 `active` 子节点 | 将该子节点的 `parent` 指向被删除节点的父节点，更新父节点的 `children` 列表 |
+| 多个 `active` 子节点 | **拒绝删除**，报错提示用户手动处理（`autoclean` 不进行多分支接续） |
+| 子节点均为 `marked_for_removal` | 递归处理这些子节点，全部删除后当前节点变为叶子 → 可删除 |
+
+**示例**：
+```
+删除前：A → B → C（B 被标记删除，C 为 active）
+删除后：A → C
+
+删除前：A → B → C, D（B 被标记删除，C、D 均为 active）
+处理：报错 "Cannot remove node B: multiple active children (C, D). Please handle manually."
+```
+
+**物理删除操作**：
+
+1. 扫描节点的 `files/` 目录，删除已部署到 `$HOME` 下的对应文件
+2. 删除 `~/.config-backup/nodes/{code}/` 整个目录（含 `backup/` 和 `files/`）
+3. 从 `index.json` 中移除该节点，并更新父节点的 `children` 列表
+
+**`--dry-run` 输出示例**：
+
+```
+$ dotcfg autoclean --dry-run
+
+The following nodes will be deleted:
+  e5f6g7h8  (server, v1.0.0, 2026-08-06 09:00:00)  - leaf node, marked_for_removal
+  f9g8h7i6  (desktop, v1.0.0, 2026-08-06 07:00:00)  - leaf node, marked_for_removal
+
+Total: 2 nodes will be deleted.
+
+Use 'dotcfg autoclean' without --dry-run to execute.
+```
+
+---
+
 ## 核心脚本
 
 ### 脚本总览
@@ -374,6 +577,9 @@ o  i9j0k1l2  fresh    2026-08-06 10:00:00
 | `deploy.sh` | 部署当前节点配置 |
 | `undeploy.sh` | 卸载当前节点配置 |
 | `uninstall.sh` | 回到根节点（fresh） |
+| `remove.sh` | 标记节点为待删除 |
+| `unremove.sh` | 恢复标记的节点 |
+| `autoclean.sh` | 智能清理标记删除的节点 |
 | `migrate.sh` | 迁移旧会话到节点系统 |
 
 **工具库**（位于 `.local/lib/dotfiles/utils/`）：
@@ -387,7 +593,8 @@ o  i9j0k1l2  fresh    2026-08-06 10:00:00
 | `rollback.sh` | 回滚判断和执行（含节点备份恢复） |
 | `checkout.sh` | 文件 checkout、路径安全检查和状态记录 |
 | `repo.sh` | 仓库克隆和激活 |
-| `files.sh` | 文件分类和常量定义 |
+| `files.sh` | 文件分析（install/backup/skip 分类） |
+| `categories.sh` | 声明式文件类别系统（categories.conf 解析、继承、排除） |
 
 ### 通用参数
 
@@ -410,7 +617,7 @@ o  i9j0k1l2  fresh    2026-08-06 10:00:00
 2. 验证仓库身份（`cfg_validate`）
 3. 处理无效/外部仓库（`--force` 时备份并删除）
 4. 根据当前状态准备仓库（克隆或复用）
-5. 分析文件（desktop=全部跟踪文件，server=白名单文件）
+5. 分析文件（根据目标状态的类别定义）
 6. 打印安装前报告
 7. 如果 `--dry-run`，退出
 8. 备份冲突文件
@@ -492,33 +699,261 @@ o  i9j0k1l2  fresh    2026-08-06 10:00:00
 
 | 脚本 | 处理的文件范围 | 特殊逻辑 |
 |------|----------------|----------|
-| `switch.sh --type=desktop` | 仓库中所有跟踪文件 | fresh 时克隆仓库；server 时复用现有仓库 |
-| `switch.sh --type=server` | 服务器白名单内的文件 | desktop 时先删除桌面指标文件 |
+| `switch.sh --type=desktop` | desktop 类别定义的文件 | fresh 时克隆仓库；server 时复用现有仓库 |
+| `switch.sh --type=server` | server 类别定义的文件 | desktop 时先删除桌面类别差集文件 |
 | `deploy.sh` | 当前节点类型对应的文件 | 备份到节点目录 |
 | `undeploy.sh` | 节点 files/ 中记录的文件 | 从节点 backup/ 恢复 |
 | `uninstall.sh` | `.cfg-checkout-state` 或 `git ls-tree` 列出的文件 | 移除 + 从备份恢复 |
 
-### 服务器文件清单
+### 文件分类系统
 
-服务器模式 checkout 的文件列表由仓库根目录的 `server-files.txt` 配置文件管理。
+文件分类由 `utils/categories.sh` 和声明式配置文件管理。
 
-配置文件位置：`~/.cfg/server-files.txt`（bare repo 根目录）
+#### 配置文件版本化
 
-格式：每行一个文件路径（相对于 `$HOME`），`#` 开头的行为注释。
+配置文件支持多版本共存，节点创建时绑定使用的配置文件版本，恢复时使用对应版本。
 
-**默认文件列表**（21 个）：
+**文件内部版本号声明**：
+
+每个 `categories-*.conf` 文件头部包含版本元数据：
 
 ```
-Shell:    .config/shell/profile, .config/shell/aliasrc, .config/shell/zshrc,
-          .config/shell/tmux.conf.local, .bashrc, .zshrc, .profile
-Tmux:     .config/tmux/tmux.conf, .config/tmux/tmux.conf.local, .tmux.conf
-Git:      .config/git/gitconfig, .config/git/ignore, .gitconfig, .gitignore
-LF:       .config/lf/lfrc, .config/lf/scope, .config/lf/cleaner,
-          .config/lf/icons, .config/lf/shortcutrc
-文档:     .local/share/docs/README.md, .local/share/docs/user/desktop-guide-zh.md
+# ============================================
+# VERSION = "1.0.0"
+# NAME = "categories"
+# DESCRIPTION = "默认配置分类定义"
+# ============================================
+
+category = server
++ .bashrc
+...
 ```
 
-如果 `server-files.txt` 不存在，系统回退到内置默认列表。
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `VERSION` | 是 | 语义化版本号，格式 `MAJOR.MINOR.PATCH`（如 `1.0.0`、`2.1.3`） |
+| `NAME` | 否 | 配置文件名，便于识别 |
+| `DESCRIPTION` | 否 | 简要说明该版本的用途 |
+
+**文件名规范**：推荐 `categories-{VERSION}.conf`（如 `categories-1.0.0.conf`）。
+
+**冲突处理规则**：
+
+文件名中的版本号与文件内部 `VERSION` 字段冲突时，**以内部 `VERSION` 字段为准**。
+
+示例：
+- 文件名：`categories-1.0.0.conf`，内部 `VERSION = "2.0.0"` → 实际版本号为 `2.0.0`
+- 文件名：`categories-v1.0.0.conf`，内部 `VERSION = "1.5.0"` → 实际版本号为 `1.5.0`
+
+若文件内部无 `VERSION` 字段，则回退到从文件名提取的版本号。
+若文件名也无法提取版本号，该文件被忽略（不参与版本管理）。
+
+**文件存放位置**：所有版本配置文件统一存放在 `$DOTFILES_LIB_DIR/` 下：
+
+```
+$DOTFILES_LIB_DIR/
+├── categories-1.0.0.conf
+├── categories-2.0.0.conf
+├── categories-2.1.3.conf
+└── exclude.conf
+```
+
+**版本发现与默认版本**：
+
+**`v` 前缀处理规则**：
+
+- 文件名中的 `v` 前缀（如 `categories-v1.0.0.conf`）在**内部排序和比较时自动去除**
+- 展示时保留用户使用的格式：
+  - `categories-1.0.0.conf` → 展示为 `1.0.0`
+  - `categories-v1.0.0.conf` → 展示为 `v1.0.0`
+  - 内部 `VERSION = "2.0.0"` → 展示时与文件名风格保持一致（优先使用文件名的前缀风格）
+
+**示例**：
+- `categories-v1.0.0.conf` + `VERSION = "2.0.0"` → 实际版本号为 `2.0.0`，展示为 `v2.0.0`（沿用文件名的 `v` 前缀风格）
+- `categories-1.0.0.conf` + `VERSION = "2.0.0"` → 实际版本号为 `2.0.0`，展示为 `2.0.0`
+
+**版本发现流程**：
+
+- 扫描 `$DOTFILES_LIB_DIR/categories-*.conf`，从文件名提取版本号（支持 `categories-v{VERSION}.conf` 格式，自动去除 `v` 前缀）
+- 按语义化版本排序（`1.0.0` < `1.0.1` < `1.1.0` < `2.0.0`）
+- 若 `~/.config-backup/CURRENT_CONFIG_VERSION` 存在，以其内容为当前版本
+- 否则自动使用版本号最大的文件作为当前版本
+- `dotcfg categories switch <version>` 可手动切换当前版本
+
+**节点与版本绑定**：
+
+- 节点创建时，记录当前配置文件版本号到 `index.json` 的 `config_version` 字段
+- 切换到历史节点时，读取其 `config_version`，检查对应版本文件是否存在
+
+**版本缺失时的恢复行为**：
+
+当切换到历史节点时，系统检查该节点的 `config_version` 对应的配置文件是否存在：
+
+1. **配置文件存在** → 正常使用该版本解析文件列表，执行切换
+
+2. **配置文件不存在** → 默认拒绝恢复，报错退出：
+   ```
+   Error: Cannot restore node xk7f9a2m.
+   Config version 1.5.0 not found.
+   Please restore categories-1.5.0.conf to $DOTFILES_LIB_DIR/ and try again.
+   ```
+
+3. **强制恢复（绕过版本检查）**：
+   用户可指定 `--force` 参数强制恢复，使用当前版本的配置文件解析文件列表：
+   ```bash
+   dotcfg switch xk7f9a2m --force
+   ```
+   输出警告：
+   ```
+   Warning: Node xk7f9a2m was created with config version 1.5.0, but this version is not found.
+   Forcing recovery using current config version 2.1.3.
+   This may cause file list mismatch. Use with caution.
+   ```
+
+4. **原因**：不同版本的配置文件可能包含不同的文件列表。使用错误的版本恢复可能导致文件被错误删除或遗漏。系统默认拒绝恢复，除非用户明确使用 `--force` 承担风险。
+
+#### categories.conf 语法规则
+
+**文件位置**：`$DOTFILES_LIB_DIR/categories-{VERSION}.conf`（版本化配置文件，推荐使用）或 `$DOTFILES_LIB_DIR/categories.conf`（无版本时的回退）。两者均不存在时使用内置默认值。
+
+**回退文件处理优先级**：
+
+1. 如果存在任何 `categories-*.conf` 版本化文件：
+   - 忽略无版本的 `categories.conf` 文件
+   - 从所有版本化文件中进行版本发现和排序
+   - `dotcfg categories list` 仅显示版本化文件
+
+2. 如果不存在任何版本化文件，但存在 `categories.conf`：
+   - 使用 `categories.conf` 作为当前配置
+   - `CURRENT_CONFIG_VERSION` 设为空字符串 `""`（表示无版本）
+   - `dotcfg categories list` 显示 "No versioned config files found. Using unversioned categories.conf."
+
+3. 如果两者均不存在：
+   - 使用内置默认类别
+   - `CURRENT_CONFIG_VERSION` 设为 `"default"`
+
+**格式**：每行一个定义语句，`#` 开头的行为注释，空行忽略。
+
+**三部分顺序（强制）**：
+
+每个 `category` 块内的行必须按以下顺序排列：
+
+1. `include = <类别名>` — 继承另一个类别的所有文件（**必须在最前面**）
+2. `+ <路径>` — 添加文件或目录路径（**中间部分**）
+3. `- <路径>` — 从当前类别中移除路径（**最后面**）
+
+**顺序错误处理**：任何顺序错误的行将被**静默忽略**（不报错，不起效）。例如 `+` 出现在 `include` 之前，或 `-` 出现在 `+` 之前，这些行会被跳过。
+
+**目录前缀匹配**：当 `+ <path>` 指向一个目录路径时，系统保留该路径作为前缀。在与实际仓库跟踪文件取交集时（`cfg_get_files_for_state`），所有以该目录为前缀的跟踪文件都会被匹配。例如 `+ .config/x11` 会匹配仓库中的 `.config/x11/xinitrc`、`.config/x11/xresources` 等。
+
+**应用顺序**（每个类别独立）：
+1. 如果存在 `include`，从父类别的解析结果开始
+2. 按顺序添加所有 `+` 指定的路径（去重）
+3. 按顺序移除所有 `-` 指定的路径
+
+**正确示例**：
+
+```
+category = desktop
+include = server
++ .xinitrc
++ .xprofile
++ .config/x11
+- .config/x11/xresources
+```
+
+**错误示例（顺序错误的行被忽略）**：
+
+```
+category = test
++ .bashrc          # ← 被忽略：+ 出现在 include 之前
+include = server   # ← 被忽略：include 不是第一行
++ .xinitrc
+- .bashrc          # ← 被忽略：- 出现在 + 之后又遇到 +（section 已切回 add 不生效）
+```
+
+#### 内置默认类别
+
+当 `categories.conf` 不存在时，系统使用以下内置定义：
+
+- **`server`**（21 个文件）：Shell（`.bashrc`、`.zshrc`、`.profile`、`.config/shell/*`）、Tmux（`.tmux.conf`、`.config/tmux/*`）、Git（`.gitconfig`、`.gitignore`、`.config/git/*`）、LF（`.config/lf/*`）、文档（`.local/share/docs/*`）
+- **`desktop`**（继承 server + 9 个桌面专有路径）：`.xinitrc`、`.xprofile`、`.asoundrc`、`.gtkrc-2.0`、`.config/x11`、`.config/alsa`、`.config/mpd`、`.config/nsxiv`、`.config/zathura`
+
+#### 内置特殊类别
+
+除配置文件定义的类别外，系统内置两个特殊类别，无需在 `categories.conf` 中定义即可使用：
+
+| 类别名 | 解析结果 | 使用场景 |
+|--------|----------|----------|
+| `full` | 所有被 git 跟踪的文件（`git ls-tree -r --name-only HEAD`） | 全量部署 |
+| `empty` | 空列表（无任何文件） | 作为空基类 |
+
+**使用示例**：
+
+```
+category = desktop
+include = full
+- .config/private/
+- .local/share/secret
+
+category = minimal
+include = empty
++ .bashrc
++ .profile
+```
+
+**解析行为**：
+- `full` 在类别解析时动态展开，每次调用都重新执行 `git ls-tree`
+- `empty` 直接返回空列表
+- 两者可作为普通类别使用 `include`、`+`、`-` 进行定制
+
+#### exclude.conf 排除规则
+
+**文件位置**：`$DOTFILES_LIB_DIR/exclude.conf`（不存在时仅使用内置保护）
+
+**格式**：每行一个通配符模式（支持 `*`、`?`），`#` 开头为注释。
+
+**行为**：文件分析时（`cfg_analyze_files`），如果文件路径匹配 `exclude.conf` 中任一模式，则直接跳过（归入 `CFG_TO_SKIP`，不备份、不 checkout）。
+
+示例：
+
+```
+# 排除私密配置
+.config/private/*
+# 排除缓存
+.config/cache/*
+```
+
+#### 例外保护（硬编码，始终生效）
+
+以下路径在代码中硬编码排除，无需在 `exclude.conf` 中重复配置：
+
+| 模式 | 说明 |
+|------|------|
+| `.local/lib/dotfiles/*` | 运行时库目录（含 `categories.conf`、`exclude.conf`） |
+| `.cfg/*` | bare 仓库本身 |
+| `.config-backup/*` | 节点备份目录 |
+| `.cfg-checkout-state` | checkout 状态记录文件 |
+| `.local/share/test/*` | 测试目录 |
+
+#### 状态检测（动态）
+
+`cfg_detect_state()` 从类别系统动态获取桌面指标，不再硬编码：
+
+1. 如果 `~/.cfg` 不存在 → 返回 `fresh`
+2. 加载 `categories.conf`（或内置默认）
+3. 计算 `desktop - server` 差集（desktop 中有但 server 中没有的路径）
+4. 遍历差集中的路径，检查是否存在于 `$HOME`（文件或目录或符号链接）
+5. 任一存在 → 返回 `desktop`
+6. 全部不存在 → 返回 `server`
+
+如果类别系统不可用（如测试环境中未加载 `categories.sh`），回退到最小指标集：`.xinitrc`、`.xprofile`、`.config/x11`。
+
+**设计意图**：差集中的路径是桌面专有文件/目录，server 模式下不会被部署。它们的存在可靠标识当前处于 desktop 模式。动态检测确保状态判断与配置文件定义一致——修改 `categories.conf` 后，状态检测自动适配。
+
+#### dotcfg list 的 TYPE 来源
+
+`dotcfg list` 输出的 TYPE 列来自节点创建时记录的 `type` 字段（存储在 `index.json`）。值等于 `switch.sh` 执行时的目标状态名称（`desktop`、`server`）。根节点固定为 `fresh`。TYPE 的值由 `categories.conf` 中定义的类别名决定，系统不预设固定类型。
 
 ---
 
@@ -540,6 +975,7 @@ LF:       .config/lf/lfrc, .config/lf/scope, .config/lf/cleaner,
 │           └── .config/shell/zshrc
 ├── HEAD
 ├── DEPLOY_STATUS
+├── CURRENT_CONFIG_VERSION      ← 当前使用的配置文件版本
 └── sessions/                   ← 旧会话归档
 ```
 
@@ -669,6 +1105,23 @@ dotcfg uninstall                 # 回到 fresh 根节点
 rm -rf ~/.cfg                    # 手动删除仓库
 ```
 
+### 场景 8：节点生命周期管理
+```bash
+dotcfg list                      # 查看所有节点
+dotcfg remove e5f6g7h8           # 标记节点为待删除
+dotcfg unremove e5f6g7h8         # 取消标记（恢复为 active）
+dotcfg autoclean --dry-run       # 预览将删除的节点
+dotcfg autoclean                 # 永久删除标记的节点
+```
+
+### 场景 9：配置文件版本管理
+```bash
+dotcfg categories list           # 查看所有可用版本
+dotcfg categories current        # 查看当前版本
+dotcfg categories show 1.0.0     # 查看某版本的类别详情
+dotcfg categories switch 1.0.0   # 切换默认版本（新节点使用）
+```
+
 ---
 
 ## 故障排除
@@ -733,4 +1186,4 @@ chmod +x ~/.local/bin/install.sh
 ---
 
 **最后更新**: 2026-08-06
-**版本**: 3.0 — 节点系统 + deploy/undeploy + 分支支持 + 自动迁移
+**版本**: 4.0 — 配置文件版本化 + 节点生命周期管理 + 特殊类别

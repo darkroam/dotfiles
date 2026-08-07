@@ -19,6 +19,11 @@ _CFG_NODE_TYPES=()
 _CFG_NODE_TIMESTAMPS=()
 _CFG_NODE_PARENTS=()
 _CFG_NODE_CHILDREN=()
+_CFG_NODE_CONFIG_VERSIONS=()
+_CFG_NODE_STATUSES=()
+
+# ── Batch mode flag ─────────────────────────────────────────────────────
+_CFG_NODES_BATCH_MODE=false
 
 # ── Initialization ─────────────────────────────────────────────────────
 
@@ -59,6 +64,8 @@ cfg_nodes_read_index() {
 	_CFG_NODE_TIMESTAMPS=()
 	_CFG_NODE_PARENTS=()
 	_CFG_NODE_CHILDREN=()
+	_CFG_NODE_CONFIG_VERSIONS=()
+	_CFG_NODE_STATUSES=()
 
 	if [ ! -f "$CFG_NODES_INDEX" ]; then
 		return 1
@@ -66,11 +73,11 @@ cfg_nodes_read_index() {
 
 	local parsed
 	parsed=$(awk '
-		BEGIN { depth=0; in_node=0; code=""; type=""; ts=""; parent="null"; children="" }
+		BEGIN { depth=0; in_node=0; code=""; type=""; ts=""; parent="null"; children=""; cver=""; nstatus="" }
 		/\{/ {
 			depth++
 			if (depth == 2) {
-				in_node=1; code=""; type=""; ts=""; parent="null"; children=""
+				in_node=1; code=""; type=""; ts=""; parent="null"; children=""; cver=""; nstatus=""
 			}
 			next
 		}
@@ -78,7 +85,9 @@ cfg_nodes_read_index() {
 			if (depth == 2 && in_node) {
 				if (code != "") {
 					gsub(/"/, "", children)
-					print code "\t" type "\t" ts "\t" parent "\t" children
+					if (cver == "") cver=""
+					if (nstatus == "") nstatus="active"
+					print code "|" type "|" ts "|" parent "|" children "|" cver "|" nstatus
 				}
 				in_node=0
 			}
@@ -113,18 +122,30 @@ cfg_nodes_read_index() {
 			gsub(/[" ]/, "")
 			children=$0
 		}
+		in_node && /"config_version"/ {
+			gsub(/.*"config_version"[[:space:]]*:[[:space:]]*"/, "")
+			gsub(/".*/, "")
+			cver=$0
+		}
+		in_node && /"status"/ {
+			gsub(/.*"status"[[:space:]]*:[[:space:]]*"/, "")
+			gsub(/".*/, "")
+			nstatus=$0
+		}
 	' "$CFG_NODES_INDEX")
 
 	if [ -z "$parsed" ]; then
 		return 0
 	fi
 
-	while IFS=$'\t' read -r _nr_code _nr_type _nr_ts _nr_parent _nr_children; do
+	while IFS='|' read -r _nr_code _nr_type _nr_ts _nr_parent _nr_children _nr_cver _nr_status; do
 		_CFG_NODE_CODES+=("$_nr_code")
 		_CFG_NODE_TYPES+=("$_nr_type")
 		_CFG_NODE_TIMESTAMPS+=("$_nr_ts")
 		_CFG_NODE_PARENTS+=("$_nr_parent")
 		_CFG_NODE_CHILDREN+=("$_nr_children")
+		_CFG_NODE_CONFIG_VERSIONS+=("${_nr_cver:-}")
+		_CFG_NODE_STATUSES+=("${_nr_status:-active}")
 	done <<< "$parsed"
 }
 
@@ -140,6 +161,8 @@ cfg_nodes_write_index() {
 		local ts="${_CFG_NODE_TIMESTAMPS[$i]}"
 		local parent="${_CFG_NODE_PARENTS[$i]}"
 		local children="${_CFG_NODE_CHILDREN[$i]}"
+		local cver="${_CFG_NODE_CONFIG_VERSIONS[$i]:-}"
+		local nstatus="${_CFG_NODE_STATUSES[$i]:-active}"
 
 		local parent_json
 		if [ "$parent" = "null" ] || [ -z "$parent" ]; then
@@ -169,9 +192,11 @@ cfg_nodes_write_index() {
 		printf '    {\n' >> "$tmp"
 		printf '      "code": "%s",\n' "$code" >> "$tmp"
 		printf '      "type": "%s",\n' "$type" >> "$tmp"
+		printf '      "config_version": "%s",\n' "$cver" >> "$tmp"
 		printf '      "timestamp": "%s",\n' "$ts" >> "$tmp"
 		printf '      "parent": %s,\n' "$parent_json" >> "$tmp"
-		printf '      "children": %s\n' "$children_json" >> "$tmp"
+		printf '      "children": %s,\n' "$children_json" >> "$tmp"
+		printf '      "status": "%s"\n' "$nstatus" >> "$tmp"
 
 		if (( i < count - 1 )); then
 			printf '    },\n' >> "$tmp"
@@ -189,6 +214,7 @@ cfg_nodes_write_index() {
 cfg_node_create() {
 	local type="$1"
 	local parent_code="${2:-null}"
+	local config_version="${3:-}"
 
 	local code
 	code=$(cfg_generate_node_code) || return 1
@@ -206,6 +232,8 @@ cfg_node_create() {
 	_CFG_NODE_TIMESTAMPS+=("$timestamp")
 	_CFG_NODE_PARENTS+=("$parent_code")
 	_CFG_NODE_CHILDREN+=("")
+	_CFG_NODE_CONFIG_VERSIONS+=("$config_version")
+	_CFG_NODE_STATUSES+=("active")
 
 	if [ "$parent_code" != "null" ] && [ -n "$parent_code" ]; then
 		local i
@@ -236,11 +264,13 @@ cfg_node_get() {
 	for ((i = 0; i < ${#_CFG_NODE_CODES[@]}; i++)); do
 		if [ "${_CFG_NODE_CODES[$i]}" = "$code" ]; then
 			case "$field" in
-				type)      printf '%s' "${_CFG_NODE_TYPES[$i]}" ;;
-				timestamp) printf '%s' "${_CFG_NODE_TIMESTAMPS[$i]}" ;;
-				parent)    printf '%s' "${_CFG_NODE_PARENTS[$i]}" ;;
-				children)  printf '%s' "${_CFG_NODE_CHILDREN[$i]}" ;;
-				*)         return 1 ;;
+				type)           printf '%s' "${_CFG_NODE_TYPES[$i]}" ;;
+				timestamp)      printf '%s' "${_CFG_NODE_TIMESTAMPS[$i]}" ;;
+				parent)         printf '%s' "${_CFG_NODE_PARENTS[$i]}" ;;
+				children)       printf '%s' "${_CFG_NODE_CHILDREN[$i]}" ;;
+				config_version) printf '%s' "${_CFG_NODE_CONFIG_VERSIONS[$i]:-}" ;;
+				status)         printf '%s' "${_CFG_NODE_STATUSES[$i]:-active}" ;;
+				*)              return 1 ;;
 			esac
 			return 0
 		fi
@@ -373,4 +403,246 @@ cfg_nodes_needs_migration() {
 	done
 
 	$has_sessions
+}
+
+# ── Node Status Management ─────────────────────────────────────────────
+
+cfg_node_set_status() {
+	local code="$1" status="$2"
+	cfg_nodes_read_index 2>/dev/null || return 1
+	local i
+	for ((i = 0; i < ${#_CFG_NODE_CODES[@]}; i++)); do
+		if [ "${_CFG_NODE_CODES[$i]}" = "$code" ]; then
+			_CFG_NODE_STATUSES[$i]="$status"
+			cfg_nodes_write_index
+			return 0
+		fi
+	done
+	return 1
+}
+
+cfg_node_set_config_version() {
+	local code="$1" version="$2"
+	cfg_nodes_read_index 2>/dev/null || return 1
+	local i
+	for ((i = 0; i < ${#_CFG_NODE_CODES[@]}; i++)); do
+		if [ "${_CFG_NODE_CODES[$i]}" = "$code" ]; then
+			_CFG_NODE_CONFIG_VERSIONS[$i]="$version"
+			cfg_nodes_write_index
+			return 0
+		fi
+	done
+	return 1
+}
+
+cfg_node_set_parent() {
+	local code="$1" new_parent="$2"
+	local i
+	for ((i = 0; i < ${#_CFG_NODE_CODES[@]}; i++)); do
+		if [ "${_CFG_NODE_CODES[$i]}" = "$code" ]; then
+			local old_parent="${_CFG_NODE_PARENTS[$i]}"
+			if [ "$old_parent" != "null" ] && [ -n "$old_parent" ]; then
+				local j
+				for ((j = 0; j < ${#_CFG_NODE_CODES[@]}; j++)); do
+					if [ "${_CFG_NODE_CODES[$j]}" = "$old_parent" ]; then
+						local old_ch="${_CFG_NODE_CHILDREN[$j]}"
+						local new_ch="" first=true
+						if [ -n "$old_ch" ]; then
+							IFS=',' read -ra carr <<< "$old_ch"
+							for ch in "${carr[@]}"; do
+								ch="${ch// /}"
+								[ "$ch" = "$code" ] && continue
+								if $first; then new_ch="$ch"; first=false
+								else new_ch+=",$ch"; fi
+							done
+						fi
+						_CFG_NODE_CHILDREN[$j]="$new_ch"
+						break
+					fi
+				done
+			fi
+			_CFG_NODE_PARENTS[$i]="$new_parent"
+			if [ "$new_parent" != "null" ] && [ -n "$new_parent" ]; then
+				for ((j = 0; j < ${#_CFG_NODE_CODES[@]}; j++)); do
+					if [ "${_CFG_NODE_CODES[$j]}" = "$new_parent" ]; then
+						local existing="${_CFG_NODE_CHILDREN[$j]}"
+						if [ -n "$existing" ]; then
+							_CFG_NODE_CHILDREN[$j]="$existing,$code"
+						else
+							_CFG_NODE_CHILDREN[$j]="$code"
+						fi
+						break
+					fi
+				done
+			fi
+			return 0
+		fi
+	done
+	return 1
+}
+
+cfg_nodes_list_marked() {
+	cfg_nodes_read_index 2>/dev/null || return 1
+	local i
+	for ((i = 0; i < ${#_CFG_NODE_CODES[@]}; i++)); do
+		if [ "${_CFG_NODE_STATUSES[$i]}" = "marked_for_removal" ]; then
+			printf '%s\n' "${_CFG_NODE_CODES[$i]}"
+		fi
+	done
+}
+
+cfg_nodes_delete() {
+	local code="$1"
+	cfg_nodes_read_index 2>/dev/null || return 1
+	local i
+	for ((i = 0; i < ${#_CFG_NODE_CODES[@]}; i++)); do
+		if [ "${_CFG_NODE_CODES[$i]}" = "$code" ]; then
+			local parent="${_CFG_NODE_PARENTS[$i]}"
+			unset '_CFG_NODE_CODES[$i]' '_CFG_NODE_TYPES[$i]' \
+				  '_CFG_NODE_TIMESTAMPS[$i]' '_CFG_NODE_PARENTS[$i]' \
+				  '_CFG_NODE_CHILDREN[$i]' '_CFG_NODE_CONFIG_VERSIONS[$i]' \
+				  '_CFG_NODE_STATUSES[$i]'
+			_CFG_NODE_CODES=("${_CFG_NODE_CODES[@]}")
+			_CFG_NODE_TYPES=("${_CFG_NODE_TYPES[@]}")
+			_CFG_NODE_TIMESTAMPS=("${_CFG_NODE_TIMESTAMPS[@]}")
+			_CFG_NODE_PARENTS=("${_CFG_NODE_PARENTS[@]}")
+			_CFG_NODE_CHILDREN=("${_CFG_NODE_CHILDREN[@]}")
+			_CFG_NODE_CONFIG_VERSIONS=("${_CFG_NODE_CONFIG_VERSIONS[@]}")
+			_CFG_NODE_STATUSES=("${_CFG_NODE_STATUSES[@]}")
+			if [ "$parent" != "null" ] && [ -n "$parent" ]; then
+				local j
+				for ((j = 0; j < ${#_CFG_NODE_CODES[@]}; j++)); do
+					if [ "${_CFG_NODE_CODES[$j]}" = "$parent" ]; then
+						local old_children="${_CFG_NODE_CHILDREN[$j]}"
+						local new_children=""
+						if [ -n "$old_children" ]; then
+							IFS=',' read -ra carr <<< "$old_children"
+							local first=true
+							for ch in "${carr[@]}"; do
+								ch="${ch// /}"
+								[ "$ch" = "$code" ] && continue
+								if $first; then
+									new_children="$ch"
+									first=false
+								else
+									new_children+=",$ch"
+								fi
+							done
+						fi
+						_CFG_NODE_CHILDREN[$j]="$new_children"
+						break
+					fi
+				done
+			fi
+			if [ "$_CFG_NODES_BATCH_MODE" != "true" ]; then
+				cfg_nodes_write_index
+			fi
+			return 0
+		fi
+	done
+	return 1
+}
+
+cfg_nodes_orphaned_children() {
+	local code="$1"
+	cfg_nodes_read_index 2>/dev/null || return 1
+	local children
+	children=$(cfg_node_get "$code" "children" 2>/dev/null) || return
+	[ -z "$children" ] && return
+	IFS=',' read -ra carr <<< "$children"
+	local ch
+	for ch in "${carr[@]}"; do
+		ch="${ch// /}"
+		[ -z "$ch" ] && continue
+		printf '%s\n' "$ch"
+	done
+}
+
+# ── Config Version Management ──────────────────────────────────────────
+
+cfg_config_version_get_current() {
+	local version_file="$HOME/.config-backup/CURRENT_CONFIG_VERSION"
+	if [ ! -f "$version_file" ]; then
+		return 1
+	fi
+	local ver
+	ver=$(<"$version_file")
+	ver="${ver%%$'\n'*}"
+	ver="${ver#"${ver%%[![:space:]]*}"}"
+	ver="${ver%"${ver##*[![:space:]]}"}"
+	[ -z "$ver" ] && return 1
+	printf '%s' "$ver"
+}
+
+cfg_config_version_set() {
+	local version="$1"
+	local version_file="$HOME/.config-backup/CURRENT_CONFIG_VERSION"
+	mkdir -p "$(dirname "$version_file")"
+	printf '%s\n' "$version" > "$version_file"
+}
+
+cfg_config_version_list() {
+	local dir="$DOTFILES_LIB_DIR"
+	local versions=()
+	for f in "$dir"/categories-*.conf; do
+		[ -f "$f" ] || continue
+		local base="${f##*/categories-}"
+		base="${base%.conf}"
+		local file_version=""
+		local lineno=0
+		while IFS= read -r line && (( lineno < 10 )); do
+			((++lineno))
+			local trimmed="${line#"${line%%[![:space:]]*}"}"
+			if [[ "$trimmed" == \#[[:space:]]*VERSION[[:space:]]*=* ]]; then
+				file_version="${trimmed#*=}"
+				file_version="${file_version#"${file_version%%[![:space:]]*}"}"
+				file_version="${file_version%\"}"
+				file_version="${file_version#\"}"
+				break
+			fi
+			[ -n "$trimmed" ] && [[ "$trimmed" != \#* ]] && break
+		done < "$f"
+		local effective
+		if [ -n "$file_version" ]; then
+			effective="${file_version#v}"
+		else
+			effective="${base#v}"
+		fi
+		versions+=("$effective")
+	done
+	if [ ${#versions[@]} -gt 0 ]; then
+		printf '%s\n' "${versions[@]}" | sort -t. -k1,1n -k2,2n -k3,3n
+	fi
+}
+
+cfg_version_display_prefix() {
+	local ver="$1"
+	local dir="$DOTFILES_LIB_DIR"
+	for f in "$dir"/categories-*.conf; do
+		[ -f "$f" ] || continue
+		local raw="${f##*/categories-}"
+		local has_v=false
+		[[ "$raw" == v* ]] && has_v=true
+		raw="${raw%.conf}"
+		raw="${raw#v}"
+		local fv="" lineno=0
+		while IFS= read -r line && (( lineno < 10 )); do
+			((++lineno))
+			local trimmed="${line#"${line%%[![:space:]]*}"}"
+			if [[ "$trimmed" == \#[[:space:]]*VERSION[[:space:]]*=* ]]; then
+				fv="${trimmed#*=}"
+				fv="${fv#"${fv%%[![:space:]]*}"}"
+				fv="${fv%\"}"
+				fv="${fv#\"}"
+				fv="${fv#v}"
+				break
+			fi
+			[ -n "$trimmed" ] && [[ "$trimmed" != \#* ]] && break
+		done < "$f"
+		local effective="${fv:-$raw}"
+		if [ "$effective" = "$ver" ]; then
+			if $has_v; then printf 'v'; fi
+			return 0
+		fi
+	done
 }

@@ -146,22 +146,18 @@ cfg_detect_state() {
         return
     fi
 
-    # Check for desktop-specific files
-    # These are files/directories that only exist in desktop mode
-    local desktop_indicators=(
-        # X11 session core files
-        ".xinitrc"
-        ".xprofile"
-        ".config/x11"
-        # Desktop application configs
-        ".asoundrc"
-        ".gtkrc-2.0"
-        # Desktop application config directories
-        ".config/alsa"
-        ".config/mpd"
-        ".config/nsxiv"
-        ".config/zathura"
-    )
+    local desktop_indicators=()
+    if cfg_categories_load 2>/dev/null; then
+        while IFS= read -r path; do
+            [ -z "$path" ] && continue
+            desktop_indicators+=("$path")
+        done < <(cfg_category_diff "server" "desktop")
+    fi
+
+    if [ ${#desktop_indicators[@]} -eq 0 ]; then
+        desktop_indicators=(".xinitrc" ".xprofile" ".config/x11")
+    fi
+
     for indicator in "${desktop_indicators[@]}"; do
         if [ -e "$HOME/$indicator" ] || [ -L "$HOME/$indicator" ]; then
             echo "desktop"
@@ -169,7 +165,6 @@ cfg_detect_state() {
         fi
     done
 
-    # If .cfg exists but no desktop files, assume server mode
     echo "server"
 }
 

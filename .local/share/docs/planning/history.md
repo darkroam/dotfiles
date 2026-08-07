@@ -2,7 +2,21 @@
 
 本文面向 Agent 和维护者。
 
+## 待办
+
+- [ ] **配置文件版本化 + 节点生命周期管理**：支持多版本配置文件（`categories-*.conf` 带 VERSION/NAME/DESCRIPTION 头部），语义版本发现，节点绑定创建时的配置版本。新增 `full`（所有跟踪文件）和 `empty`（空）内置类别。节点生命周期：`dotcfg remove <CODE>` 标记待删除、`dotcfg unremove <CODE>` 取消标记、`dotcfg autoclean` 递归永久删除标记节点及子节点（支持 `--dry-run`）。`dotcfg categories list/show/switch/current` 管理版本。index.json 新增 `config_version` 和 `status` 字段。`dotcfg list` 新增 VERSION/STATUS 列，`dotcfg history` 显示版本和 `[REMOVED]` 标记。向后兼容旧 index.json。计划详见 `~/.qoder-cn/plans/rosy-narrows-bear.md`。
+
 ## 最近记录的变更
+
+- [x] 2026-08-06：文件分类体系重构。将 `files.sh` 中 4 个硬编码数组（CFG_SERVER_FILES_DEFAULT、
+  CFG_DESKTOP_INDICATORS、CFG_DESKTOP_ONLY_SYMLINKS、CFG_DESKTOP_ONLY_DIRS）和
+  `cfg-validate.sh` 中 9 个硬编码桌面指标替换为声明式类别系统。新增 `utils/categories.sh`：
+  解析 `categories.conf`（支持 `category`/`include`/`+`/`-` 语法）、类别继承（循环检测）、
+  目录前缀匹配、`exclude.conf` 排除规则。内置 server（21 文件）和 desktop（继承 server + 9 桌面
+  路径）两个默认类别。`cfg_detect_state()` 改用 `desktop - server` 差集动态计算桌面指标。
+  `files.sh` 简化为 `cfg_analyze_files()` + `cfg_get_files_for_state()`。`switch.sh` 和
+  `deploy.sh` 统一使用类别 API。新增 15 个类别测试（TC-C01~C15）。160/160 测试通过。
+  **文档同步**：更新 installation-system.md（文件分类系统章节）。
 
 - [x] 2026-08-06：history 输出格式优化。将 `dotcfg history` 从简单递归 DFS 渲染重写为
   Git log --graph 风格：最新节点在顶部、根在底部，使用泳道（lane）算法绘制分支图。主线

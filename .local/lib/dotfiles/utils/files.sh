@@ -1,92 +1,11 @@
 #!/usr/bin/env bash
-# utils/files.sh - File constants and analysis for dotfiles commands
+# utils/files.sh - File analysis for dotfiles commands
 # Source via utils/common.sh, do not source directly.
 
 if [ -n "${_CFG_FILES_LOADED:-}" ]; then
 	return 0
 fi
 _CFG_FILES_LOADED=1
-
-# Default server files (fallback if server-files.txt doesn't exist)
-CFG_SERVER_FILES_DEFAULT=(
-	".config/shell/profile"
-	".config/shell/aliasrc"
-	".config/shell/zshrc"
-	".config/shell/tmux.conf.local"
-	".bashrc"
-	".zshrc"
-	".profile"
-	".config/tmux/tmux.conf"
-	".config/tmux/tmux.conf.local"
-	".tmux.conf"
-	".config/git/gitconfig"
-	".config/git/ignore"
-	".gitconfig"
-	".gitignore"
-	".config/lf/lfrc"
-	".config/lf/scope"
-	".config/lf/cleaner"
-	".config/lf/icons"
-	".config/lf/shortcutrc"
-	".local/share/docs/README.md"
-	".local/share/docs/user/desktop-guide-zh.md"
-)
-
-# cfg_load_server_files [git_dir]
-# Loads server file list from server-files.txt (in repo root)
-# Falls back to CFG_SERVER_FILES_DEFAULT if file doesn't exist
-# Sets CFG_SERVER_FILES array
-cfg_load_server_files() {
-	local git_dir="${1:-$HOME/.cfg}"
-
-	CFG_SERVER_FILES=()
-
-	# Try to read from git (bare repo stores files in objects, not working dir)
-	local content
-	if content=$(git --git-dir="$git_dir/" show HEAD:server-files.txt 2>/dev/null); then
-		local line
-		while IFS= read -r line || [ -n "$line" ]; do
-			# Skip empty lines and comments
-			[[ -z "$line" ]] && continue
-			[[ "$line" =~ ^[[:space:]]*# ]] && continue
-			# Trim whitespace
-			line="${line#"${line%%[![:space:]]*}"}"
-			line="${line%"${line##*[![:space:]]}"}"
-			[ -z "$line" ] && continue
-			CFG_SERVER_FILES+=("$line")
-		done <<< "$content"
-	else
-		# Fallback to default list
-		CFG_SERVER_FILES=("${CFG_SERVER_FILES_DEFAULT[@]}")
-	fi
-}
-
-# Initialize with default list (for backwards compatibility)
-CFG_SERVER_FILES=("${CFG_SERVER_FILES_DEFAULT[@]}")
-
-CFG_DESKTOP_INDICATORS=(
-	".xinitrc"
-	".xprofile"
-	".config/x11"
-)
-
-CFG_DESKTOP_ONLY_SYMLINKS=(
-	".xinitrc"
-	".xprofile"
-	".asoundrc"
-	".gtkrc-2.0"
-	".tmux.conf"
-	".gitconfig"
-	".gitignore"
-)
-
-CFG_DESKTOP_ONLY_DIRS=(
-	".config/x11"
-	".config/alsa"
-	".config/mpd"
-	".config/nsxiv"
-	".config/zathura"
-)
 
 cfg_analyze_files() {
 	local git_dir="$1"
@@ -99,6 +18,10 @@ cfg_analyze_files() {
 
 	local path
 	for path in "${file_list[@]}"; do
+		if cfg_exclude_match "$path"; then
+			CFG_TO_SKIP+=("$path")
+			continue
+		fi
 		local full_path="$HOME/$path"
 		if [ ! -e "$full_path" ] && [ ! -L "$full_path" ]; then
 			CFG_TO_INSTALL+=("$path")
@@ -110,28 +33,31 @@ cfg_analyze_files() {
 	done
 }
 
-cfg_analyze_all_tracked() {
-	local git_dir="$1"
+cfg_get_files_for_state() {
+	local git_dir="$1" state="$2"
+
+	cfg_categories_load
+
+	local category_files
+	category_files=$(cfg_category_get_files "$state")
 
 	local config_fn
 	config_fn() { git --git-dir="$git_dir/" --work-tree="$HOME" "$@"; }
 
-	mapfile -t tracked_paths < <(config_fn ls-tree -r --name-only HEAD)
-	cfg_analyze_files "$git_dir" "${tracked_paths[@]}"
-}
+	local tracked
+	tracked=$(config_fn ls-tree -r --name-only HEAD 2>/dev/null)
 
-cfg_analyze_server_files() {
-	local git_dir="$1"
+	local matched=()
+	while IFS= read -r tpath; do
+		[ -z "$tpath" ] && continue
+		while IFS= read -r cpath; do
+			[ -z "$cpath" ] && continue
+			if [ "$tpath" = "$cpath" ] || [[ "$tpath" == "$cpath"/* ]]; then
+				matched+=("$tpath")
+				break
+			fi
+		done <<< "$category_files"
+	done <<< "$tracked"
 
-	local config_fn
-	config_fn() { git --git-dir="$git_dir/" --work-tree="$HOME" "$@"; }
-
-	local server_tracked=()
-	local path
-	for path in "${CFG_SERVER_FILES[@]}"; do
-		if config_fn ls-tree -r --name-only HEAD 2>/dev/null | grep -qx "$path"; then
-			server_tracked+=("$path")
-		fi
-	done
-	cfg_analyze_files "$git_dir" "${server_tracked[@]}"
+	cfg_analyze_files "$git_dir" "${matched[@]}"
 }

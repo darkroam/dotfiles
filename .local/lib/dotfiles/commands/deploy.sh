@@ -55,19 +55,34 @@ config() { git --git-dir="$git_dir/" --work-tree="$HOME" "$@"; }
 
 printf 'Deploying node %s (%s)...\n\n' "$current_code" "$node_type"
 
-case "$node_type" in
-	desktop)
-		cfg_analyze_all_tracked "$git_dir"
-		;;
-	server)
-		cfg_load_server_files "$git_dir"
-		cfg_analyze_server_files "$git_dir"
-		;;
-	*)
-		printf 'ERROR: unknown node type "%s"\n' "$node_type" >&2
-		exit 1
-		;;
-esac
+node_version=$(cfg_node_get "$current_code" "config_version" 2>/dev/null) || node_version=""
+if [ -n "$node_version" ] && [ "$node_version" != "unknown" ]; then
+	if ! cfg_config_version_read "$node_version" >/dev/null 2>&1; then
+		if [ "$CFG_FORCE" = "true" ]; then
+			printf 'WARNING: Config version %s not found.\n' "$node_version" >&2
+			printf '  --force: falling back to current version categories.\n' >&2
+			fallback_ver=$(cfg_config_version_get_current 2>/dev/null) || fallback_ver=""
+			[ -z "$fallback_ver" ] && fallback_ver=$(cfg_config_version_latest 2>/dev/null) || fallback_ver=""
+			if [ -n "$fallback_ver" ]; then
+				cfg_categories_load "$fallback_ver"
+			else
+				cfg_categories_load
+			fi
+		else
+			printf 'ERROR: Cannot restore node %s.\n' "$current_code" >&2
+			printf 'Config version %s not found.\n' "$node_version" >&2
+			printf 'Please restore categories-%s.conf to $DOTFILES_LIB_DIR/ and try again.\n' "$node_version" >&2
+			printf 'Or use --force to fall back to current version categories.\n' >&2
+			exit 1
+		fi
+	else
+		cfg_categories_load "$node_version"
+	fi
+else
+	cfg_categories_load
+fi
+
+cfg_get_files_for_state "$git_dir" "$node_type"
 
 to_checkout=("${CFG_TO_INSTALL[@]}" "${CFG_TO_SKIP[@]}")
 to_backup=("${CFG_TO_BACKUP[@]}")
@@ -75,14 +90,12 @@ to_backup=("${CFG_TO_BACKUP[@]}")
 # Also include files already tracked that match the node type
 mapfile -t all_tracked < <(config ls-tree -r --name-only HEAD 2>/dev/null)
 if [ "$node_type" = "server" ]; then
+	node_file_list=$(cfg_category_get_files "server")
 	to_checkout=()
 	for path in "${all_tracked[@]}"; do
-		for server_file in "${CFG_SERVER_FILES[@]}"; do
-			if [ "$path" = "$server_file" ]; then
-				to_checkout+=("$path")
-				break
-			fi
-		done
+		if printf '%s\n' "$node_file_list" | grep -qFx "$path"; then
+			to_checkout+=("$path")
+		fi
 	done
 else
 	to_checkout=("${all_tracked[@]}")
