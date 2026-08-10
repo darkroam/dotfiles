@@ -80,12 +80,12 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
     ├── exclude-rules.bats      ← Fresh 排除和跟踪判断
     ├── fresh-node.bats         ← Fresh 混合备份与管理命令
     ├── history-graph.bats      ← 节点历史图
-    ├── install-desktop.bats    ← 桌面安装
-    ├── install-server.bats     ← 服务器安装
+    ├── install-desktop.bats    ← full 兼容入口安装
+    ├── install-server.bats     ← min 兼容入口安装
     ├── migration.bats          ← 旧会话迁移到节点系统
     ├── nodes.bats              ← 节点数据结构
-    ├── restore-desktop.bats    ← 恢复桌面
-    ├── restore-server.bats     ← 恢复服务器
+    ├── restore-desktop.bats    ← 切换到 full 的兼容入口
+    ├── restore-server.bats     ← 切换到 min 的兼容入口
     ├── uninstall.bats          ← 卸载与恢复
     ├── validate.bats           ← 仓库验证
     └── generate-conflicts.sh   ← 冲突文件生成器
@@ -100,8 +100,8 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | 用例 | 描述 |
 |------|------|
 | TC-01 | 无 `.cfg` → fresh |
-| TC-02a..02d | `.cfg` + 桌面指标（.xinitrc / .xprofile / .config/x11 / 符号链接）→ desktop |
-| TC-03a..03b | `.cfg` 无桌面指标 → server |
+| TC-02a..02d | `.cfg` + 图形指标（.xinitrc / .xprofile / .config/x11/xinitrc / 符号链接）→ full |
+| TC-03a..03b | `.cfg` 无图形指标 → min |
 
 ### TC-04..10：备份逻辑（backup-logic.bats）
 
@@ -115,7 +115,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-09 | 备份目录权限 0700 |
 | TC-10 | MANIFEST 格式：`relative_path\tmd5\tstatus`（tab 分隔） |
 
-### TC-11..16：桌面安装（install-desktop.bats → switch.sh --type=desktop）
+### TC-11..16：全量安装（install-desktop.bats → 兼容入口映射到 `--type=full`）
 
 | 用例 | 描述 |
 |------|------|
@@ -126,7 +126,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-15 | checkout state 文件记录所有跟踪文件 |
 | TC-16 | `showUntrackedFiles = no` 配置 |
 
-### TC-17..21：服务器安装（install-server.bats → switch.sh --type=server）
+### TC-17..21：最小安装（install-server.bats → 兼容入口映射到 `--type=min`）
 
 | 用例 | 描述 |
 |------|------|
@@ -136,20 +136,20 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-20 | 白名单排除桌面文件 |
 | TC-21 | checkout state 和 git 配置 |
 
-### TC-22..26b：恢复桌面（restore-desktop.bats → switch.sh --type=desktop）
+### TC-22..26b：切换到 full（restore-desktop.bats → 兼容入口）
 
 | 用例 | 描述 |
 |------|------|
-| TC-22 | server → desktop：添加桌面文件 |
+| TC-22 | min → full：添加全量文件 |
 | TC-23 | 备份已修改文件 |
 | TC-24 | `--dry-run` 预览 |
 | TC-25 | `--auto-stash` 覆盖不备份 |
 
-### TC-27..30b：恢复服务器（restore-server.bats → switch.sh --type=server）
+### TC-27..30b：切换到 min（restore-server.bats → 兼容入口）
 
 | 用例 | 描述 |
 |------|------|
-| TC-26 | desktop → server：移除桌面指标，验证服务器文件 |
+| TC-26 | full → min：移除 category 差集，验证命令行文件 |
 | TC-27 | 备份已修改桌面文件 |
 | TC-28 | `--dry-run` 预览 |
 | TC-29 | checkout state 和 git 配置更新 |
@@ -180,30 +180,44 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 
 | 用例 | 描述 |
 |------|------|
-| TC-36 | fresh → desktop → server → desktop → fresh（完整循环） |
-| TC-37 | fresh → server → desktop → server → fresh（反向循环） |
+| TC-36 | fresh → full → min → full → fresh（完整循环） |
+| TC-37 | fresh → min → full → min → fresh（反向循环） |
+| TC-38 | full → min 移除普通 `.local/bin` 脚本，保留 dotcfg 安装基础设施 |
 
-### TC-44..60：统一 CLI（dotcfg.bats）
+### TC-44..61：统一 CLI（dotcfg.bats）
 
 | 用例 | 描述 |
 |------|------|
 | TC-44 | status：fresh 状态显示可用操作 |
-| TC-45 | status：desktop 状态检测（含节点信息） |
-| TC-46 | status：server 状态检测（含节点信息） |
-| TC-47 | list：desktop 节点列表 |
+| TC-45 | status：full 状态检测（含节点信息） |
+| TC-46 | status：min 状态检测（含节点信息） |
+| TC-47 | list：节点列表 |
 | TC-48 | list：fresh 状态节点列表 |
 | TC-49 | history：无节点时显示"No history" |
 | TC-50 | history：自动迁移后显示节点树 |
 | TC-51 | history：跳过畸形目录名 |
 | TC-52 | `switch fresh`：解析根节点别名；根节点不存在时报错 |
 | TC-53 | switch：无效目标报错 |
-| TC-54 | switch：fresh → desktop 完整安装（创建节点） |
-| TC-55 | switch：desktop → server 完整切换（创建节点） |
+| TC-54 | 旧 `desktop` 入口映射到 full 并完成安装 |
+| TC-55 | 旧 `server` 入口映射到 min 并完成切换 |
 | TC-56 | switch：`--dry-run` 透传 |
 | TC-57 | validate：仓库验证详情 |
 | TC-58 | 默认 status + 未知子命令报错 |
 | TC-59 | 顶层和子命令 `--help` 与 `dotcfg help` 输出一致 |
 | TC-60 | TAG 列表标记、切换提示、版本删除和节点删除警告 |
+| TC-61 | 正式 `1.0.0 stable` 只展示 full、min、macos，并验证旧名称映射 |
+
+### TC-E01..E06：Fresh 排除规则（exclude-rules.bats）
+
+覆盖硬编码排除、普通配置、`exclude.conf`、绝对路径拒绝和仓库跟踪判断。TC-E06 固定验证
+`.config-backup.bak` 以及 Microsoft Edge、NVM、Chromium、Chrome for Testing 可变状态不会进入
+Fresh 选择集。
+
+### TC-F01..F12：Fresh 根节点（fresh-node.bats）
+
+覆盖 5 列 manifest、track/untrack、统计、diff、update、根节点保护和 `switch fresh`。TC-F12 先
+验证旧备份采纳 dry-run 不创建元数据，再验证只复制旧备份中的跟踪原件和当前未跟踪配置，跳过
+当前跟踪文件、浏览器状态并保持急救备份不变。
 
 ### TC-M01..M18：旧会话迁移（migration.bats）
 
@@ -246,10 +260,10 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 
 | 函数 | 用途 |
 |------|------|
-| `run_install_desktop [args...]` | `yes \| bash switch.sh --type=desktop` |
-| `run_install_server [args...]` | `yes \| bash switch.sh --type=server` |
-| `run_restore_desktop [args...]` | `yes \| bash switch.sh --type=desktop` |
-| `run_restore_server [args...]` | `yes \| bash switch.sh --type=server` |
+| `run_install_desktop [args...]` | 运行旧 full 兼容入口 `switch-desktop.sh` |
+| `run_install_server [args...]` | 运行旧 min 兼容入口 `switch-server.sh` |
+| `run_restore_desktop [args...]` | 运行旧 full 兼容入口 `switch-desktop.sh` |
+| `run_restore_server [args...]` | 运行旧 min 兼容入口 `switch-server.sh` |
 | `run_uninstall [args...]` | `yes \| yes \| bash uninstall.sh` |
 | `run_dotcfg [args...]` | `bash dotcfg` |
 
@@ -257,7 +271,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 
 | 函数 | 用途 |
 |------|------|
-| `assert_state_is <state>` | 验证当前状态（fresh/desktop/server） |
+| `assert_state_is <state>` | 验证当前状态（fresh/full/min/macos） |
 | `assert_cfg_exists` / `assert_cfg_not_exists` | `.cfg` 存在性 |
 | `assert_file_exists` / `assert_file_not_exists` | 文件存在性 |
 | `assert_file_contains <path> <pattern>` | 文件内容匹配 |
@@ -303,8 +317,8 @@ bats -r .local/share/test/ --tap
 **环境**：Debian 13, Git 2.47.2, Bash 5.2.37, Bats 1.11.1
 
 ```
-Total:  170
-Passed: 170
+Total:  174
+Passed: 174
 Failed: 0
 ```
 
@@ -328,4 +342,4 @@ Failed: 0
 ---
 
 **最后更新**: 2026-08-10
-**版本**: 3.1 — 节点系统 + 170 个受管测试用例 + Fresh 混合备份与 TAG 测试
+**版本**: 3.2 — 174 个受管测试 + full/min/macos + 旧备份采纳与基础设施不变量

@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # e2e-state-machine.bats - End-to-end state transition tests
-# TC-36, TC-37: Full lifecycle cycles
+# TC-36 through TC-38: Full lifecycle and category invariants
 
 load helpers.bash
 
@@ -28,7 +28,7 @@ teardown() {
 	# ── fresh → desktop (install-2.sh) ──
 	run run_install_desktop
 	[ "$status" -eq 0 ]
-	assert_state_is "desktop"
+	assert_state_is "full"
 	assert_cfg_exists
 	assert_checkout_state_exists
 	assert_file_exists ".xinitrc"
@@ -40,7 +40,7 @@ teardown() {
 	# ── desktop → server (restore-server.sh) ──
 	run run_restore_server
 	[ "$status" -eq 0 ]
-	assert_state_is "server"
+	assert_state_is "min"
 	assert_file_not_exists ".xinitrc"
 	assert_file_not_exists ".xprofile"
 	assert_file_exists ".bashrc"
@@ -49,7 +49,7 @@ teardown() {
 	# ── server → desktop (restore-desktop.sh) ──
 	run run_restore_desktop
 	[ "$status" -eq 0 ]
-	assert_state_is "desktop"
+	assert_state_is "full"
 	assert_file_exists ".xinitrc"
 	assert_file_exists ".xprofile"
 	assert_file_exists ".bashrc"
@@ -90,7 +90,7 @@ teardown() {
 	# ── fresh → server (install-server.sh) ──
 	run run_install_server
 	[ "$status" -eq 0 ]
-	assert_state_is "server"
+	assert_state_is "min"
 	assert_cfg_exists
 	assert_checkout_state_exists
 	assert_file_exists ".bashrc"
@@ -102,7 +102,7 @@ teardown() {
 	# ── server → desktop (restore-desktop.sh) ──
 	run run_restore_desktop
 	[ "$status" -eq 0 ]
-	assert_state_is "desktop"
+	assert_state_is "full"
 	assert_file_exists ".xinitrc"
 	assert_file_exists ".xprofile"
 	assert_file_exists ".bashrc"
@@ -111,7 +111,7 @@ teardown() {
 	# ── desktop → server (restore-server.sh) ──
 	run run_restore_server
 	[ "$status" -eq 0 ]
-	assert_state_is "server"
+	assert_state_is "min"
 	assert_file_not_exists ".xinitrc"
 	assert_file_not_exists ".xprofile"
 	assert_file_exists ".bashrc"
@@ -131,4 +131,26 @@ teardown() {
 	assert_file_contains ".bashrc" "user's server bashrc"
 	assert_file_exists ".gitconfig"
 	assert_file_contains ".gitconfig" "user's server gitconfig"
+}
+
+@test "TC-38: full to min removes ordinary local scripts but preserves dotcfg infrastructure" {
+	setup_source_repo \
+		".bashrc" ".xinitrc" ".local/bin/tool" ".local/bin/dotcfg" \
+		".local/lib/dotfiles/cfg-validate.sh"
+	mkdir -p "$HOME/.local/bin" "$HOME/.local/lib/dotfiles"
+	printf 'installed dotcfg sentinel\n' > "$HOME/.local/bin/dotcfg"
+	printf 'installed library sentinel\n' > "$HOME/.local/lib/dotfiles/keep"
+
+	run bash -c "printf 'y\n' | bash '$DOTCFG' switch full"
+	[ "$status" -eq 0 ]
+	assert_file_exists ".local/bin/tool"
+	assert_file_exists ".local/bin/dotcfg"
+	assert_file_exists ".local/lib/dotfiles/keep"
+
+	run bash -c "printf 'y\n' | bash '$DOTCFG' switch min"
+	[ "$status" -eq 0 ]
+	assert_state_is "min"
+	assert_file_not_exists ".local/bin/tool"
+	assert_file_exists ".local/bin/dotcfg"
+	assert_file_exists ".local/lib/dotfiles/keep"
 }

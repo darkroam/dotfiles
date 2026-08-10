@@ -20,40 +20,39 @@ _CFG_CAT_NAMES=()
 
 # ── Built-in default categories ─────────────────────────────────────────
 
-_CFG_CATEGORIES_BUILTIN='category = server
-+ .config/shell/profile
-+ .config/shell/aliasrc
-+ .config/shell/zshrc
-+ .config/shell/tmux.conf.local
+_CFG_CATEGORIES_BUILTIN='category = macos
 + .bashrc
 + .zshrc
 + .profile
-+ .config/tmux/tmux.conf
-+ .config/tmux/tmux.conf.local
-+ .tmux.conf
-+ .config/git/gitconfig
-+ .config/git/ignore
++ .zprofile
 + .gitconfig
 + .gitignore
-+ .config/lf/lfrc
-+ .config/lf/scope
++ .npmrc
++ .config/git/ignore
++ .config/shell/aliasrc
++ .config/shell/bm-dirs
++ .config/shell/bm-files
++ .config/shell/inputrc
++ .config/shell/profile
++ .config/shell/zprofile
++ .config/zsh/.zshrc
++ .config/tmux/tmux.conf
++ .config/tmux/tmux.conf.local
+
+category = min
+include = macos
++ .custom.el
++ .fbtermrc
 + .config/lf/cleaner
 + .config/lf/icons
-+ .config/lf/shortcutrc
-+ .local/share/docs/README.md
-+ .local/share/docs/user/desktop-guide-zh.md
-
-category = desktop
-include = server
-+ .xinitrc
-+ .xprofile
-+ .asoundrc
-+ .gtkrc-2.0
-+ .config/x11
-+ .config/alsa
-+ .config/mpd
-+ .config/nsxiv
-+ .config/zathura
++ .config/lf/lfrc
++ .config/lf/scope
++ .config/mpd/mpd.conf
++ .config/ncmpcpp/bindings
++ .config/ncmpcpp/config
++ .config/newsboat/config
++ .config/newsboat/urls
++ .config/wget/wgetrc
 '
 
 # ── Built-in exclude protections ────────────────────────────────────────
@@ -62,6 +61,7 @@ _CFG_EXCLUDE_BUILTIN=(
 	".local/lib/dotfiles/*"
 	".cfg/*"
 	".config-backup/*"
+	".config-backup.bak/*"
 	".cfg-checkout-state"
 	".local/share/test/*"
 )
@@ -405,17 +405,29 @@ cfg_categories_list() {
 	for cat in "${_CFG_CAT_NAMES[@]}"; do
 		printf '%s\n' "$cat"
 	done
-	printf '%s\n' "full" "empty"
+	printf '%s\n' "full"
+}
+
+# cfg_category_canonical_name <name>
+# Maps legacy public names to the canonical category names.
+cfg_category_canonical_name() {
+	case "${1:-}" in
+		desktop) printf 'full' ;;
+		server) printf 'min' ;;
+		*) printf '%s' "${1:-}" ;;
+	esac
 }
 
 cfg_category_exists() {
-	local name="$1"
+	local name
+	name=$(cfg_category_canonical_name "$1")
 	[ "$name" = "full" ] || [ "$name" = "empty" ] && return 0
 	[[ " ${_CFG_CAT_NAMES[*]} " == *" $name "* ]]
 }
 
 cfg_category_get_files() {
-	local name="$1"
+	local name
+	name=$(cfg_category_canonical_name "$1")
 	local git_dir="${2:-$HOME/.cfg}"
 
 	if [ "$name" = "empty" ]; then
@@ -442,12 +454,13 @@ cfg_category_get_files() {
 
 cfg_category_diff() {
 	local base="$1" overlay="$2"
+	local git_dir="${3:-$HOME/.cfg}"
 
 	local base_files
-	base_files=$(cfg_category_get_files "$base")
+	base_files=$(cfg_category_get_files "$base" "$git_dir")
 
 	local overlay_files
-	overlay_files=$(cfg_category_get_files "$overlay")
+	overlay_files=$(cfg_category_get_files "$overlay" "$git_dir")
 
 	while IFS= read -r line; do
 		[ -z "$line" ] && continue
@@ -455,6 +468,15 @@ cfg_category_diff() {
 			printf '%s\n' "$line"
 		fi
 	done <<< "$overlay_files"
+}
+
+# cfg_is_installation_path <relative_path>
+# Installation infrastructure is available in every state and category.
+cfg_is_installation_path() {
+	case "${1:-}" in
+		.local/bin/dotcfg|.local/lib/dotfiles/*) return 0 ;;
+		*) return 1 ;;
+	esac
 }
 
 cfg_exclude_match() {

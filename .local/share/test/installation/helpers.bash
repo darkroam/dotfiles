@@ -117,15 +117,9 @@ setup_bootstrap_env() {
 		printf 'repository tracked config\n' > .config/ignored/tracked.conf
 		printf 'repository bashrc\n' > .bashrc
 		printf 'tracked local data\n' > .local/share/tracked-test.conf
+		printf '#!/bin/sh\n' > .local/bin/ordinary-tool
 		cp "$REAL_HOME/.local/bin/dotcfg" .local/bin/dotcfg
 		cp -r "$REAL_HOME/.local/lib/dotfiles" .local/lib/dotfiles
-		for conf in .local/lib/dotfiles/categories-*.conf; do
-			[ -f "$conf" ] || continue
-			rel="${conf#./}"
-			if ! git --git-dir="$REAL_HOME/.cfg" cat-file -e "HEAD:$rel" 2>/dev/null; then
-				rm -f -- "$conf"
-			fi
-		done
 		printf '.config/ignored/*\n' > .local/lib/dotfiles/exclude.conf
 		git add -A
 		git commit -m "bootstrap remote" >/dev/null 2>&1

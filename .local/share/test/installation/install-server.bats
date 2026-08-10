@@ -41,7 +41,7 @@ teardown() {
 	assert_file_not_exists ".config/x11/picom.conf"
 
 	# State should be server (no desktop indicators)
-	assert_state_is "server"
+	assert_state_is "min"
 }
 
 # TC-18: Server install with existing user files → backup created

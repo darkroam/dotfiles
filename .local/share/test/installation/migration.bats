@@ -117,7 +117,7 @@ assert_session_moved() {
 	[ ${#_CFG_NODE_CODES[@]} -eq 2 ]
 	[ "${_CFG_NODE_CODES[0]}" = "fresh_root" ]
 	[ "${_CFG_NODE_TYPES[0]}" = "fresh" ]
-	[ "${_CFG_NODE_TYPES[1]}" = "desktop" ]
+	[ "${_CFG_NODE_TYPES[1]}" = "full" ]
 }
 
 # ── TC-M04: Multiple sessions migrated in order ─────────────────────────
@@ -136,9 +136,9 @@ assert_session_moved() {
 	cfg_nodes_read_index
 	[ ${#_CFG_NODE_CODES[@]} -eq 4 ]
 	[ "${_CFG_NODE_TYPES[0]}" = "fresh" ]
-	[ "${_CFG_NODE_TYPES[1]}" = "desktop" ]
-	[ "${_CFG_NODE_TYPES[2]}" = "server" ]
-	[ "${_CFG_NODE_TYPES[3]}" = "desktop" ]
+	[ "${_CFG_NODE_TYPES[1]}" = "full" ]
+	[ "${_CFG_NODE_TYPES[2]}" = "min" ]
+	[ "${_CFG_NODE_TYPES[3]}" = "full" ]
 }
 
 # ── TC-M05: Parent-child chain is correct ───────────────────────────────

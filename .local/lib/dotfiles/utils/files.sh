@@ -33,13 +33,19 @@ cfg_analyze_files() {
 	done
 }
 
-cfg_get_files_for_state() {
+cfg_get_tracked_files_for_state() {
 	local git_dir="$1" state="$2"
+	local version="${3:-}"
 
-	cfg_categories_load
+	state=$(cfg_category_canonical_name "$state")
+	if [ -n "$version" ]; then
+		cfg_categories_load "$version" || return 1
+	else
+		cfg_categories_load || return 1
+	fi
 
 	local category_files
-	category_files=$(cfg_category_get_files "$state")
+	category_files=$(cfg_category_get_files "$state" "$git_dir") || return 1
 
 	local config_fn
 	config_fn() { git --git-dir="$git_dir/" --work-tree="$HOME" "$@"; }
@@ -50,6 +56,10 @@ cfg_get_files_for_state() {
 	local matched=()
 	while IFS= read -r tpath; do
 		[ -z "$tpath" ] && continue
+		if cfg_is_installation_path "$tpath"; then
+			matched+=("$tpath")
+			continue
+		fi
 		while IFS= read -r cpath; do
 			[ -z "$cpath" ] && continue
 			if [ "$tpath" = "$cpath" ] || [[ "$tpath" == "$cpath"/* ]]; then
@@ -59,5 +69,56 @@ cfg_get_files_for_state() {
 		done <<< "$category_files"
 	done <<< "$tracked"
 
+	if [ ${#matched[@]} -gt 0 ]; then
+		printf '%s\n' "${matched[@]}"
+	fi
+}
+
+cfg_get_files_for_state() {
+	local git_dir="$1" state="$2"
+	local version="${3:-}"
+	local matched=()
+
+	mapfile -t matched < <(cfg_get_tracked_files_for_state "$git_dir" "$state" "$version")
+
 	cfg_analyze_files "$git_dir" "${matched[@]}"
+}
+
+# cfg_record_checkout_state_for_category <git_dir> <category> [version] [state_file]
+cfg_record_checkout_state_for_category() {
+	local git_dir="$1" state="$2"
+	local version="${3:-}"
+	local state_file="${4:-$HOME/.cfg-checkout-state}"
+	local paths=()
+
+	mapfile -t paths < <(cfg_get_tracked_files_for_state "$git_dir" "$state" "$version")
+	> "$state_file"
+	local path hash
+	for path in "${paths[@]}"; do
+		[ -e "$HOME/$path" ] || [ -L "$HOME/$path" ] || continue
+		hash=$(git --git-dir="$git_dir/" --work-tree="$HOME" show "HEAD:$path" 2>/dev/null | md5sum | cut -d' ' -f1)
+		printf '%s:%s\n' "$path" "$hash" >> "$state_file"
+	done
+}
+
+# cfg_get_files_to_remove <git_dir> <current> <target> [version]
+# Prints tracked paths deployed by current but not by target, excluding the
+# installation infrastructure that is invariant across categories.
+cfg_get_files_to_remove() {
+	local git_dir="$1" current="$2" target="$3"
+	local version="${4:-}"
+	local current_files target_files path
+
+	current=$(cfg_category_canonical_name "$current")
+	target=$(cfg_category_canonical_name "$target")
+	current_files=$(cfg_get_tracked_files_for_state "$git_dir" "$current" "$version")
+	target_files=$(cfg_get_tracked_files_for_state "$git_dir" "$target" "$version")
+
+	while IFS= read -r path; do
+		[ -n "$path" ] || continue
+		cfg_is_installation_path "$path" && continue
+		if ! printf '%s\n' "$target_files" | grep -qFx -- "$path"; then
+			printf '%s\n' "$path"
+		fi
+	done <<< "$current_files"
 }

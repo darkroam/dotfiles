@@ -42,8 +42,8 @@
 **为什么选择 bare repo + work-tree 模式**：
 - `git checkout` 直接将文件写入 `$HOME`，无需符号链接管理
 - `status.showUntrackedFiles = no` 隐藏未跟踪文件，保持 `git status` 清洁
-- 所有配置文件（包括桌面和服务器模式）均在同一个 repo 中跟踪
-- "模式"区别不在于 repo 内容，而在于 **哪些文件被 checkout 到 work-tree**
+- 所有配置文件均在同一个 repo 中跟踪
+- category 区别不在于 repo 内容，而在于 **哪些文件被 checkout 到 work-tree**
 
 ### 仓库身份验证
 
@@ -62,7 +62,7 @@
 | 函数 | 用途 |
 |------|------|
 | `cfg_validate()` | 验证 `.cfg` 仓库身份，设置 `CFG_STATE`/`CFG_IS_OURS`/`CFG_NEEDS_PULL`/`CFG_REMOTE_URL` |
-| `cfg_detect_state()` | 检测当前安装状态（fresh/desktop/server） |
+| `cfg_detect_state()` | 检测当前安装状态（fresh/full/min/macos） |
 | `cfg_should_backup_file()` | MD5 内容对比，判断文件是否需要备份 |
 | `cfg_check_updates()` | 检查远程是否有新提交 |
 | `cfg_print_validation_result()` | 人类可读的验证结果输出 |
@@ -80,7 +80,7 @@
 | 概念 | 类比 | 说明 |
 |------|------|------|
 | CODE | commit hash | 8 位随机码 `[a-z0-9]`，唯一标识节点 |
-| type | branch label | `fresh` / `desktop` / `server` |
+| type | branch label | `fresh` / `full` / `min` / `macos` |
 | parent | parent commit | 父节点 CODE，根节点为 `null` |
 | children | child commits | 子节点 CODE 列表（支持分支） |
 | HEAD | HEAD pointer | 当前活动节点的 CODE |
@@ -123,7 +123,7 @@ nodes/{code}/
     },
     {
       "code": "e5f6g7h8",
-      "type": "desktop",
+      "type": "full",
       "config_version": "1.0.0",
       "timestamp": "2026-08-06T10:05:00",
       "parent": "a1b2c3d4",
@@ -139,7 +139,7 @@ nodes/{code}/
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `code` | string | 8 位随机码，唯一标识节点 |
-| `type` | string | 节点类型：`fresh` / `desktop` / `server` |
+| `type` | string | 节点类型：`fresh` / `full` / `min` / `macos` |
 | `config_version` | string | 创建该节点时使用的配置文件版本号（如 `"1.0.0"`） |
 | `timestamp` | string | 节点创建时间（ISO 8601） |
 | `parent` | string/null | 父节点 CODE，根节点为 `null` |
@@ -212,26 +212,18 @@ CODE 是节点的唯一标识符，整个节点树中**不能存在两个 CODE �
 
 ## 状态机
 
-### 三种基本状态
+### 四种基本状态
 
 | 状态 | 检测条件 | 含义 |
 |------|----------|------|
-| **fresh** | `.cfg` 不存在 | 未安装，可能有系统默认配置文件 |
-| **desktop** | `.cfg` 存在 + 桌面指标文件存在 | 完整桌面环境配置已激活 |
-| **server** | `.cfg` 存在 + 无桌面指标文件 | 仅服务器/终端配置已激活 |
+| **fresh** | `.cfg` 不存在，或 HEAD 指向 fresh 根节点 | 未部署 category；安装基础设施仍可保留 |
+| **full** | HEAD 节点 `type=full` | 部署仓库中的全部受管配置和普通辅助脚本 |
+| **min** | HEAD 节点 `type=min` | 部署 Linux 命令行配置，不部署普通 `.local/bin/` 脚本 |
+| **macos** | HEAD 节点 `type=macos` | 部署 Bash、Zsh、Git、Tmux、npm 等跨平台核心配置 |
 
-**桌面指标文件**（任一存在即为 desktop）：
-- `.xinitrc`（文件或符号链接）
-- `.xprofile`（文件或符号链接）
-- `.config/x11`（目录或符号链接）
-- `.asoundrc`（文件或符号链接）
-- `.gtkrc-2.0`（文件或符号链接）
-- `.config/alsa`（目录或符号链接）
-- `.config/mpd`（目录或符号链接）
-- `.config/nsxiv`（目录或符号链接）
-- `.config/zathura`（目录或符号链接）
-
-这些文件仅在桌面模式安装时被 checkout，因此是区分 desktop/server 的可靠信号。状态检测与 switch-server.sh 的移除列表保持一致。
+节点元数据存在时，HEAD 节点的 `type` 是状态判断的权威来源，因此同为命令行配置的 `min` 与
+`macos` 不依赖文件猜测。没有节点元数据的旧安装才使用兼容检测：`.xinitrc`、`.xprofile` 或
+`.config/x11/xinitrc` 存在时映射为 `full`，否则映射为 `min`。
 
 ### 状态转换与节点创建
 
@@ -242,23 +234,17 @@ CODE 是节点的唯一标识符，整个节点树中**不能存在两个 CODE �
 │   FRESH     │  ← 根节点 (type=fresh, parent=null)
 └──────┬──────┘
        │
-       ├─ dotcfg switch desktop ──→ DESKTOP  (新节点, parent=当前)
-       └─ dotcfg switch server ───→ SERVER   (新节点, parent=当前)
+       ├─ dotcfg switch full  ──→ FULL   (新节点, parent=当前)
+       ├─ dotcfg switch min   ──→ MIN    (新节点, parent=当前)
+       └─ dotcfg switch macos ─→ MACOS  (新节点, parent=当前)
 
 ┌─────────────┐
-│  DESKTOP    │  ← 节点 (type=desktop)
+│ FULL/MIN/   │  ← 节点 (type=full|min|macos)
+│ MACOS       │
 └──────┬──────┘
        │
-       ├─ dotcfg switch desktop --reinstall ─→ DESKTOP  (新节点, 幂等重装)
-       ├─ dotcfg switch server ──────────────→ SERVER   (新节点)
-       └─ dotcfg uninstall ──────────────────→ FRESH    (HEAD 移回根节点)
-
-┌─────────────┐
-│   SERVER    │  ← 节点 (type=server)
-└──────┬──────┘
-       │
-       ├─ dotcfg switch server --reinstall ──→ SERVER   (新节点, 幂等重装)
-       ├─ dotcfg switch desktop ─────────────→ DESKTOP  (新节点)
+       ├─ dotcfg switch <其他 category> ─────→ 新 category 节点
+       ├─ dotcfg switch <同一 category> --reinstall ─→ 幂等重装节点
        └─ dotcfg uninstall ──────────────────→ FRESH    (HEAD 移回根节点)
 ```
 
@@ -293,7 +279,7 @@ fresh 节点本身不 checkout 配置文件，最终将 `DEPLOY_STATUS` 记为 `
 
 **节点创建时的版本选择策略**：
 
-执行 `dotcfg switch desktop` 或 `dotcfg switch server` 创建新节点时：
+执行 `dotcfg switch full|min|macos` 创建新节点时：
 
 1. 读取 `~/.config-backup/CURRENT_CONFIG_VERSION` 文件
 2. 如果文件存在且对应的版本化配置文件存在：
@@ -324,7 +310,7 @@ dotcfg                          # 显示当前节点状态（等同于 dotcfg st
 dotcfg status                   # 当前节点 + 部署状态 + 可用操作
 dotcfg list                     # 六列表：DEPLOY / TYPE / VERSION / STATUS / TIME / CODE
 dotcfg history                  # Git log --graph 风格 ASCII 分支图
-dotcfg switch <target>          # 切换到状态名（desktop|server|fresh）或 CODE；fresh = 根节点别名
+dotcfg switch <target>          # 切换到状态名（full|min|macos|fresh）或 CODE；fresh = 根节点别名
 dotcfg deploy                   # 在当前节点部署配置
 dotcfg undeploy                 # 卸载当前节点配置，恢复原始文件
 dotcfg uninstall                # 回到根节点（fresh）；恢复源优先 fresh_root 备份
@@ -351,16 +337,17 @@ dotcfg help                     # 使用帮助（也可使用 dotcfg --help）
 ### `dotcfg status` 输出
 
 ```
-Current node: xk7f9a2m (desktop)
+Current node: xk7f9a2m (full)
 Created: 2026-08-06 10:05:00
 Deploy status: deployed
 Config version: 1.0.0
 Node status: active
-Chain: fresh -> desktop
+Chain: fresh -> full
 
 Available operations:
-  dotcfg switch desktop    Install/switch to desktop mode
-  dotcfg switch server     Install/switch to server mode
+  dotcfg switch full       Install all managed configuration
+  dotcfg switch min        Install command-line configuration
+  dotcfg switch macos      Install cross-platform core configuration
   dotcfg deploy            Deploy current node
   dotcfg undeploy          Undeploy current node
   dotcfg uninstall         Return to fresh state
@@ -372,9 +359,9 @@ Available operations:
 
 ```
   DEPLOY TYPE       VERSION  STATUS      TIME                 CODE
-  [*]    desktop    1.0.0    active      2026-08-06 10:05:00  xk7f9a2m
+  [*]    full       1.0.0    active      2026-08-06 10:05:00  xk7f9a2m
   [ ]    fresh      bootstrap active     2026-08-06 10:00:00  fresh_root ●
-  [ ]    server     1.0.0    [REMOVED]   2026-08-06 09:00:00  e5f6g7h8
+  [ ]    min        1.0.0    [REMOVED]   2026-08-06 09:00:00  e5f6g7h8
 ```
 
 标记说明：`[*]` = HEAD + deployed，`[>]` = HEAD + uninstalled，`[ ]` = 非 HEAD。
@@ -393,32 +380,32 @@ Git log --graph 风格，最新节点在顶部，根在底部：
 
 **线性历史：**
 ```
-*  a1b2c3d4  desktop  2026-08-06 12:00:00  [deployed]  v1.0.0  <- HEAD
+*  a1b2c3d4  full     2026-08-06 12:00:00  [deployed]  v1.0.0  <- HEAD
 | 
-o  e5f6g7h8  server   2026-08-06 11:00:00  v1.0.0
+o  e5f6g7h8  min      2026-08-06 11:00:00  v1.0.0
 | 
 ●  fresh_root fresh    2026-08-06 10:00:00  vbootstrap  [root]
 ```
 
 **分支历史：**
 ```
-*  a1b2c3d4  desktop  2026-08-06 12:00:00  [deployed]  v2.0.0  <- HEAD
+*  a1b2c3d4  full     2026-08-06 12:00:00  [deployed]  v2.0.0  <- HEAD
 | 
-o  e5f6g7h8  server   2026-08-06 11:00:00  v1.0.0
+o  e5f6g7h8  min      2026-08-06 11:00:00  v1.0.0
 | 
 ●  fresh_root fresh    2026-08-06 10:00:00  vbootstrap  [root]
 |\
-| o  m3n4o5p6  server   2026-08-06 10:30:00  v1.0.0  [REMOVED]
+| o  m3n4o5p6  min      2026-08-06 10:30:00  v1.0.0  [REMOVED]
 |/
 ```
 
 **多分支历史：**
 ```
-*  a1b2c3d4  desktop  2026-08-06 12:00:00  [deployed]  v2.0.0  <- HEAD
+*  a1b2c3d4  full     2026-08-06 12:00:00  [deployed]  v2.0.0  <- HEAD
 |
-o  e5f6g7h8  server   2026-08-06 11:00:00  v1.0.0
+o  e5f6g7h8  min      2026-08-06 11:00:00  v1.0.0
 |\
-| o  m3n4o5p6  server   2026-08-06 10:30:00  v1.0.0  [REMOVED]
+| o  m3n4o5p6  min      2026-08-06 10:30:00  v1.0.0  [REMOVED]
 |/
 ●  fresh_root fresh    2026-08-06 10:00:00  vbootstrap  [root]
 ```
@@ -456,9 +443,8 @@ dotcfg categories remove <version>   # 确认后删除版本配置文件
 
 ```
 Available configuration versions:
-  v1.0.0  (stable)   2 categories: server, desktop
-  v2.0.0  (test)     3 categories: server, desktop, workstation   [TEST]
-  v2.1.3  (stable)   2 categories: server, desktop
+  v0.1.0  (test)     3 categories: macos, min, full   [TEST]
+  v1.0.0  (stable)   3 categories: macos, min, full
 
 Current version: v2.1.3 (stable)
 
@@ -634,8 +620,8 @@ dotcfg autoclean --dry-run    # 预览，不执行
 $ dotcfg autoclean --dry-run
 
 The following nodes will be deleted:
-  e5f6g7h8  (server, v1.0.0, 2026-08-06 09:00:00)  - leaf node, marked_for_removal
-  f9g8h7i6  (desktop, v1.0.0, 2026-08-06 07:00:00)  - leaf node, marked_for_removal
+  e5f6g7h8  (min, v1.0.0, 2026-08-06 09:00:00)  - leaf node, marked_for_removal
+  f9g8h7i6  (full, v1.0.0, 2026-08-06 07:00:00)  - leaf node, marked_for_removal
 
 Total: 2 nodes will be deleted.
 
@@ -675,7 +661,8 @@ bootstrap 流程（内联实现，只依赖 git/md5sum/coreutils）：
    仓库跟踪文件不受普通排除规则影响，因此被排除规则命中的跟踪配置仍进入备份；安装基础设施
    是强制例外。选择结果分为 `.config`、其他跟踪文件和 `.local` 跟踪文件三组，实际复制完成后
    输出分组数量与总数。`fresh-update` 和 `fresh-diff` 复用同一选择逻辑。
-5. 按 server 类别过滤后 checkout（冲突文件备份到 `$BACKUP_ROOT/conflict/`）
+5. 按 `min` category 过滤后 checkout（冲突文件备份到 `$BACKUP_ROOT/conflict/`）；普通
+   `.local/bin/` 脚本不属于 `min`，`dotcfg` 与运行库已在步骤 2–3 独立安装
 6. 写 `HEAD=fresh_root`、`DEPLOY_STATUS=deployed`、`CURRENT_CONFIG_VERSION=bootstrap`
 7. re-exec `dotcfg <原参数>`，保证幂等
 
@@ -687,6 +674,31 @@ bootstrap 流程（内联实现，只依赖 git/md5sum/coreutils）：
 - `dotcfg list` 的 `VERSION` 列对根节点显示 `bootstrap`
 - `dotcfg categories switch bootstrap` 会因不存在相应版本文件而拒绝
 - 该标识只用于记录首次自举建立的 fresh 原始状态
+
+### 采纳早期安装备份
+
+在 dotcfg 开发前通过旧 `install.sh` 部署、且旧脚本把冲突文件移到一个备份目录的设备，可显式
+重建安装前 Fresh。该命令不会把当前已部署的仓库版本误记为安装前原件：
+
+```bash
+dotcfg fresh-adopt-legacy ~/.config-backup --dry-run
+dotcfg fresh-adopt-legacy ~/.config-backup
+dotcfg switch full
+```
+
+采纳选择器执行两部分工作：
+
+1. 只采纳旧备份目录中仍由 `.cfg` HEAD 跟踪的文件，manifest 状态记为 `legacy_backup`。
+2. 补充当前 `.config/` 中未被 HEAD 跟踪且未命中排除规则的文件，状态记为
+   `untracked_config_at_adoption`；当前跟踪文件全部跳过。
+
+命令只允许在节点元数据尚未建立时执行，默认使用最新 category 版本作为后续节点版本；
+`--config-version VERSION` 可显式选择版本。`--dry-run` 只输出来源、数量与大小，不创建
+`nodes/index.json`、HEAD 或 manifest。安装基础设施不会进入 Fresh，采纳完成后再显式切换到目标
+category。
+
+`.config-backup.bak` 是用户急救备份，属于硬排除路径；命令拒绝把它作为采纳源，也不会移动、修改
+或删除它。确认迁移长期正常后，由用户自行决定是否删除该目录。
 
 **远程地址**：默认 `git@github.com:darkroam/dotfiles.git`，可用环境变量 `DOTCFG_REMOTE_URL` 覆盖
 （测试即通过该变量指向本地 mock 仓库）。
@@ -716,7 +728,9 @@ fresh 节点专用，区别于普通节点的 3 列格式：
 .myconfig	abc123…	512	tracked_by_user	2026-08-07 04:00:00
 ```
 
-- `status` ∈ {`tracked_at_install`（混合选择器在安装或重建时加入）, `tracked_by_user`（用户手动 track）}
+- `status` ∈ {`tracked_at_install`（混合选择器在安装或重建时加入）、`tracked_by_user`（用户手动
+  track）、`legacy_backup`（旧安装备份中的原件）、`untracked_config_at_adoption`（采纳时的未跟踪
+  `.config/` 文件）}
 - 备份采用 **cp 语义**（区别于普通节点备份的 mv 语义），原文件保留在 $HOME
 - 统计信息（文件数/大小/分组）从该 manifest 实时派生，不写入 index.json
 
@@ -778,7 +792,7 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 | 6 | fresh 节点存在性 | `~/.config-backup/nodes/fresh_root/` 是否存在 |
 | 7 | HEAD 指向有效性 | HEAD 指向的节点 CODE 是否在 index.json 中存在 |
 | 8 | DEPLOY_STATUS 有效性 | `DEPLOY_STATUS` 文件是否存在且值为 `deployed` 或 `uninstalled` |
-| 9 | 配置类别来源可用性 | 优先报告 `categories-*.conf` 版本；没有版本文件时，确认使用 `categories.conf` 或内置 `server/desktop` 默认类别 |
+| 9 | 配置类别来源可用性 | 优先报告 `categories-*.conf` 版本；没有版本文件时，确认使用 `categories.conf` 或内置 `macos/min/full` 默认类别 |
 
 每项输出 ✅/❌ 并计数；有问题时 exit 1。
 
@@ -820,9 +834,9 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 
 | 脚本 | 用途 |
 |------|------|
-| `switch.sh` | 统一切换逻辑（`--type=desktop` / `--type=server`） |
-| `switch-desktop.sh` | 转发到 `switch.sh --type=desktop` |
-| `switch-server.sh` | 转发到 `switch.sh --type=server` |
+| `switch.sh` | 统一切换逻辑（`--type=full|min|macos`） |
+| `switch-desktop.sh` | 旧入口兼容：转发到 `switch.sh --type=full` |
+| `switch-server.sh` | 旧入口兼容：转发到 `switch.sh --type=min` |
 | `deploy.sh` | 部署当前节点配置 |
 | `undeploy.sh` | 卸载当前节点配置 |
 | `uninstall.sh` | 回到根节点（fresh），优先从 fresh_root 备份恢复 |
@@ -854,7 +868,7 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 | `files.sh` | 文件分析（install/backup/skip 分类） |
 | `utils/categories.sh` | 声明式文件类别系统（categories.conf 解析、继承、排除和 TAG） |
 | `utils/exclude.sh` | fresh 备份排除规则和仓库路径跟踪检查 |
-| `utils/fresh.sh` | fresh 混合选择器、根节点与 manifest 管理（创建/读写/统计/增删） |
+| `utils/fresh.sh` | fresh 混合选择器、旧备份采纳、根节点与 manifest 管理 |
 
 ### 通用参数
 
@@ -863,32 +877,33 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 - `--force` — 强制操作（覆盖部署状态、替换仓库等）
 
 特定脚本额外支持：
-- `--reinstall` — 跳过交互提示，直接重新安装（switch-desktop / switch-server）
-- `--auto-stash` — 自动备份冲突文件，不提示用户（仅 switch-desktop）
+- `--reinstall` — 跳过同 category 检查，重新安装
+- `--auto-stash` — 自动备份冲突文件，不提示用户
 - `--latest` — 恢复最新备份而非最早（仅 uninstall）
 - `--type=<state>` — 目标状态类型（仅 switch.sh 内部使用）
 
 ### switch.sh — 统一切换
 
-合并了 switch-desktop 和 switch-server 的共享逻辑（~70% 相同代码）。
+`switch.sh` 是 `full`、`min`、`macos` 的唯一新切换实现；旧脚本只保留入口兼容。
 
 **执行流程**：
-1. 解析参数（`--type=desktop|server`）
+1. 解析参数并把 `desktop/server` 兼容别名规范化为 `full/min`
 2. 验证仓库身份（`cfg_validate`）
 3. 处理无效/外部仓库（`--force` 时备份并删除）
 4. 根据当前状态准备仓库（克隆或复用）
-5. 分析文件（根据目标状态的类别定义）
-6. 打印安装前报告
+5. 先确定 `CURRENT_CONFIG_VERSION`，加载该版本后再解析目标 category
+6. 计算目标文件和 `current - target` 差集，打印安装前报告
 7. 如果 `--dry-run`，退出
-8. 备份冲突文件
-9. desktop→server 时删除桌面指标文件
-10. Checkout 新配置
+8. 备份目标冲突文件和差集中已修改的文件
+9. 删除差集文件，但始终跳过安装基础设施
+10. Checkout 目标配置
 11. 若 checkout 失败数 >5 或失败率 >10% 则自动回滚
 12. 激活仓库（如果是 fresh 克隆）
-13. 记录 `.cfg-checkout-state`，设置 `showUntrackedFiles = no`
+13. 按目标 category 过滤并记录 `.cfg-checkout-state`，设置 `showUntrackedFiles = no`
 14. **创建新节点**，更新 HEAD，设置 `DEPLOY_STATUS = deployed`
 
-**服务器模式特殊处理**：checkout state 文件只记录服务器白名单内的文件（过滤掉桌面专有文件）。
+`.local/bin/dotcfg` 与 `.local/lib/dotfiles/` 是 category 外的不变量：所有状态均保留，undeploy 和
+uninstall 都不会删除；完全清除时只输出手动删除提示。
 
 ### deploy.sh — 部署
 
@@ -961,8 +976,9 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 
 | 脚本 | 处理的文件范围 | 特殊逻辑 |
 |------|----------------|----------|
-| `switch.sh --type=desktop` | desktop 类别定义的文件 | fresh 时克隆仓库；server 时复用现有仓库 |
-| `switch.sh --type=server` | server 类别定义的文件 | desktop 时先删除桌面类别差集文件 |
+| `switch.sh --type=full` | HEAD 的全部跟踪文件 | 普通辅助脚本和桌面配置均部署；安装基础设施独立保留 |
+| `switch.sh --type=min` | `min` 定义及安装基础设施 | 命令行配置；不部署普通 `.local/bin/` 脚本 |
+| `switch.sh --type=macos` | `macos` 定义及安装基础设施 | 跨平台 Shell、Git、Tmux、npm 核心配置 |
 | `deploy.sh` | 当前节点类型对应的文件 | 备份到节点目录 |
 | `undeploy.sh` | 节点 files/ 中记录的文件 | 从节点 backup/ 恢复 |
 | `uninstall.sh` | `.cfg-checkout-state` 或 `git ls-tree` 列出的文件 | 移除 + 从备份恢复 |
@@ -987,7 +1003,7 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 # TAG = "stable"
 # ============================================
 
-category = server
+category = macos
 + .bashrc
 ...
 ```
@@ -1016,9 +1032,8 @@ category = server
 
 ```
 $DOTFILES_LIB_DIR/
-├── categories-1.0.0.conf
-├── categories-2.0.0.conf
-├── categories-2.1.3.conf
+├── categories-0.1.0.conf    # TAG=test，最小解析夹具
+├── categories-1.0.0.conf    # TAG=stable，正式部署定义
 └── exclude.conf
 ```
 
@@ -1127,12 +1142,11 @@ $DOTFILES_LIB_DIR/
 **正确示例**：
 
 ```
-category = desktop
-include = server
-+ .xinitrc
-+ .xprofile
-+ .config/x11
-- .config/x11/xresources
+category = min
+include = macos
++ .config/lf/lfrc
++ .config/newsboat/config
+- .config/newsboat/urls
 ```
 
 **错误示例（顺序错误的行被忽略）**：
@@ -1140,36 +1154,37 @@ include = server
 ```
 category = test
 + .bashrc          # ← 被忽略：+ 出现在 include 之前
-include = server   # ← 被忽略：include 不是第一行
+include = macos    # ← 被忽略：include 不是第一行
 + .xinitrc
 - .bashrc          # ← 被忽略：- 出现在 + 之后又遇到 +（section 已切回 add 不生效）
 ```
 
 #### 内置默认类别
 
-当 `categories.conf` 不存在时，系统使用以下内置定义：
+当版本文件和 `categories.conf` 均不存在时，系统使用与正式版本职责一致的内置定义：
 
-- **`server`**（21 个文件）：Shell（`.bashrc`、`.zshrc`、`.profile`、`.config/shell/*`）、Tmux（`.tmux.conf`、`.config/tmux/*`）、Git（`.gitconfig`、`.gitignore`、`.config/git/*`）、LF（`.config/lf/*`）、文档（`.local/share/docs/*`）
-- **`desktop`**（继承 server + 9 个桌面专有路径）：`.xinitrc`、`.xprofile`、`.asoundrc`、`.gtkrc-2.0`、`.config/x11`、`.config/alsa`、`.config/mpd`、`.config/nsxiv`、`.config/zathura`
+- **`macos`**：Bash、Zsh、profile、Git、Tmux、npm 和共享 Shell 配置。
+- **`min`**：继承 `macos`，增加 LF、MPD/Ncmpcpp、Newsboat、Wget、Emacs/Fbterm 等命令行配置。
+- **`full`**：特殊 category，动态返回 HEAD 的全部跟踪文件。
 
 #### 内置特殊类别
 
-除配置文件定义的类别外，系统内置两个特殊类别，无需在 `categories.conf` 中定义即可使用：
+系统还有两个内部特殊 category，无需在 `categories.conf` 中定义：
 
 | 类别名 | 解析结果 | 使用场景 |
 |--------|----------|----------|
 | `full` | 所有被 git 跟踪的文件（`git ls-tree -r --name-only HEAD`） | 全量部署 |
-| `empty` | 空列表（无任何文件） | 作为空基类 |
+| `empty` | 空列表（无任何文件） | 仅供解析或测试；不在 `categories list` 中展示 |
 
 **使用示例**：
 
 ```
-category = desktop
+category = workstation
 include = full
 - .config/private/
 - .local/share/secret
 
-category = minimal
+category = minimal-test
 include = empty
 + .bashrc
 + .profile
@@ -1206,27 +1221,26 @@ include = empty
 | `.local/lib/dotfiles/*` | 运行时库目录（含 `categories.conf`、`exclude.conf`） |
 | `.cfg/*` | bare 仓库本身 |
 | `.config-backup/*` | 节点备份目录 |
+| `.config-backup.bak/*` | 用户急救备份，迁移和 Fresh 扫描均不得触碰 |
+| `.config/microsoft-edge/*` | Microsoft Edge 缓存和可变应用状态 |
+| `.config/nvm/*` | NVM 下载缓存和运行时状态 |
+| `.config/chromium/*` | Chromium 浏览器状态 |
+| `.config/google-chrome-for-testing/*` | Chrome for Testing 浏览器状态 |
 | `.cfg-checkout-state` | checkout 状态记录文件 |
 | `.local/share/test/*` | 测试目录 |
 
-#### 状态检测（动态）
+#### 状态检测
 
-`cfg_detect_state()` 从类别系统动态获取桌面指标，不再硬编码：
-
-1. 如果 `~/.cfg` 不存在 → 返回 `fresh`
-2. 加载 `categories.conf`（或内置默认）
-3. 计算 `desktop - server` 差集（desktop 中有但 server 中没有的路径）
-4. 遍历差集中的路径，检查是否存在于 `$HOME`（文件或目录或符号链接）
-5. 任一存在 → 返回 `desktop`
-6. 全部不存在 → 返回 `server`
-
-如果类别系统不可用（如测试环境中未加载 `utils/categories.sh`），回退到最小指标集：`.xinitrc`、`.xprofile`、`.config/x11`。
-
-**设计意图**：差集中的路径是桌面专有文件/目录，server 模式下不会被部署。它们的存在可靠标识当前处于 desktop 模式。动态检测确保状态判断与配置文件定义一致——修改 `categories.conf` 后，状态检测自动适配。
+`cfg_detect_state()` 先检查 `.cfg`，不存在时返回 `fresh`。仓库存在且节点元数据有效时，读取 HEAD
+节点的 `type` 并规范化旧值：`desktop → full`、`server → min`。这使 `macos` 不会被 Linux 文件
+特征误判。没有节点元数据的旧安装才使用兼容指标：`.xinitrc`、`.xprofile` 或
+`.config/x11/xinitrc` 存在时返回 `full`，否则返回 `min`；空的 `.config/x11/` 目录不构成指标。
 
 #### dotcfg list 的 TYPE 来源
 
-`dotcfg list` 输出的 TYPE 列来自节点创建时记录的 `type` 字段（存储在 `index.json`）。值等于 `switch.sh` 执行时的目标状态名称（`desktop`、`server`）。根节点固定为 `fresh`。TYPE 的值由 `categories.conf` 中定义的类别名决定，系统不预设固定类型。
+`dotcfg list` 输出的 TYPE 列来自节点创建时记录的 `type` 字段（存储在 `index.json`）。正式新节点
+使用 `full`、`min` 或 `macos`，根节点固定为 `fresh`；迁移旧会话时将 `desktop/server` 规范化为
+`full/min`，已有旧节点在读取状态时也执行同一映射。
 
 ---
 
@@ -1276,8 +1290,9 @@ include = empty
 .myconfig	abc123…	512	tracked_by_user	2026-08-07 04:00:00
 ```
 
-status 取值：`tracked_at_install`（安装或重建时由混合选择器加入）/
-`tracked_by_user`（用户 `dotcfg track` 添加）。
+status 取值：`tracked_at_install`（安装或重建时由混合选择器加入）、`tracked_by_user`（用户
+`dotcfg track` 添加）、`legacy_backup`（旧备份原件）或 `untracked_config_at_adoption`（采纳时的
+未跟踪配置）。
 节点统计（数量/大小/分组）从该 manifest 派生，不存入 index.json。
 
 ### Checkout 状态记录
@@ -1297,7 +1312,7 @@ status 取值：`tracked_at_install`（安装或重建时由混合选择器加�
 
 ### 安装幂等性
 
-- 重复执行 `dotcfg switch desktop --reinstall` 或 `dotcfg switch server --reinstall` 创建新节点
+- 重复执行 `dotcfg switch <category> --reinstall` 创建新节点
 - 已跟踪且内容相同的文件被跳过（不备份、不重新 checkout）
 - `.cfg-checkout-state` 记录上次 checkout 的文件指纹
 
@@ -1350,23 +1365,26 @@ status 取值：`tracked_at_install`（安装或重建时由混合选择器加�
 
 ## 使用场景
 
-### 场景 1：全新桌面安装
+### 场景 1：全量安装
 ```bash
-dotcfg switch desktop --dry-run  # 预览
-dotcfg switch desktop            # 安装（创建节点）
-exec zsh                         # 重启 shell
+dotcfg switch full --dry-run  # 预览
+dotcfg switch full            # 安装（创建节点）
+exec zsh                      # 重启 shell
 ```
 
-### 场景 2：服务器部署
+### 场景 2：命令行或 macOS 部署
 ```bash
-dotcfg switch server --dry-run   # 预览
-dotcfg switch server             # 安装（创建节点）
+dotcfg switch min --dry-run
+dotcfg switch min             # Linux 命令行配置
+
+dotcfg switch macos --dry-run
+dotcfg switch macos           # 跨平台核心配置
 ```
 
-### 场景 3：桌面 ↔ 服务器切换
+### 场景 3：category 切换
 ```bash
-dotcfg switch server             # 桌面 → 服务器（创建新节点）
-dotcfg switch desktop            # 服务器 → 桌面（创建新节点）
+dotcfg switch min             # full → min，退出文件先按需备份再移除
+dotcfg switch full            # min → full，补齐全量文件
 ```
 
 ### 场景 4：查看状态和历史
@@ -1486,4 +1504,4 @@ chmod +x ~/.local/bin/install.sh
 ---
 
 **最后更新**: 2026-08-10
-**版本**: 5.1 — Fresh 混合备份 + 配置 TAG + 自举安装 + track/untrack + doctor/repair + fresh-* 管理命令
+**版本**: 5.2 — full/min/macos category + 旧备份采纳 + Fresh 排除边界 + 安装基础设施不变量

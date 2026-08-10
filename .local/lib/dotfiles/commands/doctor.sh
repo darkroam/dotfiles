@@ -116,7 +116,7 @@ if [ -n "$versions" ]; then
 elif [ -f "$DOTFILES_LIB_DIR/categories.conf" ]; then
 	pass "9. Config categories available: using unversioned categories.conf"
 else
-	pass "9. Config categories available: using built-in defaults (server, desktop)"
+	pass "9. Config categories available: using built-in defaults (macos, min, full)"
 fi
 
 printf '\n'

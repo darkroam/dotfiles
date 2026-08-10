@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # fresh-node.bats - Fresh root node, track/untrack and fresh-* command tests
-# TC-F01 through TC-F11
+# TC-F01 through TC-F12
 
 load helpers.bash
 
@@ -181,4 +181,37 @@ fresh_manifest() {
 	run run_dotcfg list
 	[ "$status" -eq 0 ]
 	assert_output_contains "●"
+}
+
+# TC-F12: legacy adoption reconstructs pre-dotcfg Fresh without current tracked files
+
+@test "TC-F12: legacy adoption preserves originals and unmanaged config only" {
+	rm -rf "$HOME/.config-backup"
+	rm -rf "$HOME/.config"
+	mkdir -p "$HOME/.config-backup" "$HOME/.config-backup.bak" \
+		"$HOME/.config/app" "$HOME/.config/microsoft-edge/Cache" \
+		"$HOME/.config/ignored"
+	printf 'legacy bashrc\n' > "$HOME/.config-backup/.bashrc"
+	printf 'emergency sentinel\n' > "$HOME/.config-backup.bak/sentinel"
+	printf 'unmanaged setting\n' > "$HOME/.config/app/local.conf"
+	printf 'browser cache\n' > "$HOME/.config/microsoft-edge/Cache/data"
+	printf 'currently deployed tracked config\n' > "$HOME/.config/ignored/tracked.conf"
+
+	run run_dotcfg fresh-adopt-legacy "$HOME/.config-backup" --dry-run
+	[ "$status" -eq 0 ]
+	assert_output_contains "Legacy tracked originals: 1 files"
+	assert_output_contains "Current unmanaged ~/.config/: 1 files"
+	assert_output_contains "DRY RUN"
+	[ ! -e "$HOME/.config-backup/nodes/index.json" ]
+
+	run run_dotcfg fresh-adopt-legacy "$HOME/.config-backup"
+	[ "$status" -eq 0 ]
+	[ "$(cat "$HOME/.config-backup/HEAD")" = "fresh_root" ]
+	[ -f "$HOME/.config-backup/nodes/fresh_root/backup/.bashrc" ]
+	[ -f "$HOME/.config-backup/nodes/fresh_root/backup/.config/app/local.conf" ]
+	[ ! -e "$HOME/.config-backup/nodes/fresh_root/backup/.config/ignored/tracked.conf" ]
+	[ ! -e "$HOME/.config-backup/nodes/fresh_root/backup/.config/microsoft-edge" ]
+	[ "$(cat "$HOME/.config-backup.bak/sentinel")" = "emergency sentinel" ]
+	grep -q $'^\.bashrc\t.*\tlegacy_backup\t' "$(fresh_manifest)"
+	grep -q $'^\.config/app/local.conf\t.*\tuntracked_config_at_adoption\t' "$(fresh_manifest)"
 }

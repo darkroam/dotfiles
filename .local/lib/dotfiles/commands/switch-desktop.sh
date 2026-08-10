@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
-# switch-desktop.sh - Forward to unified switch.sh
-exec bash "$(dirname "$0")/switch.sh" --type=desktop "$@"
+# switch-desktop.sh - Legacy alias for the full category
+exec bash "$(dirname "$0")/switch.sh" --type=full "$@"

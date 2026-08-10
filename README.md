@@ -44,8 +44,9 @@ unset installer
 Then choose your configuration:
 
 ```sh
-dotcfg switch desktop    # full desktop environment
-dotcfg switch server     # server/terminal only
+dotcfg switch full       # all managed configuration
+dotcfg switch min        # Linux command-line configuration
+dotcfg switch macos      # cross-platform shell/Git/Tmux core
 ```
 
 Bootstrap clones the bare repository directly to `$HOME/.cfg`, installs `dotcfg`

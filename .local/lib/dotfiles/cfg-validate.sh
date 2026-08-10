@@ -5,7 +5,7 @@
 # Provides:
 #   cfg_validate()         - Validate .cfg repository state
 #   cfg_check_updates()    - Check if updates are available
-#   cfg_detect_state()     - Detect current installation state (fresh/desktop/server)
+#   cfg_detect_state()     - Detect current installation state (fresh/full/min/macos)
 #   cfg_should_backup_file() - Determine if a file should be backed up
 
 # Prevent double-sourcing
@@ -137,7 +137,8 @@ cfg_check_updates() {
 }
 
 # cfg_detect_state [git_dir]
-# Detects current installation state: fresh, desktop, or server
+# Detects the canonical installation state. Node metadata is authoritative;
+# legacy file detection is only a compatibility fallback.
 cfg_detect_state() {
     local git_dir="${1:-$HOME/.cfg}"
 
@@ -146,26 +147,38 @@ cfg_detect_state() {
         return
     fi
 
-    local desktop_indicators=()
-    if cfg_categories_load 2>/dev/null; then
-        while IFS= read -r path; do
-            [ -z "$path" ] && continue
-            desktop_indicators+=("$path")
-        done < <(cfg_category_diff "server" "desktop")
+    local backup_root="${DOTCFG_BACKUP_ROOT:-$HOME/.config-backup}"
+    if declare -F cfg_nodes_init >/dev/null 2>&1 && \
+       [ -f "$backup_root/HEAD" ] && [ -f "$backup_root/nodes/index.json" ]; then
+        cfg_nodes_init "$backup_root"
+        local head_code node_type
+        head_code=$(cfg_head_get 2>/dev/null) || head_code=""
+        if [ -n "$head_code" ]; then
+            node_type=$(cfg_node_get "$head_code" type 2>/dev/null) || node_type=""
+            if [ -n "$node_type" ]; then
+                if declare -F cfg_category_canonical_name >/dev/null 2>&1; then
+                    cfg_category_canonical_name "$node_type"
+                else
+                    case "$node_type" in
+                        desktop) echo "full" ;;
+                        server) echo "min" ;;
+                        *) echo "$node_type" ;;
+                    esac
+                fi
+                return
+            fi
+        fi
     fi
 
-    if [ ${#desktop_indicators[@]} -eq 0 ]; then
-        desktop_indicators=(".xinitrc" ".xprofile" ".config/x11")
-    fi
-
-    for indicator in "${desktop_indicators[@]}"; do
+    local indicator
+    for indicator in ".xinitrc" ".xprofile" ".config/x11/xinitrc"; do
         if [ -e "$HOME/$indicator" ] || [ -L "$HOME/$indicator" ]; then
-            echo "desktop"
+            echo "full"
             return
         fi
     done
 
-    echo "server"
+    echo "min"
 }
 
 # cfg_should_backup_file [git_dir] [relative_path]

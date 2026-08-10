@@ -59,6 +59,12 @@
 ## 已接受的决定
 
 - `c` 保持为核心 bare 仓库命令。
+- dotcfg 正式部署 category 为 `full`、`min`、`macos`；旧 `desktop/server` 只映射为
+  `full/min` 以兼容既有入口。`min` 和 `macos` 不部署普通 `.local/bin/` 脚本。
+- `.local/bin/dotcfg` 与 `.local/lib/dotfiles/` 独立于 category，在 fresh、切换、undeploy 和
+  uninstall 中始终保留；彻底清除只能提示用户手动执行。
+- `.config-backup.bak` 是用户急救备份，Fresh 扫描和旧备份采纳均不得读取、修改、移动或删除；
+  只有用户在验证稳定后自行清理。浏览器/NVM 可变状态按 Fresh 硬排除规则处理。
 - `profile.local` 和 `aliasrc.local` 是支持的每机器扩展点。
 - PipeWire 和 WirePlumber 由目标平台的用户服务管理器负责；X11 启动脚本不得重复拉起。
 - 静态颜色和桌面默认值必须在没有 `wal` 或壁纸时可用。

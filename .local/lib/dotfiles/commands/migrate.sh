@@ -35,7 +35,7 @@ for dir in "$backup_root"/*/; do
 
 	if [[ "$basename" =~ ^(fresh|desktop|server)-to-(fresh|desktop|server)-([0-9]{8}T[0-9]{6})$ ]]; then
 		sessions+=("$basename")
-		session_types+=("${BASH_REMATCH[2]}")
+		session_types+=("$(cfg_category_canonical_name "${BASH_REMATCH[2]}")")
 	fi
 done
 

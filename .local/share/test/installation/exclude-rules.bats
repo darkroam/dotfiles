@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # exclude-rules.bats - Fresh backup exclusion rule tests
-# TC-E01 through TC-E05
+# TC-E01 through TC-E06
 
 load helpers.bash
 
@@ -69,4 +69,17 @@ teardown() {
 
 	run cfg_is_path_tracked "$HOME/.not-tracked" "$HOME/.cfg"
 	[ "$status" -ne 0 ]
+}
+
+@test "TC-E06: emergency backup and mutable application state are excluded" {
+	for path in \
+		.config-backup.bak/.bashrc \
+		.config/microsoft-edge/Cache/data \
+		.config/nvm/cache/archive \
+		.config/chromium/Default/History \
+		.config/google-chrome-for-testing/Default/History; do
+		run run_dotcfg check-exclude "$path"
+		[ "$status" -eq 0 ]
+		assert_output_contains "hardcoded"
+	done
 }

@@ -26,6 +26,13 @@ _FRESH_BACKED_CONFIG_COUNT=0
 _FRESH_BACKED_OTHER_COUNT=0
 _FRESH_BACKED_LOCAL_COUNT=0
 
+# Legacy adoption selection, populated by fresh_collect_legacy_adoption_files.
+_FRESH_ADOPT_PATHS=()
+_FRESH_ADOPT_SOURCES=()
+_FRESH_ADOPT_STATUSES=()
+_FRESH_ADOPT_LEGACY_COUNT=0
+_FRESH_ADOPT_CONFIG_COUNT=0
+
 # fresh_get_root_code
 # Prints the root node CODE. Prefers the fixed fresh_root code; falls back
 # to cfg_nodes_get_root for installations created with random codes.
@@ -152,6 +159,30 @@ fresh_copy_to_backup() {
 		printf '%s\t%s\t%s\t%s\n' "$relpath" "$md5" "$size" "$status" >> "$manifest"
 	fi
 	return 0
+}
+
+# fresh_copy_source_to_backup <source> <relpath> <status> [timestamp]
+# Copies a file from an explicit legacy source rather than from $HOME.
+fresh_copy_source_to_backup() {
+	local source="$1"
+	local relpath="$2"
+	local status="$3"
+	local ts="${4:-$(date -u '+%Y-%m-%dT%H:%M:%S')}"
+
+	local root_code
+	root_code=$(fresh_get_root_code) || return 1
+	local backup_dir="$CFG_NODES_DIR/$root_code/backup"
+	local dest="$backup_dir/$relpath"
+	local manifest="$CFG_NODES_DIR/$root_code/manifest.txt"
+
+	[ -f "$source" ] || [ -L "$source" ] || return 1
+	mkdir -p -- "$(dirname "$dest")"
+	cp -a -- "$source" "$dest"
+
+	local md5 size
+	md5=$(md5sum < "$source" 2>/dev/null | cut -d' ' -f1)
+	size=$(wc -c < "$source" 2>/dev/null | tr -d ' ')
+	printf '%s\t%s\t%s\t%s\t%s\n' "$relpath" "$md5" "$size" "$status" "$ts" >> "$manifest"
 }
 
 # fresh_remove_from_backup <relpath>
@@ -340,4 +371,166 @@ fresh_create_root_backup() {
 	local count=$((_FRESH_BACKED_CONFIG_COUNT + _FRESH_BACKED_OTHER_COUNT + _FRESH_BACKED_LOCAL_COUNT))
 	printf 'Fresh node created: %s (%d files backed up)\n' "$code" "$count"
 	return 0
+}
+
+# fresh_collect_legacy_adoption_files <legacy_dir> [git_dir]
+# Selects tracked pre-install files from a legacy backup plus current,
+# unmanaged ~/.config files. Current tracked files are deliberately skipped.
+fresh_collect_legacy_adoption_files() {
+	local legacy_dir="$1"
+	local git_dir="${2:-${GIT_DIR:-${DOTCFG_GIT_DIR:-$HOME/.cfg}}}"
+	local source rel
+	local -A seen=() tracked=()
+
+	_FRESH_ADOPT_PATHS=()
+	_FRESH_ADOPT_SOURCES=()
+	_FRESH_ADOPT_STATUSES=()
+	_FRESH_ADOPT_LEGACY_COUNT=0
+	_FRESH_ADOPT_CONFIG_COUNT=0
+
+	while IFS= read -r rel; do
+		[ -n "$rel" ] && tracked["$rel"]=1
+	done < <(git --git-dir="$git_dir/" ls-tree -r --name-only HEAD 2>/dev/null)
+
+	while IFS= read -r -d '' source; do
+		rel="${source#"$legacy_dir"/}"
+		case "$rel" in
+			nodes/*|sessions/*|HEAD|DEPLOY_STATUS|CURRENT_CONFIG_VERSION|index.json|*.tmp) continue ;;
+		esac
+		cfg_is_installation_path "$rel" && continue
+		[ -n "${tracked[$rel]+x}" ] || continue
+		seen["$rel"]=1
+		_FRESH_ADOPT_PATHS+=("$rel")
+		_FRESH_ADOPT_SOURCES+=("$source")
+		_FRESH_ADOPT_STATUSES+=("legacy_backup")
+		_FRESH_ADOPT_LEGACY_COUNT=$((_FRESH_ADOPT_LEGACY_COUNT + 1))
+	done < <(find "$legacy_dir" \( -type f -o -type l \) -print0 2>/dev/null)
+
+	if [ -d "$HOME/.config" ]; then
+		while IFS= read -r -d '' source; do
+			rel="${source#"$HOME"/}"
+			[ -n "${seen[$rel]+x}" ] && continue
+			[ -n "${tracked[$rel]+x}" ] && continue
+			fresh_exclude_is_excluded "$rel" && continue
+			seen["$rel"]=1
+			_FRESH_ADOPT_PATHS+=("$rel")
+			_FRESH_ADOPT_SOURCES+=("$source")
+			_FRESH_ADOPT_STATUSES+=("untracked_config_at_adoption")
+			_FRESH_ADOPT_CONFIG_COUNT=$((_FRESH_ADOPT_CONFIG_COUNT + 1))
+		done < <(find "$HOME/.config" \( -type f -o -type l \) -print0 2>/dev/null)
+	fi
+}
+
+# fresh_adopt_legacy <legacy_dir> [--dry-run] [--config-version VERSION]
+# Reconstructs a Fresh root for systems installed before dotcfg existed.
+fresh_adopt_legacy() {
+	local legacy_dir=""
+	local dry_run=false
+	local config_version=""
+	local git_dir="${DOTCFG_GIT_DIR:-$HOME/.cfg}"
+	local backup_root="${DOTCFG_BACKUP_ROOT:-$HOME/.config-backup}"
+	local arg
+
+	while [ $# -gt 0 ]; do
+		arg="$1"
+		case "$arg" in
+			--dry-run) dry_run=true ;;
+			--config-version)
+				shift
+				[ $# -gt 0 ] || { printf 'ERROR: --config-version requires a value.\n' >&2; return 2; }
+				config_version="$1"
+				;;
+			--config-version=*) config_version="${arg#*=}" ;;
+			-*) printf 'ERROR: unknown option: %s\n' "$arg" >&2; return 2 ;;
+			*)
+				[ -z "$legacy_dir" ] || { printf 'ERROR: only one legacy directory is allowed.\n' >&2; return 2; }
+				legacy_dir="$arg"
+				;;
+		esac
+		shift
+	done
+
+	[ -n "$legacy_dir" ] || legacy_dir="$backup_root"
+	legacy_dir="${legacy_dir%/}"
+	case "$legacy_dir" in
+		\~/*) legacy_dir="$HOME/${legacy_dir#\~/}" ;;
+	esac
+	if [ "$legacy_dir" = "$HOME/.config-backup.bak" ]; then
+		printf 'ERROR: emergency backup %s is intentionally excluded and cannot be adopted.\n' "$legacy_dir" >&2
+		return 1
+	fi
+	[ -d "$legacy_dir" ] || { printf 'ERROR: legacy backup directory not found: %s\n' "$legacy_dir" >&2; return 1; }
+	legacy_dir=$(cd -- "$legacy_dir" && pwd -P)
+	git --git-dir="$git_dir/" rev-parse --verify HEAD >/dev/null 2>&1 || {
+		printf 'ERROR: valid dotfiles repository not found at %s.\n' "$git_dir" >&2
+		return 1
+	}
+
+	if [ -f "$backup_root/HEAD" ] || [ -f "$backup_root/nodes/index.json" ]; then
+		printf 'ERROR: node metadata already exists in %s; refusing to replace it.\n' "$backup_root" >&2
+		return 1
+	fi
+
+	if [ -z "$config_version" ]; then
+		config_version=$(cfg_config_version_latest 2>/dev/null) || config_version=""
+	fi
+	if [ -n "$config_version" ] && ! cfg_config_version_read "$config_version" >/dev/null 2>&1; then
+		printf 'ERROR: category version %s not found.\n' "$config_version" >&2
+		return 1
+	fi
+
+	fresh_collect_legacy_adoption_files "$legacy_dir" "$git_dir"
+	local total=${#_FRESH_ADOPT_PATHS[@]}
+	local total_size=0 size i
+	for ((i = 0; i < total; i++)); do
+		size=$(wc -c < "${_FRESH_ADOPT_SOURCES[$i]}" 2>/dev/null | tr -d ' ')
+		[[ "$size" =~ ^[0-9]+$ ]] && total_size=$((total_size + size))
+	done
+
+	printf 'Legacy Fresh adoption plan:\n'
+	printf '  Legacy tracked originals: %d files\n' "$_FRESH_ADOPT_LEGACY_COUNT"
+	printf '  Current unmanaged ~/.config/: %d files\n' "$_FRESH_ADOPT_CONFIG_COUNT"
+	printf '  Total: %d files (%s)\n' "$total" "$(fresh_format_size "$total_size")"
+	printf '  Config version for new nodes: %s\n' "${config_version:-bootstrap}"
+	for ((i = 0; i < total; i++)); do
+		printf '  %-30s %s <- %s\n' "[${_FRESH_ADOPT_STATUSES[$i]}]" \
+			"${_FRESH_ADOPT_PATHS[$i]}" "${_FRESH_ADOPT_SOURCES[$i]}"
+	done
+
+	if $dry_run; then
+		printf 'DRY RUN: no files or node metadata were changed.\n'
+		return 0
+	fi
+	[ "$total" -gt 0 ] || { printf 'ERROR: no eligible files found; Fresh root was not created.\n' >&2; return 1; }
+
+	cfg_nodes_init "$backup_root"
+	local code
+	code=$(cfg_node_create "fresh" "null" "$FRESH_BOOTSTRAP_VERSION" "$FRESH_ROOT_CODE") || return 1
+	mkdir -p "$CFG_NODES_DIR/$code/backup"
+	chmod 700 "$CFG_NODES_DIR/$code/backup" 2>/dev/null || true
+	fresh_manifest_write_header "$code"
+
+	local failed=0
+	for ((i = 0; i < total; i++)); do
+		if ! fresh_copy_source_to_backup "${_FRESH_ADOPT_SOURCES[$i]}" \
+			"${_FRESH_ADOPT_PATHS[$i]}" "${_FRESH_ADOPT_STATUSES[$i]}"; then
+			printf 'ERROR: failed to adopt %s.\n' "${_FRESH_ADOPT_SOURCES[$i]}" >&2
+			failed=$((failed + 1))
+			break
+		fi
+	done
+	if [ "$failed" -gt 0 ]; then
+		cfg_nodes_delete "$code" 2>/dev/null || true
+		rm -rf -- "$CFG_NODES_DIR/$code"
+		return 1
+	fi
+
+	cfg_head_set "$code"
+	cfg_deploy_status_set "deployed"
+	if [ -n "$config_version" ]; then
+		cfg_config_version_set "$config_version"
+	else
+		printf '%s\n' "$FRESH_BOOTSTRAP_VERSION" > "$backup_root/CURRENT_CONFIG_VERSION"
+	fi
+	printf 'Fresh root created from legacy backup: %s (%d files).\n' "$code" "$total"
 }

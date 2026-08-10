@@ -13,6 +13,22 @@
 
 根目录 dotfile 是兼容链接。规范内容应位于 `.config` 或 `.local`；不得用重复文件替代根链接。
 
+### 部署 category 与安装基础设施
+
+`categories-1.0.0.conf` 是首个正式稳定定义，提供三种部署目标：`full` 动态取 HEAD 的全部跟踪
+文件；`min` 部署 Linux 命令行配置；`macos` 部署 Bash、Zsh、Git、Tmux、npm 等跨平台核心配置。
+`min` 继承 `macos`，两者都不部署普通 `.local/bin/` 辅助脚本。`categories-0.1.0.conf` 标记为
+`TAG=test`，只承担解析、继承和展示测试，不是生产部署默认值。
+
+category 只控制用户配置集合。`.local/bin/dotcfg` 与 `.local/lib/dotfiles/` 是独立安装基础设施，
+在 fresh、full、min、macos 及 undeploy/uninstall 中都保留；完全移除由用户按命令提示手动执行。
+旧 `desktop/server` 名称仅是 `full/min` 的兼容入口，新节点和文档不得继续采用旧名称。
+
+Fresh 是恢复锚点，不是另一个 category。新设备由 bootstrap 按混合规则创建；早期安装设备可用
+显式旧备份采纳流程重建。采纳只信任旧备份中的仓库跟踪原件，并补充当前未跟踪、未排除的
+`.config/` 文件，不能把当前已部署的跟踪内容当作安装前状态。实现细节和操作边界见
+[安装系统](installation-system.md)。
+
 ## 目录与运行关系
 
 | 层级 | 规范路径 | 职责 |

@@ -44,7 +44,7 @@ teardown() {
 	assert_file_exists ".gitconfig"
 
 	# State should be desktop
-	assert_state_is "desktop"
+	assert_state_is "full"
 }
 
 # TC-23: Restore with modified files → backup created
@@ -146,7 +146,7 @@ teardown() {
 	assert_cfg_exists
 	assert_file_exists ".bashrc"
 	assert_file_exists ".xinitrc"
-	assert_state_is "desktop"
+	assert_state_is "full"
 }
 
 @test "TC-26b: switch-desktop in desktop state accepts --reinstall" {
@@ -161,5 +161,5 @@ teardown() {
 	# Should have reinstalled (files still exist)
 	assert_file_exists ".bashrc"
 	assert_file_exists ".xinitrc"
-	assert_state_is "desktop"
+	assert_state_is "full"
 }

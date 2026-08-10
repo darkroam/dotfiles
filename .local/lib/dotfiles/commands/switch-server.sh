@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
-# switch-server.sh - Forward to unified switch.sh
-exec bash "$(dirname "$0")/switch.sh" --type=server "$@"
+# switch-server.sh - Legacy alias for the min category
+exec bash "$(dirname "$0")/switch.sh" --type=min "$@"

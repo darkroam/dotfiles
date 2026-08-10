@@ -13,6 +13,7 @@ _FRESH_EXCLUDE_HARDCODED=(
 	# System itself
 	".cfg/*"
 	".config-backup/*"
+	".config-backup.bak/*"
 	".cfg-checkout-state"
 	".local/bin/dotcfg"
 	".local/lib/dotfiles/*"
@@ -29,6 +30,11 @@ _FRESH_EXCLUDE_HARDCODED=(
 	".thumbnails/*"
 	".npm/*"
 	".cargo/*"
+	# Application caches and mutable browser/runtime state
+	".config/microsoft-edge/*"
+	".config/nvm/*"
+	".config/chromium/*"
+	".config/google-chrome-for-testing/*"
 	# Temp files and logs
 	".bash_history"
 	".zsh_history"

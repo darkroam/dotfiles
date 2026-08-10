@@ -139,7 +139,7 @@ _repair_rebuild_index() {
 	# Second pass: build entries
 	for d in "${dirs[@]}"; do
 		code="${d##*/}"
-		type="desktop"
+		type="full"
 		if [ "$code" = "$root_found" ]; then
 			type="fresh"
 		elif [ -f "$d/manifest.txt" ] && grep -q '# Type:.*fresh' "$d/manifest.txt" 2>/dev/null; then

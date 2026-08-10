@@ -36,7 +36,7 @@ teardown() {
 	assert_backup_count 0
 
 	# State should be desktop after install (xinitrc is a desktop indicator)
-	assert_state_is "desktop"
+	assert_state_is "full"
 }
 
 # TC-12: Fresh install with pre-existing user files → backup created

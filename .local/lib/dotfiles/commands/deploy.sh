@@ -17,7 +17,7 @@ cfg_nodes_init "$backup_root"
 
 current_code=$(cfg_head_get) || {
 	printf 'ERROR: no current node (HEAD not set)\n' >&2
-	printf 'Run '\''dotcfg switch desktop'\'' or '\''dotcfg switch server'\'' first.\n' >&2
+	printf 'Run '\''dotcfg switch full'\'' or '\''dotcfg switch min'\'' first.\n' >&2
 	exit 1
 }
 
@@ -25,6 +25,7 @@ node_type=$(cfg_node_get "$current_code" "type") || {
 	printf 'ERROR: node %s not found in index\n' "$current_code" >&2
 	exit 1
 }
+node_type=$(cfg_category_canonical_name "$node_type")
 
 deploy_status=$(cfg_deploy_status_get)
 
@@ -64,8 +65,10 @@ if [ -n "$node_version" ] && [ "$node_version" != "unknown" ]; then
 			fallback_ver=$(cfg_config_version_get_current 2>/dev/null) || fallback_ver=""
 			[ -z "$fallback_ver" ] && fallback_ver=$(cfg_config_version_latest 2>/dev/null) || fallback_ver=""
 			if [ -n "$fallback_ver" ]; then
+				node_version="$fallback_ver"
 				cfg_categories_load "$fallback_ver"
 			else
+				node_version=""
 				cfg_categories_load
 			fi
 		else
@@ -82,24 +85,15 @@ else
 	cfg_categories_load
 fi
 
-cfg_get_files_for_state "$git_dir" "$node_type"
+cfg_get_files_for_state "$git_dir" "$node_type" "${node_version:-}"
 
 to_checkout=("${CFG_TO_INSTALL[@]}" "${CFG_TO_SKIP[@]}")
 to_backup=("${CFG_TO_BACKUP[@]}")
 
-# Also include files already tracked that match the node type
-mapfile -t all_tracked < <(config ls-tree -r --name-only HEAD 2>/dev/null)
-if [ "$node_type" = "server" ]; then
-	node_file_list=$(cfg_category_get_files "server")
-	to_checkout=()
-	for path in "${all_tracked[@]}"; do
-		if printf '%s\n' "$node_file_list" | grep -qFx "$path"; then
-			to_checkout+=("$path")
-		fi
-	done
-else
-	to_checkout=("${all_tracked[@]}")
-fi
+# A forced deploy restores the complete target category, including the
+# installation infrastructure shared by every category.
+mapfile -t to_checkout < <(cfg_get_tracked_files_for_state \
+	"$git_dir" "$node_type" "${node_version:-}")
 
 # ── Pre-deployment report ─────────────────────────────────────────────
 
@@ -144,6 +138,7 @@ node_files_dir="$backup_root/nodes/$current_code/files"
 mkdir -p "$node_files_dir"
 
 for path in "${to_checkout[@]}"; do
+	cfg_is_installation_path "$path" && continue
 	if [ -e "$HOME/$path" ] || [ -L "$HOME/$path" ]; then
 		mkdir -p "$node_files_dir/$(dirname "$path")"
 		cp -a "$HOME/$path" "$node_files_dir/$path" 2>/dev/null || true
@@ -152,7 +147,7 @@ done
 
 # ── Record checkout state ─────────────────────────────────────────────
 
-cfg_record_checkout_state "$git_dir"
+cfg_record_checkout_state_for_category "$git_dir" "$node_type" "${node_version:-}"
 
 # ── Update deploy status ──────────────────────────────────────────────
 

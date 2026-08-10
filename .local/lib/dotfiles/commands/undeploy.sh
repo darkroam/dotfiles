@@ -102,6 +102,9 @@ fi
 
 removed=0
 for path in "${files_to_remove[@]+"${files_to_remove[@]}"}"; do
+	if cfg_is_installation_path "$path"; then
+		continue
+	fi
 	target="$HOME/$path"
 	if [ -e "$target" ] || [ -L "$target" ]; then
 		rm -f -- "$target"

@@ -12,6 +12,7 @@ bootstrap_finish_install() {
 	. "$DOTFILES_LIB_DIR/utils/rollback.sh"
 	. "$DOTFILES_LIB_DIR/utils/checkout.sh"
 	. "$DOTFILES_LIB_DIR/utils/repo.sh"
+	. "$DOTFILES_LIB_DIR/utils/categories.sh"
 	. "$DOTFILES_LIB_DIR/utils/files.sh"
 	. "$DOTFILES_LIB_DIR/utils/nodes.sh"
 	. "$DOTFILES_LIB_DIR/utils/exclude.sh"
@@ -36,14 +37,20 @@ bootstrap_finish_install() {
 
 	# ── Step 4: checkout configuration files ──────────────────────────
 	printf '\n=== Checking out configuration files ===\n'
-	cfg_categories_load 2>/dev/null || true
+	local selected_version=""
+	selected_version=$(cfg_config_version_latest 2>/dev/null) || selected_version=""
+	if [ -n "$selected_version" ]; then
+		cfg_categories_load "$selected_version"
+	else
+		cfg_categories_load
+	fi
 
 	local files=()
 	local f
-	if cfg_category_exists "server" 2>/dev/null; then
+	if cfg_category_exists "min" 2>/dev/null; then
 		while IFS= read -r f; do
 			[ -n "$f" ] && files+=("$f")
-		done < <(cfg_category_get_files "server" "$GIT_DIR" 2>/dev/null)
+		done < <(cfg_get_tracked_files_for_state "$GIT_DIR" "min" "$selected_version" 2>/dev/null)
 	else
 		while IFS= read -r f; do
 			[ -n "$f" ] && files+=("$f")
@@ -77,15 +84,16 @@ bootstrap_finish_install() {
 	fi
 
 	git --git-dir="$GIT_DIR/" --work-tree="$HOME" config status.showUntrackedFiles no 2>/dev/null || true
-	cfg_record_checkout_state "$GIT_DIR" 2>/dev/null || true
+	cfg_record_checkout_state_for_category "$GIT_DIR" "min" "$selected_version" 2>/dev/null || true
 
 	# ── Step 6: done ──────────────────────────────────────────────────
 	printf '\n=== Installation complete ===\n\n'
 	printf 'Fresh root node: %s\n' "$root_code"
 	printf 'Current state: fresh (deployed)\n\n'
 	printf 'Next steps:\n'
-	printf '  dotcfg switch desktop   Install full desktop configuration\n'
-	printf '  dotcfg switch server    Install server configuration\n'
+	printf '  dotcfg switch full      Install all managed configuration\n'
+	printf '  dotcfg switch min       Install command-line configuration\n'
+	printf '  dotcfg switch macos     Install cross-platform core configuration\n'
 	printf '  dotcfg status           Show current state\n'
 	printf '  dotcfg fresh-status     Show fresh node backup details\n'
 	return 0

@@ -31,6 +31,7 @@ teardown() {
 	[ -f "$HOME/.local/lib/dotfiles/cfg-validate.sh" ]
 	[ -f "$HOME/.local/lib/dotfiles/utils/fresh.sh" ]
 	[ -f "$HOME/.local/lib/dotfiles/utils/exclude.sh" ]
+	[ ! -e "$HOME/.local/bin/ordinary-tool" ]
 
 	# Repository cloned
 	[ -d "$HOME/.cfg" ]
@@ -45,6 +46,7 @@ teardown() {
 	[ "$(cat "$HOME/.config-backup/HEAD")" = "fresh_root" ]
 	[ "$(cat "$HOME/.config-backup/DEPLOY_STATUS")" = "deployed" ]
 	[ "$(cat "$HOME/.config-backup/CURRENT_CONFIG_VERSION")" = "bootstrap" ]
+	! grep -q '^\.local/bin/ordinary-tool:' "$HOME/.cfg-checkout-state"
 }
 
 # TC-B02: Existing foreign repository is refused

@@ -38,7 +38,7 @@ teardown() {
 	assert_file_exists ".config/tmux/tmux.conf"
 
 	# State should be server
-	assert_state_is "server"
+	assert_state_is "min"
 }
 
 # TC-27: Restore-server with modified files → backup created
@@ -87,7 +87,7 @@ teardown() {
 	assert_backup_count 0
 
 	# State should still be desktop
-	assert_state_is "desktop"
+	assert_state_is "full"
 
 	[[ "$output" == *"DRY RUN"* ]]
 }
@@ -105,7 +105,7 @@ teardown() {
 	assert_show_untracked_no
 
 	# State should be server
-	assert_state_is "server"
+	assert_state_is "min"
 
 	# Desktop-only files should not exist
 	assert_file_not_exists ".xinitrc"
@@ -127,7 +127,7 @@ teardown() {
 	assert_file_exists ".gitconfig"
 	# Desktop files should NOT be installed
 	assert_file_not_exists ".xinitrc"
-	assert_state_is "server"
+	assert_state_is "min"
 }
 
 @test "TC-30b: switch-server in server state accepts --reinstall" {
@@ -145,5 +145,5 @@ teardown() {
 
 	# Should have reinstalled server files
 	assert_file_exists ".bashrc"
-	assert_state_is "server"
+	assert_state_is "min"
 }

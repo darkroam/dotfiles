@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # dotcfg.bats - Tests for the unified dotcfg CLI
-# TC-44 through TC-60
+# TC-44 through TC-61
 
 load helpers.bash
 
@@ -19,26 +19,26 @@ teardown() {
 	run run_dotcfg status
 	[ "$status" -eq 0 ]
 	assert_output_contains "fresh"
-	assert_output_contains "desktop"
-	assert_output_contains "server"
+	assert_output_contains "full"
+	assert_output_contains "min"
 	assert_output_contains "Available operations"
 }
 
-@test "TC-45: status shows desktop state when indicators present" {
+@test "TC-45: status shows full state when indicators present" {
 	create_mock_cfg_repo ".bashrc" ".local/bin/dotcfg"
 	touch "$HOME/.xinitrc"
 
 	run run_dotcfg status
 	[ "$status" -eq 0 ]
-	assert_output_contains "desktop"
+	assert_output_contains "full"
 }
 
-@test "TC-46: status shows server state without desktop indicators" {
+@test "TC-46: status shows min state without graphical indicators" {
 	create_mock_cfg_repo ".bashrc" ".local/bin/dotcfg"
 
 	run run_dotcfg status
 	[ "$status" -eq 0 ]
-	assert_output_contains "server"
+	assert_output_contains "min"
 }
 
 # ── list subcommand ────────────────────────────────────────────────────
@@ -84,8 +84,8 @@ teardown() {
 	run run_dotcfg history
 	[ "$status" -eq 0 ]
 	assert_output_contains "fresh"
-	assert_output_contains "desktop"
-	assert_output_contains "server"
+	assert_output_contains "full"
+	assert_output_contains "min"
 	assert_output_contains "HEAD"
 }
 
@@ -101,7 +101,7 @@ teardown() {
 
 	run run_dotcfg history
 	[ "$status" -eq 0 ]
-	assert_output_contains "desktop"
+	assert_output_contains "full"
 	assert_output_contains "HEAD"
 	[[ "$output" != *"invalid"* ]] || true
 	[[ "$output" != *"random"* ]] || true
@@ -127,7 +127,7 @@ teardown() {
 	run bash -c "yes | bash '$DOTCFG' switch desktop"
 	[ "$status" -eq 0 ]
 	assert_cfg_exists
-	assert_state_is "desktop"
+	assert_state_is "full"
 }
 
 @test "TC-55: switch desktop to server invokes restore-server" {
@@ -136,7 +136,7 @@ teardown() {
 
 	run bash -c "yes | bash '$DOTCFG' switch server"
 	[ "$status" -eq 0 ]
-	assert_state_is "server"
+	assert_state_is "min"
 }
 
 @test "TC-56: switch --dry-run is passed through to underlying script" {
@@ -155,7 +155,7 @@ teardown() {
 
 	run run_dotcfg validate
 	[ "$status" -eq 0 ]
-	assert_output_contains "server"
+	assert_output_contains "min"
 	assert_output_contains "Installation state"
 }
 
@@ -241,4 +241,25 @@ EOF
 	[ "$status" -eq 0 ]
 	assert_output_contains "TEST configuration version"
 	[ ! -f "$test_lib/categories-90.0.0.conf" ]
+}
+
+@test "TC-61: official category version exposes full, min and macos only" {
+	export DOTFILES_LIB_DIR="$REAL_HOME/.local/lib/dotfiles"
+	run run_dotcfg categories show 1.0.0
+	[ "$status" -eq 0 ]
+	assert_output_contains "Tag: stable"
+	assert_output_contains "macos"
+	assert_output_contains "min"
+	assert_output_contains "full"
+	[[ "$output" != *"empty"* ]]
+
+	run bash -c '
+		. "$DOTFILES_LIB_DIR/utils/common.sh"
+		cfg_categories_load 1.0.0
+		cfg_category_canonical_name desktop
+		printf " "
+		cfg_category_canonical_name server
+	'
+	[ "$status" -eq 0 ]
+	[ "$output" = "full min" ]
 }
