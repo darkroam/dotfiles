@@ -46,6 +46,7 @@
 - [挂起项目](planning/suspended.md) — 暂缓的工作和恢复条件
 - [变更历史](planning/history.md) — 已完成的工作记录
 - [跨发行版审计流程](planning/dependency-audit.md) — 可复用的审计流程和基线
+- [dotcfg 内部重构计划](planning/dotcfg-refactor.md) — 已确认的分阶段重构方案、基线和验收门槛
 - [全量审查问题清单](audits/2026-07-31-full-review.md) — 2026-07-31 审计发现的 112 项问题（已全部修复）
 - [配置全量审计修改](audits/2026-08-04-full-review.md) — 2026-08-04 审计修改计划 64 项（已全部完成）
 

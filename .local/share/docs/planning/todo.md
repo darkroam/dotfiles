@@ -13,6 +13,7 @@
 - [ ] 决定是否重写已发布 Git 历史，以移除历史作者/提交者邮箱元数据和旧跟踪
   `.gitconfig` 身份。此操作需要协调 force-push，不能轻率执行。
 - [ ] 已跟踪功能或所需命令变化时，更新 `dependencies.md`。
+- [ ] 按[dotcfg 内部重构计划](dotcfg-refactor.md)分阶段降低加载耦合、外部化策略配置并优化节点/category 查询；每阶段保持用户接口和 181 个受管测试可用。
 - [ ] 海光 CPU 温度传感器支持：k10temp 驱动已加载但不识别 Hygon C86-4G (3450M) 的
   DF_F3 设备 `[1d94:14d3]`（上游仅支持 `[1d94:1463]`）。需给 k10temp 打补丁在
   `k10temp_id_table` 中添加 `{ PCI_VDEVICE(HYGON, 0x14d3) }` 并重新编译模块；
