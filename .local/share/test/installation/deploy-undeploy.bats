@@ -126,13 +126,19 @@ run_undeploy() {
 
 	mkdir -p "$HOME/.config-backup/nodes/$root_code/backup"
 	echo "pre-install bashrc" > "$HOME/.config-backup/nodes/$root_code/backup/.bashrc"
-	printf '.bashrc\tabc123\tmodified\n' > "$HOME/.config-backup/nodes/$root_code/manifest.txt"
+	mkdir -p "$HOME/.config-backup/nodes/$root_code/backup/.config/shell"
+	echo "pre-install zprofile" > "$HOME/.config-backup/nodes/$root_code/backup/.config/shell/zprofile"
+	ln -s .config/shell/zprofile "$HOME/.config-backup/nodes/$root_code/backup/.zprofile"
+	printf '.bashrc\tabc123\tmodified\n.zprofile\tdef456\tmodified\n.config/shell/zprofile\tghi789\tmodified\n' \
+		> "$HOME/.config-backup/nodes/$root_code/manifest.txt"
 
 	rm -f "$HOME/.bashrc"
 
 	run run_undeploy
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"Undeploy Complete"* ]]
+	assert_is_symlink ".zprofile"
+	[ "$(readlink "$HOME/.zprofile")" = ".config/shell/zprofile" ]
 }
 
 @test "TC-U04: undeploy --dry-run makes no changes" {
@@ -160,4 +166,6 @@ run_undeploy() {
 	run run_undeploy --force
 	[ "$status" -eq 0 ]
 	[ "$(cfg_deploy_status_get)" = "uninstalled" ]
+	assert_file_exists ".local/bin/dotcfg"
+	assert_file_exists ".local/lib/dotfiles/cfg-validate.sh"
 }

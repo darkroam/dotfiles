@@ -120,7 +120,7 @@ if ((${#to_checkout[@]} > 0)); then
 	if cfg_should_rollback "$failed" "${#to_checkout[@]}"; then
 		cfg_print_rollback_reason "$failed" "${#to_checkout[@]}"
 		if [ -d "$backup_root/nodes/$current_code/backup" ]; then
-			mapfile -t backup_paths < <(find "$backup_root/nodes/$current_code/backup" -type f -printf '%P\n' 2>/dev/null)
+			mapfile -t backup_paths < <(find "$backup_root/nodes/$current_code/backup" \( -type f -o -type l \) -printf '%P\n' 2>/dev/null)
 			if ((${#backup_paths[@]} > 0)); then
 				cfg_rollback_from_backup "$backup_root/nodes/$current_code/backup" "${backup_paths[@]}"
 			fi

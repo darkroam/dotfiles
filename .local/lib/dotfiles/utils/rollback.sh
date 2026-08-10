@@ -62,7 +62,7 @@ cfg_rollback_from_backup() {
 	for path in "${files[@]}"; do
 		local backup_path="$backup_dir/$path"
 		local target_path="$HOME/$path"
-		if [ -e "$backup_path" ]; then
+		if [ -e "$backup_path" ] || [ -L "$backup_path" ]; then
 			{ [ -e "$target_path" ] || [ -L "$target_path" ]; } && rm -f -- "$target_path"
 			mkdir -p -- "$(dirname "$target_path")"
 			mv -- "$backup_path" "$target_path" 2>/dev/null || \
@@ -97,7 +97,7 @@ cfg_restore_node_backup() {
 		local backup_path="$backup_dir/$rel_path"
 		local target_path="$HOME/$rel_path"
 
-		if [ -e "$backup_path" ]; then
+		if [ -e "$backup_path" ] || [ -L "$backup_path" ]; then
 			{ [ -e "$target_path" ] || [ -L "$target_path" ]; } && rm -f -- "$target_path"
 			mkdir -p -- "$(dirname "$target_path")"
 			if mv -- "$backup_path" "$target_path" 2>/dev/null; then
@@ -131,7 +131,7 @@ cfg_remove_deployed_files() {
 			rm -f -- "$target"
 			((removed++)) || true
 		fi
-	done < <(find "$files_dir" -type f -printf '%P\n' 2>/dev/null)
+	done < <(find "$files_dir" \( -type f -o -type l \) -printf '%P\n' 2>/dev/null)
 
 	printf '%d' "$removed"
 }

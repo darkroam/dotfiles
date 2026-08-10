@@ -113,8 +113,10 @@ setup_bootstrap_env() {
 		git init >/dev/null 2>&1
 		git config user.email "test@test.com"
 		git config user.name "Test"
-		mkdir -p .config/ignored .local/bin .local/lib .local/share
+		mkdir -p .config/ignored .config/shell .local/bin .local/lib .local/share
 		printf 'repository tracked config\n' > .config/ignored/tracked.conf
+		printf 'repository zprofile target\n' > .config/shell/zprofile
+		ln -s .config/shell/zprofile .zprofile
 		printf 'repository bashrc\n' > .bashrc
 		printf 'tracked local data\n' > .local/share/tracked-test.conf
 		printf '#!/bin/sh\n' > .local/bin/ordinary-tool
@@ -529,7 +531,7 @@ assert_node_backup_exists() {
 	local found=false
 	for node_dir in "$nodes_dir"/*/; do
 		[ -d "$node_dir/backup" ] || continue
-		if find "$node_dir/backup" -type f -print -quit 2>/dev/null | grep -q .; then
+		if find "$node_dir/backup" \( -type f -o -type l \) -print -quit 2>/dev/null | grep -q .; then
 			found=true
 			break
 		fi
@@ -549,7 +551,7 @@ assert_node_backup_count() {
 			# The fresh root backup is separate from transition backups.
 			[ "$(basename "$node_dir")" = "fresh_root" ] && continue
 			[ -d "$node_dir/backup" ] || continue
-			if find "$node_dir/backup" -type f -print -quit 2>/dev/null | grep -q .; then
+			if find "$node_dir/backup" \( -type f -o -type l \) -print -quit 2>/dev/null | grep -q .; then
 				((count++)) || true
 			fi
 		done
@@ -570,7 +572,7 @@ assert_node_backup_contains() {
 	local found=false
 	for node_dir in "$nodes_dir"/*/; do
 		[ -d "$node_dir/backup" ] || continue
-		if [ -e "$node_dir/backup/$relative_path" ]; then
+		if [ -e "$node_dir/backup/$relative_path" ] || [ -L "$node_dir/backup/$relative_path" ]; then
 			found=true
 			break
 		fi

@@ -37,6 +37,8 @@ teardown() {
 
 	# .cfg should still exist (manual removal required)
 	assert_cfg_exists
+	assert_file_exists ".local/bin/dotcfg"
+	assert_file_exists ".local/lib/dotfiles/cfg-validate.sh"
 
 	# Checkout state should be removed
 	assert_checkout_state_not_exists
@@ -50,6 +52,9 @@ teardown() {
 	# Simulate fresh install with pre-existing user files (creates backup)
 	echo "user's original bashrc" > "$HOME/.bashrc"
 	echo "user's original gitconfig" > "$HOME/.gitconfig"
+	mkdir -p "$HOME/.config/shell"
+	echo "user's original zprofile" > "$HOME/.config/shell/zprofile"
+	ln -s .config/shell/zprofile "$HOME/.zprofile"
 
 	run run_install_desktop
 	[ "$status" -eq 0 ]
@@ -71,6 +76,9 @@ teardown() {
 	assert_file_contains ".bashrc" "user's original bashrc"
 	assert_file_exists ".gitconfig"
 	assert_file_contains ".gitconfig" "user's original gitconfig"
+	assert_is_symlink ".zprofile"
+	[ "$(readlink "$HOME/.zprofile")" = ".config/shell/zprofile" ]
+	assert_file_contains ".config/shell/zprofile" "user's original zprofile"
 }
 
 # TC-32: --dry-run makes no changes

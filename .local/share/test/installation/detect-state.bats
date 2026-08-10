@@ -74,3 +74,28 @@ teardown() {
 	state=$(cfg_detect_state "$HOME/.cfg")
 	[ "$state" = "min" ]
 }
+
+@test "TC-03c: empty .config/x11 directory is not a full indicator" {
+	create_mock_cfg_repo ".bashrc"
+	mkdir -p "$HOME/.config/x11"
+	local state
+	state=$(cfg_detect_state "$HOME/.cfg")
+	[ "$state" = "min" ]
+}
+
+@test "TC-03d: macos HEAD metadata overrides graphical compatibility indicators" {
+	create_mock_cfg_repo ".bashrc"
+	mkdir -p "$HOME/.config/x11"
+	touch "$HOME/.config/x11/xinitrc"
+
+	unset _CFG_NODES_LOADED
+	. "$DOTFILES_LIB_DIR/utils/nodes.sh"
+	cfg_nodes_init "$HOME/.config-backup"
+	local root_code macos_code state
+	root_code=$(cfg_node_create "fresh" "null" "1.0.0")
+	macos_code=$(cfg_node_create "macos" "$root_code" "1.0.0")
+	cfg_head_set "$macos_code"
+
+	state=$(cfg_detect_state "$HOME/.cfg")
+	[ "$state" = "macos" ]
+}

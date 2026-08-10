@@ -63,7 +63,7 @@ if [ -d "$node_files_dir" ]; then
 	while IFS= read -r path; do
 		[ -z "$path" ] && continue
 		files_to_remove+=("$path")
-	done < <(find "$node_files_dir" -type f -printf '%P\n' 2>/dev/null)
+	done < <(find "$node_files_dir" \( -type f -o -type l \) -printf '%P\n' 2>/dev/null)
 fi
 
 if [ -f "$HOME/.cfg-checkout-state" ]; then
@@ -88,7 +88,7 @@ printf 'Files to remove:  %d\n' "${#files_to_remove[@]}"
 
 has_backup=false
 if [ -d "$backup_root/nodes/$current_code/backup" ]; then
-	backup_count=$(find "$backup_root/nodes/$current_code/backup" -type f 2>/dev/null | wc -l)
+	backup_count=$(find "$backup_root/nodes/$current_code/backup" \( -type f -o -type l \) 2>/dev/null | wc -l)
 	printf 'Files to restore: %d\n' "$backup_count"
 	[ "$backup_count" -gt 0 ] && has_backup=true
 fi

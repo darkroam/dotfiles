@@ -49,7 +49,7 @@ cfg_backup_file() {
 	fi
 
 	local md5
-	md5=$(md5sum < "$source_path" 2>/dev/null | cut -d' ' -f1)
+	md5=$(cfg_path_md5 "$source_path")
 
 	mv -- "$source_path" "$backup_path"
 	printf '%s\t%s\t%s\n' "$relative_path" "$md5" "$status" >> "$backup_dir/MANIFEST.txt"
@@ -117,7 +117,7 @@ cfg_backup_file_to_node() {
 	fi
 
 	local md5
-	md5=$(md5sum < "$source_path" 2>/dev/null | cut -d' ' -f1)
+	md5=$(cfg_path_md5 "$source_path")
 
 	mv -- "$source_path" "$backup_path"
 	printf '%s\t%s\t%s\n' "$relative_path" "$md5" "$status" >> "$manifest"

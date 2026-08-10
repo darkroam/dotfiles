@@ -102,6 +102,8 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-01 | 无 `.cfg` → fresh |
 | TC-02a..02d | `.cfg` + 图形指标（.xinitrc / .xprofile / .config/x11/xinitrc / 符号链接）→ full |
 | TC-03a..03b | `.cfg` 无图形指标 → min |
+| TC-03c | 空 `.config/x11/` 目录不是图形指标，仍判定为 min |
+| TC-03d | HEAD 节点类型为 macos 时，节点元数据优先于图形兼容指标 |
 
 ### TC-04..10：备份逻辑（backup-logic.bats）
 
@@ -111,6 +113,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-05 | 文件存在但未跟踪 → 备份 |
 | TC-06 | 文件已跟踪但已修改 → 备份 |
 | TC-07 | 文件已跟踪且相同 → 跳过 |
+| TC-07b | 符号链接按链接文本与 Git blob 比较，不跟随目标内容 |
 | TC-08 | 备份目录命名约定 `(fresh\|desktop\|server)-to-(fresh\|desktop\|server)-[0-9]{8}T[0-9]{6}` |
 | TC-09 | 备份目录权限 0700 |
 | TC-10 | MANIFEST 格式：`relative_path\tmd5\tstatus`（tab 分隔） |
@@ -154,20 +157,20 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-28 | `--dry-run` 预览 |
 | TC-29 | checkout state 和 git 配置更新 |
 
-### TC-30..33, TC-38..43：卸载与恢复（uninstall.bats）
+### TC-30..33, TC-38..44b：卸载与恢复（uninstall.bats）
 
 | 用例 | 描述 |
 |------|------|
-| TC-30 | 移除所有 checkout 文件 |
-| TC-31 | 从最早备份恢复用户文件 |
+| TC-30 | 移除所有 checkout 文件，同时保留 dotcfg 命令与运行库 |
+| TC-31 | 从最早备份恢复用户文件，并保持符号链接类型和链接文本 |
 | TC-32 | `--dry-run` 预览 |
 | TC-33 | 无仓库时报错 |
 | TC-38 | 移除 checkout state 文件 |
 | TC-39 | `--latest` 恢复最新版本 |
 | TC-40 | 多转换链：从所有会话恢复文件 |
 | TC-41 | 幂等性：两次卸载结果相同 |
-| TC-42 | `--clean-backups` 删除所有备份 |
 | TC-43 | 无备份的管理文件直接删除 |
+| TC-44/44b | 按目录名时间戳选择最早/最新备份，不受 mtime 干扰 |
 
 ### TC-34..35：仓库验证（validate.bats）
 
@@ -176,13 +179,27 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-34a..34k | `cfg_validate` 各种仓库状态分类（missing/not_git/foreign_repo/valid） |
 | TC-35 | 库不可用时回退到内联验证 |
 
-### TC-36..37：端到端生命周期（e2e-state-machine.bats）
+### TC-36..39：端到端生命周期（e2e-state-machine.bats）
 
 | 用例 | 描述 |
 |------|------|
 | TC-36 | fresh → full → min → full → fresh（完整循环） |
 | TC-37 | fresh → min → full → min → fresh（反向循环） |
-| TC-38 | full → min 移除普通 `.local/bin` 脚本，保留 dotcfg 安装基础设施 |
+| TC-38 | full → min 移除普通 `.local/bin` 脚本及其 checkout state 项，保留 dotcfg 安装基础设施 |
+| TC-39 | switch 先读取 `CURRENT_CONFIG_VERSION`，再按该版本的 category 选择文件 |
+
+### TC-B01..B03：自举安装（bootstrap.bats）
+
+| 用例 | 描述 |
+|------|------|
+| TC-B01 | 空 HOME 自举安装、建立 Fresh；冲突备份保持符号链接，基础设施不进入 category |
+| TC-B02 | 拒绝覆盖外部仓库 |
+| TC-B03 | 重复执行自举保持幂等 |
+
+### TC-D01..DS02：部署与撤销（deploy-undeploy.bats）
+
+覆盖 HEAD 缺失、重复部署、强制部署、Fresh 节点、dry-run、状态更新和撤销恢复；其中 TC-U03
+验证符号链接按链接本身恢复，TC-DS02 验证撤销后 dotcfg 命令与运行库仍存在。
 
 ### TC-44..61：统一 CLI（dotcfg.bats）
 
@@ -217,7 +234,8 @@ Fresh 选择集。
 
 覆盖 5 列 manifest、track/untrack、统计、diff、update、根节点保护和 `switch fresh`。TC-F12 先
 验证旧备份采纳 dry-run 不创建元数据，再验证只复制旧备份中的跟踪原件和当前未跟踪配置，跳过
-当前跟踪文件、浏览器状态并保持急救备份不变。
+当前跟踪文件、浏览器状态并保持急救备份不变；同时验证符号链接备份及单路径 `fresh-diff` 均按
+链接文本处理。
 
 ### TC-M01..M18：旧会话迁移（migration.bats）
 
@@ -317,8 +335,8 @@ bats -r .local/share/test/ --tap
 **环境**：Debian 13, Git 2.47.2, Bash 5.2.37, Bats 1.11.1
 
 ```
-Total:  174
-Passed: 174
+Total:  178
+Passed: 178
 Failed: 0
 ```
 
@@ -342,4 +360,4 @@ Failed: 0
 ---
 
 **最后更新**: 2026-08-10
-**版本**: 3.2 — 174 个受管测试 + full/min/macos + 旧备份采纳与基础设施不变量
+**版本**: 3.3 — 178 个受管测试 + category 边界 + 符号链接语义 + 基础设施不变量

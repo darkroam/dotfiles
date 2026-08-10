@@ -140,6 +140,7 @@ teardown() {
 	mkdir -p "$HOME/.local/bin" "$HOME/.local/lib/dotfiles"
 	printf 'installed dotcfg sentinel\n' > "$HOME/.local/bin/dotcfg"
 	printf 'installed library sentinel\n' > "$HOME/.local/lib/dotfiles/keep"
+	printf 'installed runtime sentinel\n' > "$HOME/.local/lib/dotfiles/cfg-validate.sh"
 
 	run bash -c "printf 'y\n' | bash '$DOTCFG' switch full"
 	[ "$status" -eq 0 ]
@@ -153,4 +154,44 @@ teardown() {
 	assert_file_not_exists ".local/bin/tool"
 	assert_file_exists ".local/bin/dotcfg"
 	assert_file_exists ".local/lib/dotfiles/keep"
+	! grep -qF '.local/bin/tool:' "$HOME/.cfg-checkout-state"
+	grep -qF '.local/bin/dotcfg:' "$HOME/.cfg-checkout-state"
+	assert_file_exists ".local/lib/dotfiles/cfg-validate.sh"
+}
+
+@test "TC-39: switch loads the CURRENT_CONFIG_VERSION category before selecting files" {
+	local test_lib="$HOME/dotfiles-lib"
+	cp -r "$REAL_HOME/.local/lib/dotfiles" "$test_lib"
+	rm -f -- "$test_lib"/categories-*.conf
+	cat > "$test_lib/categories-80.0.0.conf" <<'EOF'
+# VERSION = "80.0.0"
+# TAG = "stable"
+
+category = macos
++ .old-version-only
+
+category = min
+include = macos
+EOF
+	cat > "$test_lib/categories-81.0.0.conf" <<'EOF'
+# VERSION = "81.0.0"
+# TAG = "stable"
+
+category = macos
++ .new-version-only
+
+category = min
+include = macos
+EOF
+	export DOTFILES_LIB_DIR="$test_lib"
+	setup_source_repo ".old-version-only" ".new-version-only" \
+		".local/bin/dotcfg" ".local/lib/dotfiles/cfg-validate.sh"
+	mkdir -p "$HOME/.config-backup"
+	printf '80.0.0\n' > "$HOME/.config-backup/CURRENT_CONFIG_VERSION"
+
+	run bash -c "printf 'y\n' | bash '$DOTCFG' switch min"
+	[ "$status" -eq 0 ]
+	assert_file_exists ".old-version-only"
+	assert_file_not_exists ".new-version-only"
+	[ "$(cat "$HOME/.config-backup/CURRENT_CONFIG_VERSION")" = "80.0.0" ]
 }

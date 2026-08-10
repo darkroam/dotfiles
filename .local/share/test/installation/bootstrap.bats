@@ -18,6 +18,9 @@ teardown() {
 
 @test "TC-B01: bootstrap installs library, fresh_root node and deploys" {
 	echo "user original" > "$HOME/.bashrc"
+	mkdir -p "$HOME/.config/shell"
+	echo "user zprofile target" > "$HOME/.config/shell/user-zprofile"
+	ln -s .config/shell/user-zprofile "$HOME/.zprofile"
 	[ ! -e "$HOME/.local/bin" ]
 
 	run run_dotcfg status
@@ -41,6 +44,12 @@ teardown() {
 	[ -f "$HOME/.config-backup/nodes/fresh_root/manifest.txt" ]
 	grep -q $'^\.bashrc\t' "$HOME/.config-backup/nodes/fresh_root/manifest.txt"
 	[ -f "$HOME/.config-backup/nodes/fresh_root/backup/.bashrc" ]
+	[ -L "$HOME/.config-backup/nodes/fresh_root/backup/.zprofile" ]
+	[ "$(readlink "$HOME/.config-backup/nodes/fresh_root/backup/.zprofile")" = ".config/shell/user-zprofile" ]
+	[ -L "$HOME/.config-backup/conflict/.zprofile" ]
+	[ "$(readlink "$HOME/.config-backup/conflict/.zprofile")" = ".config/shell/user-zprofile" ]
+	[ -L "$HOME/.zprofile" ]
+	[ "$(readlink "$HOME/.zprofile")" = ".config/shell/zprofile" ]
 
 	# State files
 	[ "$(cat "$HOME/.config-backup/HEAD")" = "fresh_root" ]

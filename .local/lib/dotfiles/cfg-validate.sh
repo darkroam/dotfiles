@@ -20,6 +20,27 @@ CFG_IS_OURS=""      # true | false
 CFG_NEEDS_PULL=""   # true | false
 CFG_REMOTE_URL=""   # Remote origin URL (if any)
 
+# cfg_path_md5 <path>
+# Hashes a symlink's stored link text, matching Git blob semantics. Regular
+# files are hashed by content.
+cfg_path_md5() {
+    local path="$1"
+    if [ -L "$path" ]; then
+        readlink -n -- "$path" | md5sum | cut -d' ' -f1
+    else
+        md5sum < "$path" 2>/dev/null | cut -d' ' -f1
+    fi
+}
+
+cfg_path_size() {
+    local path="$1"
+    if [ -L "$path" ]; then
+        readlink -n -- "$path" | wc -c | tr -d ' '
+    else
+        wc -c < "$path" 2>/dev/null | tr -d ' '
+    fi
+}
+
 # cfg_validate [git_dir]
 # Validates the .cfg repository and sets global variables
 # Returns 0 on success (check CFG_STATE for result)
@@ -199,7 +220,7 @@ cfg_should_backup_file() {
         # File is tracked, compare content
         local repo_hash local_hash
         repo_hash=$(git --git-dir="$git_dir/" --work-tree="$HOME" show HEAD:"$relative_path" 2>/dev/null | md5sum | cut -d' ' -f1)
-        local_hash=$(md5sum < "$full_path" 2>/dev/null | cut -d' ' -f1)
+        local_hash=$(cfg_path_md5 "$full_path")
 
         if [ "$repo_hash" = "$local_hash" ]; then
             return 1  # Content identical, no backup needed

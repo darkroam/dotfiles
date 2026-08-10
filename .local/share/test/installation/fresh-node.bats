@@ -194,13 +194,14 @@ fresh_manifest() {
 	printf 'legacy bashrc\n' > "$HOME/.config-backup/.bashrc"
 	printf 'emergency sentinel\n' > "$HOME/.config-backup.bak/sentinel"
 	printf 'unmanaged setting\n' > "$HOME/.config/app/local.conf"
+	ln -s local.conf "$HOME/.config/app/current-link"
 	printf 'browser cache\n' > "$HOME/.config/microsoft-edge/Cache/data"
 	printf 'currently deployed tracked config\n' > "$HOME/.config/ignored/tracked.conf"
 
 	run run_dotcfg fresh-adopt-legacy "$HOME/.config-backup" --dry-run
 	[ "$status" -eq 0 ]
 	assert_output_contains "Legacy tracked originals: 1 files"
-	assert_output_contains "Current unmanaged ~/.config/: 1 files"
+	assert_output_contains "Current unmanaged ~/.config/: 2 files"
 	assert_output_contains "DRY RUN"
 	[ ! -e "$HOME/.config-backup/nodes/index.json" ]
 
@@ -209,9 +210,22 @@ fresh_manifest() {
 	[ "$(cat "$HOME/.config-backup/HEAD")" = "fresh_root" ]
 	[ -f "$HOME/.config-backup/nodes/fresh_root/backup/.bashrc" ]
 	[ -f "$HOME/.config-backup/nodes/fresh_root/backup/.config/app/local.conf" ]
+	[ -L "$HOME/.config-backup/nodes/fresh_root/backup/.config/app/current-link" ]
+	[ "$(readlink "$HOME/.config-backup/nodes/fresh_root/backup/.config/app/current-link")" = "local.conf" ]
 	[ ! -e "$HOME/.config-backup/nodes/fresh_root/backup/.config/ignored/tracked.conf" ]
 	[ ! -e "$HOME/.config-backup/nodes/fresh_root/backup/.config/microsoft-edge" ]
 	[ "$(cat "$HOME/.config-backup.bak/sentinel")" = "emergency sentinel" ]
 	grep -q $'^\.bashrc\t.*\tlegacy_backup\t' "$(fresh_manifest)"
 	grep -q $'^\.config/app/local.conf\t.*\tuntracked_config_at_adoption\t' "$(fresh_manifest)"
+
+	run run_dotcfg fresh-diff .config/app/current-link
+	[ "$status" -eq 0 ]
+	assert_output_contains "identical symbolic link"
+
+	ln -sfn other.conf "$HOME/.config/app/current-link"
+	run run_dotcfg fresh-diff .config/app/current-link
+	[ "$status" -eq 0 ]
+	assert_output_contains "symbolic link differs"
+	assert_output_contains "fresh:   local.conf"
+	assert_output_contains "current: other.conf"
 }

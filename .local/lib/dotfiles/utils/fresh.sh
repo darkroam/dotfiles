@@ -147,11 +147,11 @@ fresh_copy_to_backup() {
 	[ -f "$source" ] || [ -L "$source" ] || return 1
 
 	mkdir -p -- "$(dirname "$dest")"
-	cp -p -- "$source" "$dest" 2>/dev/null || cp -- "$source" "$dest"
+	cp -a -- "$source" "$dest"
 
 	local md5 size
-	md5=$(md5sum < "$source" 2>/dev/null | cut -d' ' -f1)
-	size=$(wc -c < "$source" 2>/dev/null | tr -d ' ')
+	md5=$(cfg_path_md5 "$source")
+	size=$(cfg_path_size "$source")
 
 	if [ -n "$ts" ]; then
 		printf '%s\t%s\t%s\t%s\t%s\n' "$relpath" "$md5" "$size" "$status" "$ts" >> "$manifest"
@@ -180,8 +180,8 @@ fresh_copy_source_to_backup() {
 	cp -a -- "$source" "$dest"
 
 	local md5 size
-	md5=$(md5sum < "$source" 2>/dev/null | cut -d' ' -f1)
-	size=$(wc -c < "$source" 2>/dev/null | tr -d ' ')
+	md5=$(cfg_path_md5 "$source")
+	size=$(cfg_path_size "$source")
 	printf '%s\t%s\t%s\t%s\t%s\n' "$relpath" "$md5" "$size" "$status" "$ts" >> "$manifest"
 }
 
@@ -483,7 +483,7 @@ fresh_adopt_legacy() {
 	local total=${#_FRESH_ADOPT_PATHS[@]}
 	local total_size=0 size i
 	for ((i = 0; i < total; i++)); do
-		size=$(wc -c < "${_FRESH_ADOPT_SOURCES[$i]}" 2>/dev/null | tr -d ' ')
+		size=$(cfg_path_size "${_FRESH_ADOPT_SOURCES[$i]}")
 		[[ "$size" =~ ^[0-9]+$ ]] && total_size=$((total_size + size))
 	done
 

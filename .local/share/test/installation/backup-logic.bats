@@ -52,6 +52,32 @@ teardown() {
 	[ "$status" -eq 1 ]
 }
 
+@test "TC-07b: tracked symlink compares stored link text" {
+	local work
+	work=$(mktemp -d "/tmp/dotfiles-test-symlink.XXXXXX")
+	(
+		cd "$work"
+		git init >/dev/null 2>&1
+		git config user.email "test@test.com"
+		git config user.name "Test"
+		mkdir -p .config/shell
+		printf 'target\n' > .config/shell/zprofile
+		ln -s .config/shell/zprofile .zprofile
+		git add -A
+		git commit -m symlink >/dev/null 2>&1
+		git clone --bare . "$HOME/.cfg" >/dev/null 2>&1
+	)
+	ln -s .config/shell/zprofile "$HOME/.zprofile"
+
+	run cfg_should_backup_file "$HOME/.cfg" ".zprofile"
+	[ "$status" -eq 1 ]
+
+	ln -sfn .config/shell/other "$HOME/.zprofile"
+	run cfg_should_backup_file "$HOME/.cfg" ".zprofile"
+	[ "$status" -eq 0 ]
+	rm -rf "$work"
+}
+
 # TC-08: backup directory naming convention
 
 @test "TC-08: backup directory follows naming convention" {

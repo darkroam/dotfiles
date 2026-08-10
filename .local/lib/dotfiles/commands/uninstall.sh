@@ -185,7 +185,8 @@ restorable_count=0
 not_in_backup=()
 
 for path in "${files_to_remove[@]}"; do
-	if [ "$CFG_LATEST" != true ] && [ -n "$fresh_root_backup" ] && [ -n "${fresh_in_manifest[$path]+x}" ] && [ -f "$fresh_root_backup/$path" ]; then
+	if [ "$CFG_LATEST" != true ] && [ -n "$fresh_root_backup" ] && [ -n "${fresh_in_manifest[$path]+x}" ] && \
+	   { [ -f "$fresh_root_backup/$path" ] || [ -L "$fresh_root_backup/$path" ]; }; then
 		file_restore_session[$path]="$backup_root/nodes/$fresh_root_code"
 		((restorable_count++)) || true
 	elif [ -n "${file_backup_sessions[$path]+x}" ]; then
@@ -215,8 +216,8 @@ for path in "${files_to_remove[@]}"; do
 		if [ -z "${file_backup_sessions[$path]+x}" ] && { [ -e "$HOME/$path" ] || [ -L "$HOME/$path" ]; }; then
 			deleted_no_fresh+=("$path")
 		fi
-	elif [ -e "$HOME/$path" ]; then
-		cur_md5=$(md5sum "$HOME/$path" 2>/dev/null | awk '{print $1}') || cur_md5=""
+	elif [ -e "$HOME/$path" ] || [ -L "$HOME/$path" ]; then
+		cur_md5=$(cfg_path_md5 "$HOME/$path" 2>/dev/null) || cur_md5=""
 		if [ -n "$cur_md5" ] && [ "$cur_md5" != "${fresh_md5_map[$path]}" ]; then
 			restore_changed+=("$path")
 		fi
@@ -313,16 +314,16 @@ if ((restorable_count > 0)); then
 	for path in "${!file_restore_session[@]}"; do
 		session_dir="${file_restore_session[$path]}"
 		backup_file=""
-		if [ -e "$session_dir/$path" ]; then
+		if [ -e "$session_dir/$path" ] || [ -L "$session_dir/$path" ]; then
 			backup_file="$session_dir/$path"
-		elif [ -e "$session_dir/backup/$path" ]; then
+		elif [ -e "$session_dir/backup/$path" ] || [ -L "$session_dir/backup/$path" ]; then
 			backup_file="$session_dir/backup/$path"
 		fi
 		target="$HOME/$path"
 
 		if [ -n "$backup_file" ]; then
 			mkdir -p "$(dirname "$target")"
-			if cp -- "$backup_file" "$target"; then
+			if cp -a -- "$backup_file" "$target"; then
 				printf 'Restored: %s (from %s)\n' "$path" "$(basename "$session_dir")"
 				((restored++)) || true
 			else

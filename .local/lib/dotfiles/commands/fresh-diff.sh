@@ -37,11 +37,26 @@ if [ -n "$target" ]; then
 		printf 'Error: %s is not in fresh node backup.\n' "$target" >&2
 		exit 1
 	fi
-	if [ ! -f "$HOME/$target" ]; then
+	current_file="$HOME/$target"
+	if [ ! -f "$current_file" ] && [ ! -L "$current_file" ]; then
 		printf '%s: missing in current system (exists in fresh backup)\n' "$target"
 		exit 0
 	fi
-	if diff -u --label "fresh:$target" --label "current:$target" "$backup_file" "$HOME/$target"; then
+	if [ -L "$backup_file" ] || [ -L "$current_file" ]; then
+		fresh_link="regular file"
+		current_link="regular file"
+		[ -L "$backup_file" ] && fresh_link=$(readlink -- "$backup_file")
+		[ -L "$current_file" ] && current_link=$(readlink -- "$current_file")
+		if [ -L "$backup_file" ] && [ -L "$current_file" ] && [ "$fresh_link" = "$current_link" ]; then
+			printf '%s: identical symbolic link (%s)\n' "$target" "$current_link"
+		else
+			printf '%s: symbolic link differs\n' "$target"
+			printf '  fresh:   %s\n' "$fresh_link"
+			printf '  current: %s\n' "$current_link"
+		fi
+		exit 0
+	fi
+	if diff -u --label "fresh:$target" --label "current:$target" "$backup_file" "$current_file"; then
 		printf '%s: identical\n' "$target"
 	fi
 	exit 0
@@ -54,11 +69,11 @@ missing=()
 for ((i = 0; i < ${#_FRESH_MANIFEST_PATHS[@]}; i++)); do
 	path="${_FRESH_MANIFEST_PATHS[$i]}"
 	fresh_md5="${_FRESH_MANIFEST_MD5S[$i]}"
-	if [ ! -f "$HOME/$path" ]; then
+	if [ ! -f "$HOME/$path" ] && [ ! -L "$HOME/$path" ]; then
 		missing+=("$path")
 		continue
 	fi
-	current_md5=$(md5sum < "$HOME/$path" 2>/dev/null | cut -d' ' -f1) || current_md5=""
+	current_md5=$(cfg_path_md5 "$HOME/$path" 2>/dev/null) || current_md5=""
 	if [ "$current_md5" != "$fresh_md5" ]; then
 		modified+=("$path")
 	fi
@@ -84,7 +99,7 @@ if ! $SUMMARY; then
 				break
 			fi
 		done
-		current_md5=$(md5sum < "$HOME/$path" 2>/dev/null | cut -d' ' -f1) || current_md5=""
+		current_md5=$(cfg_path_md5 "$HOME/$path" 2>/dev/null) || current_md5=""
 		printf '  %s: MD5 mismatch (fresh: %s... vs current: %s...)\n' \
 			"$path" "${fresh_md5:0:7}" "${current_md5:0:7}"
 	done
@@ -93,7 +108,7 @@ fi
 printf '\nNew files (%d) - exist in system but not in fresh:\n' "${#new_files[@]}"
 if ! $SUMMARY; then
 	for path in "${new_files[@]}"; do
-		size=$(wc -c < "$HOME/$path" 2>/dev/null | tr -d ' ') || size=0
+		size=$(cfg_path_size "$HOME/$path" 2>/dev/null) || size=0
 		printf '  %s (%s)\n' "$path" "$(fresh_format_size "${size:-0}")"
 	done
 fi

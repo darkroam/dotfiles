@@ -731,7 +731,8 @@ fresh 节点专用，区别于普通节点的 3 列格式：
 - `status` ∈ {`tracked_at_install`（混合选择器在安装或重建时加入）、`tracked_by_user`（用户手动
   track）、`legacy_backup`（旧安装备份中的原件）、`untracked_config_at_adoption`（采纳时的未跟踪
   `.config/` 文件）}
-- 备份采用 **cp 语义**（区别于普通节点备份的 mv 语义），原文件保留在 $HOME
+- 备份采用 **cp 语义**（区别于普通节点备份的 mv 语义），原文件保留在 $HOME；符号链接按链接
+  本身复制和计算摘要，不跟随目标文件
 - 统计信息（文件数/大小/分组）从该 manifest 实时派生，不写入 index.json
 
 ### track / untrack
@@ -1293,6 +1294,8 @@ include = empty
 status 取值：`tracked_at_install`（安装或重建时由混合选择器加入）、`tracked_by_user`（用户
 `dotcfg track` 添加）、`legacy_backup`（旧备份原件）或 `untracked_config_at_adoption`（采纳时的
 未跟踪配置）。
+普通节点和 Fresh 节点都将符号链接视为独立配置对象：复制、备份、摘要、diff 和恢复均使用链接
+文本，不跟随链接目标；失败回滚、undeploy、uninstall 和 autoclean 的文件枚举也包含符号链接。
 节点统计（数量/大小/分组）从该 manifest 派生，不存入 index.json。
 
 ### Checkout 状态记录

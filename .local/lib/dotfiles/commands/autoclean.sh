@@ -186,7 +186,7 @@ for code in "${to_delete[@]}"; do
 			if [ -e "$local_target" ] || [ -L "$local_target" ]; then
 				rm -f -- "$local_target"
 			fi
-		done < <(find "$node_dir/files" -type f -printf '%P\n' 2>/dev/null)
+		done < <(find "$node_dir/files" \( -type f -o -type l \) -printf '%P\n' 2>/dev/null)
 	fi
 
 	if [ -d "$node_dir" ]; then

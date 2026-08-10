@@ -344,7 +344,7 @@ if [ ${#checkout_list[@]} -gt 0 ]; then
 	if cfg_should_rollback "$skipped_checkout" "$total"; then
 		cfg_print_rollback_reason "$skipped_checkout" "$total"
 		if [ -n "$backup_dir" ] && [ -d "$backup_dir" ]; then
-			mapfile -t backup_paths < <(find "$backup_dir" -type f -printf '%P\n' 2>/dev/null)
+			mapfile -t backup_paths < <(find "$backup_dir" \( -type f -o -type l \) -printf '%P\n' 2>/dev/null)
 			if ((${#backup_paths[@]} > 0)); then
 				cfg_rollback_from_backup "$backup_dir" "${backup_paths[@]}"
 			fi

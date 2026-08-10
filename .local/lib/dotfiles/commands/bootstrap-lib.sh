@@ -62,12 +62,12 @@ bootstrap_finish_install() {
 	local conflict_count=0
 	local md5_repo md5_local
 	for f in "${files[@]}"; do
-		[ -f "$HOME/$f" ] || continue
+		[ -f "$HOME/$f" ] || [ -L "$HOME/$f" ] || continue
 		md5_repo=$(git --git-dir="$GIT_DIR/" cat-file blob "HEAD:$f" 2>/dev/null | md5sum | cut -d' ' -f1) || md5_repo=""
-		md5_local=$(md5sum < "$HOME/$f" 2>/dev/null | cut -d' ' -f1) || md5_local=""
+		md5_local=$(cfg_path_md5 "$HOME/$f" 2>/dev/null) || md5_local=""
 		if [ -n "$md5_repo" ] && [ "$md5_repo" != "$md5_local" ]; then
 			mkdir -p -- "$conflict_dir/$(dirname "$f")"
-			cp -p -- "$HOME/$f" "$conflict_dir/$f"
+			cp -a -- "$HOME/$f" "$conflict_dir/$f"
 			conflict_count=$((conflict_count + 1))
 		fi
 	done
