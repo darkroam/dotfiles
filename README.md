@@ -4,7 +4,7 @@ Personal Linux configuration managed as a bare Git repository. Tracked files
 are intended to work from `$HOME`; untracked files are deliberately outside the
 repository.
 
-Last reviewed: 2026-08-05.
+Last reviewed: 2026-08-10.
 
 ## Repository Usage
 
@@ -48,12 +48,17 @@ dotcfg switch desktop    # full desktop environment
 dotcfg switch server     # server/terminal only
 ```
 
-The installer clones into a temporary private directory and preflights tracked targets,
-including file or symlink ancestors that would block a nested path. It then backs
-up conflicts to the Git-ignored, mode `0700` `.config-backup`, preserving their
-directory structure; activates `$HOME/.cfg`; checks out into `$HOME`; and hides
-untracked files from `c status`. It refuses to follow a symlinked backup root or
-overwrite an existing repository, backup parent, or backup target.
+Bootstrap clones the bare repository directly to `$HOME/.cfg`, installs `dotcfg`
+and its library, and creates a `fresh_root` node containing a filtered backup of
+the pre-installation `$HOME`; the root backup directory is mode `0700`.
+Conflicting server-category files are preserved under the Git-ignored
+`$HOME/.config-backup/conflict/` before the baseline server configuration is
+checked out. The repository is then configured to hide untracked files from
+`c status`.
+
+If `$HOME/.cfg` is already this dotfiles repository, bootstrap reuses it and
+restores the installation library from `HEAD`. It stops instead of replacing an
+unrelated or invalid repository at that path.
 
 Install the required programs before expecting every optional feature to work:
 [full dependency inventory](.local/share/docs/project/dependencies.md).

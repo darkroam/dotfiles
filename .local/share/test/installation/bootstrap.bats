@@ -18,10 +18,14 @@ teardown() {
 
 @test "TC-B01: bootstrap installs library, fresh_root node and deploys" {
 	echo "user original" > "$HOME/.bashrc"
+	[ ! -e "$HOME/.local/bin" ]
 
 	run run_dotcfg status
 	[ "$status" -eq 0 ]
 	assert_output_contains "bootstrap installation"
+
+	# Command directory and executable are created from a fresh HOME
+	[ -x "$HOME/.local/bin/dotcfg" ]
 
 	# Library installed into test HOME
 	[ -f "$HOME/.local/lib/dotfiles/cfg-validate.sh" ]

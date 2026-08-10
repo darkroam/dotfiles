@@ -73,9 +73,21 @@ _bootstrap_install() {
     done < <(git --git-dir="$GIT_DIR" ls-tree -r --name-only HEAD)
 
     # Install dotcfg itself
-    if git --git-dir="$GIT_DIR" show "HEAD:.local/bin/dotcfg" > "$BIN_DIR/dotcfg.tmp" 2>/dev/null; then
-        mv -- "$BIN_DIR/dotcfg.tmp" "$BIN_DIR/dotcfg"
-        chmod +x "$BIN_DIR/dotcfg" 2>/dev/null || true
+    if ! mkdir -p -- "$BIN_DIR"; then
+        printf 'ERROR: failed to create command directory: %s\n' "$BIN_DIR" >&2
+        exit 1
+    fi
+
+    local dotcfg_tmp="$BIN_DIR/dotcfg.tmp"
+    if ! git --git-dir="$GIT_DIR" show "HEAD:.local/bin/dotcfg" > "$dotcfg_tmp" 2>/dev/null; then
+        rm -f -- "$dotcfg_tmp"
+        printf 'ERROR: repository does not contain the dotcfg command\n' >&2
+        exit 1
+    fi
+    if ! chmod +x "$dotcfg_tmp" || ! mv -- "$dotcfg_tmp" "$BIN_DIR/dotcfg"; then
+        rm -f -- "$dotcfg_tmp"
+        printf 'ERROR: failed to install dotcfg in %s\n' "$BIN_DIR" >&2
+        exit 1
     fi
 
     if [ ! -f "$DOTFILES_LIB_DIR/cfg-validate.sh" ]; then

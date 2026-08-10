@@ -106,7 +106,6 @@ BOOTSTRAP_REMOTE_DIR=""
 setup_bootstrap_env() {
 	export DOTFILES_LIB_DIR="$HOME/.local/lib/dotfiles"
 	export DOTCFG_BIN_DIR="$HOME/.local/bin"
-	mkdir -p "$DOTCFG_BIN_DIR"
 
 	local temp_work
 	temp_work=$(mktemp -d "/tmp/dotfiles-test-bootwork.XXXXXX")
