@@ -291,6 +291,23 @@ sudo /root/networkmanager-transition-20260719/networkmanager-transition.sh rollb
 交互验证前保留该目录；回退会使用仍已安装的 ifupdown 恢复迁移前配置和服务关系。ifupdown 只
 属于本次迁移的回退能力，不是 NetworkManager 正常运行或全新部署的依赖。
 
+## Dotcfg 部署状态
+
+2026-08-10 已将本机早期安装遗留的 `.config-backup` 采纳为 dotcfg Fresh 根节点，并切换到正式
+`full` category：
+
+- Fresh manifest 共 889 项，其中 2 项来自旧安装备份原件，887 项来自当时未被 `.cfg` HEAD
+  跟踪的 `.config/` 内容；旧 `.bashrc`、`.profile` 与 Fresh 备份逐字一致。
+- Fresh 根节点使用特殊 `bootstrap` 版本标识；当前 full 子节点绑定稳定 category 版本 `1.0.0`，
+  checkout state 记录 227 项。
+- 切换前发现的 11 个受管文件差异已先保存到 full 子节点备份，再恢复为仓库版本。
+- `.local/bin/dotcfg` 和 `.local/lib/dotfiles/` 保持可用；`dotcfg doctor` 九项检查全部通过，
+  `.cfg` 工作树干净。
+- 远程 fetch 当时因网络或 SSH 条件失败，切换按设计继续使用本地已提交 HEAD；后续联网时可单独
+  验证远程同步，不影响本次节点链。
+- Fresh 中的应用状态和凭据类内容只保存在本机 `.config-backup` 恢复区，不进入 `.cfg` Git
+  提交或项目文档；急救目录 `.config-backup.bak` 未读取或修改，继续由用户自行保留或删除。
+
 ## 平台工作
 
 活动待办可以在当前审计周期直接推进；挂起项目只有达到所列条件或收到明确恢复决定后才重新开始。
