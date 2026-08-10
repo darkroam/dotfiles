@@ -86,6 +86,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
     ├── nodes.bats              ← 节点数据结构
     ├── restore-desktop.bats    ← 切换到 full 的兼容入口
     ├── restore-server.bats     ← 切换到 min 的兼容入口
+    ├── refactor-contract.bats  ← 重构期间的用户接口契约
     ├── uninstall.bats          ← 卸载与恢复
     ├── validate.bats           ← 仓库验证
     └── generate-conflicts.sh   ← 冲突文件生成器
@@ -231,6 +232,11 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 覆盖节点列表表头、节点类型、HEAD 标记、节点代码、空记录、线性与分支历史图以及部署状态。
 TC-H07 固定验证 `bootstrap` 是特殊版本标识，历史图不会错误添加 `v` 前缀。
 
+### TC-R01..R04：重构接口契约（refactor-contract.bats）
+
+锁定 `dotcfg help` 的完整文本、`check-exclude` 的兼容标签、`categories show` 的 `full` 动态标记，
+以及未知切换目标的错误文字和返回码。后续内部重构不得改变这些用户可见行为。
+
 ### TC-E01..E06：Fresh 排除规则（exclude-rules.bats）
 
 覆盖硬编码排除、普通配置、`exclude.conf`、绝对路径拒绝和仓库跟踪判断。TC-E06 固定验证
@@ -342,8 +348,8 @@ bats -r .local/share/test/ --tap
 **环境**：Debian 13, Git 2.47.2, Bash 5.2.37, Bats 1.11.1
 
 ```
-Total:  181
-Passed: 181
+Total:  185
+Passed: 185
 Failed: 0
 ```
 
@@ -367,4 +373,4 @@ Failed: 0
 ---
 
 **最后更新**: 2026-08-10
-**版本**: 3.4 — 181 个受管测试 + category 展示 + 特殊版本显示 + 完整命令帮助
+**版本**: 3.5 — 185 个受管测试 + category 展示 + 特殊版本显示 + 重构接口契约
