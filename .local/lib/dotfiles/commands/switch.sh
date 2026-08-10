@@ -208,8 +208,8 @@ if [ -z "$parent_code" ]; then
 	fi
 	parent_code="$root_code"
 	if [ "$CFG_DRY_RUN" != true ]; then
-		printf '\nCreating fresh root node backup (full scan of $HOME)...\n'
-		fresh_create_root_backup || printf 'WARNING: fresh root backup failed, continuing\n' >&2
+		printf '\nCreating fresh root node backup (mixed mode)...\n'
+		fresh_create_root_backup "$git_dir" || printf 'WARNING: fresh root backup failed, continuing\n' >&2
 	fi
 fi
 

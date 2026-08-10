@@ -7,9 +7,17 @@ load helpers.bash
 setup() {
 	setup_test_home
 	setup_bootstrap_env
+	mkdir -p "$HOME/.config/app" "$HOME/.config/ignored" "$HOME/.local/share"
 	echo "user original bashrc" > "$HOME/.bashrc"
+	echo "unmanaged config" > "$HOME/.config/app/unmanaged.conf"
+	echo "tracked config original" > "$HOME/.config/ignored/tracked.conf"
+	echo "excluded unmanaged config" > "$HOME/.config/ignored/unmanaged.conf"
+	echo "unmanaged root data" > "$HOME/.unmanaged-root"
+	echo "user local original" > "$HOME/.local/share/tracked-test.conf"
+	echo "unmanaged local state" > "$HOME/.local/share/unmanaged-state"
 	run run_dotcfg status # triggers bootstrap
 	[ "$status" -eq 0 ]
+	BOOTSTRAP_OUTPUT="$output"
 }
 
 teardown() {
@@ -31,16 +39,30 @@ fresh_manifest() {
 	local line
 	line=$(grep "^\.bashrc" "$manifest")
 	[ -n "$line" ]
-	# at least 4 tab-separated columns: path, md5, size, status
+	# Exactly 5 tab-separated columns: path, md5, size, status, timestamp.
 	local cols
 	cols=$(printf '%s' "$line" | awk -F'\t' '{print NF}')
-	[ "$cols" -ge 4 ]
+	[ "$cols" -eq 5 ]
 	[[ "$line" == *"tracked_at_install"* ]]
 
-	# md5 column matches the real file
+	# md5 column preserves the pre-checkout user file.
 	local md5
-	md5=$(md5sum "$HOME/.bashrc" | cut -d' ' -f1)
+	md5=$(printf 'user original bashrc\n' | md5sum | cut -d' ' -f1)
 	[[ "$line" == *"$md5"* ]]
+
+	# Mixed mode: all ~/.config files plus tracked paths elsewhere.
+	[ -f "$HOME/.config-backup/nodes/fresh_root/backup/.config/app/unmanaged.conf" ]
+	[ -f "$HOME/.config-backup/nodes/fresh_root/backup/.config/ignored/tracked.conf" ]
+	[ ! -e "$HOME/.config-backup/nodes/fresh_root/backup/.config/ignored/unmanaged.conf" ]
+	[ -f "$HOME/.config-backup/nodes/fresh_root/backup/.local/share/tracked-test.conf" ]
+	[ ! -e "$HOME/.config-backup/nodes/fresh_root/backup/.unmanaged-root" ]
+	[ ! -e "$HOME/.config-backup/nodes/fresh_root/backup/.local/share/unmanaged-state" ]
+	[ ! -e "$HOME/.config-backup/nodes/fresh_root/backup/.local/bin/dotcfg" ]
+	[[ "$BOOTSTRAP_OUTPUT" == *"Creating fresh backup (mixed mode)"* ]]
+	[[ "$BOOTSTRAP_OUTPUT" == *"~/.config/: 2 files backed up (full)"* ]]
+	[[ "$BOOTSTRAP_OUTPUT" == *"Other tracked files: 1 files backed up"* ]]
+	[[ "$BOOTSTRAP_OUTPUT" == *"~/.local/ tracked files: 1 files backed up"* ]]
+	[[ "$BOOTSTRAP_OUTPUT" == *"Total: 4 files backed up to fresh_root"* ]]
 }
 
 # TC-F02: track adds a file with tracked_by_user status
@@ -115,13 +137,14 @@ fresh_manifest() {
 
 @test "TC-F08: fresh-diff detects modified, new and missing files" {
 	echo "changed content" > "$HOME/.bashrc"        # modified
-	echo "brand new" > "$HOME/.brandnew"           # new
+	mkdir -p "$HOME/.config/new-app"
+	echo "brand new" > "$HOME/.config/new-app/brandnew" # new
 
 	run run_dotcfg fresh-diff
 	[ "$status" -eq 0 ]
 	assert_output_contains "Modified files"
 	assert_output_contains "New files"
-	assert_output_contains ".brandnew"
+	assert_output_contains ".config/new-app/brandnew"
 }
 
 # TC-F09: fresh-update rebuilds backup and keeps a .bak copy

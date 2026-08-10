@@ -113,9 +113,20 @@ setup_bootstrap_env() {
 		git init >/dev/null 2>&1
 		git config user.email "test@test.com"
 		git config user.name "Test"
-		mkdir -p .local/bin .local/lib
+		mkdir -p .config/ignored .local/bin .local/lib .local/share
+		printf 'repository tracked config\n' > .config/ignored/tracked.conf
+		printf 'repository bashrc\n' > .bashrc
+		printf 'tracked local data\n' > .local/share/tracked-test.conf
 		cp "$REAL_HOME/.local/bin/dotcfg" .local/bin/dotcfg
 		cp -r "$REAL_HOME/.local/lib/dotfiles" .local/lib/dotfiles
+		for conf in .local/lib/dotfiles/categories-*.conf; do
+			[ -f "$conf" ] || continue
+			rel="${conf#./}"
+			if ! git --git-dir="$REAL_HOME/.cfg" cat-file -e "HEAD:$rel" 2>/dev/null; then
+				rm -f -- "$conf"
+			fi
+		done
+		printf '.config/ignored/*\n' > .local/lib/dotfiles/exclude.conf
 		git add -A
 		git commit -m "bootstrap remote" >/dev/null 2>&1
 	})
@@ -541,7 +552,7 @@ assert_node_backup_count() {
 	local count=0
 	if [ -d "$nodes_dir" ]; then
 		for node_dir in "$nodes_dir"/*/; do
-			# fresh root node always holds a full backup by design
+			# The fresh root backup is separate from transition backups.
 			[ "$(basename "$node_dir")" = "fresh_root" ] && continue
 			[ -d "$node_dir/backup" ] || continue
 			if find "$node_dir/backup" -type f -print -quit 2>/dev/null | grep -q .; then

@@ -35,7 +35,7 @@ teardown() {
 	# Repository cloned
 	[ -d "$HOME/.cfg" ]
 
-	# fresh_root node with full backup and manifest
+	# fresh_root node with mixed-mode backup and manifest
 	[ -d "$HOME/.config-backup/nodes/fresh_root/backup" ]
 	[ -f "$HOME/.config-backup/nodes/fresh_root/manifest.txt" ]
 	grep -q $'^\.bashrc\t' "$HOME/.config-backup/nodes/fresh_root/manifest.txt"

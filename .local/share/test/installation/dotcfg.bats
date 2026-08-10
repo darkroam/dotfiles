@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # dotcfg.bats - Tests for the unified dotcfg CLI
-# TC-44 through TC-58
+# TC-44 through TC-60
 
 load helpers.bash
 
@@ -169,4 +169,76 @@ teardown() {
 	run run_dotcfg nonexistent
 	[ "$status" -eq 1 ]
 	assert_output_contains "Unknown subcommand"
+}
+
+@test "TC-59: top-level and subcommand --help show the same help" {
+	run run_dotcfg --help
+	[ "$status" -eq 0 ]
+	local top_help="$output"
+	assert_output_contains "Usage: dotcfg"
+
+	run run_dotcfg status --help
+	[ "$status" -eq 0 ]
+	[ "$output" = "$top_help" ]
+
+	run run_dotcfg help
+	[ "$status" -eq 0 ]
+	[ "$output" = "$top_help" ]
+}
+
+@test "TC-60: category TAGs are displayed and warned on destructive actions" {
+	local test_lib="$HOME/dotfiles-lib"
+	cp -r "$REAL_HOME/.local/lib/dotfiles" "$test_lib"
+	rm -f -- "$test_lib"/categories-*.conf
+	cat > "$test_lib/categories-90.0.0.conf" <<'EOF'
+# VERSION = "90.0.0"
+# NAME = "test-version"
+# DESCRIPTION = "TAG integration fixture"
+# TAG = "test"
+
+category = server
++ .bashrc
+
+category = desktop
+include = server
++ .xinitrc
+EOF
+	cat > "$test_lib/categories-90.1.0.conf" <<'EOF'
+# VERSION = "90.1.0"
+# TAG = "experimental"
+
+category = server
++ .bashrc
+EOF
+	export DOTFILES_LIB_DIR="$test_lib"
+	create_mock_cfg_repo ".local/bin/dotcfg"
+
+	run run_dotcfg categories list
+	[ "$status" -eq 0 ]
+	assert_output_contains "90.0.0  (test)"
+	assert_output_contains "[TEST]"
+	assert_output_contains "90.1.0  (experimental)"
+	assert_output_contains "[EXPERIMENTAL]"
+
+	run run_dotcfg categories switch 90.0.0
+	[ "$status" -eq 0 ]
+	assert_output_contains "Switching to test version 90.0.0"
+
+	local node
+	node=$(DOTFILES_LIB_DIR="$test_lib" bash -c '
+		. "$DOTFILES_LIB_DIR/utils/common.sh"
+		cfg_nodes_init "$HOME/.config-backup"
+		root=$(cfg_node_create fresh null)
+		cfg_head_set "$root"
+		cfg_node_create server "$root" 90.1.0
+	')
+	run env DOTFILES_LIB_DIR="$test_lib" bash "$test_lib/commands/remove.sh" "$node"
+	[ "$status" -eq 0 ]
+	assert_output_contains "EXPERIMENTAL configuration version 90.1.0"
+
+	run bash -c 'printf "y\n" | DOTFILES_LIB_DIR="$1" bash "$2" categories remove 90.0.0' \
+		_ "$test_lib" "$DOTCFG"
+	[ "$status" -eq 0 ]
+	assert_output_contains "TEST configuration version"
+	[ ! -f "$test_lib/categories-90.0.0.conf" ]
 }

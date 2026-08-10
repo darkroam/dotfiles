@@ -113,8 +113,10 @@ if [ -n "$versions" ]; then
 	vcount=$(printf '%s\n' "$versions" | wc -l | tr -d ' ')
 	vlist=$(printf '%s\n' "$versions" | tr '\n' ',' | sed 's/,$//')
 	pass "9. Config versions exist: $vcount found ($vlist)"
+elif [ -f "$DOTFILES_LIB_DIR/categories.conf" ]; then
+	pass "9. Config categories available: using unversioned categories.conf"
 else
-	fail "9. Config versions exist: no categories-*.conf found"
+	pass "9. Config categories available: using built-in defaults (server, desktop)"
 fi
 
 printf '\n'

@@ -64,14 +64,15 @@ for ((i = 0; i < ${#_FRESH_MANIFEST_PATHS[@]}; i++)); do
 	fi
 done
 
-# New files: exist in system but not in fresh (exclude rules applied)
+# New files: exist in the mixed-mode selection but not in fresh.
 new_files=()
-while IFS= read -r path; do
+fresh_collect_backup_files "${DOTCFG_GIT_DIR:-$HOME/.cfg}"
+for path in "${_FRESH_BACKUP_FILES[@]}"; do
 	[ -n "$path" ] || continue
 	fresh_manifest_has "$path" && continue
 	new_files+=("$path")
 	[ ${#new_files[@]} -ge 50 ] && break
-done < <(fresh_scan_home)
+done
 
 printf 'Modified files (%d):\n' "${#modified[@]}"
 if ! $SUMMARY; then

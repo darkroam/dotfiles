@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# utils/exclude.sh - Exclusion rules for full $HOME scans (fresh node backups)
+# utils/exclude.sh - Exclusion and tracking rules for fresh node backups
 # Source via utils/common.sh, do not source directly.
 
 if [ -n "${_CFG_EXCLUDE_LOADED:-}" ]; then
@@ -38,13 +38,6 @@ _FRESH_EXCLUDE_HARDCODED=(
 	"*.tmp"
 	"*.swp"
 	"core.*"
-)
-
-# Directories pruned during $HOME scans (derived from patterns ending in /*)
-_FRESH_EXCLUDE_PRUNE_DIRS=(
-	".cfg" ".config-backup" ".local/lib/dotfiles" ".local/share/test"
-	"Downloads" "Desktop" "Documents" "Videos" "Music" "Pictures"
-	".cache" ".local/share/Trash" ".thumbnails" ".npm" ".cargo"
 )
 
 _FRESH_EXCLUDE_CONF_PATTERNS=()
@@ -121,23 +114,20 @@ fresh_exclude_reason() {
 	return 1
 }
 
-# fresh_scan_home
-# Scans $HOME for regular files, pruning excluded directories and skipping
-# excluded file patterns. Prints relative paths (sorted).
-fresh_scan_home() {
-	local prune_args=()
-	local d
-	for d in "${_FRESH_EXCLUDE_PRUNE_DIRS[@]}"; do
-		prune_args+=( -path "$HOME/$d" -o )
-	done
+# cfg_is_path_tracked <path> [git_dir]
+# Returns 0 when path is present in the dotfiles repository HEAD.
+cfg_is_path_tracked() {
+	local path="${1:-}"
+	local git_dir="${2:-${GIT_DIR:-${DOTCFG_GIT_DIR:-$HOME/.cfg}}}"
 
-	local f rel
-	while IFS= read -r f; do
-		[ -n "$f" ] || continue
-		rel="${f#"$HOME"/}"
-		if fresh_exclude_is_excluded "$rel"; then
-			continue
-		fi
-		printf '%s\n' "$rel"
-	done < <(find "$HOME" "${prune_args[@]}" -type f -print 2>/dev/null | LC_ALL=C sort)
+	[ -n "$path" ] || return 1
+	case "$path" in
+		"$HOME"/*) path="${path#"$HOME"/}" ;;
+		/*) return 1 ;;
+		*) path="${path#./}" ;;
+	esac
+	[ -n "$path" ] && [ -d "$git_dir" ] || return 1
+
+	git --git-dir="$git_dir/" ls-tree -r --name-only HEAD 2>/dev/null |
+		grep -Fqx -- "$path"
 }

@@ -98,7 +98,9 @@ nodes/{code}/
 ```
 
 > **注**：转换时的原始文件备份存储在 switch 操作创建的子节点中。
-> 根节点（fresh，固定 CODE `fresh_root`）在首次安装/迁移时执行 $HOME 全量备份（按排除规则过滤），
+> 根节点（fresh，固定 CODE `fresh_root`）在首次安装/迁移时执行混合模式备份：`~/.config/`
+> 全量扫描并应用排除规则，其他位置只选择仓库跟踪文件；跟踪文件可覆盖普通排除规则，但安装
+> 基础设施始终排除。
 > 作为 `uninstall` 的恢复锚点。`uninstall` 优先从 `fresh_root/backup/` 恢复原始文件；
 > fresh 备份中不存在的文件回退到子节点备份链（按时间戳排序）。
 
@@ -271,6 +273,24 @@ dotcfg switch xk7f9a2m          # 切换到历史节点，产生新分支
 
 切换流程：undeploy 当前节点 → 移动 HEAD → deploy 目标节点。
 
+### 进入 Fresh 状态
+
+当 `.cfg` 存在且 `dotcfg` 命令可用时，可显式切换到根节点：
+
+```bash
+dotcfg switch fresh
+```
+
+如果当前节点处于 `deployed`，该命令先 undeploy 当前节点，再把 `HEAD` 移到 `fresh_root`；
+fresh 节点本身不 checkout 配置文件，最终将 `DEPLOY_STATUS` 记为 `deployed`。这不是保留原
+节点配置，而是按标准节点切换流程恢复该节点转换前的文件后进入根状态。
+
+| 操作 | 命令 | 行为 | 适用场景 |
+|------|------|------|----------|
+| 切换 | `dotcfg switch fresh` | 撤销当前节点并切到 `fresh_root`，保留节点历史 | 临时回到根状态，之后仍需切换历史节点或新建状态 |
+| 卸载 | `dotcfg uninstall` | 回到根节点，移除受管配置并优先从 fresh 备份恢复 | 完全恢复安装前状态 |
+| 自举 | 下载或运行 `dotcfg` | 库缺失时恢复或重建安装基础设施，再建立 fresh 根状态 | 首次安装或急救；不是已有节点间的切换方式 |
+
 **节点创建时的版本选择策略**：
 
 执行 `dotcfg switch desktop` 或 `dotcfg switch server` 创建新节点时：
@@ -296,6 +316,9 @@ dotcfg switch xk7f9a2m          # 切换到历史节点，产生新分支
 
 `dotcfg` 命令提供 git 风格的统一入口：
 
+> 所有子命令均接受 `-h` 或 `--help` 并显示统一帮助；`dotcfg help`、`dotcfg -h` 和
+> `dotcfg --help` 效果一致。
+
 ```bash
 dotcfg                          # 显示当前节点状态（等同于 dotcfg status）
 dotcfg status                   # 当前节点 + 部署状态 + 可用操作
@@ -319,7 +342,7 @@ dotcfg fresh-update             # 以当前 $HOME 重建 fresh 根备份
 dotcfg doctor                   # 系统完整性自检
 dotcfg repair                   # 自动修复（逐项确认，--force 跳过）
 dotcfg check-exclude <path>     # 查询某路径被哪条排除规则排除
-dotcfg help                     # 使用帮助
+dotcfg help                     # 使用帮助（也可使用 dotcfg --help）
 ```
 
 > **库缺失时**：任何 `dotcfg` 命令检测到库不存在都会进入 **bootstrap 安装模式**
@@ -426,17 +449,18 @@ dotcfg categories list               # 列出所有可用版本
 dotcfg categories switch <version>   # 切换当前版本
 dotcfg categories current            # 显示当前版本
 dotcfg categories show <version>     # 显示某个版本的详细信息
+dotcfg categories remove <version>   # 确认后删除版本配置文件
 ```
 
 **`list` 输出示例**：
 
 ```
 Available configuration versions:
-  v1.0.0    (default, 2 categories: server, desktop)
-  v2.0.0    (3 categories: server, desktop, workstation)
-  v2.1.3    (2 categories: server, desktop)
+  v1.0.0  (stable)   2 categories: server, desktop
+  v2.0.0  (test)     3 categories: server, desktop, workstation   [TEST]
+  v2.1.3  (stable)   2 categories: server, desktop
 
-Current version: v2.1.3
+Current version: v2.1.3 (stable)
 
 Nodes using each version:
   v1.0.0: a1b2c3d4 (1 node)
@@ -455,6 +479,11 @@ New nodes will use v1.0.0 by default.
 ```
 
 切换版本只影响**新创建的节点**，已有节点的版本绑定不变。
+
+切换到 `test` 或 `experimental` 版本时，命令会先输出谨慎使用提示，但不阻止切换。
+`dotcfg categories remove <version>` 删除的是 `categories-*.conf` 文件，不删除节点；命令会列出
+绑定该版本的节点并要求 `y/N` 确认，`test` 和 `experimental` 版本另有醒目警告。版本文件删除后，
+节点记录仍存在，但默认无法部署该节点；需恢复对应版本文件，或显式使用 `--force` 回退当前类别。
 
 ---
 
@@ -508,7 +537,8 @@ New nodes will use v1.0.0 by default.
 2. 检查是否为根节点（type=fresh 或 code=fresh_root）→ 拒绝，报错
 3. 检查是否为 HEAD 指向的节点 → 拒绝，报错
 4. 检查子节点中是否有 `active` 状态的节点 → 如果有，报错（需先处理子节点）
-5. 将节点状态改为 `marked_for_removal`
+5. 读取节点绑定版本的 `TAG`；`test` 或 `experimental` 时输出警告，但不阻止
+6. 将节点状态改为 `marked_for_removal`
 
 **报错信息**：
 ```
@@ -522,7 +552,13 @@ Error: Cannot remove current HEAD node. Please switch to another node first.
 Error: Cannot remove node with active children.
   Active children: a1b2c3d4, e5f6g7h8
   Remove children first or use 'dotcfg autoclean'.
+
+# 测试版本节点（警告后继续）
+Warning: node a1b2c3d4 uses TEST configuration version 2.0.0 (TAG=test).
 ```
+
+`dotcfg remove` 处理节点；`dotcfg categories remove` 才删除版本配置文件。两者都不会自动删除
+对方对象，避免把节点生命周期和配置文件生命周期混为一谈。
 
 ### unremove — 恢复标记的节点
 
@@ -628,10 +664,29 @@ bootstrap 流程（内联实现，只依赖 git/md5sum/coreutils）：
    - 不存在 → `git clone --bare $REMOTE_URL ~/.cfg`
 2. 从 `HEAD` 提取库文件到 `$DOTFILES_LIB_DIR`（cfg-validate.sh、utils/*、commands/*、categories-*.conf、exclude.conf）
 3. 安装 `dotcfg` 自身到 `$BIN_DIR`
-4. source 新装的库，创建 `fresh_root` 节点并执行 $HOME 全量备份
+4. source 新装的库，创建 `fresh_root` 节点并执行混合模式备份：
+
+   | 目录 | 备份策略 |
+   |------|----------|
+   | `~/.config/` | 全量遍历所有普通文件和符号链接，应用排除规则 |
+   | `~/.config/` 以外 | 只备份 `git ls-tree -r --name-only HEAD` 返回且当前存在的跟踪文件 |
+   | `~/.local/` | 只备份当前存在的跟踪文件；`~/.local/bin/dotcfg` 和 `~/.local/lib/dotfiles/` 始终排除 |
+
+   仓库跟踪文件不受普通排除规则影响，因此被排除规则命中的跟踪配置仍进入备份；安装基础设施
+   是强制例外。选择结果分为 `.config`、其他跟踪文件和 `.local` 跟踪文件三组，实际复制完成后
+   输出分组数量与总数。`fresh-update` 和 `fresh-diff` 复用同一选择逻辑。
 5. 按 server 类别过滤后 checkout（冲突文件备份到 `$BACKUP_ROOT/conflict/`）
 6. 写 `HEAD=fresh_root`、`DEPLOY_STATUS=deployed`、`CURRENT_CONFIG_VERSION=bootstrap`
 7. re-exec `dotcfg <原参数>`，保证幂等
+
+`bootstrap` 是 fresh 根节点的特殊 `config_version` 标识，不对应
+`categories-bootstrap.conf`：
+
+- `dotcfg categories list` 的可用版本区只列出 `categories-*.conf`，因此不会把 `bootstrap`
+  当作可切换版本；节点分组区仍可列出使用该标识的 `fresh_root`
+- `dotcfg list` 的 `VERSION` 列对根节点显示 `bootstrap`
+- `dotcfg categories switch bootstrap` 会因不存在相应版本文件而拒绝
+- 该标识只用于记录首次自举建立的 fresh 原始状态
 
 **远程地址**：默认 `git@github.com:darkroam/dotfiles.git`，可用环境变量 `DOTCFG_REMOTE_URL` 覆盖
 （测试即通过该变量指向本地 mock 仓库）。
@@ -661,7 +716,7 @@ fresh 节点专用，区别于普通节点的 3 列格式：
 .myconfig	abc123…	512	tracked_by_user	2026-08-07 04:00:00
 ```
 
-- `status` ∈ {`tracked_at_install`（安装时全量备份）, `tracked_by_user`（用户手动 track）}
+- `status` ∈ {`tracked_at_install`（混合选择器在安装或重建时加入）, `tracked_by_user`（用户手动 track）}
 - 备份采用 **cp 语义**（区别于普通节点备份的 mv 语义），原文件保留在 $HOME
 - 统计信息（文件数/大小/分组）从该 manifest 实时派生，不写入 index.json
 
@@ -679,6 +734,24 @@ dotcfg untrack <file> [--dry-run] [--force]            # 从 fresh 备份移除
 - `untrack`：manifest 查重 → 删除 backup 文件与 manifest 条目 → 提示 uninstall 不再恢复；
   需 y/N 确认（`--force` 跳过）
 
+### check-exclude 输出示例
+
+`exclude.conf` 示例假设包含 `.config/private/*`：
+
+```bash
+$ dotcfg check-exclude ~/Downloads/file.pdf
+Path is excluded by hardcoded rule: ~/Downloads/
+
+$ dotcfg check-exclude ~/.config/private/secret
+Path is excluded by exclude.conf: ~/.config/private/
+
+$ dotcfg check-exclude ~/.bashrc
+Path is NOT excluded.
+```
+
+未排除时命令返回 1，排除时返回 0；该命令只解释规则命中情况。混合模式下，仓库跟踪文件除
+安装基础设施外仍可覆盖排除规则进入 fresh 备份。
+
 ### fresh-* 管理命令
 
 ```bash
@@ -689,7 +762,7 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 ```
 
 - `fresh-update` 重建前先把旧节点目录复制为 `fresh_root.bak`（`--no-backup` 跳过）
-- `New` 分组来自对 $HOME 的扫描（应用排除规则），默认限前 50 条
+- `New` 分组来自混合模式选择集合，默认限前 50 条；范围外的未跟踪根目录或 `.local` 文件不列出
 
 ### doctor / repair
 
@@ -705,7 +778,7 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 | 6 | fresh 节点存在性 | `~/.config-backup/nodes/fresh_root/` 是否存在 |
 | 7 | HEAD 指向有效性 | HEAD 指向的节点 CODE 是否在 index.json 中存在 |
 | 8 | DEPLOY_STATUS 有效性 | `DEPLOY_STATUS` 文件是否存在且值为 `deployed` 或 `uninstalled` |
-| 9 | 配置文件版本存在性 | `$DOTFILES_LIB_DIR/categories-*.conf` 至少存在一个（或存在 `categories.conf` 回退） |
+| 9 | 配置类别来源可用性 | 优先报告 `categories-*.conf` 版本；没有版本文件时，确认使用 `categories.conf` 或内置 `server/desktop` 默认类别 |
 
 每项输出 ✅/❌ 并计数；有问题时 exit 1。
 
@@ -721,7 +794,7 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 | 6 | fresh 节点缺失 | 从 index.json 中的根节点重建 fresh 节点目录；若无根节点则创建 |
 | 7 | HEAD 指向缺失节点 | 重置到根节点（fresh_root） |
 | 8 | DEPLOY_STATUS 缺失 | 写入 `deployed` |
-| 9 | 配置文件版本缺失 | 使用内置默认类别，写入 `CURRENT_CONFIG_VERSION="default"` |
+| 9 | 当前配置版本缺失 | 仅当存在 `categories-*.conf` 时写入最新可用版本；无版本 `categories.conf` 和内置默认类别均无需修复 |
 
 **注意**：`repair` 不处理需要用户介入的复杂问题（如外部仓库误用），此类问题仅输出诊断和建议。
 
@@ -779,9 +852,9 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 | `checkout.sh` | 文件 checkout、路径安全检查和状态记录 |
 | `repo.sh` | 仓库克隆和激活 |
 | `files.sh` | 文件分析（install/backup/skip 分类） |
-| `categories.sh` | 声明式文件类别系统（categories.conf 解析、继承、排除） |
-| `exclude.sh` | fresh 备份排除规则（硬编码 + exclude.conf、$HOME 扫描） |
-| `fresh.sh` | fresh 根节点与 manifest 管理（创建/读写/统计/增删） |
+| `utils/categories.sh` | 声明式文件类别系统（categories.conf 解析、继承、排除和 TAG） |
+| `utils/exclude.sh` | fresh 备份排除规则和仓库路径跟踪检查 |
+| `utils/fresh.sh` | fresh 混合选择器、根节点与 manifest 管理（创建/读写/统计/增删） |
 
 ### 通用参数
 
@@ -911,6 +984,7 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 # VERSION = "1.0.0"
 # NAME = "categories"
 # DESCRIPTION = "默认配置分类定义"
+# TAG = "stable"
 # ============================================
 
 category = server
@@ -923,6 +997,7 @@ category = server
 | `VERSION` | 是 | 语义化版本号，格式 `MAJOR.MINOR.PATCH`（如 `1.0.0`、`2.1.3`） |
 | `NAME` | 否 | 配置文件名，便于识别 |
 | `DESCRIPTION` | 否 | 简要说明该版本的用途 |
+| `TAG` | 否 | `stable`（默认）、`test` 或 `experimental`；非法值警告并回退 `stable` |
 
 **文件名规范**：推荐 `categories-{VERSION}.conf`（如 `categories-1.0.0.conf`）。
 
@@ -968,6 +1043,15 @@ $DOTFILES_LIB_DIR/
 - 若 `~/.config-backup/CURRENT_CONFIG_VERSION` 存在，以其内容为当前版本
 - 否则自动使用版本号最大的文件作为当前版本
 - `dotcfg categories switch <version>` 可手动切换当前版本
+
+**TAG 处理规则**：
+
+- `utils/categories.sh` 解析头部 TAG，并通过 `CFG_CATEGORIES_TAGS[version]` 缓存；未声明时为 `stable`
+- `dotcfg categories list/current/show` 显示 TAG，`test` 追加 `[TEST]`，`experimental` 追加
+  `[EXPERIMENTAL]`
+- 切换到 `test` 或 `experimental` 版本时输出谨慎使用提示，但不施加安全限制
+- `dotcfg categories remove <version>` 列出关联节点并确认后删除版本文件；测试和实验版本额外警告
+- 删除版本文件不删除节点，但该节点默认无法再部署，必须恢复对应文件或使用 `--force` 回退
 
 **节点与版本绑定**：
 
@@ -1136,7 +1220,7 @@ include = empty
 5. 任一存在 → 返回 `desktop`
 6. 全部不存在 → 返回 `server`
 
-如果类别系统不可用（如测试环境中未加载 `categories.sh`），回退到最小指标集：`.xinitrc`、`.xprofile`、`.config/x11`。
+如果类别系统不可用（如测试环境中未加载 `utils/categories.sh`），回退到最小指标集：`.xinitrc`、`.xprofile`、`.config/x11`。
 
 **设计意图**：差集中的路径是桌面专有文件/目录，server 模式下不会被部署。它们的存在可靠标识当前处于 desktop 模式。动态检测确保状态判断与配置文件定义一致——修改 `categories.conf` 后，状态检测自动适配。
 
@@ -1192,7 +1276,8 @@ include = empty
 .myconfig	abc123…	512	tracked_by_user	2026-08-07 04:00:00
 ```
 
-status 取值：`tracked_at_install`（安装时全量备份）/ `tracked_by_user`（用户 `dotcfg track` 添加）。
+status 取值：`tracked_at_install`（安装或重建时由混合选择器加入）/
+`tracked_by_user`（用户 `dotcfg track` 添加）。
 节点统计（数量/大小/分组）从该 manifest 派生，不存入 index.json。
 
 ### Checkout 状态记录
@@ -1400,5 +1485,5 @@ chmod +x ~/.local/bin/install.sh
 
 ---
 
-**最后更新**: 2026-08-07
-**版本**: 5.0 — 自举安装（bootstrap）+ Fresh 根节点全量备份 + track/untrack + doctor/repair + fresh-* 管理命令
+**最后更新**: 2026-08-10
+**版本**: 5.1 — Fresh 混合备份 + 配置 TAG + 自举安装 + track/untrack + doctor/repair + fresh-* 管理命令

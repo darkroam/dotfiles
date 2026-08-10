@@ -19,6 +19,12 @@ case "$target" in
 esac
 target="${target#./}"
 
+format_rule() {
+	local rule="$1"
+	rule="${rule%\*}"
+	printf '~/%s' "$rule"
+}
+
 if [ -z "$target" ]; then
 	printf 'Error: please provide a path relative to $HOME\n' >&2
 	exit 1
@@ -27,10 +33,10 @@ fi
 if reason=$(fresh_exclude_reason "$target"); then
 	case "$reason" in
 		hardcoded:*)
-			printf 'Path is excluded by hardcoded rule: %s\n' "${reason#hardcoded: }"
+			printf 'Path is excluded by hardcoded rule: %s\n' "$(format_rule "${reason#hardcoded: }")"
 			;;
 		exclude.conf:*)
-			printf 'Path is excluded by exclude.conf: %s\n' "${reason#exclude.conf: }"
+			printf 'Path is excluded by exclude.conf: %s\n' "$(format_rule "${reason#exclude.conf: }")"
 			;;
 		*)
 			printf 'Path is excluded: %s\n' "$reason"
@@ -38,6 +44,6 @@ if reason=$(fresh_exclude_reason "$target"); then
 	esac
 	exit 0
 else
-	printf 'Path is not excluded: %s\n' "$target"
+	printf 'Path is NOT excluded.\n'
 	exit 1
 fi

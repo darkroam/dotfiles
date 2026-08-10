@@ -92,7 +92,7 @@ if ! $backup_root_existed; then
 		if [ ! -f "$backup_root/nodes/index.json" ]; then
 			printf '{\n  "nodes": []\n}\n' > "$backup_root/nodes/index.json"
 		fi
-		fresh_create_root_backup || printf 'WARNING: fresh backup failed\n' >&2
+		fresh_create_root_backup "$git_dir" || printf 'WARNING: fresh backup failed\n' >&2
 		root_code=$(fresh_get_root_code 2>/dev/null) || root_code=""
 		if [ -n "$root_code" ]; then
 			cfg_head_set "$root_code"
@@ -208,8 +208,8 @@ if ! $fresh_dir_existed && [ ! -d "$backup_root/nodes/fresh_root" ]; then
 			repairs_done=$((repairs_done + 1))
 		fi
 	else
-		if confirm "Create fresh root node with full backup?"; then
-			fresh_create_root_backup || printf 'WARNING: fresh backup failed\n' >&2
+		if confirm "Create fresh root node with mixed-mode backup?"; then
+			fresh_create_root_backup "$git_dir" || printf 'WARNING: fresh backup failed\n' >&2
 			repairs_done=$((repairs_done + 1))
 		fi
 	fi
@@ -253,14 +253,7 @@ fi
 
 # ── 9. Config versions ─────────────────────────────────────────────────
 versions=$(cfg_config_version_list 2>/dev/null) || versions=""
-if [ -z "$versions" ]; then
-	printf '\xe2\x9d\x8c Config versions: no categories-*.conf found\n'
-	problems=$((problems + 1))
-	if confirm "Write CURRENT_CONFIG_VERSION with built-in default ('default')?"; then
-		printf 'default\n' > "$backup_root/CURRENT_CONFIG_VERSION"
-		repairs_done=$((repairs_done + 1))
-	fi
-elif [ ! -f "$backup_root/CURRENT_CONFIG_VERSION" ]; then
+if [ -n "$versions" ] && [ ! -f "$backup_root/CURRENT_CONFIG_VERSION" ]; then
 	printf '\xe2\x9d\x8c %s/CURRENT_CONFIG_VERSION: missing\n' "$backup_root"
 	problems=$((problems + 1))
 	if confirm "Create CURRENT_CONFIG_VERSION (latest available)?"; then

@@ -15,6 +15,7 @@ declare -A _CFG_CAT_INCLUDES=()
 declare -A _CFG_CAT_ADDS=()
 declare -A _CFG_CAT_SUBS=()
 declare -A _CFG_CAT_RESOLVED=()
+declare -gA CFG_CATEGORIES_TAGS=()
 _CFG_CAT_NAMES=()
 
 # ── Built-in default categories ─────────────────────────────────────────
@@ -248,6 +249,8 @@ _cfg_exclude_load() {
 _CFG_CONF_VERSION=""
 _CFG_CONF_NAME=""
 _CFG_CONF_DESCRIPTION=""
+_CFG_CONF_TAG="stable"
+_CFG_CONF_BODY=""
 
 cfg_config_version_latest() {
 	local versions
@@ -270,9 +273,10 @@ cfg_config_version_read() {
 	_CFG_CONF_VERSION=""
 	_CFG_CONF_NAME=""
 	_CFG_CONF_DESCRIPTION=""
+	_CFG_CONF_TAG="stable"
 
 	local in_header=true
-	local body=""
+	_CFG_CONF_BODY=""
 	while IFS= read -r line || [ -n "$line" ]; do
 		local trimmed
 		trimmed=$(_cfg_trim "$line")
@@ -290,15 +294,44 @@ cfg_config_version_read() {
 					_CFG_CONF_DESCRIPTION=$(_cfg_trim "${trimmed#*=}")
 					_CFG_CONF_DESCRIPTION="${_CFG_CONF_DESCRIPTION%\"}"
 					_CFG_CONF_DESCRIPTION="${_CFG_CONF_DESCRIPTION#\"}"
+				elif [[ "$trimmed" == \#[[:space:]]*TAG[[:space:]]*=* ]]; then
+					_CFG_CONF_TAG=$(_cfg_trim "${trimmed#*=}")
+					_CFG_CONF_TAG="${_CFG_CONF_TAG%\"}"
+					_CFG_CONF_TAG="${_CFG_CONF_TAG#\"}"
+					_CFG_CONF_TAG="${_CFG_CONF_TAG%\'}"
+					_CFG_CONF_TAG="${_CFG_CONF_TAG#\'}"
 				fi
 				continue
 			fi
 			in_header=false
 		fi
-		body+="$line"$'\n'
+		_CFG_CONF_BODY+="$line"$'\n'
 	done <<< "$content"
 
-	printf '%s' "$body"
+	case "$_CFG_CONF_TAG" in
+		stable|test|experimental) ;;
+		*)
+			printf 'WARNING: unsupported TAG "%s" in categories-%s.conf; using stable\n' \
+				"$_CFG_CONF_TAG" "$version" >&2
+			_CFG_CONF_TAG="stable"
+			;;
+	esac
+	CFG_CATEGORIES_TAGS["$version"]="$_CFG_CONF_TAG"
+	if [ -n "$_CFG_CONF_VERSION" ]; then
+		CFG_CATEGORIES_TAGS["${_CFG_CONF_VERSION#v}"]="$_CFG_CONF_TAG"
+	fi
+
+	printf '%s' "$_CFG_CONF_BODY"
+}
+
+cfg_config_get_tag() {
+	local version="$1"
+	if [ -n "${CFG_CATEGORIES_TAGS[$version]+x}" ]; then
+		printf '%s' "${CFG_CATEGORIES_TAGS[$version]}"
+		return 0
+	fi
+	cfg_config_version_read "$version" >/dev/null || return 1
+	printf '%s' "$_CFG_CONF_TAG"
 }
 
 cfg_config_version_info() {
@@ -307,6 +340,7 @@ cfg_config_version_info() {
 	printf 'Version: %s\n' "${_CFG_CONF_VERSION:-$version}"
 	[ -n "$_CFG_CONF_NAME" ] && printf 'Name: %s\n' "$_CFG_CONF_NAME"
 	[ -n "$_CFG_CONF_DESCRIPTION" ] && printf 'Description: %s\n' "$_CFG_CONF_DESCRIPTION"
+	printf 'Tag: %s\n' "$_CFG_CONF_TAG"
 	return 0
 }
 
@@ -317,14 +351,13 @@ cfg_categories_load() {
 	local content=""
 
 	if [ -n "$arg" ] && [[ "$arg" == [0-9]*.[0-9]* ]]; then
-		local body
-		body=$(cfg_config_version_read "$arg" 2>/dev/null) || {
+		cfg_config_version_read "$arg" >/dev/null 2>&1 || {
 			_cfg_categories_parse "$_CFG_CATEGORIES_BUILTIN"
 			_cfg_exclude_load
 			_CFG_CATEGORIES_LOADED=1
 			return 1
 		}
-		content="$body"
+		content="$_CFG_CONF_BODY"
 	elif [ -n "$arg" ] && [ -f "$arg" ]; then
 		content=$(<"$arg")
 	elif [ -f "$DOTFILES_LIB_DIR/categories.conf" ]; then
@@ -337,9 +370,8 @@ cfg_categories_load() {
 			local latest_ver
 			latest_ver=$(cfg_config_version_latest 2>/dev/null) || latest_ver=""
 			if [ -n "$latest_ver" ]; then
-				local body
-				body=$(cfg_config_version_read "$latest_ver" 2>/dev/null) || body=""
-				[ -n "$body" ] && content="$body" || content=$(<"$DOTFILES_LIB_DIR/categories.conf")
+				cfg_config_version_read "$latest_ver" >/dev/null 2>&1 || _CFG_CONF_BODY=""
+				[ -n "$_CFG_CONF_BODY" ] && content="$_CFG_CONF_BODY" || content=$(<"$DOTFILES_LIB_DIR/categories.conf")
 			else
 				content=$(<"$DOTFILES_LIB_DIR/categories.conf")
 			fi

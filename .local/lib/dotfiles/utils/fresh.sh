@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# utils/fresh.sh - Fresh root node management (full $HOME backup anchor)
+# utils/fresh.sh - Fresh root node management (mixed-mode backup anchor)
 # Source via utils/common.sh, do not source directly.
 
 if [ -n "${_CFG_FRESH_LOADED:-}" ]; then
@@ -16,6 +16,15 @@ _FRESH_MANIFEST_MD5S=()
 _FRESH_MANIFEST_SIZES=()
 _FRESH_MANIFEST_STATUSES=()
 _FRESH_MANIFEST_TIMES=()
+
+# Mixed-mode backup selection, populated by fresh_collect_backup_files.
+_FRESH_CONFIG_FILES=()
+_FRESH_OTHER_TRACKED_FILES=()
+_FRESH_LOCAL_TRACKED_FILES=()
+_FRESH_BACKUP_FILES=()
+_FRESH_BACKED_CONFIG_COUNT=0
+_FRESH_BACKED_OTHER_COUNT=0
+_FRESH_BACKED_LOCAL_COUNT=0
 
 # fresh_get_root_code
 # Prints the root node CODE. Prefers the fixed fresh_root code; falls back
@@ -182,26 +191,130 @@ fresh_remove_from_backup() {
 	return 0
 }
 
-# fresh_create_root_backup [--dry-run]
-# Full scan of $HOME (exclusion rules applied), copies files into the fresh
-# root node backup and creates the node entry with config_version=bootstrap.
+# fresh_collect_backup_files [git_dir]
+# Builds the mixed-mode backup set: all eligible ~/.config files plus tracked
+# files elsewhere. Tracked configuration files override exclusion rules, except
+# for the installation infrastructure that must never enter fresh_root.
+fresh_collect_backup_files() {
+	local git_dir="${1:-${GIT_DIR:-${DOTCFG_GIT_DIR:-$HOME/.cfg}}}"
+	local -A seen=() tracked=()
+	local source rel
+	local -a tracked_paths=() config_files=() other_files=() local_files=()
+
+	_FRESH_CONFIG_FILES=()
+	_FRESH_OTHER_TRACKED_FILES=()
+	_FRESH_LOCAL_TRACKED_FILES=()
+	_FRESH_BACKUP_FILES=()
+
+	while IFS= read -r rel; do
+		[ -n "$rel" ] || continue
+		tracked["$rel"]=1
+		tracked_paths+=("$rel")
+	done < <(git --git-dir="$git_dir/" ls-tree -r --name-only HEAD 2>/dev/null)
+
+	if [ -d "$HOME/.config" ]; then
+		while IFS= read -r -d '' source; do
+			rel="${source#"$HOME"/}"
+			if fresh_exclude_is_excluded "$rel" && [ -z "${tracked[$rel]+x}" ]; then
+				continue
+			fi
+			seen["$rel"]=1
+			config_files+=("$rel")
+		done < <(find "$HOME/.config" \( -type f -o -type l \) -print0 2>/dev/null)
+	fi
+
+	for rel in "${tracked_paths[@]}"; do
+		case "$rel" in
+			.local/bin/dotcfg|.local/lib/dotfiles/*) continue ;;
+		esac
+		source="$HOME/$rel"
+		[ -f "$source" ] || [ -L "$source" ] || continue
+		[ -n "${seen[$rel]+x}" ] && continue
+		seen["$rel"]=1
+		case "$rel" in
+			.config/*) config_files+=("$rel") ;;
+			.local/*) local_files+=("$rel") ;;
+			*) other_files+=("$rel") ;;
+		esac
+	done
+
+	if [ ${#config_files[@]} -gt 0 ]; then
+		mapfile -t _FRESH_CONFIG_FILES < <(printf '%s\n' "${config_files[@]}" | LC_ALL=C sort -u)
+	fi
+	if [ ${#other_files[@]} -gt 0 ]; then
+		mapfile -t _FRESH_OTHER_TRACKED_FILES < <(printf '%s\n' "${other_files[@]}" | LC_ALL=C sort -u)
+	fi
+	if [ ${#local_files[@]} -gt 0 ]; then
+		mapfile -t _FRESH_LOCAL_TRACKED_FILES < <(printf '%s\n' "${local_files[@]}" | LC_ALL=C sort -u)
+	fi
+	_FRESH_BACKUP_FILES=(
+		"${_FRESH_CONFIG_FILES[@]}"
+		"${_FRESH_OTHER_TRACKED_FILES[@]}"
+		"${_FRESH_LOCAL_TRACKED_FILES[@]}"
+	)
+}
+
+# fresh_backup_collected_files [status] [timestamp]
+# Copies the set prepared by fresh_collect_backup_files and records actual
+# successful copy counts for the three mixed-mode groups.
+fresh_backup_collected_files() {
+	local status="${1:-tracked_at_install}"
+	local timestamp="${2:-}"
+	local f
+
+	_FRESH_BACKED_CONFIG_COUNT=0
+	_FRESH_BACKED_OTHER_COUNT=0
+	_FRESH_BACKED_LOCAL_COUNT=0
+	for f in "${_FRESH_CONFIG_FILES[@]}"; do
+		if fresh_copy_to_backup "$f" "$status" "$timestamp"; then
+			_FRESH_BACKED_CONFIG_COUNT=$((_FRESH_BACKED_CONFIG_COUNT + 1))
+		fi
+	done
+	for f in "${_FRESH_OTHER_TRACKED_FILES[@]}"; do
+		if fresh_copy_to_backup "$f" "$status" "$timestamp"; then
+			_FRESH_BACKED_OTHER_COUNT=$((_FRESH_BACKED_OTHER_COUNT + 1))
+		fi
+	done
+	for f in "${_FRESH_LOCAL_TRACKED_FILES[@]}"; do
+		if fresh_copy_to_backup "$f" "$status" "$timestamp"; then
+			_FRESH_BACKED_LOCAL_COUNT=$((_FRESH_BACKED_LOCAL_COUNT + 1))
+		fi
+	done
+}
+
+fresh_print_backup_stats() {
+	local root_code="${1:-$FRESH_ROOT_CODE}"
+	local total=$((_FRESH_BACKED_CONFIG_COUNT + _FRESH_BACKED_OTHER_COUNT + _FRESH_BACKED_LOCAL_COUNT))
+	printf '  ~/.config/: %d files backed up (full)\n' "$_FRESH_BACKED_CONFIG_COUNT"
+	printf '  Other tracked files: %d files backed up\n' "$_FRESH_BACKED_OTHER_COUNT"
+	printf '  ~/.local/ tracked files: %d files backed up\n' "$_FRESH_BACKED_LOCAL_COUNT"
+	printf '  Total: %d files backed up to %s\n' "$total" "$root_code"
+}
+
+# fresh_create_root_backup [--dry-run] [git_dir]
+# Mixed scan of $HOME, copies files into the fresh root node backup and creates
+# the node entry with config_version=bootstrap.
 fresh_create_root_backup() {
 	local dry_run=false
-	[ "${1:-}" = "--dry-run" ] && dry_run=true
+	local git_dir="${GIT_DIR:-${DOTCFG_GIT_DIR:-$HOME/.cfg}}"
+	local arg
+	for arg in "$@"; do
+		case "$arg" in
+			--dry-run) dry_run=true ;;
+			*) git_dir="$arg" ;;
+		esac
+	done
 
 	if [ -z "${CFG_NODES_DIR:-}" ]; then
 		cfg_nodes_init "${CFG_BACKUP_ROOT:-$HOME/.config-backup}" 2>/dev/null || true
 	fi
 
-	local files=()
-	local f
-	while IFS= read -r f; do
-		[ -n "$f" ] && files+=("$f")
-	done < <(fresh_scan_home)
+	fresh_collect_backup_files "$git_dir"
 
 	if $dry_run; then
-		printf 'Would back up %d files to nodes/%s/backup/\n' "${#files[@]}" "$FRESH_ROOT_CODE"
-		for f in "${files[@]}"; do
+		printf 'Would back up %d files to nodes/%s/backup/ (mixed mode):\n' "${#_FRESH_BACKUP_FILES[@]}" "$FRESH_ROOT_CODE"
+		local f
+		for f in "${_FRESH_BACKUP_FILES[@]}"; do
 			printf '  %s\n' "$f"
 		done
 		return 0
@@ -220,13 +333,11 @@ fresh_create_root_backup() {
 
 	fresh_manifest_write_header "$code"
 
-	local count=0
-	for f in "${files[@]}"; do
-		if fresh_copy_to_backup "$f" "tracked_at_install" ""; then
-			count=$((count + 1))
-		fi
-	done
+	printf 'Creating fresh backup (mixed mode)...\n'
+	fresh_backup_collected_files "tracked_at_install" ""
+	fresh_print_backup_stats "$code"
 
+	local count=$((_FRESH_BACKED_CONFIG_COUNT + _FRESH_BACKED_OTHER_COUNT + _FRESH_BACKED_LOCAL_COUNT))
 	printf 'Fresh node created: %s (%d files backed up)\n' "$code" "$count"
 	return 0
 }

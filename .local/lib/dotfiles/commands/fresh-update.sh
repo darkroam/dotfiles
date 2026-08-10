@@ -27,10 +27,8 @@ if [ -z "$root_code" ]; then
 	exit 1
 fi
 
-files=()
-while IFS= read -r f; do
-	[ -n "$f" ] && files+=("$f")
-done < <(fresh_scan_home)
+fresh_collect_backup_files "${DOTCFG_GIT_DIR:-$HOME/.cfg}"
+files=("${_FRESH_BACKUP_FILES[@]}")
 
 if $DRY_RUN; then
 	printf '[dry-run] Would rebuild fresh node backup with %d files:\n' "${#files[@]}"
@@ -69,13 +67,11 @@ chmod 700 "$node_dir/backup" 2>/dev/null || true
 
 fresh_manifest_write_header "$root_code"
 
-count=0
-for f in "${files[@]}"; do
-	if fresh_copy_to_backup "$f" "tracked_at_install" ""; then
-		count=$((count + 1))
-	fi
-done
+printf 'Creating fresh backup (mixed mode)...\n'
+fresh_backup_collected_files "tracked_at_install" ""
+fresh_print_backup_stats "$root_code"
 
+count=$((_FRESH_BACKED_CONFIG_COUNT + _FRESH_BACKED_OTHER_COUNT + _FRESH_BACKED_LOCAL_COUNT))
 printf 'Fresh node backup rebuilt: %d files.\n' "$count"
 if ! $NO_BACKUP; then
 	printf 'Previous backup kept at nodes/%s.bak/ (remove manually when verified).\n' "$root_code"

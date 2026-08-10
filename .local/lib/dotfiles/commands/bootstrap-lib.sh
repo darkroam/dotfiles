@@ -19,8 +19,8 @@ bootstrap_finish_install() {
 
 	cfg_nodes_init "$BACKUP_ROOT"
 
-	# ── Step 3: fresh root node with full backup ──────────────────────
-	printf '\n=== Creating fresh root node (full backup of $HOME) ===\n'
+	# Step 3: create the fresh root node from the mixed-mode backup set.
+	printf '\n=== Creating fresh root node (mixed-mode backup) ===\n'
 	fresh_create_root_backup || {
 		printf 'WARNING: fresh root backup failed, continuing\n' >&2
 	}

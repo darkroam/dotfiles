@@ -64,6 +64,18 @@ if [ -n "$children" ]; then
 	fi
 fi
 
+node_version=$(cfg_node_get "$code" "config_version" 2>/dev/null) || node_version=""
+if [ -n "$node_version" ]; then
+	node_tag=$(cfg_config_get_tag "$node_version" 2>/dev/null) || node_tag="stable"
+	if [ "$node_tag" = "test" ]; then
+		printf 'Warning: node %s uses TEST configuration version %s (TAG=test).\n' \
+			"$code" "$node_version" >&2
+	elif [ "$node_tag" = "experimental" ]; then
+		printf 'Warning: node %s uses EXPERIMENTAL configuration version %s (TAG=experimental).\n' \
+			"$code" "$node_version" >&2
+	fi
+fi
+
 cfg_node_set_status "$code" "marked_for_removal"
 printf 'Node %s marked for removal.\n' "$code"
 printf 'Run "dotcfg autoclean" to permanently delete marked nodes.\n'

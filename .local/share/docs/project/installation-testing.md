@@ -69,18 +69,25 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 ```
 .local/share/test/
 └── installation/               ← 安装系统专题
-    ├── helpers.bash            ← 共享辅助函数（500+ 行）
-    ├── detect-state.bats       ← TC-01..03  状态检测
-    ├── backup-logic.bats       ← TC-04..10  备份逻辑
-    ├── install-desktop.bats    ← TC-11..16  桌面安装（调用 switch.sh --type=desktop）
-    ├── install-server.bats     ← TC-17..21  服务器安装（调用 switch.sh --type=server）
-    ├── restore-desktop.bats    ← TC-22..26b 恢复桌面（调用 switch.sh --type=desktop）
-    ├── restore-server.bats     ← TC-27..30b 恢复服务器（调用 switch.sh --type=server）
-    ├── uninstall.bats          ← TC-30..44b  卸载与恢复
-    ├── validate.bats           ← TC-34a..35  仓库验证
-    ├── e2e-state-machine.bats  ← TC-36..37  端到端生命周期
-    ├── dotcfg.bats             ← TC-44..58  统一 CLI（含 list/history/deploy/undeploy）
-    ├── migration.bats          ← TC-M01..M18  旧会话迁移到节点系统
+    ├── helpers.bash            ← 共享辅助函数和隔离环境
+    ├── backup-logic.bats       ← 普通节点备份逻辑
+    ├── bootstrap.bats          ← 自举安装
+    ├── deploy-undeploy.bats    ← 节点部署与撤销
+    ├── detect-state.bats       ← 状态检测
+    ├── doctor-repair.bats      ← 完整性诊断与修复
+    ├── dotcfg.bats             ← 统一 CLI、帮助与 TAG 行为
+    ├── e2e-state-machine.bats  ← 端到端生命周期
+    ├── exclude-rules.bats      ← Fresh 排除和跟踪判断
+    ├── fresh-node.bats         ← Fresh 混合备份与管理命令
+    ├── history-graph.bats      ← 节点历史图
+    ├── install-desktop.bats    ← 桌面安装
+    ├── install-server.bats     ← 服务器安装
+    ├── migration.bats          ← 旧会话迁移到节点系统
+    ├── nodes.bats              ← 节点数据结构
+    ├── restore-desktop.bats    ← 恢复桌面
+    ├── restore-server.bats     ← 恢复服务器
+    ├── uninstall.bats          ← 卸载与恢复
+    ├── validate.bats           ← 仓库验证
     └── generate-conflicts.sh   ← 冲突文件生成器
 ```
 
@@ -176,7 +183,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-36 | fresh → desktop → server → desktop → fresh（完整循环） |
 | TC-37 | fresh → server → desktop → server → fresh（反向循环） |
 
-### TC-44..58：统一 CLI（dotcfg.bats）
+### TC-44..60：统一 CLI（dotcfg.bats）
 
 | 用例 | 描述 |
 |------|------|
@@ -188,13 +195,15 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-49 | history：无节点时显示"No history" |
 | TC-50 | history：自动迁移后显示节点树 |
 | TC-51 | history：跳过畸形目录名 |
-| TC-52 | switch fresh：提示使用 uninstall |
+| TC-52 | `switch fresh`：解析根节点别名；根节点不存在时报错 |
 | TC-53 | switch：无效目标报错 |
 | TC-54 | switch：fresh → desktop 完整安装（创建节点） |
 | TC-55 | switch：desktop → server 完整切换（创建节点） |
 | TC-56 | switch：`--dry-run` 透传 |
 | TC-57 | validate：仓库验证详情 |
 | TC-58 | 默认 status + 未知子命令报错 |
+| TC-59 | 顶层和子命令 `--help` 与 `dotcfg help` 输出一致 |
+| TC-60 | TAG 列表标记、切换提示、版本删除和节点删除警告 |
 
 ### TC-M01..M18：旧会话迁移（migration.bats）
 
@@ -275,6 +284,10 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 # 运行全部测试（递归扫描子目录）
 bats -r .local/share/test/
 
+# 只运行仓库跟踪的安装系统测试（不受本机未跟踪夹具影响）
+bats $(git --git-dir="$HOME/.cfg" --work-tree="$HOME" \
+    ls-files '.local/share/test/installation/*.bats')
+
 # 运行单个专题
 bats .local/share/test/installation/
 
@@ -290,8 +303,8 @@ bats -r .local/share/test/ --tap
 **环境**：Debian 13, Git 2.47.2, Bash 5.2.37, Bats 1.11.1
 
 ```
-Total:  145
-Passed: 145
+Total:  170
+Passed: 170
 Failed: 0
 ```
 
@@ -314,5 +327,5 @@ Failed: 0
 
 ---
 
-**最后更新**: 2026-08-06
-**版本**: 3.0 — 节点系统 + 145 个测试用例 + 迁移测试
+**最后更新**: 2026-08-10
+**版本**: 3.1 — 节点系统 + 170 个受管测试用例 + Fresh 混合备份与 TAG 测试
