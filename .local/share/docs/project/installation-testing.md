@@ -265,10 +265,10 @@ TC-H07 固定验证 `bootstrap` 是特殊版本标识，历史图不会错误添
 覆盖节点创建、读取、父子关系、HEAD、部署状态、迁移检测和索引持久化。TC-N29 验证进程内
 `code -> index` 缓存可读取节点；TC-N30 验证外部修改索引后，显式失效可重新加载磁盘数据。
 
-### TC-R01..R04：重构接口契约（refactor-contract.bats）
+### TC-R01..R05：重构接口契约（refactor-contract.bats）
 
 锁定 `dotcfg help` 的完整文本、`check-exclude` 的兼容标签、`categories show` 的 `full` 动态标记，
-以及未知切换目标的错误文字和返回码。后续内部重构不得改变这些用户可见行为。
+未知切换目标的错误文字和返回码，以及 help 不加载业务库。后续内部重构不得改变这些用户可见行为。
 
 ### TC-E01..E06：Fresh 排除规则（exclude-rules.bats）
 
@@ -382,8 +382,8 @@ bats -r .local/share/test/ --tap
 Bats 满足本文 `>= 1.11.0` 的前置要求。
 
 ```
-Total:  245
-Passed: 245
+Total:  246
+Passed: 246
 Failed: 0
 ```
 
@@ -407,4 +407,4 @@ Failed: 0
 ---
 
 **最后更新**: 2026-08-11
-**版本**: 3.8 — 245 个受管测试 + 节点/category 进程内缓存 + 生命周期回归
+**版本**: 3.9 — 246 个受管测试 + 节点/category 缓存 + dotcfg 按需加载

@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # refactor-contract.bats - User-visible contracts preserved during refactoring
-# TC-R01 through TC-R04
+# TC-R01 through TC-R05
 
 load helpers.bash
 
@@ -89,4 +89,15 @@ EOF
 	[ "$status" -eq 1 ]
 	[[ "$output" == *'Error: unknown target "unknown-target"'* ]]
 	[[ "$output" == *"Valid targets: full, min, macos, fresh, or an 8-char node CODE"* ]]
+}
+
+@test "TC-R05: help does not load business libraries" {
+	local test_lib="$HOME/dotfiles-lib"
+	local marker="$HOME/business-library-loaded"
+	cp -r "$REAL_HOME/.local/lib/dotfiles" "$test_lib"
+	printf '\nprintf "loaded" > %q\n' "$marker" >> "$test_lib/utils/nodes.sh"
+
+	run env DOTFILES_LIB_DIR="$test_lib" bash "$DOTCFG" help
+	[ "$status" -eq 0 ]
+	[ ! -e "$marker" ]
 }

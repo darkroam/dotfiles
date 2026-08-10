@@ -115,21 +115,26 @@ else
     _bootstrap_install "$@"
 fi
 
-if [ -f "$DOTFILES_LIB_DIR/utils/nodes.sh" ]; then
-    . "$DOTFILES_LIB_DIR/utils/nodes.sh"
-fi
+_dotcfg_load_business_libraries() {
+	if [ -n "${_DOTCFG_BUSINESS_LOADED:-}" ]; then
+		return 0
+	fi
 
-if [ -f "$DOTFILES_LIB_DIR/utils/categories.sh" ]; then
-    . "$DOTFILES_LIB_DIR/utils/categories.sh"
-fi
+	if [ -f "$DOTFILES_LIB_DIR/utils/nodes.sh" ]; then
+		. "$DOTFILES_LIB_DIR/utils/nodes.sh"
+	fi
+	if [ -f "$DOTFILES_LIB_DIR/utils/categories.sh" ]; then
+		. "$DOTFILES_LIB_DIR/utils/categories.sh"
+	fi
+	if [ -f "$DOTFILES_LIB_DIR/utils/exclude.sh" ]; then
+		. "$DOTFILES_LIB_DIR/utils/exclude.sh"
+	fi
+	if [ -f "$DOTFILES_LIB_DIR/utils/fresh.sh" ]; then
+		. "$DOTFILES_LIB_DIR/utils/fresh.sh"
+	fi
 
-if [ -f "$DOTFILES_LIB_DIR/utils/exclude.sh" ]; then
-    . "$DOTFILES_LIB_DIR/utils/exclude.sh"
-fi
-
-if [ -f "$DOTFILES_LIB_DIR/utils/fresh.sh" ]; then
-    . "$DOTFILES_LIB_DIR/utils/fresh.sh"
-fi
+	_DOTCFG_BUSINESS_LOADED=1
+}
 
 # ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -1055,6 +1060,19 @@ _lightweight_selfcheck() {
 
 subcmd="${1:-status}"
 shift || true
+
+load_business=true
+case "$subcmd" in
+	help|-h|--help|version|--version) load_business=false ;;
+esac
+if $load_business; then
+	for arg in "$@"; do
+		case "$arg" in
+			-h|--help) load_business=false; break ;;
+		esac
+	done
+fi
+$load_business && _dotcfg_load_business_libraries
 
 for arg in "$@"; do
     case "$arg" in
