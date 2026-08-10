@@ -22,6 +22,10 @@
 范围，`dotcfg` 命令及其运行库都会保留。`dotcfg switch fresh` 或 `dotcfg uninstall` 恢复 Fresh
 时同样保留安装基础设施；需要彻底删除时按命令输出手动清理。
 
+使用 `dotcfg list` 查看节点时，`[*]` 表示当前已部署节点，`[>]` 表示当前但尚未部署的节点，
+`[ ]` 表示其他历史节点；行尾 `●` 专门标记 Fresh 根节点。Fresh 根节点是卸载和恢复安装前状态
+的锚点，不能通过普通节点删除或自动清理命令移除。
+
 `Mod` 指 Super/Windows 键。完整 DWM 绑定见
 [快捷键摘要](keybindings-zh.md)。
 
