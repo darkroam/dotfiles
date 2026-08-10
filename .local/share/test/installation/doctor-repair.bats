@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # doctor-repair.bats - System integrity check and repair tests
-# TC-D01 through TC-D04
+# TC-D01 through TC-D06
 
 load helpers.bash
 
@@ -65,4 +65,32 @@ teardown() {
 	run run_dotcfg list
 	[ "$status" -eq 0 ]
 	assert_output_contains "dotcfg doctor"
+}
+
+# TC-D05: repair recreates a missing backup root without stale node data
+
+@test "TC-D05: repair recreates a missing backup root" {
+	rm -rf "$HOME/.config-backup"
+
+	run run_dotcfg repair --force
+	[ "$status" -eq 0 ]
+	[ -f "$HOME/.config-backup/nodes/index.json" ]
+	grep -q '"code": "fresh_root"' "$HOME/.config-backup/nodes/index.json"
+
+	run run_dotcfg doctor
+	[ "$status" -eq 0 ]
+}
+
+# TC-D06: repair recreates a missing index and nodes directory
+
+@test "TC-D06: repair recreates missing node storage" {
+	rm -rf "$HOME/.config-backup/nodes"
+
+	run run_dotcfg repair --force
+	[ "$status" -eq 0 ]
+	[ -f "$HOME/.config-backup/nodes/index.json" ]
+	grep -q '"code": "fresh_root"' "$HOME/.config-backup/nodes/index.json"
+
+	run run_dotcfg doctor
+	[ "$status" -eq 0 ]
 }

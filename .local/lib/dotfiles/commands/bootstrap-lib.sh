@@ -30,6 +30,7 @@ bootstrap_finish_install() {
 	root_code=$(fresh_get_root_code 2>/dev/null) || root_code=""
 	if [ -z "$root_code" ]; then
 		root_code=$(cfg_node_create "fresh" "null" "${FRESH_BOOTSTRAP_VERSION:-bootstrap}" "${FRESH_ROOT_CODE:-fresh_root}") || return 1
+		cfg_nodes_invalidate
 	fi
 	cfg_head_set "$root_code"
 	cfg_deploy_status_set "deployed"

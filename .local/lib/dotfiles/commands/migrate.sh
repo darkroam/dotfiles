@@ -83,6 +83,7 @@ if [ -n "$root_code" ]; then
 	printf 'Reusing existing root node: %s (fresh)\n' "$root_code"
 else
 	root_code=$(cfg_node_create "fresh" "null" "" "${FRESH_ROOT_CODE:-fresh_root}")
+	cfg_nodes_invalidate
 	printf 'Created root node: %s (fresh)\n' "$root_code"
 fi
 
@@ -99,6 +100,7 @@ for i in "${sorted_indices[@]}"; do
 	manifest="$session_dir/MANIFEST.txt"
 
 	node_code=$(cfg_node_create "$target_type" "$parent_code")
+	cfg_nodes_invalidate
 
 	node_dir="$backup_root/nodes/$node_code"
 	mkdir -p "$node_dir/backup" "$node_dir/files"

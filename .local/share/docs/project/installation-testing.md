@@ -72,6 +72,9 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
     ├── helpers.bash            ← 共享辅助函数和隔离环境
     ├── backup-logic.bats       ← 普通节点备份逻辑
     ├── bootstrap.bats          ← 自举安装
+    ├── categories.bats         ← category 解析、继承和排除
+    ├── commands-lifecycle.bats ← 生命周期命令集成
+    ├── config-versions.bats    ← category 配置版本管理
     ├── deploy-undeploy.bats    ← 节点部署与撤销
     ├── detect-state.bats       ← 状态检测
     ├── doctor-repair.bats      ← 完整性诊断与修复
@@ -84,6 +87,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
     ├── install-server.bats     ← min 兼容入口安装
     ├── migration.bats          ← 旧会话迁移到节点系统
     ├── nodes.bats              ← 节点数据结构
+    ├── nodes-lifecycle.bats    ← 节点状态和删除生命周期
     ├── restore-desktop.bats    ← 切换到 full 的兼容入口
     ├── restore-server.bats     ← 切换到 min 的兼容入口
     ├── refactor-contract.bats  ← 重构期间的用户接口契约
@@ -197,10 +201,34 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-B02 | 拒绝覆盖外部仓库 |
 | TC-B03 | 重复执行自举保持幂等 |
 
+### TC-C01..C15：category 解析（categories.bats）
+
+覆盖 `macos/min/full` 默认分类、旧 `server/desktop` 名称兼容、继承、增删项、循环引用、目录路径、
+排除规则和分类差异。测试使用隔离的库副本，不写入真实 `DOTFILES_LIB_DIR`。
+
+### TC-CV01..CV07b：配置版本（config-versions.bats）
+
+覆盖版本发现、语义版本排序、头部元数据、按版本加载、缺失版本回退，以及 `full`、`empty` 的
+特殊查询语义。
+
+### TC-CL01..CL07b：命令生命周期（commands-lifecycle.bats）
+
+覆盖节点 `remove/unremove/autoclean` 和 `categories list/show/current/switch`。子进程修改索引后，
+测试显式失效父进程缓存再验证持久化结果。
+
+### TC-NL01..NL07：节点生命周期（nodes-lifecycle.bats）
+
+覆盖配置版本和状态字段持久化、标记、删除、孤立子节点查询，以及旧格式 `index.json` 的默认值兼容。
+
 ### TC-D01..DS02：部署与撤销（deploy-undeploy.bats）
 
 覆盖 HEAD 缺失、重复部署、强制部署、Fresh 节点、dry-run、状态更新和撤销恢复；其中 TC-U03
 验证符号链接按链接本身恢复，TC-DS02 验证撤销后 dotcfg 命令与运行库仍存在。
+
+### TC-D01..D06：诊断与修复（doctor-repair.bats）
+
+覆盖健康状态、HEAD 和部署状态修复、启动自检提示，以及备份根或节点存储缺失时重建索引并立即
+重新加载节点数据。
 
 ### TC-44..63：统一 CLI（dotcfg.bats）
 
@@ -231,6 +259,11 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 
 覆盖节点列表表头、节点类型、HEAD 标记、节点代码、空记录、线性与分支历史图以及部署状态。
 TC-H07 固定验证 `bootstrap` 是特殊版本标识，历史图不会错误添加 `v` 前缀。
+
+### TC-N01..N30：节点索引（nodes.bats）
+
+覆盖节点创建、读取、父子关系、HEAD、部署状态、迁移检测和索引持久化。TC-N29 验证进程内
+`code -> index` 缓存可读取节点；TC-N30 验证外部修改索引后，显式失效可重新加载磁盘数据。
 
 ### TC-R01..R04：重构接口契约（refactor-contract.bats）
 
@@ -345,11 +378,12 @@ bats -r .local/share/test/ --tap
 
 ### 当前测试结果
 
-**环境**：Debian 13, Git 2.47.2, Bash 5.2.37, Bats 1.11.1
+**验证环境**：2026-08-10 在[平台档案索引](../platforms/index.md)所列当前 Debian 平台执行；
+Bats 满足本文 `>= 1.11.0` 的前置要求。
 
 ```
-Total:  185
-Passed: 185
+Total:  243
+Passed: 243
 Failed: 0
 ```
 
@@ -373,4 +407,4 @@ Failed: 0
 ---
 
 **最后更新**: 2026-08-10
-**版本**: 3.5 — 185 个受管测试 + category 展示 + 特殊版本显示 + 重构接口契约
+**版本**: 3.7 — 243 个受管测试 + 节点索引缓存 + 生命周期与配置版本回归

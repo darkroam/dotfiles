@@ -91,6 +91,7 @@ if ! $backup_root_existed; then
 		chmod 700 "$backup_root" 2>/dev/null || true
 		if [ ! -f "$backup_root/nodes/index.json" ]; then
 			printf '{\n  "nodes": []\n}\n' > "$backup_root/nodes/index.json"
+			cfg_nodes_invalidate
 		fi
 		fresh_create_root_backup "$git_dir" || printf 'WARNING: fresh backup failed\n' >&2
 		root_code=$(fresh_get_root_code 2>/dev/null) || root_code=""
@@ -175,6 +176,7 @@ if [ ! -f "$backup_root/nodes/index.json" ]; then
 		else
 			printf '   No node directories found. Creating empty index.json.\n'
 			printf '{\n  "nodes": []\n}\n' > "$backup_root/nodes/index.json"
+			cfg_nodes_invalidate
 			repairs_done=$((repairs_done + 1))
 		fi
 	fi

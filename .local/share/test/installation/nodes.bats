@@ -18,12 +18,43 @@ source_nodes_lib() {
 	unset _CFG_NODES_LOADED
 	unset CFG_NODES_DIR CFG_NODES_INDEX CFG_HEAD_FILE CFG_DEPLOY_STATUS_FILE
 	unset _CFG_NODE_CODES _CFG_NODE_TYPES _CFG_NODE_TIMESTAMPS _CFG_NODE_PARENTS _CFG_NODE_CHILDREN
+	unset _CFG_NODE_INDEX_BY_CODE _CFG_NODES_INDEX_LOADED
 	if [ -f "$NODES_LIB" ]; then
 		. "$NODES_LIB"
 	else
 		echo "WARNING: nodes library not found at $NODES_LIB" >&2
 		return 1
 	fi
+}
+
+@test "TC-N29: node lookups use the cached code index" {
+	cfg_nodes_init
+	local root child
+	root=$(cfg_node_create "fresh" "null" "bootstrap")
+	child=$(cfg_node_create "full" "$root" "1.0.0")
+	cfg_nodes_read_index
+	cfg_nodes_invalidate
+	cfg_nodes_read_index
+
+	[ "${_CFG_NODE_INDEX_BY_CODE[$root]}" = "0" ]
+	[ "${_CFG_NODE_INDEX_BY_CODE[$child]}" = "1" ]
+	[ "$(cfg_node_get "$child" type)" = "full" ]
+	cfg_node_set_status "$child" marked_for_removal
+	[ "$(cfg_node_get "$child" status)" = "marked_for_removal" ]
+}
+
+@test "TC-N30: cache invalidation reloads an externally changed index" {
+	cfg_nodes_init
+	local root
+	root=$(cfg_node_create "fresh" "null" "bootstrap")
+	cfg_nodes_read_index
+	cfg_node_exists "$root"
+
+	printf '{\n  "nodes": []\n}\n' > "$CFG_NODES_INDEX"
+	cfg_nodes_invalidate
+
+	[ "$(cfg_nodes_count)" -eq 0 ]
+	! cfg_node_exists "$root"
 }
 
 # ── Initialization ─────────────────────────────────────────────────────

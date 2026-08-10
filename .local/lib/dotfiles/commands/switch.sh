@@ -222,6 +222,7 @@ if [ -z "$parent_code" ]; then
 	root_code=$(fresh_get_root_code 2>/dev/null) || root_code=""
 	if [ -z "$root_code" ]; then
 		root_code=$(cfg_node_create "fresh" "null" "$current_version" "${FRESH_ROOT_CODE:-fresh_root}") || exit 1
+		cfg_nodes_invalidate
 	fi
 	parent_code="$root_code"
 	if [ "$CFG_DRY_RUN" != true ]; then
@@ -231,6 +232,7 @@ if [ -z "$parent_code" ]; then
 fi
 
 new_node_code=$(cfg_node_create "$target_state" "$parent_code" "$current_version")
+cfg_nodes_invalidate
 
 # ── Print pre-installation report ───────────────────────────────────────
 

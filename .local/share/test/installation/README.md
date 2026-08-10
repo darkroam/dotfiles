@@ -32,16 +32,29 @@ bats -r .local/share/test/ --tap
 .local/share/test/
 ├── installation/          ← 安装系统测试（状态机、备份、卸载、CLI）
 │   ├── helpers.bash       ← 共享辅助函数
-│   ├── detect-state.bats  ← TC-01..03  状态检测
 │   ├── backup-logic.bats  ← TC-04..10  备份逻辑
-│   ├── install-desktop.bats ← TC-11..16  桌面安装
-│   ├── install-server.bats  ← TC-17..21  服务器安装
-│   ├── restore-desktop.bats ← TC-22..25  恢复桌面
-│   ├── restore-server.bats  ← TC-26..29  恢复服务器
-│   ├── uninstall.bats       ← TC-30..43  卸载与恢复
-│   ├── validate.bats        ← TC-34..35  仓库验证
-│   ├── e2e-state-machine.bats ← TC-36..37  端到端生命周期
-│   ├── dotcfg.bats          ← TC-44..58  统一 CLI
+│   ├── bootstrap.bats     ← 自举安装
+│   ├── categories.bats    ← category 解析、继承和排除
+│   ├── commands-lifecycle.bats ← 生命周期命令
+│   ├── config-versions.bats ← category 版本管理
+│   ├── deploy-undeploy.bats ← 节点部署与撤销
+│   ├── detect-state.bats  ← 状态检测
+│   ├── doctor-repair.bats ← 完整性诊断与修复
+│   ├── dotcfg.bats        ← 统一 CLI
+│   ├── e2e-state-machine.bats ← 端到端生命周期
+│   ├── exclude-rules.bats ← Fresh 排除规则
+│   ├── fresh-node.bats    ← Fresh 根节点
+│   ├── history-graph.bats ← 节点清单和历史图
+│   ├── install-desktop.bats ← full 兼容入口安装
+│   ├── install-server.bats  ← min 兼容入口安装
+│   ├── migration.bats     ← 旧会话迁移
+│   ├── nodes.bats         ← 节点索引
+│   ├── nodes-lifecycle.bats ← 节点生命周期
+│   ├── refactor-contract.bats ← 重构接口契约
+│   ├── restore-desktop.bats ← full 兼容入口恢复
+│   ├── restore-server.bats  ← min 兼容入口恢复
+│   ├── uninstall.bats     ← 卸载与恢复
+│   ├── validate.bats      ← 仓库验证
 │   └── generate-conflicts.sh ← 冲突文件生成器
 ```
 

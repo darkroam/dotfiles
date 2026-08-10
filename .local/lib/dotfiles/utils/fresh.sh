@@ -356,6 +356,7 @@ fresh_create_root_backup() {
 	code=$(fresh_get_root_code 2>/dev/null) || code=""
 	if [ -z "$code" ]; then
 		code=$(cfg_node_create "fresh" "null" "$FRESH_BOOTSTRAP_VERSION" "$FRESH_ROOT_CODE") || return 1
+		cfg_nodes_invalidate
 	fi
 
 	local backup_dir="$CFG_NODES_DIR/$code/backup"
@@ -506,6 +507,7 @@ fresh_adopt_legacy() {
 	cfg_nodes_init "$backup_root"
 	local code
 	code=$(cfg_node_create "fresh" "null" "$FRESH_BOOTSTRAP_VERSION" "$FRESH_ROOT_CODE") || return 1
+	cfg_nodes_invalidate
 	mkdir -p "$CFG_NODES_DIR/$code/backup"
 	chmod 700 "$CFG_NODES_DIR/$code/backup" 2>/dev/null || true
 	fresh_manifest_write_header "$code"

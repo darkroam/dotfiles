@@ -21,16 +21,53 @@ _CFG_NODE_PARENTS=()
 _CFG_NODE_CHILDREN=()
 _CFG_NODE_CONFIG_VERSIONS=()
 _CFG_NODE_STATUSES=()
+declare -gA _CFG_NODE_INDEX_BY_CODE=()
+_CFG_NODES_INDEX_LOADED=false
 
 # ── Batch mode flag ─────────────────────────────────────────────────────
 _CFG_NODES_BATCH_MODE=false
 
 # ── Initialization ─────────────────────────────────────────────────────
 
+_cfg_nodes_reset_cache() {
+	_CFG_NODE_CODES=()
+	_CFG_NODE_TYPES=()
+	_CFG_NODE_TIMESTAMPS=()
+	_CFG_NODE_PARENTS=()
+	_CFG_NODE_CHILDREN=()
+	_CFG_NODE_CONFIG_VERSIONS=()
+	_CFG_NODE_STATUSES=()
+	unset _CFG_NODE_INDEX_BY_CODE
+	declare -gA _CFG_NODE_INDEX_BY_CODE=()
+	_CFG_NODES_INDEX_LOADED=false
+}
+
+# cfg_nodes_invalidate
+# Discards the process-local node index cache. Call after another process or
+# direct file operation changes index.json. Takes no arguments and always
+# succeeds.
+cfg_nodes_invalidate() {
+	_cfg_nodes_reset_cache
+}
+
+_cfg_nodes_rebuild_lookup() {
+	local i
+	unset _CFG_NODE_INDEX_BY_CODE
+	declare -gA _CFG_NODE_INDEX_BY_CODE=()
+	for ((i = 0; i < ${#_CFG_NODE_CODES[@]}; i++)); do
+		_CFG_NODE_INDEX_BY_CODE["${_CFG_NODE_CODES[$i]}"]="$i"
+	done
+}
+
 cfg_nodes_init() {
 	local backup_root="${1:-$HOME/.config-backup}"
-	CFG_NODES_DIR="$backup_root/nodes"
-	CFG_NODES_INDEX="$CFG_NODES_DIR/index.json"
+	local nodes_dir="$backup_root/nodes"
+	local index_file="$nodes_dir/index.json"
+	if [ "${CFG_NODES_INDEX:-}" != "$index_file" ]; then
+		_cfg_nodes_reset_cache
+	fi
+	CFG_NODES_DIR="$nodes_dir"
+	CFG_NODES_INDEX="$index_file"
 	CFG_HEAD_FILE="$backup_root/HEAD"
 	CFG_DEPLOY_STATUS_FILE="$backup_root/DEPLOY_STATUS"
 
@@ -59,6 +96,12 @@ cfg_generate_node_code() {
 # ── Index I/O ──────────────────────────────────────────────────────────
 
 cfg_nodes_read_index() {
+	if [ ! -f "$CFG_NODES_INDEX" ]; then
+		_cfg_nodes_reset_cache
+		return 1
+	fi
+	[ "$_CFG_NODES_INDEX_LOADED" = true ] && return 0
+
 	_CFG_NODE_CODES=()
 	_CFG_NODE_TYPES=()
 	_CFG_NODE_TIMESTAMPS=()
@@ -66,10 +109,8 @@ cfg_nodes_read_index() {
 	_CFG_NODE_CHILDREN=()
 	_CFG_NODE_CONFIG_VERSIONS=()
 	_CFG_NODE_STATUSES=()
-
-	if [ ! -f "$CFG_NODES_INDEX" ]; then
-		return 1
-	fi
+	unset _CFG_NODE_INDEX_BY_CODE
+	declare -gA _CFG_NODE_INDEX_BY_CODE=()
 
 	local parsed
 	parsed=$(awk '
@@ -135,10 +176,12 @@ cfg_nodes_read_index() {
 	' "$CFG_NODES_INDEX")
 
 	if [ -z "$parsed" ]; then
+		_CFG_NODES_INDEX_LOADED=true
 		return 0
 	fi
 
 	while IFS='|' read -r _nr_code _nr_type _nr_ts _nr_parent _nr_children _nr_cver _nr_status; do
+		local _nr_index=${#_CFG_NODE_CODES[@]}
 		_CFG_NODE_CODES+=("$_nr_code")
 		_CFG_NODE_TYPES+=("$_nr_type")
 		_CFG_NODE_TIMESTAMPS+=("$_nr_ts")
@@ -146,7 +189,9 @@ cfg_nodes_read_index() {
 		_CFG_NODE_CHILDREN+=("$_nr_children")
 		_CFG_NODE_CONFIG_VERSIONS+=("${_nr_cver:-}")
 		_CFG_NODE_STATUSES+=("${_nr_status:-active}")
+		_CFG_NODE_INDEX_BY_CODE["$_nr_code"]="$_nr_index"
 	done <<< "$parsed"
+	_CFG_NODES_INDEX_LOADED=true
 }
 
 cfg_nodes_write_index() {
@@ -207,6 +252,8 @@ cfg_nodes_write_index() {
 
 	printf '  ]\n}\n' >> "$tmp"
 	mv -- "$tmp" "$CFG_NODES_INDEX"
+	_cfg_nodes_rebuild_lookup
+	_CFG_NODES_INDEX_LOADED=true
 }
 
 # ── Node CRUD ──────────────────────────────────────────────────────────
@@ -281,39 +328,27 @@ cfg_node_get() {
 	cfg_nodes_read_index 2>/dev/null || return 1
 
 	local i
-	for ((i = 0; i < ${#_CFG_NODE_CODES[@]}; i++)); do
-		if [ "${_CFG_NODE_CODES[$i]}" = "$code" ]; then
-			case "$field" in
-				type)           printf '%s' "${_CFG_NODE_TYPES[$i]}" ;;
-				timestamp)      printf '%s' "${_CFG_NODE_TIMESTAMPS[$i]}" ;;
-				parent)         printf '%s' "${_CFG_NODE_PARENTS[$i]}" ;;
-				children)       printf '%s' "${_CFG_NODE_CHILDREN[$i]}" ;;
-				config_version) printf '%s' "${_CFG_NODE_CONFIG_VERSIONS[$i]:-}" ;;
-				status)         printf '%s' "${_CFG_NODE_STATUSES[$i]:-active}" ;;
-				*)              return 1 ;;
-			esac
-			return 0
-		fi
-	done
-	return 1
+	if [ -n "${_CFG_NODE_INDEX_BY_CODE[$code]+x}" ]; then
+		i="${_CFG_NODE_INDEX_BY_CODE[$code]}"
+	else
+		return 1
+	fi
+	case "$field" in
+		type)           printf '%s' "${_CFG_NODE_TYPES[$i]}" ;;
+		timestamp)      printf '%s' "${_CFG_NODE_TIMESTAMPS[$i]}" ;;
+		parent)         printf '%s' "${_CFG_NODE_PARENTS[$i]}" ;;
+		children)       printf '%s' "${_CFG_NODE_CHILDREN[$i]}" ;;
+		config_version) printf '%s' "${_CFG_NODE_CONFIG_VERSIONS[$i]:-}" ;;
+		status)         printf '%s' "${_CFG_NODE_STATUSES[$i]:-active}" ;;
+		*)              return 1 ;;
+	esac
+	return 0
 }
 
 cfg_node_exists() {
 	local code="$1"
-
-	if [ ${#_CFG_NODE_CODES[@]} -gt 0 ]; then
-		local c
-		for c in "${_CFG_NODE_CODES[@]}"; do
-			[ "$c" = "$code" ] && return 0
-		done
-		return 1
-	fi
-
-	if [ ! -f "$CFG_NODES_INDEX" ]; then
-		return 1
-	fi
-
-	grep -q "\"code\"[[:space:]]*:[[:space:]]*\"$code\"" "$CFG_NODES_INDEX" 2>/dev/null
+	cfg_nodes_read_index 2>/dev/null || return 1
+	[ -n "${_CFG_NODE_INDEX_BY_CODE[$code]+x}" ]
 }
 
 # ── HEAD Management ────────────────────────────────────────────────────
