@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # dotcfg.bats - Tests for the unified dotcfg CLI
-# TC-44 through TC-61
+# TC-44 through TC-63
 
 load helpers.bash
 
@@ -262,4 +262,19 @@ EOF
 	'
 	[ "$status" -eq 0 ]
 	[ "$output" = "full min" ]
+}
+
+@test "TC-62: fresh-adopt-legacy help shows its complete invocation" {
+	run run_dotcfg fresh-adopt-legacy --help
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"fresh-adopt-legacy <path> [--dry-run] [--config-version VERSION]"* ]]
+}
+
+@test "TC-63: categories show identifies full as a dynamic category" {
+	export DOTFILES_LIB_DIR="$REAL_HOME/.local/lib/dotfiles"
+	run run_dotcfg categories show 1.0.0
+	[ "$status" -eq 0 ]
+	assert_output_contains "full"
+	assert_output_contains "(dynamic, all tracked files)"
+	[[ "$output" != *"full            "[0-9]*" files"* ]]
 }

@@ -543,7 +543,9 @@ _history_render() {
                 local ver
                 ver=$(cfg_node_get "$code" "config_version" 2>/dev/null) || ver=""
                 if [ -n "$ver" ] && [ "$ver" != "unknown" ]; then
-                    version_tag=" v${ver}"
+                    local version_prefix
+                    version_prefix=$(cfg_version_display_prefix "$ver")
+                    version_tag=" ${version_prefix}${ver}"
                 fi
 
                 local removed_tag=""
@@ -741,9 +743,13 @@ cmd_categories() {
             local cat
             for cat in $(cfg_categories_list); do
                 if cfg_category_exists "$cat"; then
-                    local count
-                    count=$(cfg_category_get_files "$cat" | wc -l)
-                    printf '  %-15s %d files\n' "$cat" "$count"
+                    if [ "$cat" = "full" ]; then
+                        printf '  %-15s %s\n' "$cat" '(dynamic, all tracked files)'
+                    else
+                        local count
+                        count=$(cfg_category_get_files "$cat" | wc -l)
+                        printf '  %-15s %d files\n' "$cat" "$count"
+                    fi
                 fi
             done
             ;;
@@ -988,7 +994,8 @@ cmd_help() {
     printf '  fresh-status        Show fresh root node backup statistics\n'
     printf '  fresh-diff [path]   Compare $HOME against the fresh root backup\n'
     printf '  fresh-update        Rebuild the fresh root backup from current $HOME\n'
-    printf '  fresh-adopt-legacy  Reconstruct Fresh from a pre-dotcfg backup\n'
+    printf '  fresh-adopt-legacy <path> [--dry-run] [--config-version VERSION]\n'
+    printf '                      Reconstruct Fresh from a pre-dotcfg backup\n'
     printf '  doctor              Check system integrity\n'
     printf '  repair              Attempt automatic repairs\n'
     printf '  check-exclude <p>   Show why a path is excluded from fresh backup\n'

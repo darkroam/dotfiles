@@ -328,6 +328,7 @@ dotcfg fresh-update             # 以当前 $HOME 重建 fresh 根备份
 dotcfg doctor                   # 系统完整性自检
 dotcfg repair                   # 自动修复（逐项确认，--force 跳过）
 dotcfg check-exclude <path>     # 查询某路径被哪条排除规则排除
+dotcfg fresh-adopt-legacy <path> [--dry-run] [--config-version VERSION]  # 采纳旧安装备份作为 Fresh 根
 dotcfg help                     # 使用帮助（也可使用 dotcfg --help）
 ```
 
@@ -384,7 +385,7 @@ Git log --graph 风格，最新节点在顶部，根在底部：
 | 
 o  e5f6g7h8  min      2026-08-06 11:00:00  v1.0.0
 | 
-●  fresh_root fresh    2026-08-06 10:00:00  vbootstrap  [root]
+●  fresh_root fresh    2026-08-06 10:00:00  bootstrap  [root]
 ```
 
 **分支历史：**
@@ -393,7 +394,7 @@ o  e5f6g7h8  min      2026-08-06 11:00:00  v1.0.0
 | 
 o  e5f6g7h8  min      2026-08-06 11:00:00  v1.0.0
 | 
-●  fresh_root fresh    2026-08-06 10:00:00  vbootstrap  [root]
+●  fresh_root fresh    2026-08-06 10:00:00  bootstrap  [root]
 |\
 | o  m3n4o5p6  min      2026-08-06 10:30:00  v1.0.0  [REMOVED]
 |/
@@ -407,7 +408,7 @@ o  e5f6g7h8  min      2026-08-06 11:00:00  v1.0.0
 |\
 | o  m3n4o5p6  min      2026-08-06 10:30:00  v1.0.0  [REMOVED]
 |/
-●  fresh_root fresh    2026-08-06 10:00:00  vbootstrap  [root]
+●  fresh_root fresh    2026-08-06 10:00:00  bootstrap  [root]
 ```
 
 **符号说明：**
@@ -452,6 +453,23 @@ Nodes using each version:
   v1.0.0: a1b2c3d4 (1 node)
   v2.1.3: xk7f9a2m, e5f6g7h8 (2 nodes)
 ```
+
+**`categories show 1.0.0` 输出示例**：
+
+```
+Version: 1.0.0
+Name: categories
+Description: full、min 和 macos 正式部署分类
+Tag: stable
+
+Categories:
+  macos           17 files
+  min             29 files
+  full            (dynamic, all tracked files)
+```
+
+`full` 是内置特殊 category，不依赖 `categories-*.conf` 中的文件列表；解析时动态返回
+HEAD 的全部跟踪文件，因此不显示具体文件数量。
 
 **版本切换行为**：
 

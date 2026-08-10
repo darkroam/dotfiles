@@ -130,3 +130,16 @@ run_dotcfg() {
 	run run_dotcfg history
 	[[ "$output" == *"deployed"* ]]
 }
+
+@test "TC-H07: history leaves bootstrap unprefixed" {
+	cfg_nodes_init "$HOME/.config-backup"
+	local root child
+	root=$(cfg_node_create "fresh" "null" "bootstrap")
+	child=$(cfg_node_create "full" "$root" "1.0.0")
+	cfg_head_set "$child"
+
+	run run_dotcfg history
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"bootstrap"* ]]
+	[[ "$output" != *"vbootstrap"* ]]
+}

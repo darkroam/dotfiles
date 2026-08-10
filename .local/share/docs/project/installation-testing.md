@@ -201,7 +201,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 覆盖 HEAD 缺失、重复部署、强制部署、Fresh 节点、dry-run、状态更新和撤销恢复；其中 TC-U03
 验证符号链接按链接本身恢复，TC-DS02 验证撤销后 dotcfg 命令与运行库仍存在。
 
-### TC-44..61：统一 CLI（dotcfg.bats）
+### TC-44..63：统一 CLI（dotcfg.bats）
 
 | 用例 | 描述 |
 |------|------|
@@ -223,6 +223,13 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-59 | 顶层和子命令 `--help` 与 `dotcfg help` 输出一致 |
 | TC-60 | TAG 列表标记、切换提示、版本删除和节点删除警告 |
 | TC-61 | 正式 `1.0.0 stable` 只展示 full、min、macos，并验证旧名称映射 |
+| TC-62 | `fresh-adopt-legacy --help` 展示完整调用参数 |
+| TC-63 | `categories show` 将 full 标记为动态全部跟踪文件且不显示数量 |
+
+### TC-L01..L05 / TC-H01..H07：节点清单与历史图（history-graph.bats）
+
+覆盖节点列表表头、节点类型、HEAD 标记、节点代码、空记录、线性与分支历史图以及部署状态。
+TC-H07 固定验证 `bootstrap` 是特殊版本标识，历史图不会错误添加 `v` 前缀。
 
 ### TC-E01..E06：Fresh 排除规则（exclude-rules.bats）
 
@@ -335,8 +342,8 @@ bats -r .local/share/test/ --tap
 **环境**：Debian 13, Git 2.47.2, Bash 5.2.37, Bats 1.11.1
 
 ```
-Total:  178
-Passed: 178
+Total:  181
+Passed: 181
 Failed: 0
 ```
 
@@ -360,4 +367,4 @@ Failed: 0
 ---
 
 **最后更新**: 2026-08-10
-**版本**: 3.3 — 178 个受管测试 + category 边界 + 符号链接语义 + 基础设施不变量
+**版本**: 3.4 — 181 个受管测试 + category 展示 + 特殊版本显示 + 完整命令帮助
