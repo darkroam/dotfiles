@@ -24,6 +24,12 @@ _CFG_NODE_STATUSES=()
 declare -gA _CFG_NODE_INDEX_BY_CODE=()
 _CFG_NODES_INDEX_LOADED=false
 
+# ── Configuration version discovery cache ─────────────────────────────
+_CFG_CONFIG_VERSIONS=()
+declare -gA _CFG_CONFIG_VERSION_PREFIXES=()
+_CFG_CONFIG_VERSIONS_LOADED=false
+_CFG_CONFIG_VERSIONS_DIR=""
+
 # ── Batch mode flag ─────────────────────────────────────────────────────
 _CFG_NODES_BATCH_MODE=false
 
@@ -636,12 +642,36 @@ cfg_config_version_set() {
 	printf '%s\n' "$version" > "$version_file"
 }
 
-cfg_config_version_list() {
+# cfg_config_versions_invalidate
+# Discards cached categories-*.conf discovery data. Call after configuration
+# version files are added, removed or renamed. Takes no arguments.
+cfg_config_versions_invalidate() {
+	_CFG_CONFIG_VERSIONS=()
+	unset _CFG_CONFIG_VERSION_PREFIXES
+	declare -gA _CFG_CONFIG_VERSION_PREFIXES=()
+	_CFG_CONFIG_VERSIONS_LOADED=false
+	_CFG_CONFIG_VERSIONS_DIR=""
+}
+
+# cfg_config_versions_load
+# Scans categories-*.conf once per process and caches sorted version names and
+# their legacy display prefixes. Takes no arguments; returns 0 even if empty.
+cfg_config_versions_load() {
 	local dir="$DOTFILES_LIB_DIR"
+	if [ "$_CFG_CONFIG_VERSIONS_LOADED" = true ] && [ "$_CFG_CONFIG_VERSIONS_DIR" = "$dir" ]; then
+		return 0
+	fi
+
 	local versions=()
+	unset _CFG_CONFIG_VERSION_PREFIXES
+	declare -gA _CFG_CONFIG_VERSION_PREFIXES=()
+
+	local f
 	for f in "$dir"/categories-*.conf; do
 		[ -f "$f" ] || continue
 		local base="${f##*/categories-}"
+		local has_v=false
+		[[ "$base" == v* ]] && has_v=true
 		base="${base%.conf}"
 		local file_version=""
 		local lineno=0
@@ -664,40 +694,34 @@ cfg_config_version_list() {
 			effective="${base#v}"
 		fi
 		versions+=("$effective")
+		if [ -z "${_CFG_CONFIG_VERSION_PREFIXES[$effective]+x}" ]; then
+			if $has_v; then
+				_CFG_CONFIG_VERSION_PREFIXES["$effective"]="v"
+			else
+				_CFG_CONFIG_VERSION_PREFIXES["$effective"]=""
+			fi
+		fi
 	done
 	if [ ${#versions[@]} -gt 0 ]; then
-		printf '%s\n' "${versions[@]}" | sort -t. -k1,1n -k2,2n -k3,3n
+		mapfile -t _CFG_CONFIG_VERSIONS < <(printf '%s\n' "${versions[@]}" | sort -t. -k1,1n -k2,2n -k3,3n)
+	else
+		_CFG_CONFIG_VERSIONS=()
 	fi
+	_CFG_CONFIG_VERSIONS_LOADED=true
+	_CFG_CONFIG_VERSIONS_DIR="$dir"
+}
+
+cfg_config_version_list() {
+	cfg_config_versions_load
+	if [ ${#_CFG_CONFIG_VERSIONS[@]} -gt 0 ]; then
+		printf '%s\n' "${_CFG_CONFIG_VERSIONS[@]}"
+	fi
+	return 0
 }
 
 cfg_version_display_prefix() {
 	local ver="$1"
-	local dir="$DOTFILES_LIB_DIR"
-	for f in "$dir"/categories-*.conf; do
-		[ -f "$f" ] || continue
-		local raw="${f##*/categories-}"
-		local has_v=false
-		[[ "$raw" == v* ]] && has_v=true
-		raw="${raw%.conf}"
-		raw="${raw#v}"
-		local fv="" lineno=0
-		while IFS= read -r line && (( lineno < 10 )); do
-			((++lineno))
-			local trimmed="${line#"${line%%[![:space:]]*}"}"
-			if [[ "$trimmed" == \#[[:space:]]*VERSION[[:space:]]*=* ]]; then
-				fv="${trimmed#*=}"
-				fv="${fv#"${fv%%[![:space:]]*}"}"
-				fv="${fv%\"}"
-				fv="${fv#\"}"
-				fv="${fv#v}"
-				break
-			fi
-			[ -n "$trimmed" ] && [[ "$trimmed" != \#* ]] && break
-		done < "$f"
-		local effective="${fv:-$raw}"
-		if [ "$effective" = "$ver" ]; then
-			if $has_v; then printf 'v'; fi
-			return 0
-		fi
-	done
+	cfg_config_versions_load
+	[ -n "${_CFG_CONFIG_VERSION_PREFIXES[$ver]+x}" ] || return 0
+	printf '%s' "${_CFG_CONFIG_VERSION_PREFIXES[$ver]}"
 }

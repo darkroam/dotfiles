@@ -6,7 +6,7 @@
 - 确认日期：2026-08-10
 - 基线提交：`0d3209a fix: align dotcfg command output documentation`
 - 基线测试：181/181 个受管 Bats 测试通过
-- 当前检查点：243 个受管 Bats 测试，包含原本未纳管的 category、配置版本和生命周期测试
+- 当前检查点：245 个受管 Bats 测试，包含原本未纳管的 category、配置版本和生命周期测试
 - 适用平台：本轮只在[平台档案索引](../platforms/index.md)所列当前 Debian 平台执行真实性验证；
   其他发行版只做 Shell 语法和兼容性判断
 
@@ -50,6 +50,12 @@ warning，并逐步修复高置信度问题。
 | `dotcfg categories list` | 未单独对比 | 339.8 ms |
 
 节点读取命令无回退，`history` 提升约 45%。category 解析仍是下一项优化对象。
+
+### 阶段 1 category 缓存检查点
+
+2026-08-11 使用同一快照、预热 3 次并运行 20 次，`dotcfg categories list` 从 301.9 ms 降至
+84.8 ms，提升约 72%。实现只使用进程内的版本发现、显示前缀和元数据缓存；配置文件变化后通过
+`cfg_config_versions_invalidate` 与 `cfg_categories_invalidate` 显式失效，不创建磁盘缓存。
 
 ## 阶段计划
 

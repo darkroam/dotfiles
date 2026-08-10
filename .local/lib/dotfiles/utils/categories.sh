@@ -18,6 +18,12 @@ declare -A _CFG_CAT_RESOLVED=()
 declare -gA CFG_CATEGORIES_TAGS=()
 _CFG_CAT_NAMES=()
 
+declare -gA _CFG_CONFIG_BODY_CACHE=()
+declare -gA _CFG_CONFIG_VERSION_CACHE=()
+declare -gA _CFG_CONFIG_NAME_CACHE=()
+declare -gA _CFG_CONFIG_DESCRIPTION_CACHE=()
+declare -gA _CFG_CONFIG_TAG_CACHE=()
+
 # ── Built-in default categories ─────────────────────────────────────────
 
 _CFG_CATEGORIES_BUILTIN='category = macos
@@ -70,11 +76,18 @@ _CFG_EXCLUDE_PATTERNS=()
 
 # ── Helper: trim whitespace ─────────────────────────────────────────────
 
+_cfg_trim_into() {
+	local _cfg_trim_target="$1"
+	local _cfg_trim_text="$2"
+	_cfg_trim_text="${_cfg_trim_text#"${_cfg_trim_text%%[![:space:]]*}"}"
+	_cfg_trim_text="${_cfg_trim_text%"${_cfg_trim_text##*[![:space:]]}"}"
+	printf -v "$_cfg_trim_target" '%s' "$_cfg_trim_text"
+}
+
 _cfg_trim() {
-	local s="$1"
-	s="${s#"${s%%[![:space:]]*}"}"
-	s="${s%"${s##*[![:space:]]}"}"
-	printf '%s' "$s"
+	local value
+	_cfg_trim_into value "$1"
+	printf '%s' "$value"
 }
 
 # ── Parser ──────────────────────────────────────────────────────────────
@@ -91,17 +104,17 @@ _cfg_categories_parse() {
 
 	local current_cat=""
 	local section="include"
-	local line trimmed key val
+	local line trimmed val
 
 	while IFS= read -r line || [ -n "$line" ]; do
-		trimmed=$(_cfg_trim "$line")
+		_cfg_trim_into trimmed "$line"
 
 		[ -z "$trimmed" ] && continue
 		[[ "$trimmed" == \#* ]] && continue
 
 		if [[ "$trimmed" == category[[:space:]]*=* ]]; then
 			val="${trimmed#*=}"
-			current_cat=$(_cfg_trim "$val")
+			_cfg_trim_into current_cat "$val"
 			section="include"
 			if [[ " ${_CFG_CAT_NAMES[*]} " != *" $current_cat "* ]]; then
 				_CFG_CAT_NAMES+=("$current_cat")
@@ -115,14 +128,15 @@ _cfg_categories_parse() {
 
 		if [[ "$trimmed" == include[[:space:]]*=* ]] && [ "$section" = "include" ]; then
 			val="${trimmed#*=}"
-			_CFG_CAT_INCLUDES[$current_cat]=$(_cfg_trim "$val")
+			_cfg_trim_into val "$val"
+			_CFG_CAT_INCLUDES[$current_cat]="$val"
 			continue
 		fi
 
 		if [[ "$trimmed" == "+ "* ]] || [[ "$trimmed" == "+"$'\t'* ]]; then
 			section="add"
 			val="${trimmed#\+}"
-			val=$(_cfg_trim "$val")
+			_cfg_trim_into val "$val"
 			[ -n "$val" ] && _CFG_CAT_ADDS[$current_cat]+="$val"$'\n'
 			continue
 		fi
@@ -130,7 +144,7 @@ _cfg_categories_parse() {
 		if [[ "$trimmed" == "- "* ]] || [[ "$trimmed" == "-"$'\t'* ]]; then
 			section="remove"
 			val="${trimmed#-}"
-			val=$(_cfg_trim "$val")
+			_cfg_trim_into val "$val"
 			[ -n "$val" ] && _CFG_CAT_SUBS[$current_cat]+="$val"$'\n'
 			continue
 		fi
@@ -232,7 +246,7 @@ _cfg_exclude_load() {
 		local line lineno=0
 		while IFS= read -r line || [ -n "$line" ]; do
 			((lineno++))
-			line=$(_cfg_trim "$line")
+			_cfg_trim_into line "$line"
 			[ -z "$line" ] && continue
 			[[ "$line" == \#* ]] && continue
 			if [[ "$line" == /* ]]; then
@@ -267,6 +281,18 @@ cfg_config_version_read() {
 	fi
 	[ -f "$file" ] || return 1
 
+	if [ -n "${_CFG_CONFIG_BODY_CACHE[$file]+x}" ]; then
+		_CFG_CONF_VERSION="${_CFG_CONFIG_VERSION_CACHE[$file]}"
+		_CFG_CONF_NAME="${_CFG_CONFIG_NAME_CACHE[$file]}"
+		_CFG_CONF_DESCRIPTION="${_CFG_CONFIG_DESCRIPTION_CACHE[$file]}"
+		_CFG_CONF_TAG="${_CFG_CONFIG_TAG_CACHE[$file]}"
+		_CFG_CONF_BODY="${_CFG_CONFIG_BODY_CACHE[$file]}"
+		CFG_CATEGORIES_TAGS["$version"]="$_CFG_CONF_TAG"
+		[ -z "$_CFG_CONF_VERSION" ] || CFG_CATEGORIES_TAGS["${_CFG_CONF_VERSION#v}"]="$_CFG_CONF_TAG"
+		printf '%s' "$_CFG_CONF_BODY"
+		return 0
+	fi
+
 	local content
 	content=$(<"$file")
 
@@ -279,23 +305,23 @@ cfg_config_version_read() {
 	_CFG_CONF_BODY=""
 	while IFS= read -r line || [ -n "$line" ]; do
 		local trimmed
-		trimmed=$(_cfg_trim "$line")
+		_cfg_trim_into trimmed "$line"
 		if $in_header; then
 			if [ -z "$trimmed" ] || [[ "$trimmed" == \#* ]]; then
 				if [[ "$trimmed" == \#[[:space:]]*VERSION[[:space:]]*=* ]]; then
-					_CFG_CONF_VERSION=$(_cfg_trim "${trimmed#*=}")
+					_cfg_trim_into _CFG_CONF_VERSION "${trimmed#*=}"
 					_CFG_CONF_VERSION="${_CFG_CONF_VERSION%\"}"
 					_CFG_CONF_VERSION="${_CFG_CONF_VERSION#\"}"
 				elif [[ "$trimmed" == \#[[:space:]]*NAME[[:space:]]*=* ]]; then
-					_CFG_CONF_NAME=$(_cfg_trim "${trimmed#*=}")
+					_cfg_trim_into _CFG_CONF_NAME "${trimmed#*=}"
 					_CFG_CONF_NAME="${_CFG_CONF_NAME%\"}"
 					_CFG_CONF_NAME="${_CFG_CONF_NAME#\"}"
 				elif [[ "$trimmed" == \#[[:space:]]*DESCRIPTION[[:space:]]*=* ]]; then
-					_CFG_CONF_DESCRIPTION=$(_cfg_trim "${trimmed#*=}")
+					_cfg_trim_into _CFG_CONF_DESCRIPTION "${trimmed#*=}"
 					_CFG_CONF_DESCRIPTION="${_CFG_CONF_DESCRIPTION%\"}"
 					_CFG_CONF_DESCRIPTION="${_CFG_CONF_DESCRIPTION#\"}"
 				elif [[ "$trimmed" == \#[[:space:]]*TAG[[:space:]]*=* ]]; then
-					_CFG_CONF_TAG=$(_cfg_trim "${trimmed#*=}")
+					_cfg_trim_into _CFG_CONF_TAG "${trimmed#*=}"
 					_CFG_CONF_TAG="${_CFG_CONF_TAG%\"}"
 					_CFG_CONF_TAG="${_CFG_CONF_TAG#\"}"
 					_CFG_CONF_TAG="${_CFG_CONF_TAG%\'}"
@@ -320,8 +346,28 @@ cfg_config_version_read() {
 	if [ -n "$_CFG_CONF_VERSION" ]; then
 		CFG_CATEGORIES_TAGS["${_CFG_CONF_VERSION#v}"]="$_CFG_CONF_TAG"
 	fi
+	_CFG_CONFIG_BODY_CACHE["$file"]="$_CFG_CONF_BODY"
+	_CFG_CONFIG_VERSION_CACHE["$file"]="$_CFG_CONF_VERSION"
+	_CFG_CONFIG_NAME_CACHE["$file"]="$_CFG_CONF_NAME"
+	_CFG_CONFIG_DESCRIPTION_CACHE["$file"]="$_CFG_CONF_DESCRIPTION"
+	_CFG_CONFIG_TAG_CACHE["$file"]="$_CFG_CONF_TAG"
 
 	printf '%s' "$_CFG_CONF_BODY"
+}
+
+# cfg_categories_invalidate
+# Discards cached version metadata and parsed category state. Call after a
+# categories configuration file is changed in the current process.
+cfg_categories_invalidate() {
+	unset _CFG_CONFIG_BODY_CACHE _CFG_CONFIG_VERSION_CACHE _CFG_CONFIG_NAME_CACHE
+	unset _CFG_CONFIG_DESCRIPTION_CACHE _CFG_CONFIG_TAG_CACHE CFG_CATEGORIES_TAGS
+	declare -gA _CFG_CONFIG_BODY_CACHE=()
+	declare -gA _CFG_CONFIG_VERSION_CACHE=()
+	declare -gA _CFG_CONFIG_NAME_CACHE=()
+	declare -gA _CFG_CONFIG_DESCRIPTION_CACHE=()
+	declare -gA _CFG_CONFIG_TAG_CACHE=()
+	declare -gA CFG_CATEGORIES_TAGS=()
+	_cfg_categories_parse ""
 }
 
 cfg_config_get_tag() {

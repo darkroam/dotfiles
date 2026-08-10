@@ -206,10 +206,10 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 覆盖 `macos/min/full` 默认分类、旧 `server/desktop` 名称兼容、继承、增删项、循环引用、目录路径、
 排除规则和分类差异。测试使用隔离的库副本，不写入真实 `DOTFILES_LIB_DIR`。
 
-### TC-CV01..CV07b：配置版本（config-versions.bats）
+### TC-CV01..CV08：配置版本（config-versions.bats）
 
-覆盖版本发现、语义版本排序、头部元数据、按版本加载、缺失版本回退，以及 `full`、`empty` 的
-特殊查询语义。
+覆盖版本发现、空目录成功返回、语义版本排序、头部元数据、按版本加载、缺失版本回退，以及
+`full`、`empty` 的特殊查询语义。TC-CV08 验证版本文件改变后，显式失效可刷新版本发现和元数据缓存。
 
 ### TC-CL01..CL07b：命令生命周期（commands-lifecycle.bats）
 
@@ -382,8 +382,8 @@ bats -r .local/share/test/ --tap
 Bats 满足本文 `>= 1.11.0` 的前置要求。
 
 ```
-Total:  243
-Passed: 243
+Total:  245
+Passed: 245
 Failed: 0
 ```
 
@@ -406,5 +406,5 @@ Failed: 0
 
 ---
 
-**最后更新**: 2026-08-10
-**版本**: 3.7 — 243 个受管测试 + 节点索引缓存 + 生命周期与配置版本回归
+**最后更新**: 2026-08-11
+**版本**: 3.8 — 245 个受管测试 + 节点/category 进程内缓存 + 生命周期回归

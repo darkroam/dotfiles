@@ -635,6 +635,7 @@ cmd_categories() {
 
     case "$subcmd" in
         list)
+            cfg_config_versions_load
             local versions
             versions=$(cfg_config_version_list 2>/dev/null) || true
             if [ -z "$versions" ]; then
@@ -842,7 +843,8 @@ cmd_categories() {
                 *) printf 'Cancelled.\n'; return 0 ;;
             esac
             rm -f -- "$version_file"
-            unset 'CFG_CATEGORIES_TAGS[$ver]'
+            cfg_config_versions_invalidate
+            cfg_categories_invalidate
             printf 'Configuration version %s removed: %s\n' "$ver" "$version_file"
             ;;
         *)

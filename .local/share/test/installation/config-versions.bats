@@ -55,6 +55,8 @@ create_version_file() {
 		printf '+ .custom.el\n'
 	} > "$conf"
 	TEST_VERSION_FILES+=("$conf")
+	declare -F cfg_config_versions_invalidate >/dev/null && cfg_config_versions_invalidate
+	declare -F cfg_categories_invalidate >/dev/null && cfg_categories_invalidate
 }
 
 # ── Version Discovery ──────────────────────────────────────────────────
@@ -82,6 +84,12 @@ create_version_file() {
 	local versions
 	versions=$(cfg_config_version_list)
 	[ "$versions" = "99.3.0" ]
+}
+
+@test "TC-CV01c: cfg_config_version_list succeeds when no files exist" {
+	run cfg_config_version_list
+	[ "$status" -eq 0 ]
+	[ -z "$output" ]
 }
 
 # ── Latest Version ─────────────────────────────────────────────────────
@@ -212,4 +220,22 @@ create_version_file() {
 	[[ "$list" == *"min"* ]]
 	[[ "$list" == *"full"* ]]
 	[[ "$list" != *"empty"* ]]
+}
+
+@test "TC-CV08: explicit invalidation refreshes version caches" {
+	create_version_file "97.1.0" "Original Name"
+	cfg_config_versions_load
+	cfg_config_version_read "97.1.0" >/dev/null
+	[ "$_CFG_CONF_NAME" = "Original Name" ]
+	[ "$_CFG_CONFIG_VERSIONS_LOADED" = true ]
+	[ ${#_CFG_CONFIG_BODY_CACHE[@]} -eq 1 ]
+
+	sed -i 's/Original Name/Updated Name/' "$DOTFILES_LIB_DIR/categories-97.1.0.conf"
+	cfg_config_versions_invalidate
+	cfg_categories_invalidate
+	cfg_config_versions_load
+	cfg_config_version_read "97.1.0" >/dev/null
+
+	[ "$_CFG_CONF_NAME" = "Updated Name" ]
+	[[ "$(cfg_config_version_list)" == *"97.1.0"* ]]
 }
