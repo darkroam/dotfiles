@@ -2,7 +2,7 @@
 
 ## 计划状态
 
-- 状态：阶段 0、阶段 1、阶段 2、阶段 3 已完成，阶段 4 待执行
+- 状态：阶段 0、阶段 1、阶段 2、阶段 3、阶段 4 已完成，阶段 5 待执行
 - 确认日期：2026-08-10
 - 基线提交：`0d3209a fix: align dotcfg command output documentation`
 - 基线测试：181/181 个受管 Bats 测试通过
@@ -93,7 +93,7 @@ exclude 或 fresh 业务库；bootstrap 路径保持原有自举逻辑。
   `STATE_INDICATORS` 元数据
 - 旧配置缺少元数据时使用现有默认值
 - 兼容区段规则仍显示为 `hardcoded rule`，普通用户规则显示为 `exclude.conf`
-- 验收：249/249 测试通过；阶段 2 修改已完成，待阶段性提交
+- 验收：249/249 测试通过；阶段 2 已提交 `6fbb369`
 
 ### 阶段 3：动态 category 与状态检测
 
@@ -102,15 +102,18 @@ exclude 或 fresh 业务库；bootstrap 路径保持原有自举逻辑。
 - 保留 `full`、`bootstrap`、`desktop/server` 的特殊和兼容语义
 - 当前正式 category 下的输出顺序和文字不改变
 - 自定义 category 可通过 `dotcfg switch <category>` 使用；未知目标继续保持原错误文本
-- 验收：251/251 测试通过，状态元数据和自定义 category 回归通过；阶段 3 已完成
+- 验收：251/251 测试通过，状态元数据和自定义 category 回归通过；阶段 3 已提交 `01504c8`
 
-### 阶段 4：入口和命令拆分
+### 阶段 4：入口和命令拆分（已完成）
 
-- 将入口内嵌的 status/list/history/categories 实现拆为薄命令模块
-- dotcfg 只保留 bootstrap、参数分发和兼容转换
+- 将入口内嵌的 status/list/history/categories 实现拆为薄命令模块：
+  `.local/lib/dotfiles/commands/status.sh`、`list.sh`、`history.sh`、`categories.sh`
+- dotcfg 保留 bootstrap、按需加载、参数分发、switch 兼容转换和 help/validate 入口
 - 现有命令路径先保留兼容包装，验证一个模块后再迁移下一个
 - 不删除 `switch-desktop.sh`、`switch-server.sh` 和 `bootstrap-lib.sh`
-- 验收：全命令矩阵、旧会话迁移、bootstrap 和完整生命周期测试通过
+- 验收：全命令矩阵、旧会话迁移、bootstrap 和完整生命周期测试 `251/251` 通过；
+  `status`、`list`、`history`、`categories` 与重构前输出逐字一致；阶段 4 已提交
+  `8352c95`、`a34dea8`、`cc86f93`
 
 ### 阶段 5：可读性和静态检查
 
