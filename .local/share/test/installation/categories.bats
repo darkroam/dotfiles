@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # categories.bats - Unit tests for utils/categories.sh
-# TC-C01 through TC-C15
+# TC-C01 through TC-C16
 
 load helpers.bash
 
@@ -24,9 +24,9 @@ teardown() {
 	cfg_category_exists "macos"
 	cfg_category_exists "min"
 	cfg_category_exists "full"
-	# Legacy public names remain compatible.
-	cfg_category_exists "server"
-	cfg_category_exists "desktop"
+	! cfg_category_exists "server"
+	! cfg_category_exists "desktop"
+	! cfg_category_exists "empty"
 }
 
 # TC-C02: macos category returns the maintained baseline
@@ -47,9 +47,10 @@ teardown() {
 	printf '%s\n' "$min_files" | grep -qFx ".bashrc"
 	printf '%s\n' "$min_files" | grep -qFx ".custom.el"
 	printf '%s\n' "$min_files" | grep -qFx ".config/lf/lfrc"
+	! printf '%s\n' "$min_files" | grep -qE '^\.config/(mpd|ncmpcpp|newsboat)/'
 	local count
 	count=$(printf '%s\n' "$min_files" | wc -l)
-	[ "$count" -eq 29 ]
+	[ "$count" -eq 24 ]
 }
 
 # TC-C04: cfg_category_exists works correctly
@@ -58,8 +59,9 @@ teardown() {
 	cfg_categories_load
 	cfg_category_exists "macos"
 	cfg_category_exists "min"
-	cfg_category_exists "server"
-	cfg_category_exists "desktop"
+	! cfg_category_exists "server"
+	! cfg_category_exists "desktop"
+	! cfg_category_exists "empty"
 	! cfg_category_exists "nonexistent"
 }
 
@@ -223,5 +225,24 @@ CONF
 	! printf '%s\n' "$diff" | grep -qFx ".bashrc"
 	local count
 	count=$(printf '%s\n' "$diff" | wc -l)
-	[ "$count" -eq 12 ]
+	[ "$count" -eq 7 ]
+}
+
+# TC-C16: The emergency fallback must stay identical to the stable definition.
+
+@test "TC-C16: built-in fallback matches categories-1.0.0.conf" {
+	cfg_categories_load
+	local fallback_names fallback_macos fallback_min
+	fallback_names=$(cfg_categories_list)
+	fallback_macos=$(cfg_category_get_files "macos")
+	fallback_min=$(cfg_category_get_files "min")
+
+	cp "$REAL_HOME/.local/lib/dotfiles/categories-1.0.0.conf" \
+		"$DOTFILES_LIB_DIR/categories-1.0.0.conf"
+	cfg_categories_invalidate
+	cfg_categories_load "1.0.0"
+
+	[ "$(cfg_categories_list)" = "$fallback_names" ]
+	[ "$(cfg_category_get_files "macos")" = "$fallback_macos" ]
+	[ "$(cfg_category_get_files "min")" = "$fallback_min" ]
 }

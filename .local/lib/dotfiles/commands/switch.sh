@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # commands/switch.sh - Unified category transition command
-# Usage: switch.sh --type=full|min|macos [--dry-run] [--reinstall] [--force] [--auto-stash]
+# Usage: switch.sh --type=<category> [--dry-run] [--reinstall] [--force] [--auto-stash]
 set -euo pipefail
 
 DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
@@ -19,7 +19,7 @@ for arg in "$@"; do
 done
 
 if [ -z "$SWITCH_TYPE" ]; then
-	printf 'ERROR: --type=full|min|macos is required\n' >&2
+	printf 'ERROR: --type=<category> is required\n' >&2
 	exit 1
 fi
 
@@ -34,7 +34,7 @@ else
 fi
 SWITCH_TYPE=$(cfg_category_canonical_name "$SWITCH_TYPE")
 if ! cfg_category_exists "$SWITCH_TYPE"; then
-	printf 'ERROR: unknown type "%s". Use full, min, or macos.\n' "$requested_type" >&2
+	printf 'ERROR: unknown type "%s". Use a configured category.\n' "$requested_type" >&2
 	exit 1
 fi
 

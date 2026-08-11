@@ -8,7 +8,7 @@ DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
 
 target="${1:-}"
 if [ -z "$target" ]; then
-	printf 'Usage: dotcfg check-exclude <path>\n' >&2
+	printf 'Error: path is required.\n' >&2
 	exit 1
 fi
 

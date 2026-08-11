@@ -15,13 +15,11 @@ teardown() {
 
 # ── status subcommand ──────────────────────────────────────────────────
 
-@test "TC-44: status shows fresh state with available operations" {
+@test "TC-44: status shows fresh state without command help" {
 	run run_dotcfg status
 	[ "$status" -eq 0 ]
 	assert_output_contains "fresh"
-	assert_output_contains "full"
-	assert_output_contains "min"
-	assert_output_contains "Available operations"
+	[[ "$output" != *"Available operations"* ]]
 }
 
 @test "TC-45: status shows full state when indicators present" {
@@ -84,8 +82,8 @@ teardown() {
 	run run_dotcfg history
 	[ "$status" -eq 0 ]
 	assert_output_contains "fresh"
-	assert_output_contains "full"
-	assert_output_contains "min"
+	assert_output_contains "desktop"
+	assert_output_contains "server"
 	assert_output_contains "HEAD"
 }
 
@@ -101,7 +99,7 @@ teardown() {
 
 	run run_dotcfg history
 	[ "$status" -eq 0 ]
-	assert_output_contains "full"
+	assert_output_contains "desktop"
 	assert_output_contains "HEAD"
 	[[ "$output" != *"invalid"* ]] || true
 	[[ "$output" != *"random"* ]] || true
@@ -121,20 +119,20 @@ teardown() {
 	assert_output_contains "unknown target"
 }
 
-@test "TC-54: switch fresh to desktop invokes install script" {
+@test "TC-54: switch fresh to full invokes the unified switch" {
 	setup_source_repo
 
-	run bash -c "yes | bash '$DOTCFG' switch desktop"
+	run bash -c "yes | bash '$DOTCFG' switch full"
 	[ "$status" -eq 0 ]
 	assert_cfg_exists
 	assert_state_is "full"
 }
 
-@test "TC-55: switch desktop to server invokes restore-server" {
+@test "TC-55: switch full to min invokes the unified switch" {
 	setup_source_repo
 	setup_installed_state
 
-	run bash -c "yes | bash '$DOTCFG' switch server"
+	run bash -c "yes | bash '$DOTCFG' switch min"
 	[ "$status" -eq 0 ]
 	assert_state_is "min"
 }
@@ -142,27 +140,25 @@ teardown() {
 @test "TC-56: switch --dry-run is passed through to underlying script" {
 	setup_source_repo
 
-	run bash -c "yes | bash '$DOTCFG' switch desktop --dry-run"
+	run bash -c "yes | bash '$DOTCFG' switch full --dry-run"
 	[ "$status" -eq 0 ]
 	assert_cfg_not_exists
 	assert_output_contains "DRY RUN"
 }
 
-@test "TC-56b: switch accepts a category defined by the current version" {
+@test "TC-56b: released desktop name works when defined as an ordinary category" {
 	setup_source_repo ".bashrc" ".local/bin/dotcfg"
 	local dlib="$HOME/dlib"
 	cp -r "$REAL_HOME/.local/lib/dotfiles" "$dlib"
 	cat > "$dlib/categories-2.0.0.conf" <<'CONF'
 # VERSION = "2.0.0"
-# CATEGORY_ALIASES = "desktop:custom,server:custom"
-
-category = custom
+category = desktop
 + .bashrc
 CONF
 	mkdir -p "$HOME/.config-backup"
 	printf '2.0.0\n' > "$HOME/.config-backup/CURRENT_CONFIG_VERSION"
 
-	run env DOTFILES_LIB_DIR="$dlib" bash "$DOTCFG" switch custom --dry-run
+	run env DOTFILES_LIB_DIR="$dlib" bash "$DOTCFG" switch desktop --dry-run
 	[ "$status" -eq 0 ]
 	[[ "$output" != *"unknown target"* ]]
 	assert_output_contains "DRY RUN"
@@ -276,12 +272,12 @@ EOF
 	run bash -c '
 		. "$DOTFILES_LIB_DIR/utils/common.sh"
 		cfg_categories_load 1.0.0
-		cfg_category_canonical_name desktop
-		printf " "
-		cfg_category_canonical_name server
+		cfg_category_exists desktop && exit 1
+		cfg_category_exists server && exit 1
+		printf "%s %s" "$(cfg_category_canonical_name desktop)" "$(cfg_category_canonical_name server)"
 	'
 	[ "$status" -eq 0 ]
-	[ "$output" = "full min" ]
+	[ "$output" = "desktop server" ]
 }
 
 @test "TC-62: fresh-adopt-legacy help shows its complete invocation" {

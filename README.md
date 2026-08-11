@@ -4,7 +4,7 @@ Personal Linux configuration managed as a bare Git repository. Tracked files
 are intended to work from `$HOME`; untracked files are deliberately outside the
 repository.
 
-Last reviewed: 2026-08-10.
+Last reviewed: 2026-08-11.
 
 ## Repository Usage
 
@@ -52,8 +52,8 @@ dotcfg switch macos      # cross-platform shell/Git/Tmux core
 Bootstrap clones the bare repository directly to `$HOME/.cfg`, installs `dotcfg`
 and its library, and creates a `fresh_root` node containing a filtered backup of
 the pre-installation `$HOME`; the root backup directory is mode `0700`.
-Conflicting server-category files are preserved under the Git-ignored
-`$HOME/.config-backup/conflict/` before the baseline server configuration is
+Conflicting baseline-category files are preserved under the Git-ignored
+`$HOME/.config-backup/conflict/` before the configured bootstrap category is
 checked out. The repository is then configured to hide untracked files from
 `c status`.
 

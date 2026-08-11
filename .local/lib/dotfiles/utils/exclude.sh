@@ -20,13 +20,15 @@ _FRESH_EXCLUDE_HARDCODED=(
 	".local/share/test/*"
 )
 
-# Compact fallback used only when exclude.conf is absent or does not contain
-# the compatibility block. The tracked exclude.conf remains the policy source.
+# Compact compatibility fallback used only when exclude.conf is absent or does
+# not contain its compatibility block. Define policy in exclude.conf, not here.
 _FRESH_EXCLUDE_POLICY_FALLBACK=(
 	"Downloads/*" "Desktop/*" "Documents/*" "Videos/*" "Music/*" "Pictures/*"
 	".cache/*" ".local/share/Trash/*" ".thumbnails/*" ".npm/*" ".cargo/*"
 	".config/microsoft-edge/*" ".config/nvm/*" ".config/chromium/*"
-	".config/google-chrome-for-testing/*" ".bash_history" ".zsh_history"
+	".config/google-chrome-for-testing/*"
+	"Applications/*" "Library/*" "Movies/*" "Public/*" "Sites/*" ".Trash/*"
+	"*.DS_Store" ".bash_history" ".zsh_history"
 	".lesshst" ".viminfo" "*.log" "*.tmp" "*.swp" "core.*"
 )
 

@@ -59,12 +59,17 @@
 ## 已接受的决定
 
 - `c` 保持为核心 bare 仓库命令。
-- dotcfg 正式部署 category 为 `full`、`min`、`macos`；旧 `desktop/server` 只映射为
-  `full/min` 以兼容既有入口。`min` 和 `macos` 不部署普通 `.local/bin/` 脚本。
+- dotcfg 只有 `full` 是代码保留 category；正式 `1.0.0` 配置另行定义普通的 `min` 和 `macos`。
+  `desktop`、`server` 和 `empty` 当前未定义且没有特殊地位，以后可作为普通 category 恢复。
+  历史节点 type 原样保留，旧直接脚本包装不建立同名 category 映射。当前 `min` 和 `macos`
+  不部署普通 `.local/bin/` 脚本。
 - `.local/bin/dotcfg` 与 `.local/lib/dotfiles/` 独立于 category，在 fresh、切换、undeploy 和
   uninstall 中始终保留；彻底清除只能提示用户手动执行。
 - `.config-backup.bak` 是用户急救备份，Fresh 扫描和旧备份采纳均不得读取、修改、移动或删除；
-  只有用户在验证稳定后自行清理。浏览器/NVM 可变状态按 Fresh 硬排除规则处理。
+  只有用户在验证稳定后自行清理。浏览器/NVM 可变状态及 macOS 标准用户数据目录按 Fresh
+  策略排除规则处理；仓库显式跟踪的配置仍可覆盖普通策略排除。
+- `exclude.conf` 仅控制 Fresh 候选，不得隐式改变 category 部署；需要从普通 category 移除文件时，
+  使用对应 `categories-*.conf` 中的 `-` 规则。`full` 始终保留全部跟踪配置语义。
 - `profile.local` 和 `aliasrc.local` 是支持的每机器扩展点。
 - PipeWire 和 WirePlumber 由目标平台的用户服务管理器负责；X11 启动脚本不得重复拉起。
 - 静态颜色和桌面默认值必须在没有 `wal` 或壁纸时可用。

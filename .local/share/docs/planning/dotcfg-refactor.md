@@ -6,7 +6,8 @@
 - 确认日期：2026-08-10
 - 基线提交：`0d3209a fix: align dotcfg command output documentation`
 - 基线测试：181/181 个受管 Bats 测试通过
-- 当前检查点：251 个受管 Bats 测试，包含原本未纳管的 category、配置版本和生命周期测试
+- 当前检查点：255 个受管 Bats 测试，包含原本未纳管的 category、配置版本和生命周期测试，
+  长字段表格对齐、错误/帮助输出边界、回退/稳定 category 定义一致性，以及 macOS Fresh 排除回归
 - 适用平台：本轮只在[平台档案索引](../platforms/index.md)所列当前 Debian 平台执行真实性验证；
   其他发行版只做 Shell 语法和兼容性判断
 
@@ -17,7 +18,8 @@
 - `dotcfg` 命令名称、参数、返回码保持不变
 - 正常配置下的终端输出、颜色、表格和图形符号保持不变
 - `categories-*.conf`、`exclude.conf` 既有语法和语义保持兼容
-- `desktop/server`、`full/min/macos`、`fresh` 和 `bootstrap` 兼容语义保留
+- 历史节点中已有的 `desktop/server` type 原样保留；只有 `full` 是代码保留 category
+- `fresh` 根状态、`bootstrap` 标识以及旧直接脚本入口继续兼容
 - bootstrap 必须继续由入口脚本独立完成，不能依赖尚未安装的库
 - 旧会话迁移、旧入口包装脚本和 Fresh 恢复逻辑必须继续可用
 
@@ -85,7 +87,8 @@ exclude 或 fresh 业务库；bootstrap 路径保持原有自举逻辑。
 
 ### 阶段 2：外部化配置性硬编码（已完成）
 
-- 将 23 项策略性排除规则迁移到 `.local/lib/dotfiles/exclude.conf`
+- 将初始 23 项策略性排除规则迁移到 `.local/lib/dotfiles/exclude.conf`；后续补齐 7 项 macOS
+  用户目录与 Finder 元数据规则，当前共 30 项
 - 7 项安装基础设施保护继续硬编码并始终生效
 - 保留缺失配置文件时的默认回退
 - 保持既有 `check-exclude` 输出中的 `hardcoded rule` 兼容标签
@@ -99,7 +102,7 @@ exclude 或 fresh 业务库；bootstrap 路径保持原有自举逻辑。
 
 - switch 目标校验从当前 category 配置读取
 - 状态检测优先使用节点元数据，其次使用 category 元数据，最后使用现有三个指标回退
-- 保留 `full`、`bootstrap`、`desktop/server` 的特殊和兼容语义
+- 保留 `full`、`bootstrap` 的特殊语义；历史 `desktop/server` type 原样读取，不占用 category 名称
 - 当前正式 category 下的输出顺序和文字不改变
 - 自定义 category 可通过 `dotcfg switch <category>` 使用；未知目标继续保持原错误文本
 - 验收：251/251 测试通过，状态元数据和自定义 category 回归通过；阶段 3 已提交 `01504c8`
@@ -108,9 +111,10 @@ exclude 或 fresh 业务库；bootstrap 路径保持原有自举逻辑。
 
 - 将入口内嵌的 status/list/history/categories 实现拆为薄命令模块：
   `.local/lib/dotfiles/commands/status.sh`、`list.sh`、`history.sh`、`categories.sh`
-- dotcfg 保留 bootstrap、按需加载、参数分发、switch 兼容转换和 help/validate 入口
+- dotcfg 保留 bootstrap、按需加载、参数分发、动态 switch 校验和 help/validate 入口
 - 现有命令路径先保留兼容包装，验证一个模块后再迁移下一个
 - 不删除 `switch-desktop.sh`、`switch-server.sh` 和 `bootstrap-lib.sh`
+  （前两者只是旧直接脚本包装，不为 `dotcfg switch desktop/server` 建立别名）
 - 验收：全命令矩阵、旧会话迁移、bootstrap 和完整生命周期测试 `251/251` 通过；
   `status`、`list`、`history`、`categories` 与重构前输出逐字一致；阶段 4 已提交
   `8352c95`、`a34dea8`、`cc86f93`

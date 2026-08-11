@@ -23,10 +23,10 @@ cmd_list() {
     local deploy_status
     deploy_status=$(cfg_deploy_status_get)
 
-    printf '  %-6s %-10s %-8s %-10s %-20s %s\n' "DEPLOY" "TYPE" "VERSION" "STATUS" "TIME" "CODE"
-
+    local deploy_width=6 type_width=10 version_width=8 status_width=10 time_width=20
+    local -a markers=() types=() versions=() statuses=() times=() codes=() root_marks=()
     local i
-    for ((i = ${#_CFG_NODE_CODES[@]} - 1; i >= 0; i--)); do
+    for ((i = 0; i < ${#_CFG_NODE_CODES[@]}; i++)); do
         local code="${_CFG_NODE_CODES[$i]}"
         local type="${_CFG_NODE_TYPES[$i]}"
         local ts="${_CFG_NODE_TIMESTAMPS[$i]}"
@@ -52,6 +52,29 @@ cmd_list() {
             root_mark=" ●"
         fi
 
-        printf '  %-6s %-10s %-8s %-10s %-20s %s%s\n' "$marker" "$type" "$node_version" "$display_status" "$display_ts" "$code" "$root_mark"
+        markers[$i]="$marker"
+        types[$i]="$type"
+        versions[$i]="$node_version"
+        statuses[$i]="$display_status"
+        times[$i]="$display_ts"
+        codes[$i]="$code"
+        root_marks[$i]="$root_mark"
+
+        [ ${#marker} -le $deploy_width ] || deploy_width=${#marker}
+        [ ${#type} -le $type_width ] || type_width=${#type}
+        [ ${#node_version} -le $version_width ] || version_width=${#node_version}
+        [ ${#display_status} -le $status_width ] || status_width=${#display_status}
+        [ ${#display_ts} -le $time_width ] || time_width=${#display_ts}
+    done
+
+    printf '  %-*s %-*s %-*s %-*s %-*s %s\n' \
+        "$deploy_width" "DEPLOY" "$type_width" "TYPE" "$version_width" "VERSION" \
+        "$status_width" "STATUS" "$time_width" "TIME" "CODE"
+
+    for ((i = ${#codes[@]} - 1; i >= 0; i--)); do
+        printf '  %-*s %-*s %-*s %-*s %-*s %s%s\n' \
+            "$deploy_width" "${markers[$i]}" "$type_width" "${types[$i]}" \
+            "$version_width" "${versions[$i]}" "$status_width" "${statuses[$i]}" \
+            "$time_width" "${times[$i]}" "${codes[$i]}" "${root_marks[$i]}"
     done
 }

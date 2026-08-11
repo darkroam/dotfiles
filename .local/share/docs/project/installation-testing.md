@@ -83,13 +83,13 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
     ├── exclude-rules.bats      ← Fresh 排除和跟踪判断
     ├── fresh-node.bats         ← Fresh 混合备份与管理命令
     ├── history-graph.bats      ← 节点历史图
-    ├── install-desktop.bats    ← full 兼容入口安装
-    ├── install-server.bats     ← min 兼容入口安装
+    ├── install-desktop.bats    ← 旧直接脚本包装的 full 安装
+    ├── install-server.bats     ← 旧直接脚本包装的 min 安装
     ├── migration.bats          ← 旧会话迁移到节点系统
     ├── nodes.bats              ← 节点数据结构
     ├── nodes-lifecycle.bats    ← 节点状态和删除生命周期
-    ├── restore-desktop.bats    ← 切换到 full 的兼容入口
-    ├── restore-server.bats     ← 切换到 min 的兼容入口
+    ├── restore-desktop.bats    ← 旧直接脚本包装的 full 恢复
+    ├── restore-server.bats     ← 旧直接脚本包装的 min 恢复
     ├── refactor-contract.bats  ← 重构期间的用户接口契约
     ├── uninstall.bats          ← 卸载与恢复
     ├── validate.bats           ← 仓库验证
@@ -129,7 +129,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-09 | 备份目录权限 0700 |
 | TC-10 | MANIFEST 格式：`relative_path\tmd5\tstatus`（tab 分隔） |
 
-### TC-11..16：全量安装（install-desktop.bats → 兼容入口映射到 `--type=full`）
+### TC-11..16：全量安装（install-desktop.bats → 旧直接脚本包装固定传入 `--type=full`）
 
 | 用例 | 描述 |
 |------|------|
@@ -140,7 +140,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-15 | checkout state 文件记录所有跟踪文件 |
 | TC-16 | `showUntrackedFiles = no` 配置 |
 
-### TC-17..21：最小安装（install-server.bats → 兼容入口映射到 `--type=min`）
+### TC-17..21：最小安装（install-server.bats → 旧直接脚本包装固定传入 `--type=min`）
 
 | 用例 | 描述 |
 |------|------|
@@ -150,7 +150,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-20 | 白名单排除桌面文件 |
 | TC-21 | checkout state 和 git 配置 |
 
-### TC-22..26b：切换到 full（restore-desktop.bats → 兼容入口）
+### TC-22..26b：切换到 full（restore-desktop.bats → 旧直接脚本包装）
 
 | 用例 | 描述 |
 |------|------|
@@ -159,7 +159,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-24 | `--dry-run` 预览 |
 | TC-25 | `--auto-stash` 覆盖不备份 |
 
-### TC-27..30b：切换到 min（restore-server.bats → 兼容入口）
+### TC-27..30b：切换到 min（restore-server.bats → 旧直接脚本包装）
 
 | 用例 | 描述 |
 |------|------|
@@ -207,15 +207,17 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-B02 | 拒绝覆盖外部仓库 |
 | TC-B03 | 重复执行自举保持幂等 |
 
-### TC-C01..C15：category 解析（categories.bats）
+### TC-C01..C16：category 解析（categories.bats）
 
-覆盖 `macos/min/full` 默认分类、旧 `server/desktop` 名称兼容、继承、增删项、循环引用、目录路径、
-排除规则和分类差异。测试使用隔离的库副本，不写入真实 `DOTFILES_LIB_DIR`。
+覆盖 `macos/min/full` 默认分类、普通名称与唯一保留名称的边界、继承、增删项、循环引用、目录路径、
+排除规则和分类差异。TC-C16 逐项比较内置回退与 `categories-1.0.0.conf`，防止两份定义漂移。
+测试使用隔离的库副本，不写入真实 `DOTFILES_LIB_DIR`。
 
 ### TC-CV01..CV08：配置版本（config-versions.bats）
 
 覆盖版本发现、空目录成功返回、语义版本排序、头部元数据、按版本加载、缺失版本回退，以及
-`full`、`empty` 的特殊查询语义。TC-CV08 验证版本文件改变后，显式失效可刷新版本发现和元数据缓存。
+`full` 的保留语义和 `empty` 的普通名称语义。TC-CV08 验证版本文件改变后，显式失效可刷新版本
+发现和元数据缓存。
 
 ### TC-CL01..CL07b：命令生命周期（commands-lifecycle.bats）
 
@@ -240,7 +242,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 
 | 用例 | 描述 |
 |------|------|
-| TC-44 | status：fresh 状态显示可用操作 |
+| TC-44 | status：fresh 状态不混入命令帮助 |
 | TC-45 | status：full 状态检测（含节点信息） |
 | TC-46 | status：min 状态检测（含节点信息） |
 | TC-47 | list：节点列表 |
@@ -250,15 +252,15 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-51 | history：跳过畸形目录名 |
 | TC-52 | `switch fresh`：解析根节点别名；根节点不存在时报错 |
 | TC-53 | switch：无效目标报错 |
-| TC-54 | 旧 `desktop` 入口映射到 full 并完成安装 |
-| TC-55 | 旧 `server` 入口映射到 min 并完成切换 |
+| TC-54 | `switch full` 通过统一切换实现完成安装 |
+| TC-55 | `switch full` 到 `min` 完成切换 |
 | TC-56 | switch：`--dry-run` 透传 |
-| TC-56b | switch：接受当前版本配置中定义的自定义 category |
+| TC-56b | switch：`desktop` 被配置为普通 category 后可正常使用 |
 | TC-57 | validate：仓库验证详情 |
 | TC-58 | 默认 status + 未知子命令报错 |
 | TC-59 | 顶层和子命令 `--help` 与 `dotcfg help` 输出一致 |
 | TC-60 | TAG 列表标记、切换提示、版本删除和节点删除警告 |
-| TC-61 | 正式 `1.0.0 stable` 只展示 full、min、macos，并验证旧名称映射 |
+| TC-61 | 正式 `1.0.0 stable` 只展示 full、min、macos，未定义的 desktop/server 不被映射 |
 | TC-62 | `fresh-adopt-legacy --help` 展示完整调用参数 |
 | TC-63 | `categories show` 将 full 标记为动态全部跟踪文件且不显示数量 |
 
@@ -272,21 +274,25 @@ TC-H07 固定验证 `bootstrap` 是特殊版本标识，历史图不会错误添
 覆盖节点创建、读取、父子关系、HEAD、部署状态、迁移检测和索引持久化。TC-N29 验证进程内
 `code -> index` 缓存可读取节点；TC-N30 验证外部修改索引后，显式失效可重新加载磁盘数据。
 
-### TC-R01..R05：重构接口契约（refactor-contract.bats）
+### TC-R01..R07：重构接口契约（refactor-contract.bats）
 
 锁定 `dotcfg help` 的完整文本、`check-exclude` 的兼容标签、`categories show` 的 `full` 动态标记，
-未知切换目标的错误文字和返回码，以及 help 不加载业务库。后续内部重构不得改变这些用户可见行为。
+未知切换目标的错误文字和返回码，以及 help 不加载业务库。TC-R06 验证长 category 和版本号不会
+破坏 `list` 列对齐；TC-R07 检查所有已知参数缺失和未知子命令分支只输出错误，usage 仅由帮助入口
+显示。后续内部重构不得无意改变这些用户可见行为。
 
-### TC-E01..E08：Fresh 排除规则（exclude-rules.bats）
+### TC-E01..E09：Fresh 排除规则（exclude-rules.bats）
 
 覆盖安装保护、兼容排除区段、普通 `exclude.conf` 规则、绝对路径拒绝和仓库跟踪判断。TC-E06 固定验证
 `.config-backup.bak` 以及 Microsoft Edge、NVM、Chromium、Chrome for Testing 可变状态不会进入
-Fresh 选择集；TC-E07 验证配置缺失时的默认回退；TC-E08 验证兼容区段和用户规则的文案标签。
+Fresh 选择集；TC-E07 验证配置缺失时 Linux 与 macOS 规则的默认回退；TC-E08 验证兼容区段和用户
+规则的文案标签；TC-E09 覆盖 macOS 标准用户目录和 Finder 元数据，并验证显式跟踪的
+`Library/...` 配置仍可由 `full` 部署、进入 Fresh，且 30 项配置与回退完全一致。
 
 ### TC-CV09：category 可选元数据（config-versions.bats）
 
 验证 `VALID_TAGS`、`CATEGORY_ALIASES`、`STATE_DEFAULT` 和 `STATE_INDICATORS` 从版本配置头部
-读取，并在缺少这些字段时使用稳定的旧配置默认值。
+读取；`CATEGORY_ALIASES` 缺失时为空，其他元数据缺失时使用稳定的兼容默认值。
 
 ### TC-F01..F12：Fresh 根节点（fresh-node.bats）
 
@@ -301,8 +307,8 @@ Fresh 选择集；TC-E07 验证配置缺失时的默认回退；TC-E08 验证兼
 |------|------|
 | TC-M01 | 无旧会话时迁移提示无需操作 |
 | TC-M02 | 已迁移时提示已完成 |
-| TC-M03 | 单个会话迁移：创建根节点 + 子节点 |
-| TC-M04 | 多个会话按时间顺序迁移 |
+| TC-M03 | 单个会话迁移：创建根节点 + 子节点，并保留历史 `desktop` type |
+| TC-M04 | 多个会话按时间顺序迁移，并保留历史 `desktop/server` type |
 | TC-M05 | 迁移后父链正确 |
 | TC-M06 | 迁移后 HEAD 设为最后节点 |
 | TC-M07 | 迁移复制备份文件到节点目录 |
@@ -312,11 +318,11 @@ Fresh 选择集；TC-E07 验证配置缺失时的默认回退；TC-E08 验证兼
 | TC-M11 | `--dry-run` 预览迁移计划 |
 | TC-M12 | 非会话目录被忽略 |
 | TC-M13 | 自动迁移在 dotcfg status 前触发 |
-| TC-M14 | 自动迁移在 dotcfg switch 前触发 |
-| TC-M15 | 显式 `dotcfg migrate` 执行迁移 |
-| TC-M16 | 迁移后节点类型正确 |
-| TC-M17 | 迁移后节点数量正确 |
-| TC-M18 | 多次迁移幂等 |
+| TC-M14 | help 命令不触发自动迁移 |
+| TC-M15 | version 命令不触发自动迁移 |
+| TC-M16 | 迁移后父子链接正确 |
+| TC-M17 | 节点备份与文件目录正确创建 |
+| TC-M18 | 显式 `dotcfg migrate` 执行迁移 |
 
 ---
 
@@ -336,10 +342,10 @@ Fresh 选择集；TC-E07 验证配置缺失时的默认回退；TC-E08 验证兼
 
 | 函数 | 用途 |
 |------|------|
-| `run_install_desktop [args...]` | 运行旧 full 兼容入口 `switch-desktop.sh` |
-| `run_install_server [args...]` | 运行旧 min 兼容入口 `switch-server.sh` |
-| `run_restore_desktop [args...]` | 运行旧 full 兼容入口 `switch-desktop.sh` |
-| `run_restore_server [args...]` | 运行旧 min 兼容入口 `switch-server.sh` |
+| `run_install_desktop [args...]` | 运行旧直接脚本包装 `switch-desktop.sh`（固定转发 full） |
+| `run_install_server [args...]` | 运行旧直接脚本包装 `switch-server.sh`（固定转发 min） |
+| `run_restore_desktop [args...]` | 运行旧直接脚本包装 `switch-desktop.sh`（固定转发 full） |
+| `run_restore_server [args...]` | 运行旧直接脚本包装 `switch-server.sh`（固定转发 min） |
 | `run_uninstall [args...]` | `yes \| yes \| bash uninstall.sh` |
 | `run_dotcfg [args...]` | `bash dotcfg` |
 
@@ -390,12 +396,12 @@ bats -r .local/share/test/ --tap
 
 ### 当前测试结果
 
-**验证环境**：2026-08-10 在[平台档案索引](../platforms/index.md)所列当前 Debian 平台执行；
+**验证环境**：2026-08-11 在[平台档案索引](../platforms/index.md)所列当前 Debian 平台执行；
 Bats 满足本文 `>= 1.11.0` 的前置要求。
 
 ```
-Total:  251
-Passed: 251
+Total:  255
+Passed: 255
 Failed: 0
 ```
 
@@ -419,4 +425,4 @@ Failed: 0
 ---
 
 **最后更新**: 2026-08-11
-**版本**: 4.1 — 251 个受管测试 + 节点/category 缓存 + dotcfg 按需加载 + 动态 category 状态检测
+**版本**: 4.4 — 255 个受管测试 + macOS Fresh 排除 + 单一保留 full category

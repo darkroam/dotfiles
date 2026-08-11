@@ -5,10 +5,25 @@
 ## 已完成待办
 
 - [x] 2026-08-06：配置文件版本化与节点生命周期已实现。支持 `categories-*.conf` 元数据、
-  `full`/`empty` 内置类别、节点 `config_version/status`、`list/history` 展示以及
+  当时的 `full`/`empty` 内置类别、节点 `config_version/status`、`list/history` 展示以及
   `remove/unremove/autoclean` 和向后兼容旧 `index.json`；相关实现和测试见下方记录。
 
 ## 最近记录的变更
+
+- [x] 2026-08-11：将 Fresh 策略排除从 23 项扩展为 30 项，补齐 macOS 的 `Applications/`、
+  `Library/`、`Movies/`、`Public/`、`Sites/`、`.Trash/` 和 `*.DS_Store`。配置缺失回退保持同值，
+  仓库显式跟踪的配置仍可覆盖普通策略排除。新增 macOS 专项回归后全量 Bats `255/255` 通过。
+
+- [x] 2026-08-11：确认正式 `min` 移除 MPD、Ncmpcpp 和 Newsboat 配置，内置故障回退与
+  `categories-1.0.0.conf` 保持完全一致。释放 `desktop`、`server` 和 `empty` 名称，不再提供默认
+  别名或特殊解析；历史节点保留原 type。仅 `full` 是代码保留且不可覆盖的动态 category，并增加
+  回退与稳定版本逐项相等的回归测试。全量 Bats `254/254`、Bash 语法、受影响脚本的 ShellCheck
+  warning/error、文档链接、隐私扫描和 `git diff --check` 均通过。
+
+- [x] 2026-08-11：完成 dotcfg 硬编码来源、命令输出和可扩展性复查。`list` 按实际字段动态对齐，
+  `status` 只报告状态，参数缺失与未知子命令不再附带 usage；安装文档明确配置权威来源、兼容
+  回退、必要协议硬编码和普通 category 扩展边界。新增两项接口回归后全量 Bats `253/253` 通过，受影响 Shell 文件的
+  ShellCheck warning/error 为 0；全库仍有 4 个与本轮无关的既有告警。
 
 - [x] 2026-08-11：完成 dotcfg 内部重构阶段 0 至 6。重构保留用户命令、参数、输出和返回码，
   完成按需加载、进程内节点/category 缓存、策略配置外部化、动态 category 状态检测、命令模块拆分、

@@ -31,15 +31,19 @@ declare -gA CFG_CATEGORY_ALIASES=()
 declare -gA CFG_STATE_INDICATOR_CATEGORIES=()
 declare -ga CFG_STATE_INDICATOR_PATHS=()
 
+# Compatibility metadata used only when the selected configuration omits the
+# corresponding header. Versioned categories files remain the policy source.
 _CFG_VALID_TAGS_DEFAULT="stable,test,experimental"
-_CFG_CATEGORY_ALIASES_DEFAULT="desktop:full,server:min"
+_CFG_CATEGORY_ALIASES_DEFAULT=""
 _CFG_STATE_DEFAULT_DEFAULT="min"
 _CFG_STATE_INDICATORS_DEFAULT="full:.xinitrc,full:.xprofile,full:.config/x11/xinitrc"
 CFG_VALID_TAGS="$_CFG_VALID_TAGS_DEFAULT"
 CFG_STATE_DEFAULT="$_CFG_STATE_DEFAULT_DEFAULT"
 
-# ── Built-in default categories ─────────────────────────────────────────
+# ── Built-in compatibility categories ───────────────────────────────────
 
+# Used only when no usable categories configuration exists. Keep this fallback
+# synchronized with the stable configuration; define new policy in *.conf.
 _CFG_CATEGORIES_BUILTIN='category = macos
 + .bashrc
 + .zshrc
@@ -67,11 +71,6 @@ include = macos
 + .config/lf/icons
 + .config/lf/lfrc
 + .config/lf/scope
-+ .config/mpd/mpd.conf
-+ .config/ncmpcpp/bindings
-+ .config/ncmpcpp/config
-+ .config/newsboat/config
-+ .config/newsboat/urls
 + .config/wget/wgetrc
 '
 
@@ -250,26 +249,10 @@ _cfg_resolve_category() {
 	return 0
 }
 
-# ── Exclude loading ─────────────────────────────────────────────────────
+# ── Category installation protections ──────────────────────────────────
 
 _cfg_exclude_load() {
 	_CFG_EXCLUDE_PATTERNS=("${_CFG_EXCLUDE_BUILTIN[@]}")
-
-	local exclude_file="$DOTFILES_LIB_DIR/exclude.conf"
-	if [ -f "$exclude_file" ]; then
-		local line lineno=0
-		while IFS= read -r line || [ -n "$line" ]; do
-			((++lineno))
-			_cfg_trim_into line "$line"
-			[ -z "$line" ] && continue
-			[[ "$line" == \#* ]] && continue
-			if [[ "$line" == /* ]]; then
-				printf 'WARNING: exclude.conf line %d: absolute path ignored: %s\n' "$lineno" "$line" >&2
-				continue
-			fi
-			_CFG_EXCLUDE_PATTERNS+=("$line")
-		done < "$exclude_file"
-	fi
 }
 
 # ── Config version management ───────────────────────────────────────────
@@ -468,6 +451,7 @@ cfg_categories_metadata_apply() {
 		[ "$entry" = "$alias" ] && continue
 		_cfg_trim_into alias "$alias"
 		_cfg_trim_into target "$target"
+		[ "$alias" = "full" ] && continue
 		[ -n "$alias" ] && [ -n "$target" ] && CFG_CATEGORY_ALIASES["$alias"]="$target"
 	done
 
@@ -624,24 +608,25 @@ cfg_categories_load() {
 cfg_categories_list() {
 	local cat
 	for cat in "${_CFG_CAT_NAMES[@]}"; do
+		[ "$cat" = "full" ] && continue
 		printf '%s\n' "$cat"
 	done
 	printf '%s\n' "full"
 }
 
 # cfg_category_canonical_name <name>
-# Maps legacy public names to the canonical category names.
+# Maps explicitly configured aliases to category names.
 cfg_category_canonical_name() {
 	local alias_target
+	if [ "${1:-}" = "full" ]; then
+		printf 'full'
+		return 0
+	fi
 	if alias_target=$(cfg_category_alias_target "${1:-}"); then
 		printf '%s' "$alias_target"
 		return 0
 	fi
-	case "${1:-}" in
-		desktop) printf 'full' ;;
-		server) printf 'min' ;;
-		*) printf '%s' "${1:-}" ;;
-	esac
+	printf '%s' "${1:-}"
 }
 
 # cfg_category_exists <category> [version]
@@ -649,7 +634,7 @@ cfg_category_canonical_name() {
 cfg_category_exists() {
 	local name
 	name=$(cfg_category_canonical_name "$1")
-	[ "$name" = "full" ] || [ "$name" = "empty" ] && return 0
+	[ "$name" = "full" ] && return 0
 	[[ " ${_CFG_CAT_NAMES[*]} " == *" $name "* ]]
 }
 
@@ -659,10 +644,6 @@ cfg_category_get_files() {
 	local name
 	name=$(cfg_category_canonical_name "$1")
 	local git_dir="${2:-$HOME/.cfg}"
-
-	if [ "$name" = "empty" ]; then
-		return 0
-	fi
 
 	if [ "$name" = "full" ]; then
 		git --git-dir="$git_dir/" --work-tree="$HOME" ls-tree -r --name-only HEAD 2>/dev/null
@@ -712,7 +693,8 @@ cfg_is_installation_path() {
 }
 
 # cfg_exclude_match <relative_path>
-# Returns zero when the path matches a configured exclusion rule.
+# Returns zero when a category operation must protect the path. Fresh policy
+# rules are handled separately by utils/exclude.sh.
 cfg_exclude_match() {
 	local path="$1"
 	local pattern

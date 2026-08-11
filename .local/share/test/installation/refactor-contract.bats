@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # refactor-contract.bats - User-visible contracts preserved during refactoring
-# TC-R01 through TC-R05
+# TC-R01 through TC-R07
 
 load helpers.bash
 
@@ -25,7 +25,7 @@ Subcommands:
   status              Show current node and deploy status (default)
   list                List all nodes (DEPLOY, TYPE, VERSION, STATUS, TIME, CODE)
   history             Show node tree (git log --graph style)
-  switch <target>     Switch to state (full|min|macos|fresh) or node CODE
+  switch <target>     Switch to a configured category, fresh, or node CODE
   deploy              Deploy current node configuration
   undeploy            Undeploy current node, restore original files
   uninstall           Return to root fresh node
@@ -88,7 +88,7 @@ EOF
 	run run_dotcfg switch unknown-target
 	[ "$status" -eq 1 ]
 	[[ "$output" == *'Error: unknown target "unknown-target"'* ]]
-	[[ "$output" == *"Valid targets: full, min, macos, fresh, or an 8-char node CODE"* ]]
+	[[ "$output" == *"Valid targets: a configured category, fresh, or an 8-char node CODE"* ]]
 }
 
 @test "TC-R05: help does not load business libraries" {
@@ -100,4 +100,58 @@ EOF
 	run env DOTFILES_LIB_DIR="$test_lib" bash "$DOTCFG" help
 	[ "$status" -eq 0 ]
 	[ ! -e "$marker" ]
+}
+
+@test "TC-R06: list aligns columns for long category and version values" {
+	source "$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
+	cfg_nodes_init "$HOME/.config-backup"
+	local root child
+	root=$(cfg_node_create "fresh" "null" "bootstrap")
+	child=$(cfg_node_create "workstation-with-long-name" "$root" "2026.08.experimental")
+	cfg_head_set "$child"
+
+	run run_dotcfg list
+	[ "$status" -eq 0 ]
+
+	local header row header_prefix row_prefix
+	header=$(printf '%s\n' "$output" | awk '/DEPLOY[[:space:]]+TYPE[[:space:]]+VERSION/{ print; exit }')
+	row=$(printf '%s\n' "$output" | awk '/workstation-with-long-name/{ print; exit }')
+	[ -n "$header" ]
+	[ -n "$row" ]
+
+	header_prefix="${header%%VERSION*}"
+	row_prefix="${row%%2026.08.experimental*}"
+	[ ${#header_prefix} -eq ${#row_prefix} ]
+	header_prefix="${header%%STATUS*}"
+	row_prefix="${row%%active*}"
+	[ ${#header_prefix} -eq ${#row_prefix} ]
+	header_prefix="${header%%CODE*}"
+	row_prefix="${row%%"$child"*}"
+	[ ${#header_prefix} -eq ${#row_prefix} ]
+}
+
+@test "TC-R07: command errors do not print usage text" {
+	local invocation
+	for invocation in \
+		"nonexistent" \
+		"switch" \
+		"remove" \
+		"unremove" \
+		"track" \
+		"untrack" \
+		"check-exclude" \
+		"categories switch" \
+		"categories remove" \
+		"categories nonexistent"; do
+		local -a args=()
+		read -r -a args <<< "$invocation"
+		run run_dotcfg "${args[@]}"
+		[ "$status" -ne 0 ]
+		[[ "$output" == *"Error:"* ]]
+		[[ "$output" != *"Usage:"* ]]
+	done
+
+	run run_dotcfg --help
+	[ "$status" -eq 0 ]
+	[[ "$output" == "Usage:"* ]]
 }

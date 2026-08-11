@@ -8,7 +8,7 @@ DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
 
 code="${1:-}"
 if [ -z "$code" ]; then
-	printf 'Usage: dotcfg unremove <CODE>\n' >&2
+	printf 'Error: node CODE is required.\n' >&2
 	exit 1
 fi
 

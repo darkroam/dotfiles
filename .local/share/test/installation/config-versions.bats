@@ -194,21 +194,50 @@ create_version_file() {
 	[ "$count" -eq 4 ]
 }
 
-# ── Special Categories: empty ──────────────────────────────────────────
+# ── Reserved and ordinary category names ──────────────────────────────
 
-@test "TC-CV06: empty category returns empty list" {
-	cfg_categories_load
-	local empty_files
-	empty_files=$(cfg_category_get_files "empty")
-	[ -z "$empty_files" ]
+@test "TC-CV06: only full is reserved; empty is an ordinary category name" {
+	create_mock_cfg_repo ".tracked"
+	local conf="$DOTFILES_LIB_DIR/categories-98.0.0.conf"
+	cat > "$conf" <<'CONF'
+# VERSION = "98.0.0"
+# CATEGORY_ALIASES = "full:empty,everything:full"
+
+category = full
++ .ignored-definition
+
+category = empty
++ .ordinary-empty-name
+
+category = desktop
++ .ordinary-desktop-name
+
+category = server
++ .ordinary-server-name
+CONF
+	cfg_categories_load "98.0.0"
+	[ "$(cfg_categories_list | grep -c '^full$')" -eq 1 ]
+	! cfg_category_alias_target full
+	[ "$(cfg_category_canonical_name full)" = "full" ]
+	[ "$(cfg_category_get_files full "$HOME/.cfg")" = ".tracked" ]
+	[ "$(cfg_category_canonical_name everything)" = "full" ]
+	[ "$(cfg_category_get_files everything "$HOME/.cfg")" = ".tracked" ]
+	cfg_category_exists empty
+	[ "$(cfg_category_get_files empty)" = ".ordinary-empty-name" ]
+	cfg_category_exists desktop
+	[ "$(cfg_category_get_files desktop)" = ".ordinary-desktop-name" ]
+	cfg_category_exists server
+	[ "$(cfg_category_get_files server)" = ".ordinary-server-name" ]
 }
 
-# ── cfg_category_exists for special categories ────────────────────────
+# ── cfg_category_exists for the reserved full category ────────────────
 
-@test "TC-CV07: cfg_category_exists recognizes full and empty" {
+@test "TC-CV07: cfg_category_exists reserves only full" {
 	cfg_categories_load
 	cfg_category_exists "full"
-	cfg_category_exists "empty"
+	! cfg_category_exists "empty"
+	! cfg_category_exists "desktop"
+	! cfg_category_exists "server"
 	! cfg_category_exists "nonexistent"
 }
 
@@ -246,7 +275,7 @@ create_version_file() {
 # VERSION = "97.2.0"
 # TAG = "qa"
 # VALID_TAGS = "stable,qa"
-# CATEGORY_ALIASES = "desktop:graphical,server:terminal"
+# CATEGORY_ALIASES = "gui:graphical,cli:terminal"
 # STATE_DEFAULT = "terminal"
 # STATE_INDICATORS = "graphical:.custom-display"
 
@@ -263,8 +292,8 @@ CONF
 	cfg_categories_load "97.2.0"
 	[ "$(cfg_config_get_tag 97.2.0)" = "qa" ]
 	cfg_config_tag_is_valid qa
-	[ "$(cfg_category_canonical_name desktop)" = "graphical" ]
-	[ "$(cfg_category_canonical_name server)" = "terminal" ]
+	[ "$(cfg_category_canonical_name gui)" = "graphical" ]
+	[ "$(cfg_category_canonical_name cli)" = "terminal" ]
 	[ "$(cfg_state_default_category)" = "terminal" ]
 	[ "$(cfg_state_indicator_category .custom-display)" = "graphical" ]
 }

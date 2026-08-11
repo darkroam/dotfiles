@@ -35,9 +35,7 @@ cmd_categories() {
                 local c
                 cfg_categories_load "$ver"
                 for c in $(cfg_categories_list); do
-                    case "$c" in
-                        full|empty) continue ;;
-                    esac
+                    [ "$c" = "full" ] && continue
                     cats+=("$c")
                 done
                 local tag marker="" tag_gap cats_text display_version
@@ -137,7 +135,7 @@ cmd_categories() {
             ;;
         switch)
             local ver="${1:-}"
-            [ -z "$ver" ] && { printf 'Usage: dotcfg categories switch <version>\n' >&2; exit 1; }
+            [ -z "$ver" ] && { printf 'Error: config version is required.\n' >&2; exit 1; }
             cfg_config_version_read "$ver" >/dev/null 2>&1 || {
                 printf 'Error: config version "%s" not found\n' "$ver" >&2
                 exit 1
@@ -181,7 +179,7 @@ cmd_categories() {
             ;;
         remove)
             local ver="${1:-}"
-            [ -z "$ver" ] && { printf 'Usage: dotcfg categories remove <version>\n' >&2; exit 1; }
+            [ -z "$ver" ] && { printf 'Error: config version is required.\n' >&2; exit 1; }
             cfg_config_version_read "$ver" >/dev/null 2>&1 || {
                 printf 'Error: config version "%s" not found\n' "$ver" >&2
                 exit 1
@@ -229,7 +227,7 @@ cmd_categories() {
             printf 'Configuration version %s removed: %s\n' "$ver" "$version_file"
             ;;
         *)
-            printf 'Usage: dotcfg categories <list|current|show|switch|remove> [args]\n' >&2
+            printf 'Error: unknown categories subcommand "%s".\n' "$subcmd" >&2
             exit 1
             ;;
     esac

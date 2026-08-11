@@ -62,7 +62,7 @@
 | 函数 | 用途 |
 |------|------|
 | `cfg_validate()` | 验证 `.cfg` 仓库身份，设置 `CFG_STATE`/`CFG_IS_OURS`/`CFG_NEEDS_PULL`/`CFG_REMOTE_URL` |
-| `cfg_detect_state()` | 检测当前安装状态（fresh/full/min/macos） |
+| `cfg_detect_state()` | 检测当前安装状态（fresh 或节点记录的 category） |
 | `cfg_should_backup_file()` | MD5 内容对比，判断文件是否需要备份 |
 | `cfg_check_updates()` | 检查远程是否有新提交 |
 | `cfg_print_validation_result()` | 人类可读的验证结果输出 |
@@ -80,7 +80,7 @@
 | 概念 | 类比 | 说明 |
 |------|------|------|
 | CODE | commit hash | 8 位随机码 `[a-z0-9]`，唯一标识节点 |
-| type | branch label | `fresh` / `full` / `min` / `macos` |
+| type | branch label | `fresh` 或创建节点时选用的 category 名称 |
 | parent | parent commit | 父节点 CODE，根节点为 `null` |
 | children | child commits | 子节点 CODE 列表（支持分支） |
 | HEAD | HEAD pointer | 当前活动节点的 CODE |
@@ -212,14 +212,15 @@ CODE 是节点的唯一标识符，整个节点树中**不能存在两个 CODE �
 
 ## 状态机
 
-### 四种基本状态
+### 根状态与 category 状态
 
 | 状态 | 检测条件 | 含义 |
 |------|----------|------|
 | **fresh** | `.cfg` 不存在，或 HEAD 指向 fresh 根节点 | 未部署 category；安装基础设施仍可保留 |
-| **full** | HEAD 节点 `type=full` | 部署仓库中的全部受管配置和普通辅助脚本 |
-| **min** | HEAD 节点 `type=min` | 部署 Linux 命令行配置，不部署普通 `.local/bin/` 脚本 |
-| **macos** | HEAD 节点 `type=macos` | 部署 Bash、Zsh、Git、Tmux、npm 等跨平台核心配置 |
+| **full** | HEAD 节点 `type=full` | 代码保留 category，部署仓库中的全部受管配置和普通辅助脚本 |
+| **min** | HEAD 节点 `type=min` | `1.0.0` 定义的 Linux 命令行配置，不部署普通 `.local/bin/` 脚本 |
+| **macos** | HEAD 节点 `type=macos` | `1.0.0` 定义的 Bash、Zsh、Git、Tmux、npm 等跨平台核心配置 |
+| **其他 category** | HEAD 节点记录相应 type | 按当前版本配置中的普通 category 定义部署 |
 
 节点元数据存在时，HEAD 节点的 `type` 是状态判断的权威来源，因此同为命令行配置的 `min` 与
 `macos` 不依赖文件猜测。没有节点元数据的旧安装才使用兼容检测：`.xinitrc`、`.xprofile` 或
@@ -279,7 +280,7 @@ fresh 节点本身不 checkout 配置文件，最终将 `DEPLOY_STATUS` 记为 `
 
 **节点创建时的版本选择策略**：
 
-执行 `dotcfg switch full|min|macos` 创建新节点时：
+执行 `dotcfg switch <category>` 创建新节点时：
 
 1. 读取 `~/.config-backup/CURRENT_CONFIG_VERSION` 文件
 2. 如果文件存在且对应的版本化配置文件存在：
@@ -305,12 +306,15 @@ fresh 节点本身不 checkout 配置文件，最终将 `DEPLOY_STATUS` 记为 `
 > 所有子命令均接受 `-h` 或 `--help` 并显示统一帮助；`dotcfg help`、`dotcfg -h` 和
 > `dotcfg --help` 效果一致。
 
+参数缺失、参数非法或执行失败时只输出简洁错误并保持非零返回码，不附带命令 usage；完整用法
+仅由上述帮助入口显示。
+
 ```bash
 dotcfg                          # 显示当前节点状态（等同于 dotcfg status）
-dotcfg status                   # 当前节点 + 部署状态 + 可用操作
+dotcfg status                   # 当前节点 + 部署状态
 dotcfg list                     # 六列表：DEPLOY / TYPE / VERSION / STATUS / TIME / CODE
 dotcfg history                  # Git log --graph 风格 ASCII 分支图
-dotcfg switch <target>          # 切换到状态名（full|min|macos|fresh）或 CODE；fresh = 根节点别名
+dotcfg switch <target>          # 切换到配置的 category、full、fresh 或 CODE；fresh = 根节点别名
 dotcfg deploy                   # 在当前节点部署配置
 dotcfg undeploy                 # 卸载当前节点配置，恢复原始文件
 dotcfg uninstall                # 回到根节点（fresh）；恢复源优先 fresh_root 备份
@@ -344,17 +348,9 @@ Deploy status: deployed
 Config version: 1.0.0
 Node status: active
 Chain: fresh -> full
-
-Available operations:
-  dotcfg switch full       Install all managed configuration
-  dotcfg switch min        Install command-line configuration
-  dotcfg switch macos      Install cross-platform core configuration
-  dotcfg deploy            Deploy current node
-  dotcfg undeploy          Undeploy current node
-  dotcfg uninstall         Return to fresh state
-  dotcfg list              List all nodes
-  dotcfg history           Show node tree
 ```
+
+`status` 只报告仓库、当前节点和部署状态；可用命令统一由 `dotcfg help` 展示。
 
 ### `dotcfg list` 输出
 
@@ -368,6 +364,8 @@ Available operations:
 标记说明：`[*]` = HEAD + deployed，`[>]` = HEAD + uninstalled，`[ ]` = 非 HEAD。
 行尾 `●` = fresh 根节点。
 STATUS 列：`active` = 正常节点，`[REMOVED]` = 标记为待删除（`marked_for_removal`）。
+TYPE、VERSION、STATUS 和 TIME 的列宽以当前节点数据和表头的较大值动态计算；自定义长 category
+或版本号不会挤乱后续列。现有短字段仍保持上述最小列宽。
 
 ### `dotcfg history` 输出
 
@@ -444,14 +442,13 @@ dotcfg categories remove <version>   # 确认后删除版本配置文件
 
 ```
 Available configuration versions:
-  v0.1.0  (test)     3 categories: macos, min, full   [TEST]
-  v1.0.0  (stable)   3 categories: macos, min, full
+  0.1.0   (test)     2 categories: macos, min   [TEST]
+  1.0.0   (stable)   2 categories: macos, min
 
-Current version: v2.1.3 (stable)
+Current version: 1.0.0 (stable)
 
 Nodes using each version:
-  v1.0.0: a1b2c3d4 (1 node)
-  v2.1.3: xk7f9a2m, e5f6g7h8 (2 nodes)
+  1.0.0: a1b2c3d4, e5f6g7h8 (2 nodes)
 ```
 
 **`categories show 1.0.0` 输出示例**：
@@ -464,12 +461,13 @@ Tag: stable
 
 Categories:
   macos           17 files
-  min             29 files
+  min             24 files
   full            (dynamic, all tracked files)
 ```
 
 `full` 是内置特殊 category，不依赖 `categories-*.conf` 中的文件列表；解析时动态返回
-HEAD 的全部跟踪文件，因此不显示具体文件数量。
+HEAD 的全部跟踪文件，因此不显示具体文件数量，也不计入 `categories list` 的版本内普通
+category 数量。
 
 **版本切换行为**：
 
@@ -857,9 +855,9 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 | `list.sh` | `dotcfg list` 查询模块（由入口 source） |
 | `history.sh` | `dotcfg history` 及 ASCII 图形渲染模块（由入口 source） |
 | `categories.sh` | `dotcfg categories` 版本管理模块（由入口 source） |
-| `switch.sh` | 统一切换逻辑（`--type=full|min|macos`） |
-| `switch-desktop.sh` | 旧入口兼容：转发到 `switch.sh --type=full` |
-| `switch-server.sh` | 旧入口兼容：转发到 `switch.sh --type=min` |
+| `switch.sh` | 统一切换逻辑（`--type=<category>`） |
+| `switch-desktop.sh` | 旧直接脚本包装：转发到 `switch.sh --type=full`，不占用 `desktop` category 名称 |
+| `switch-server.sh` | 旧直接脚本包装：转发到 `switch.sh --type=min`，不占用 `server` category 名称 |
 | `deploy.sh` | 部署当前节点配置 |
 | `undeploy.sh` | 卸载当前节点配置 |
 | `uninstall.sh` | 回到根节点（fresh），优先从 fresh_root 备份恢复 |
@@ -912,10 +910,10 @@ bootstrap 自举能力。
 
 ### switch.sh — 统一切换
 
-`switch.sh` 是 `full`、`min`、`macos` 的唯一新切换实现；旧脚本只保留入口兼容。
+`switch.sh` 是所有 category 的统一切换实现；旧脚本只保留直接调用兼容。
 
 **执行流程**：
-1. 解析参数并把 `desktop/server` 兼容别名规范化为 `full/min`
+1. 解析参数；只有配置文件显式声明的 `CATEGORY_ALIASES` 才进行名称映射
 2. 验证仓库身份（`cfg_validate`）
 3. 处理无效/外部仓库（`--force` 时备份并删除）
 4. 根据当前状态准备仓库（克隆或复用）
@@ -1030,7 +1028,6 @@ uninstall 都不会删除；完全清除时只输出手动删除提示。
 # DESCRIPTION = "默认配置分类定义"
 # TAG = "stable"
 # VALID_TAGS = "stable,test,experimental"
-# CATEGORY_ALIASES = "desktop:full,server:min"
 # STATE_DEFAULT = "min"
 # STATE_INDICATORS = "full:.xinitrc,full:.xprofile,full:.config/x11/xinitrc"
 # ============================================
@@ -1047,7 +1044,7 @@ category = macos
 | `DESCRIPTION` | 否 | 简要说明该版本的用途 |
 | `TAG` | 否 | `stable`（默认）、`test` 或 `experimental`；非法值警告并回退 `stable` |
 | `VALID_TAGS` | 否 | 逗号分隔的合法 TAG 值；缺失时使用 `stable,test,experimental` |
-| `CATEGORY_ALIASES` | 否 | 逗号分隔的旧名称映射，例如 `desktop:full,server:min` |
+| `CATEGORY_ALIASES` | 否 | 逗号分隔的名称映射，例如 `cli:min,gui:workstation`；缺失时为空 |
 | `STATE_DEFAULT` | 否 | 无节点元数据时的默认状态类别，默认 `min` |
 | `STATE_INDICATORS` | 否 | 逗号分隔的 `类别:路径` 图形状态指标映射 |
 
@@ -1102,8 +1099,7 @@ $DOTFILES_LIB_DIR/
 
 - `utils/categories.sh` 解析头部 TAG，并通过 `CFG_CATEGORIES_TAGS[version]` 缓存；未声明时为 `stable`
 - `VALID_TAGS` 控制该配置版本接受的 TAG 值；缺失时使用 `stable,test,experimental`
-- `CATEGORY_ALIASES` 提供 `desktop/server` 等旧公开名称到当前类别的映射；缺失时保留
-  `desktop → full`、`server → min`
+- `CATEGORY_ALIASES` 提供显式名称映射；缺失时为空，不隐式占用任何普通 category 名称
 - `STATE_DEFAULT` 和 `STATE_INDICATORS` 为状态检测提供可选元数据；缺失时保留 `min` 以及
   `.xinitrc`、`.xprofile`、`.config/x11/xinitrc` 的兼容指标
 - `dotcfg categories list/current/show` 显示 TAG，`test` 追加 `[TEST]`，`experimental` 追加
@@ -1205,39 +1201,58 @@ include = macos    # ← 被忽略：include 不是第一行
 
 #### 内置默认类别
 
-当版本文件和 `categories.conf` 均不存在时，系统使用与正式版本职责一致的内置定义：
+当版本文件和 `categories.conf` 均不存在或无法提供有效 category 时，系统使用与正式版本职责
+一致的兼容回退。它只用于配置缺失或损坏时维持可用性，不是正常配置的数据源；正式定义始终以
+选中的 `categories-*.conf` 为准。内置 `macos/min` 的精确成员当前与 `categories-1.0.0.conf`
+同步；两者由回归测试逐项比较，后续修改任一处都必须同步另一处：
 
 - **`macos`**：Bash、Zsh、profile、Git、Tmux、npm 和共享 Shell 配置。
-- **`min`**：继承 `macos`，增加 LF、MPD/Ncmpcpp、Newsboat、Wget、Emacs/Fbterm 等命令行配置。
+- **`min`**：继承 `macos`，增加 LF、Wget、Emacs 和 Fbterm 配置；不包含 MPD、Ncmpcpp 或 Newsboat。
 - **`full`**：特殊 category，动态返回 HEAD 的全部跟踪文件。
 
 #### 内置特殊类别
 
-系统还有两个内部特殊 category，无需在 `categories.conf` 中定义：
+系统只有一个内部特殊 category，无需在 `categories.conf` 中定义：
 
 | 类别名 | 解析结果 | 使用场景 |
 |--------|----------|----------|
 | `full` | 所有被 git 跟踪的文件（`git ls-tree -r --name-only HEAD`） | 全量部署 |
-| `empty` | 空列表（无任何文件） | 仅供解析或测试；不在 `categories list` 中展示 |
 
-**使用示例**：
+**普通名称示例**：
 
 ```
-category = workstation
-include = full
-- .config/private/
-- .local/share/secret
-
-category = minimal-test
-include = empty
+category = empty
 + .bashrc
 + .profile
 ```
 
 **解析行为**：
 - `full` 在类别解析时动态展开，每次调用都重新执行 `git ls-tree`
-- `empty` 直接返回空列表
-- 两者可作为普通类别使用 `include`、`+`、`-` 进行定制
+- 配置文件中的 `category = full` 不覆盖上述语义，也不会导致列表重复
+- `full` 不能作为 `CATEGORY_ALIASES` 的别名源；其他名称可以显式映射到 `full`
+- `min`、`macos`、`desktop`、`server`、`empty` 及其他名称都没有代码特权，可按普通 category 定义
+
+#### 配置驱动与硬编码边界
+
+运行时把配置文件作为策略权威来源，代码中的同值数据仅承担配置缺失时的兼容回退。新增策略
+应先修改配置文件；不得只修改代码回退后让正常配置与故障行为分叉。
+
+| 数据或行为 | 正常数据源 | 代码回退或固定语义 | 可外部化判断 |
+|------|------|------|------|
+| `macos`、`min` 文件集合 | 当前 `categories-*.conf` | 无可用配置时使用内置同值集合 | 可迁到单独的 fallback 配置，但仍需保留配置完全缺失时的最小恢复能力 |
+| TAG 合法值 | `VALID_TAGS` | `stable,test,experimental` | 可集中到默认元数据文件；当前保留以兼容旧配置 |
+| 名称映射 | `CATEGORY_ALIASES` | 空 | 已完全配置化；只有配置显式声明时才映射 |
+| 无节点状态检测 | `STATE_DEFAULT`、`STATE_INDICATORS` | `min` 及三个 X11 指标 | 可集中到默认元数据文件；`cfg-validate.sh` 独立加载时仍需故障回退 |
+| Fresh 策略排除 | `exclude.conf` | 配置缺失或无兼容区段时使用 30 项同值回退 | 可完全配置化，但缺失配置会扩大 Fresh 范围，当前选择安全回退 |
+| `full` | 无 | 动态返回全部跟踪文件且配置不能覆盖 | 必须保留，除非变更 category 协议 |
+| `fresh_root`、`bootstrap` | 节点协议 | 根节点代码、首次安装版本标识 | 必须保留，已有节点和恢复流程依赖这些标识 |
+| 安装基础设施与备份保护 | 无 | dotcfg、运行库、仓库、备份和测试路径 | 必须保留，防止 Fresh 或 category 操作破坏安装系统本身 |
+| 官方入口的帮助文字 | `.local/bin/dotcfg`、bootstrap 提示 | “配置的 category”、`full` 和 `fresh` | 特定普通 category 只作为示例，不参与目标校验 |
+
+新增普通 category 时，只需在新的 `categories-*.conf` 中增加 category 块，并按需调整同一文件的
+`CATEGORY_ALIASES`、`STATE_DEFAULT` 或 `STATE_INDICATORS`；`dotcfg switch <category>` 会动态验证并
+部署，不需要修改 Shell 代码。`desktop`、`server` 和 `empty` 可按此方式重新使用。只有修改保留的
+`full` 语义、Fresh 节点协议，或调整 bootstrap 默认推荐目标时，才需要修改代码、测试和本文档。
 
 #### exclude.conf 排除规则
 
@@ -1249,7 +1264,15 @@ include = empty
 仍在 `dotcfg check-exclude` 中显示为 `hardcoded rule`，以保持旧输出兼容。区段之外新增的规则
 显示为 `exclude.conf`。
 
-**行为**：文件分析时（`cfg_analyze_files`），如果文件路径匹配 `exclude.conf` 中任一模式，则直接跳过（归入 `CFG_TO_SKIP`，不备份、不 checkout）。
+**行为**：Fresh 选择器处理未跟踪候选时，如果路径匹配 `exclude.conf` 中任一模式则跳过。
+`exclude.conf` 不参与 category 部署过滤；`full` 仍部署全部跟踪配置，普通 category 由自身的
+`include`、`+` 和 `-` 行控制。安装基础设施保护是独立且始终生效的例外。
+
+当前兼容区段共 30 项：除 Linux 常见用户目录、缓存、浏览器状态、历史和临时文件外，还覆盖
+macOS 的 `Applications/`、`Library/`、`Movies/`、`Public/`、`Sites/`、`.Trash/` 和
+`*.DS_Store`。混合模式不会全量扫描 `~/.config/` 之外的未跟踪文件，所以未跟踪的 `~/Library`
+本来就不会进入 Fresh；这些规则仍明确跨平台策略边界，并供 `check-exclude` 和配置缺失回退使用。
+若仓库显式跟踪 `Library/...` 配置，普通策略排除不会阻止它进入 Fresh；只有安装基础设施保护不可覆盖。
 
 示例：
 
@@ -1270,21 +1293,18 @@ include = empty
 | `.cfg/*` | bare 仓库本身 |
 | `.config-backup/*` | 节点备份目录 |
 | `.config-backup.bak/*` | 用户急救备份，迁移和 Fresh 扫描均不得触碰 |
-| `.config/microsoft-edge/*` | Microsoft Edge 缓存和可变应用状态 |
-| `.config/nvm/*` | NVM 下载缓存和运行时状态 |
-| `.config/chromium/*` | Chromium 浏览器状态 |
-| `.config/google-chrome-for-testing/*` | Chrome for Testing 浏览器状态 |
 | `.cfg-checkout-state` | checkout 状态记录文件 |
+| `.local/bin/dotcfg` | 统一命令入口 |
 | `.local/share/test/*` | 测试目录 |
 
-浏览器、NVM、下载目录、缓存、历史记录和临时文件等策略性规则不再硬编码在运行逻辑中，统一
-位于 `exclude.conf` 的兼容区段；配置缺失时由内置回退提供同样的保护。
+浏览器、NVM、Linux/macOS 用户数据目录、缓存、历史记录和临时文件等策略性规则不再硬编码在
+运行逻辑中，统一位于 `exclude.conf` 的兼容区段；配置缺失时由内置回退提供同样的保护。
 
 #### 状态检测
 
 `cfg_detect_state()` 先检查 `.cfg`，不存在时返回 `fresh`。仓库存在且节点元数据有效时，读取 HEAD
-节点的 `type`，并使用当前 category 版本的 `CATEGORY_ALIASES` 规范化旧值；缺少该元数据时保留
-`desktop → full`、`server → min`。这使 `macos` 不会被 Linux 文件特征误判。
+节点的 `type`。只有当前 category 版本显式声明 `CATEGORY_ALIASES` 时才规范化名称；缺少该元数据时
+原样返回节点 type。因此历史 `desktop/server` 节点仍显示原值，但这些名称不会自动成为可切换目标。
 
 没有节点元数据时，优先读取当前 category 版本的 `STATE_INDICATORS` 和 `STATE_DEFAULT`；旧配置
 缺少这些字段时回退到 `.xinitrc`、`.xprofile` 或 `.config/x11/xinitrc` 存在即为 `full`，否则为
@@ -1294,8 +1314,9 @@ include = empty
 #### dotcfg list 的 TYPE 来源
 
 `dotcfg list` 输出的 TYPE 列来自节点创建时记录的 `type` 字段（存储在 `index.json`）。正式新节点
-使用 `full`、`min` 或 `macos`，根节点固定为 `fresh`；迁移旧会话时将 `desktop/server` 规范化为
-`full/min`，已有旧节点在读取状态时也执行同一映射。
+通常使用正式配置中的 `full`、`min` 或 `macos`，根节点固定为 `fresh`。迁移旧会话时保留原始
+`desktop/server` type；这只是历史数据，不赋予同名 category 特殊地位。新节点记录用户实际选择的
+普通 category 名称。
 
 ---
 
@@ -1560,5 +1581,5 @@ chmod +x ~/.local/bin/install.sh
 
 ---
 
-**最后更新**: 2026-08-10
-**版本**: 5.2 — full/min/macos category + 旧备份采纳 + Fresh 排除边界 + 安装基础设施不变量
+**最后更新**: 2026-08-11
+**版本**: 5.5 — 跨 Linux/macOS Fresh 排除 + 单一保留 full category + min 精简

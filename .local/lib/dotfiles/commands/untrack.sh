@@ -20,7 +20,7 @@ for arg in "$@"; do
 done
 
 if [ -z "$target" ]; then
-	printf 'Usage: dotcfg untrack <path> [--dry-run] [--force]\n' >&2
+	printf 'Error: path is required.\n' >&2
 	exit 1
 fi
 target="${target#./}"

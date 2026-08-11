@@ -184,9 +184,9 @@ _cfg_load_category_state_metadata() {
 }
 
 # cfg_detect_state [git_dir]
-# Detects the canonical installation state. Node metadata is authoritative;
-# category metadata drives aliases and indicators when available; legacy file
-# detection remains the final compatibility fallback.
+# Detects the installation state. Node metadata is authoritative; category
+# metadata drives aliases and indicators when available, and file detection is
+# the final compatibility fallback.
 cfg_detect_state() {
     local git_dir="${1:-$HOME/.cfg}"
 
@@ -209,11 +209,7 @@ cfg_detect_state() {
                 if declare -F cfg_category_canonical_name >/dev/null 2>&1; then
                     cfg_category_canonical_name "$node_type"
                 else
-                    case "$node_type" in
-                        desktop) echo "full" ;;
-                        server) echo "min" ;;
-                        *) echo "$node_type" ;;
-                    esac
+                    echo "$node_type"
                 fi
                 return
             fi

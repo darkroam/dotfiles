@@ -45,14 +45,14 @@ bats -r .local/share/test/ --tap
 │   ├── exclude-rules.bats ← Fresh 排除规则
 │   ├── fresh-node.bats    ← Fresh 根节点
 │   ├── history-graph.bats ← 节点清单和历史图
-│   ├── install-desktop.bats ← full 兼容入口安装
-│   ├── install-server.bats  ← min 兼容入口安装
+│   ├── install-desktop.bats ← 旧直接脚本包装的 full 安装
+│   ├── install-server.bats  ← 旧直接脚本包装的 min 安装
 │   ├── migration.bats     ← 旧会话迁移
 │   ├── nodes.bats         ← 节点索引
 │   ├── nodes-lifecycle.bats ← 节点生命周期
 │   ├── refactor-contract.bats ← 重构接口契约
-│   ├── restore-desktop.bats ← full 兼容入口恢复
-│   ├── restore-server.bats  ← min 兼容入口恢复
+│   ├── restore-desktop.bats ← 旧直接脚本包装的 full 恢复
+│   ├── restore-server.bats  ← 旧直接脚本包装的 min 恢复
 │   ├── uninstall.bats     ← 卸载与恢复
 │   ├── validate.bats      ← 仓库验证
 │   └── generate-conflicts.sh ← 冲突文件生成器

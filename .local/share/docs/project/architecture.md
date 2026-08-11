@@ -22,12 +22,20 @@
 
 category 只控制用户配置集合。`.local/bin/dotcfg` 与 `.local/lib/dotfiles/` 是独立安装基础设施，
 在 fresh、full、min、macos 及 undeploy/uninstall 中都保留；完全移除由用户按命令提示手动执行。
-旧 `desktop/server` 名称仅是 `full/min` 的兼容入口，新节点和文档不得继续采用旧名称。
+只有 `full` 是代码保留 category，始终动态表示 HEAD 的全部跟踪文件；配置正文和别名均不能覆盖。
+`min`、`macos`、`desktop`、`server` 和 `empty` 均为普通可配置名称；正式 `1.0.0` 目前只定义
+`min` 与 `macos`，未定义 `desktop/server/empty`。历史节点可继续保存旧的 `desktop/server` type，
+但读取时不再自动映射。`switch-desktop.sh` 和 `switch-server.sh` 只是旧直接脚本入口，不占用同名 category。
 
 类别版本文件头部还可以声明 `VALID_TAGS`、`CATEGORY_ALIASES`、`STATE_DEFAULT` 和
-`STATE_INDICATORS`。这些字段只提供可选策略元数据；缺失时使用兼容默认值。Fresh 备份的策略性
-排除规则位于 `.local/lib/dotfiles/exclude.conf`，其中兼容区段保持旧 `check-exclude` 的
-`hardcoded rule` 标签；安装基础设施保护仍由 `utils/exclude.sh` 硬编码维护。
+`STATE_INDICATORS`。这些字段只提供可选策略元数据；`CATEGORY_ALIASES` 缺失时默认为空，其他字段
+缺失时使用兼容默认值。Fresh 备份的 30 项跨 Linux/macOS 策略性排除规则位于
+`.local/lib/dotfiles/exclude.conf`，其中兼容区段保持旧 `check-exclude` 的
+`hardcoded rule` 标签；安装基础设施保护仍由 `utils/exclude.sh` 硬编码维护。正常运行以配置文件
+为权威来源，代码中的 category、元数据和策略排除同值回退只在配置缺失时生效；协议标识、动态
+`full` 语义和自保路径必须留在代码。完整边界和扩展步骤见[安装系统](installation-system.md#配置驱动与硬编码边界)。
+`exclude.conf` 只定义 Fresh 策略，不参与 category checkout；显式跟踪的跨平台配置仍由 category
+定义决定是否部署。
 
 Fresh 是恢复锚点，不是另一个 category。新设备由 bootstrap 按混合规则创建；早期安装设备可用
 显式旧备份采纳流程重建。采纳只信任旧备份中的仓库跟踪原件，并补充当前未跟踪、未排除的
@@ -55,7 +63,7 @@ Fresh 是恢复锚点，不是另一个 category。新设备由 bootstrap 按混
 
 | 模块 | 职责 | 依赖边界 |
 | --- | --- | --- |
-| `commands/status.sh` | `cmd_status`，验证仓库并显示当前节点与可用操作 | 验证库、节点库 |
+| `commands/status.sh` | `cmd_status`，验证仓库并显示当前节点与部署状态 | 验证库、节点库 |
 | `commands/list.sh` | `cmd_list`，显示节点索引和部署标记 | 节点库 |
 | `commands/history.sh` | `cmd_history` 及图形渲染辅助函数 | 节点库、版本显示辅助 |
 | `commands/categories.sh` | `cmd_categories` 的版本/类别查询与切换 | category、节点库 |

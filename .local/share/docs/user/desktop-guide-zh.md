@@ -11,14 +11,16 @@
    命令/能力为准，具体包名从平台索引选择对应设备与发行版档案。
 2. 选择部署范围并先预览：桌面主机使用 `dotcfg switch full --dry-run`，Linux 命令行环境使用
    `dotcfg switch min --dry-run`，macOS 使用 `dotcfg switch macos --dry-run`。确认清单后去掉
-   `--dry-run` 执行。旧命令 `desktop/server` 仅为兼容入口，不再推荐。
+   `--dry-run` 执行。`min` 和 `macos` 是当前稳定配置定义的普通 category；`desktop/server`
+   当前未定义，不会自动映射，需要时可由后续配置版本重新定义。
 3. 按同一安装说明获取 DWM、DWMBlocks、dmenu 和 st，在 `~/src/` 分别编译安装；本配置不会
    自动克隆或编译它们。
 4. 重新登录 shell 后，使用 `c status` 查看配置库状态，使用 `c diff` 审查改动。
 5. 使用 `startx` 或显示管理器进入 X11。首次会话先确认输入法、网络、音量、终端和
    状态栏正常，再开启可选的壁纸、录制、挂载或下载功能。
 
-`full` 会部署仓库中的普通 `.local/bin/` 辅助命令；`min` 和 `macos` 不部署它们。无论选择哪种
+`full` 是唯一由代码保留的 category，会部署仓库中的普通 `.local/bin/` 辅助命令；当前
+`min` 和 `macos` 定义不部署它们。无论选择哪种
 范围，`dotcfg` 命令及其运行库都会保留。`dotcfg switch fresh` 或 `dotcfg uninstall` 恢复 Fresh
 时同样保留安装基础设施；需要彻底删除时按命令输出手动清理。
 

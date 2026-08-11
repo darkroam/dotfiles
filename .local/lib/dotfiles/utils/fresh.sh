@@ -7,6 +7,8 @@ if [ -n "${_CFG_FRESH_LOADED:-}" ]; then
 fi
 _CFG_FRESH_LOADED=1
 
+# Persistent protocol identifiers. Existing node stores and recovery logic
+# depend on these values; they are not user policy configuration.
 FRESH_ROOT_CODE="fresh_root"
 FRESH_BOOTSTRAP_VERSION="bootstrap"
 

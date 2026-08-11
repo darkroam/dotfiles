@@ -7,8 +7,8 @@ fi
 _DOTCFG_STATUS_COMMAND_LOADED=1
 
 # cmd_status
-# Validates the repository and prints the current node, deployment state and
-# available operations. Arguments: command options (currently ignored).
+# Validates the repository and prints the current node and deployment state.
+# Arguments: command options (currently ignored).
 cmd_status() {
     cfg_validate "$GIT_DIR"
     cfg_print_validation_result "$GIT_DIR"
@@ -76,13 +76,4 @@ cmd_status() {
         printf 'No nodes found. Run "dotcfg switch full", "dotcfg switch min", or "dotcfg switch macos".\n'
     fi
 
-    printf '\nAvailable operations:\n'
-    printf '  dotcfg switch full       Install all managed configuration\n'
-    printf '  dotcfg switch min        Install command-line configuration\n'
-    printf '  dotcfg switch macos      Install cross-platform core configuration\n'
-    printf '  dotcfg deploy            Deploy current node\n'
-    printf '  dotcfg undeploy          Undeploy current node\n'
-    printf '  dotcfg uninstall         Return to fresh state\n'
-    printf '  dotcfg list              List all nodes\n'
-    printf '  dotcfg history           Show node tree\n'
 }
