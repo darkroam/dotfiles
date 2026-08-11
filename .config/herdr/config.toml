@@ -1,0 +1,4 @@
+# Herdr local configuration.
+
+[keys]
+prefix = "ctrl+j"

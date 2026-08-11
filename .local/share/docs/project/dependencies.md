@@ -21,6 +21,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | `python3` | 辅助脚本和 Python 源文件执行；`compiler` 优先使用 Python 3，并只为其他平台保留 `python` 回退 |
 | `vim` 与 `nvim` | Git 固定编辑器，以及默认终端/桌面编辑器和处理器 |
 | `tmux`, Perl | Tmux 及其嵌入式配置、主题和辅助处理；配置位于 `.config/tmux/tmux.conf` |
+| Herdr (`herdr`) | 可选的终端工作区和 AI 编码 Agent 会话管理器；已跟踪 `.config/herdr/config.toml` 将前缀键设为 `Ctrl+J` |
 | `less`, `fzf` | 终端查看与模糊查找工作流 |
 | `curl`, `wget` | 安装器、下载和网络辅助工具 |
 | `node`, `npm` | Neovim 和开发工具 |
