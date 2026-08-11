@@ -15,6 +15,9 @@ CFG_LATEST=false
 CFG_YES=false
 CFG_REMAINING_ARGS=()
 
+# cfg_parse_common_args [args...]
+# Parses shared command flags into CFG_* globals and preserves unknown args in
+# CFG_REMAINING_ARGS. Returns zero after all arguments are classified.
 cfg_parse_common_args() {
 	CFG_DRY_RUN=false
 	CFG_FORCE=false

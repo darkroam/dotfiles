@@ -48,6 +48,8 @@ cfg_print_rollback_reason() {
 	fi
 }
 
+# cfg_rollback_from_backup <backup_dir> <relative_path...>
+# Restores transition backups into HOME and reports per-file failures.
 cfg_rollback_from_backup() {
 	local backup_dir="$1"
 	shift
@@ -71,6 +73,8 @@ cfg_rollback_from_backup() {
 	done
 }
 
+# cfg_restore_node_backup <node_code> [backup_root]
+# Restores files recorded in a node manifest and prints restored/failed counts.
 cfg_restore_node_backup() {
 	local node_code="$1"
 	local backup_root="${2:-$HOME/.config-backup}"
@@ -112,6 +116,8 @@ cfg_restore_node_backup() {
 	printf '%d %d' "$restored" "$failed"
 }
 
+# cfg_remove_deployed_files <node_code> [backup_root]
+# Removes files recorded as deployed by a node while preserving its backup.
 cfg_remove_deployed_files() {
 	local node_code="$1"
 	local backup_root="${2:-$HOME/.config-backup}"

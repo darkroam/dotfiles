@@ -6,6 +6,9 @@ if [ -n "${_DOTCFG_LIST_COMMAND_LOADED:-}" ]; then
 fi
 _DOTCFG_LIST_COMMAND_LOADED=1
 
+# cmd_list
+# Prints the node index in reverse creation order. Arguments: command options
+# (currently ignored); returns zero when the index is absent or displayed.
 cmd_list() {
     cfg_nodes_init "$BACKUP_ROOT"
 

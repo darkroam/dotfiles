@@ -9,6 +9,8 @@ _CFG_BACKUP_LOADED=1
 
 CFG_BACKUP_DIR=""
 
+# cfg_create_backup_dir <from_state> <to_state> <timestamp> [backup_root]
+# Creates a private transition backup directory and its manifest.
 cfg_create_backup_dir() {
 	local from_state="$1"
 	local to_state="$2"
@@ -31,6 +33,8 @@ cfg_create_backup_dir() {
 	printf '#\n# relative_path\tmd5\tstatus\n' >> "$manifest"
 }
 
+# cfg_backup_file <relative_path> <git_dir> [backup_dir]
+# Moves one existing home file into the transition backup and records it.
 cfg_backup_file() {
 	local relative_path="$1"
 	local git_dir="$2"
@@ -55,6 +59,8 @@ cfg_backup_file() {
 	printf '%s\t%s\t%s\n' "$relative_path" "$md5" "$status" >> "$backup_dir/MANIFEST.txt"
 }
 
+# cfg_backup_files <git_dir> <relative_path...>
+# Backs up a list of transition files using CFG_BACKUP_DIR.
 cfg_backup_files() {
 	local git_dir="$1"
 	shift
@@ -76,6 +82,8 @@ cfg_backup_files() {
 	printf 'Manifest: %s/MANIFEST.txt\n' "$backup_dir"
 }
 
+# cfg_create_node_backup_dir <node_code> [backup_root]
+# Initializes the backup area and manifest for a node.
 cfg_create_node_backup_dir() {
 	local node_code="$1"
 	local backup_root="${2:-$HOME/.config-backup}"
@@ -96,6 +104,8 @@ cfg_create_node_backup_dir() {
 	printf '#\n# relative_path\tmd5\tstatus\n' >> "$manifest"
 }
 
+# cfg_backup_file_to_node <relative_path> <git_dir> <node_code> [backup_root]
+# Moves one home file into a node backup and records its status.
 cfg_backup_file_to_node() {
 	local relative_path="$1"
 	local git_dir="$2"
@@ -123,6 +133,8 @@ cfg_backup_file_to_node() {
 	printf '%s\t%s\t%s\n' "$relative_path" "$md5" "$status" >> "$manifest"
 }
 
+# cfg_backup_files_to_node <git_dir> <node_code> [backup_root] <path...>
+# Backs up all supplied files into a node backup.
 cfg_backup_files_to_node() {
 	local git_dir="$1"
 	local node_code="$2"

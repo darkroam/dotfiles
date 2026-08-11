@@ -22,7 +22,7 @@ target="${target#./}"
 format_rule() {
 	local rule="$1"
 	rule="${rule%\*}"
-	printf '~/%s' "$rule"
+	printf '%s/%s' '~' "$rule"
 }
 
 if [ -z "$target" ]; then

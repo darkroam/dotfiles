@@ -6,6 +6,9 @@ if [ -n "${_DOTCFG_HISTORY_COMMAND_LOADED:-}" ]; then
 fi
 _DOTCFG_HISTORY_COMMAND_LOADED=1
 
+# cmd_history
+# Renders the node transition tree using the current HEAD and deploy state.
+# Arguments: command options (currently ignored); returns the renderer status.
 cmd_history() {
     cfg_nodes_init "$BACKUP_ROOT"
 
@@ -106,8 +109,7 @@ _history_collect_descendants() {
         fi
     done
 
-    local -a sorted=()
-    local i j
+	local i j
     for ((i = 0; i < ${#all[@]}; i++)); do
         for ((j = i + 1; j < ${#all[@]}; j++)); do
             local ts_i ts_j
@@ -132,8 +134,7 @@ _history_build_display() {
     local -n _dt=$5
 
     local main_count=${#_ml[@]}
-    local next_side_lane=1
-    local mi
+	local mi
 
     for ((mi = main_count - 1; mi >= 0; mi--)); do
         local code="${_ml[$mi]}"
@@ -221,11 +222,9 @@ _history_render() {
 
                 local marker="o"
                 local head_label=""
-                local marker_color=""
-                if [ "$code" = "$head_code" ]; then
-                    marker="*"
-                    marker_color="$_C_GREEN"
-                    if [ "$deploy_status" = "deployed" ]; then
+				if [ "$code" = "$head_code" ]; then
+					marker="*"
+					if [ "$deploy_status" = "deployed" ]; then
                         head_label="  ${_C_GREEN}<- HEAD${_C_RESET}"
                     else
                         head_label="  ${_C_GREEN}<- HEAD${_C_RESET} ${_C_GRAY}[uninstalled]${_C_RESET}"
@@ -236,8 +235,7 @@ _history_render() {
                 if [ "$type" = "fresh" ]; then
                     root_tag=" ${_C_GRAY}[root]${_C_RESET}"
                     if [ "$code" != "$head_code" ]; then
-                        marker="●"
-                        marker_color="$_C_YELLOW"
+						marker="●"
                     fi
                 fi
 
@@ -297,8 +295,7 @@ _history_render() {
 
 _history_graph_prefix() {
     local node_lane="$1"
-    local max_lane="$2"
-    local line_type="$3"
+	local line_type="$3"
     local marker="${4:-*}"
 
     local prefix=""

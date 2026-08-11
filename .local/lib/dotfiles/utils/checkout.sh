@@ -65,6 +65,8 @@ cfg_validate_paths_batch() {
 	return 0
 }
 
+# cfg_checkout_files <git_dir> <relative_path...>
+# Checks out selected paths after validating they remain inside HOME.
 cfg_checkout_files() {
 	local git_dir="$1"
 	shift
@@ -76,6 +78,7 @@ cfg_checkout_files() {
 		return 1
 	fi
 
+	# shellcheck disable=SC2034
 	local config_fn
 	config_fn() { git --git-dir="$git_dir/" --work-tree="$HOME" "$@"; }
 
@@ -106,6 +109,8 @@ cfg_checkout_files() {
 	printf '%d %d' "$installed" "$failed"
 }
 
+# cfg_checkout_all_tracked <git_dir>
+# Checks out every tracked repository path and prints install statistics.
 cfg_checkout_all_tracked() {
 	local git_dir="$1"
 
@@ -116,6 +121,8 @@ cfg_checkout_all_tracked() {
 	cfg_checkout_files "$git_dir" "${all_files[@]}"
 }
 
+# cfg_record_checkout_state <git_dir> [state_file]
+# Records Git blob hashes for all tracked paths in a checkout state file.
 cfg_record_checkout_state() {
 	local git_dir="$1"
 	local state_file="${2:-$HOME/.cfg-checkout-state}"
@@ -123,7 +130,7 @@ cfg_record_checkout_state() {
 	local config_fn
 	config_fn() { git --git-dir="$git_dir/" --work-tree="$HOME" "$@"; }
 
-	> "$state_file"
+	: > "$state_file"
 	local path
 	while IFS= read -r path; do
 		local hash

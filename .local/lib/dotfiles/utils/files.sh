@@ -7,6 +7,8 @@ if [ -n "${_CFG_FILES_LOADED:-}" ]; then
 fi
 _CFG_FILES_LOADED=1
 
+# cfg_analyze_files <git_dir> <relative_path...>
+# Classifies paths into CFG_TO_INSTALL, CFG_TO_BACKUP and CFG_TO_SKIP.
 cfg_analyze_files() {
 	local git_dir="$1"
 	shift
@@ -33,6 +35,8 @@ cfg_analyze_files() {
 	done
 }
 
+# cfg_get_tracked_files_for_state <git_dir> <category> [version]
+# Prints tracked repository paths selected by a category.
 cfg_get_tracked_files_for_state() {
 	local git_dir="$1" state="$2"
 	local version="${3:-}"
@@ -47,6 +51,7 @@ cfg_get_tracked_files_for_state() {
 	local category_files
 	category_files=$(cfg_category_get_files "$state" "$git_dir") || return 1
 
+	# shellcheck disable=SC2034
 	local config_fn
 	config_fn() { git --git-dir="$git_dir/" --work-tree="$HOME" "$@"; }
 
@@ -74,6 +79,8 @@ cfg_get_tracked_files_for_state() {
 	fi
 }
 
+# cfg_get_files_for_state <git_dir> <category> [version]
+# Selects category paths and populates the file analysis result arrays.
 cfg_get_files_for_state() {
 	local git_dir="$1" state="$2"
 	local version="${3:-}"
@@ -92,7 +99,7 @@ cfg_record_checkout_state_for_category() {
 	local paths=()
 
 	mapfile -t paths < <(cfg_get_tracked_files_for_state "$git_dir" "$state" "$version")
-	> "$state_file"
+	: > "$state_file"
 	local path hash
 	for path in "${paths[@]}"; do
 		[ -e "$HOME/$path" ] || [ -L "$HOME/$path" ] || continue

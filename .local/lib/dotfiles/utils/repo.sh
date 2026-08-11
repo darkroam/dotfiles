@@ -11,12 +11,16 @@ CFG_GIT_DIR=""
 CFG_USE_EXISTING=false
 CFG_TEMP_DIR=""
 
+# cfg_cleanup_temp_dir
+# Removes the temporary clone directory created by repository setup.
 cfg_cleanup_temp_dir() {
 	if [ -n "$CFG_TEMP_DIR" ] && { [ -e "$CFG_TEMP_DIR" ] || [ -L "$CFG_TEMP_DIR" ]; }; then
 		rm -rf -- "$CFG_TEMP_DIR"
 	fi
 }
 
+# cfg_setup_repository <current_state> [force] [repository] [git_dir]
+# Clones or selects the repository and validates its identity.
 cfg_setup_repository() {
 	local current_state="$1"
 	local force="${2:-false}"
@@ -61,6 +65,8 @@ cfg_setup_repository() {
 	fi
 }
 
+# cfg_activate_repository [git_dir]
+# Atomically moves a validated temporary clone into its final location.
 cfg_activate_repository() {
 	local final_git_dir="${1:-$HOME/.cfg}"
 

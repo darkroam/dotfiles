@@ -6,6 +6,9 @@ if [ -n "${_DOTCFG_CATEGORIES_COMMAND_LOADED:-}" ]; then
 fi
 _DOTCFG_CATEGORIES_COMMAND_LOADED=1
 
+# cmd_categories <list|current|show|switch|remove> [argument]
+# Displays or changes versioned category metadata while preserving the CLI
+# output and confirmation behavior. Returns the selected operation's status.
 cmd_categories() {
     local subcmd="${1:-list}"
     shift || true
@@ -76,7 +79,8 @@ cmd_categories() {
                     printf '\nNodes using each version:\n'
                     for ver in $(printf '%s\n' "${!ver_nodes[@]}" | sort); do
                         local nodes_str="${ver_nodes[$ver]}"
-                        local -a narr=($nodes_str)
+					local -a narr=()
+					read -r -a narr <<< "$nodes_str"
                         local np nodes_text
                         np=$(cfg_version_display_prefix "$ver")
                         printf -v nodes_text '%s, ' "${narr[@]}"

@@ -284,6 +284,8 @@ _CFG_CONF_STATE_DEFAULT="$_CFG_STATE_DEFAULT_DEFAULT"
 _CFG_CONF_STATE_INDICATORS="$_CFG_STATE_INDICATORS_DEFAULT"
 _CFG_CONF_BODY=""
 
+# cfg_config_version_latest
+# Prints the highest discovered semantic configuration version.
 cfg_config_version_latest() {
 	local versions
 	versions=$(cfg_config_version_list)
@@ -291,6 +293,9 @@ cfg_config_version_latest() {
 	printf '%s\n' "$versions" | tail -1
 }
 
+# cfg_config_version_read <version>
+# Loads and prints a version file, populating its metadata cache; returns 1 if
+# the requested version file does not exist.
 cfg_config_version_read() {
 	local version="$1"
 	local file="$DOTFILES_LIB_DIR/categories-${version}.conf"
@@ -482,6 +487,8 @@ cfg_categories_metadata_apply() {
 	done
 }
 
+# cfg_category_alias_target <name>
+# Prints the canonical category name for an alias, or the input name.
 cfg_category_alias_target() {
 	local name="${1:-}"
 	if [ -n "${CFG_CATEGORY_ALIASES[$name]+x}" ]; then
@@ -491,10 +498,14 @@ cfg_category_alias_target() {
 	return 1
 }
 
+# cfg_state_default_category [version]
+# Prints the configured fallback category for state detection.
 cfg_state_default_category() {
 	printf '%s' "$CFG_STATE_DEFAULT"
 }
 
+# cfg_state_indicator_category <path> [version]
+# Prints the category associated with a state indicator path.
 cfg_state_indicator_category() {
 	local path="${1:-}"
 	if [ -n "${CFG_STATE_INDICATOR_CATEGORIES[$path]+x}" ]; then
@@ -504,6 +515,8 @@ cfg_state_indicator_category() {
 	return 1
 }
 
+# cfg_config_tag_is_valid <tag> [version]
+# Returns zero when a category version accepts the supplied TAG value.
 cfg_config_tag_is_valid() {
 	local value="${1:-}" tag
 	IFS=',' read -ra _cfg_valid_tags <<< "$CFG_VALID_TAGS"
@@ -514,6 +527,8 @@ cfg_config_tag_is_valid() {
 	return 1
 }
 
+# cfg_config_get_tag <version>
+# Prints the normalized TAG for a category version, defaulting to stable.
 cfg_config_get_tag() {
 	local version="$1"
 	if [ -n "${CFG_CATEGORIES_TAGS[$version]+x}" ]; then
@@ -524,6 +539,8 @@ cfg_config_get_tag() {
 	printf '%s' "$_CFG_CONF_TAG"
 }
 
+# cfg_config_version_info <version>
+# Prints the human-readable metadata for a category version.
 cfg_config_version_info() {
 	local version="$1"
 	cfg_config_version_read "$version" >/dev/null || return 1
@@ -602,6 +619,8 @@ cfg_categories_load() {
 	return 0
 }
 
+# cfg_categories_list [version]
+# Prints category names available in the selected version.
 cfg_categories_list() {
 	local cat
 	for cat in "${_CFG_CAT_NAMES[@]}"; do
@@ -625,6 +644,8 @@ cfg_category_canonical_name() {
 	esac
 }
 
+# cfg_category_exists <category> [version]
+# Returns zero when the category exists in the selected version.
 cfg_category_exists() {
 	local name
 	name=$(cfg_category_canonical_name "$1")
@@ -632,6 +653,8 @@ cfg_category_exists() {
 	[[ " ${_CFG_CAT_NAMES[*]} " == *" $name "* ]]
 }
 
+# cfg_category_get_files <category> [git_dir]
+# Prints the tracked paths resolved by a category.
 cfg_category_get_files() {
 	local name
 	name=$(cfg_category_canonical_name "$1")
@@ -659,6 +682,8 @@ cfg_category_get_files() {
 	done <<< "$resolved"
 }
 
+# cfg_category_diff <left> <right> [git_dir]
+# Prints paths present in one category but not the other.
 cfg_category_diff() {
 	local base="$1" overlay="$2"
 	local git_dir="${3:-$HOME/.cfg}"
@@ -686,6 +711,8 @@ cfg_is_installation_path() {
 	esac
 }
 
+# cfg_exclude_match <relative_path>
+# Returns zero when the path matches a configured exclusion rule.
 cfg_exclude_match() {
 	local path="$1"
 	local pattern

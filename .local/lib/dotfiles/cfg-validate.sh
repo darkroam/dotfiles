@@ -32,6 +32,8 @@ cfg_path_md5() {
     fi
 }
 
+# cfg_path_size <path>
+# Prints the byte size of a regular file or the stored text of a symlink.
 cfg_path_size() {
     local path="$1"
     if [ -L "$path" ]; then

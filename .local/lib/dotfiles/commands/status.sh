@@ -6,6 +6,9 @@ if [ -n "${_DOTCFG_STATUS_COMMAND_LOADED:-}" ]; then
 fi
 _DOTCFG_STATUS_COMMAND_LOADED=1
 
+# cmd_status
+# Validates the repository and prints the current node, deployment state and
+# available operations. Arguments: command options (currently ignored).
 cmd_status() {
     cfg_validate "$GIT_DIR"
     cfg_print_validation_result "$GIT_DIR"

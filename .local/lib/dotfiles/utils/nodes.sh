@@ -65,6 +65,8 @@ _cfg_nodes_rebuild_lookup() {
 	done
 }
 
+# cfg_nodes_init [backup_root]
+# Initializes node paths and creates the nodes directory for the backup root.
 cfg_nodes_init() {
 	local backup_root="${1:-$HOME/.config-backup}"
 	local nodes_dir="$backup_root/nodes"
@@ -200,6 +202,8 @@ cfg_nodes_read_index() {
 	_CFG_NODES_INDEX_LOADED=true
 }
 
+# cfg_nodes_write_index
+# Serializes the in-memory node arrays to index.json and refreshes the lookup.
 cfg_nodes_write_index() {
 	local tmp="${CFG_NODES_INDEX}.tmp"
 
@@ -327,6 +331,8 @@ cfg_node_create() {
 	printf '%s' "$code"
 }
 
+# cfg_node_get <code> <field>
+# Prints one stored node field; returns 1 when the code or field is unknown.
 cfg_node_get() {
 	local code="$1"
 	local field="$2"
@@ -351,6 +357,8 @@ cfg_node_get() {
 	return 0
 }
 
+# cfg_node_exists <code>
+# Returns zero when a node code is present in the loaded index.
 cfg_node_exists() {
 	local code="$1"
 	cfg_nodes_read_index 2>/dev/null || return 1
@@ -364,6 +372,8 @@ cfg_head_set() {
 	printf '%s\n' "$code" > "$CFG_HEAD_FILE"
 }
 
+# cfg_head_get
+# Prints the current HEAD node code, returning 1 when no valid HEAD exists.
 cfg_head_get() {
 	if [ ! -f "$CFG_HEAD_FILE" ]; then
 		return 1
@@ -386,6 +396,8 @@ cfg_deploy_status_set() {
 	printf '%s\n' "$status" > "$CFG_DEPLOY_STATUS_FILE"
 }
 
+# cfg_deploy_status_get
+# Prints the deployment status, defaulting to uninstalled when absent.
 cfg_deploy_status_get() {
 	if [ ! -f "$CFG_DEPLOY_STATUS_FILE" ]; then
 		printf 'uninstalled'
@@ -418,6 +430,8 @@ cfg_nodes_get_root() {
 	return 1
 }
 
+# cfg_nodes_ancestors <code>
+# Prints the node's ancestor chain from the supplied code toward the root.
 cfg_nodes_ancestors() {
 	local code="$1"
 	cfg_nodes_read_index 2>/dev/null || return 1
@@ -437,6 +451,8 @@ cfg_nodes_ancestors() {
 	done
 }
 
+# cfg_nodes_count
+# Prints the number of indexed nodes.
 cfg_nodes_count() {
 	cfg_nodes_read_index 2>/dev/null || { printf '0'; return; }
 	printf '%d' "${#_CFG_NODE_CODES[@]}"
@@ -482,6 +498,8 @@ cfg_node_set_status() {
 	return 1
 }
 
+# cfg_node_set_config_version <code> <version>
+# Updates the configuration version stored on a node.
 cfg_node_set_config_version() {
 	local code="$1" version="$2"
 	cfg_nodes_read_index 2>/dev/null || return 1
@@ -496,6 +514,8 @@ cfg_node_set_config_version() {
 	return 1
 }
 
+# cfg_node_set_parent <code> <parent_code>
+# Changes a node parent and synchronizes both children lists.
 cfg_node_set_parent() {
 	local code="$1" new_parent="$2"
 	local i
@@ -542,6 +562,8 @@ cfg_node_set_parent() {
 	return 1
 }
 
+# cfg_nodes_list_marked
+# Prints codes for nodes marked for removal.
 cfg_nodes_list_marked() {
 	cfg_nodes_read_index 2>/dev/null || return 1
 	local i
@@ -552,6 +574,8 @@ cfg_nodes_list_marked() {
 	done
 }
 
+# cfg_nodes_delete <code>
+# Permanently deletes a non-root node and updates its parent/index metadata.
 cfg_nodes_delete() {
 	local code="$1"
 	cfg_nodes_read_index 2>/dev/null || return 1
@@ -604,6 +628,8 @@ cfg_nodes_delete() {
 	return 1
 }
 
+# cfg_nodes_orphaned_children <code>
+# Prints active children that would be orphaned by deleting a node.
 cfg_nodes_orphaned_children() {
 	local code="$1"
 	cfg_nodes_read_index 2>/dev/null || return 1
@@ -635,6 +661,8 @@ cfg_config_version_get_current() {
 	printf '%s' "$ver"
 }
 
+# cfg_config_version_set <version>
+# Stores the default category version used for new nodes.
 cfg_config_version_set() {
 	local version="$1"
 	local version_file="$HOME/.config-backup/CURRENT_CONFIG_VERSION"
@@ -711,6 +739,8 @@ cfg_config_versions_load() {
 	_CFG_CONFIG_VERSIONS_DIR="$dir"
 }
 
+# cfg_config_version_list
+# Prints discovered category version identifiers in semantic order.
 cfg_config_version_list() {
 	cfg_config_versions_load
 	if [ ${#_CFG_CONFIG_VERSIONS[@]} -gt 0 ]; then
@@ -719,6 +749,8 @@ cfg_config_version_list() {
 	return 0
 }
 
+# cfg_version_display_prefix <version>
+# Prints the compatibility display prefix for a version identifier.
 cfg_version_display_prefix() {
 	local ver="$1"
 	cfg_config_versions_load

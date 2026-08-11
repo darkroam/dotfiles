@@ -67,7 +67,7 @@ fresh_manifest_read() {
 
 	[ -f "$manifest" ] || return 1
 
-	local line path md5 size status ts
+	local path md5 size status ts
 	while IFS=$'\t' read -r path md5 size status ts; do
 		[[ "$path" == \#* ]] && continue
 		[ -z "$path" ] && continue
@@ -95,6 +95,8 @@ fresh_backup_count() {
 	printf '%s' "${#_FRESH_MANIFEST_PATHS[@]}"
 }
 
+# fresh_backup_size
+# Prints the total byte size recorded in the loaded Fresh manifest.
 fresh_backup_size() {
 	local total=0 s
 	for s in "${_FRESH_MANIFEST_SIZES[@]}"; do
@@ -313,6 +315,8 @@ fresh_backup_collected_files() {
 	done
 }
 
+# fresh_print_backup_stats [root_code]
+# Prints mixed-mode Fresh backup counts for each path group.
 fresh_print_backup_stats() {
 	local root_code="${1:-$FRESH_ROOT_CODE}"
 	local total=$((_FRESH_BACKED_CONFIG_COUNT + _FRESH_BACKED_OTHER_COUNT + _FRESH_BACKED_LOCAL_COUNT))
@@ -523,7 +527,7 @@ fresh_adopt_legacy() {
 	done
 	if [ "$failed" -gt 0 ]; then
 		cfg_nodes_delete "$code" 2>/dev/null || true
-		rm -rf -- "$CFG_NODES_DIR/$code"
+		rm -rf -- "${CFG_NODES_DIR:?}/$code"
 		return 1
 	fi
 
