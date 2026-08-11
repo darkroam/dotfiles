@@ -132,6 +132,12 @@ _dotcfg_load_business_libraries() {
 	if [ -f "$DOTFILES_LIB_DIR/utils/fresh.sh" ]; then
 		. "$DOTFILES_LIB_DIR/utils/fresh.sh"
 	fi
+	if [ -f "$DOTFILES_LIB_DIR/commands/status.sh" ]; then
+		. "$DOTFILES_LIB_DIR/commands/status.sh"
+	fi
+	if [ -f "$DOTFILES_LIB_DIR/commands/list.sh" ]; then
+		. "$DOTFILES_LIB_DIR/commands/list.sh"
+	fi
 
 	_DOTCFG_BUSINESS_LOADED=1
 }
@@ -176,131 +182,6 @@ _transition_description() {
 }
 
 # ── Subcommands ─────────────────────────────────────────────────────────
-
-cmd_status() {
-    cfg_validate "$GIT_DIR"
-    cfg_print_validation_result "$GIT_DIR"
-
-    local current_state
-    current_state=$(cfg_detect_state "$GIT_DIR")
-
-    cfg_nodes_init "$BACKUP_ROOT"
-
-    local head_code=""
-    head_code=$(cfg_head_get 2>/dev/null) || true
-
-    if [ -n "$head_code" ] && cfg_nodes_read_index 2>/dev/null; then
-        local i node_type="" node_ts=""
-        for ((i = 0; i < ${#_CFG_NODE_CODES[@]}; i++)); do
-            if [ "${_CFG_NODE_CODES[$i]}" = "$head_code" ]; then
-                node_type="${_CFG_NODE_TYPES[$i]}"
-                node_ts="${_CFG_NODE_TIMESTAMPS[$i]}"
-                break
-            fi
-        done
-
-        local deploy_status
-        deploy_status=$(cfg_deploy_status_get)
-
-        printf '\nCurrent node: %s (%s)\n' "$head_code" "${node_type:-unknown}"
-        if [ -n "$node_ts" ]; then
-            printf 'Created: %s\n' "$node_ts"
-        fi
-        printf 'Deploy status: %s\n' "$deploy_status"
-
-        local node_version node_status
-        node_version=$(cfg_node_get "$head_code" "config_version" 2>/dev/null) || node_version=""
-        node_status=$(cfg_node_get "$head_code" "status" 2>/dev/null) || node_status="active"
-        if [ -n "$node_version" ] && [ "$node_version" != "unknown" ]; then
-            printf 'Config version: %s\n' "$node_version"
-        fi
-        printf 'Node status: %s\n' "$node_status"
-
-        local ancestors
-        ancestors=$(cfg_nodes_ancestors "$head_code" 2>/dev/null) || true
-        if [ -n "$ancestors" ]; then
-            local chain=""
-            local first=true
-            while IFS= read -r code; do
-                [ -z "$code" ] && continue
-                local atype=""
-                for ((i = 0; i < ${#_CFG_NODE_CODES[@]}; i++)); do
-                    if [ "${_CFG_NODE_CODES[$i]}" = "$code" ]; then
-                        atype="${_CFG_NODE_TYPES[$i]}"
-                        break
-                    fi
-                done
-                if $first; then
-                    chain="$atype"
-                    first=false
-                else
-                    chain="$atype -> $chain"
-                fi
-            done <<< "$ancestors"
-            printf 'Chain: %s\n' "$chain"
-        fi
-    else
-        printf '\nCurrent state: %s\n' "$current_state"
-        printf 'No nodes found. Run "dotcfg switch full", "dotcfg switch min", or "dotcfg switch macos".\n'
-    fi
-
-    printf '\nAvailable operations:\n'
-    printf '  dotcfg switch full       Install all managed configuration\n'
-    printf '  dotcfg switch min        Install command-line configuration\n'
-    printf '  dotcfg switch macos      Install cross-platform core configuration\n'
-    printf '  dotcfg deploy            Deploy current node\n'
-    printf '  dotcfg undeploy          Undeploy current node\n'
-    printf '  dotcfg uninstall         Return to fresh state\n'
-    printf '  dotcfg list              List all nodes\n'
-    printf '  dotcfg history           Show node tree\n'
-}
-
-cmd_list() {
-    cfg_nodes_init "$BACKUP_ROOT"
-
-    if ! cfg_nodes_read_index 2>/dev/null || [ ${#_CFG_NODE_CODES[@]} -eq 0 ]; then
-        printf 'No nodes found.\n'
-        printf 'Run "dotcfg switch full", "dotcfg switch min", or "dotcfg switch macos" to create nodes.\n'
-        return
-    fi
-
-    local head_code
-    head_code=$(cfg_head_get 2>/dev/null) || true
-    local deploy_status
-    deploy_status=$(cfg_deploy_status_get)
-
-    printf '  %-6s %-10s %-8s %-10s %-20s %s\n' "DEPLOY" "TYPE" "VERSION" "STATUS" "TIME" "CODE"
-
-    local i
-    for ((i = ${#_CFG_NODE_CODES[@]} - 1; i >= 0; i--)); do
-        local code="${_CFG_NODE_CODES[$i]}"
-        local type="${_CFG_NODE_TYPES[$i]}"
-        local ts="${_CFG_NODE_TIMESTAMPS[$i]}"
-        local display_ts
-        display_ts=$(printf '%s' "$ts" | sed 's/T/ /;s/\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\) \([0-9]\{2\}\):\([0-9]\{2\}\):\([0-9]\{2\}\)/\1 \2:\3:\4/')
-
-        local marker="[ ]"
-        if [ "$code" = "$head_code" ] && [ "$deploy_status" = "deployed" ]; then
-            marker="[*]"
-        elif [ "$code" = "$head_code" ]; then
-            marker="[>]"
-        fi
-
-        local node_status="${_CFG_NODE_STATUSES[$i]:-active}"
-        local display_status="$node_status"
-        [ "$node_status" = "marked_for_removal" ] && display_status="[REMOVED]"
-
-        local node_version="${_CFG_NODE_CONFIG_VERSIONS[$i]:-}"
-        [ -z "$node_version" ] && node_version="-"
-
-        local root_mark=""
-        if [ "$type" = "fresh" ]; then
-            root_mark=" ●"
-        fi
-
-        printf '  %-6s %-10s %-8s %-10s %-20s %s%s\n' "$marker" "$type" "$node_version" "$display_status" "$display_ts" "$code" "$root_mark"
-    done
-}
 
 cmd_history() {
     cfg_nodes_init "$BACKUP_ROOT"
