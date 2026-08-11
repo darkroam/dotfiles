@@ -148,6 +148,26 @@ teardown() {
 	assert_output_contains "DRY RUN"
 }
 
+@test "TC-56b: switch accepts a category defined by the current version" {
+	setup_source_repo ".bashrc" ".local/bin/dotcfg"
+	local dlib="$HOME/dlib"
+	cp -r "$REAL_HOME/.local/lib/dotfiles" "$dlib"
+	cat > "$dlib/categories-2.0.0.conf" <<'CONF'
+# VERSION = "2.0.0"
+# CATEGORY_ALIASES = "desktop:custom,server:custom"
+
+category = custom
++ .bashrc
+CONF
+	mkdir -p "$HOME/.config-backup"
+	printf '2.0.0\n' > "$HOME/.config-backup/CURRENT_CONFIG_VERSION"
+
+	run env DOTFILES_LIB_DIR="$dlib" bash "$DOTCFG" switch custom --dry-run
+	[ "$status" -eq 0 ]
+	[[ "$output" != *"unknown target"* ]]
+	assert_output_contains "DRY RUN"
+}
+
 # ── validate subcommand ────────────────────────────────────────────────
 
 @test "TC-57: validate shows validation detail and state" {

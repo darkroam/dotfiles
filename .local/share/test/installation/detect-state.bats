@@ -83,6 +83,34 @@ teardown() {
 	[ "$state" = "min" ]
 }
 
+@test "TC-03e: category metadata supplies custom state indicators" {
+	local dlib="$HOME/dlib"
+	cp -r "$REAL_HOME/.local/lib/dotfiles" "$dlib"
+	cat > "$dlib/categories-99.0.0.conf" <<'CONF'
+# VERSION = "99.0.0"
+# STATE_DEFAULT = "terminal"
+# STATE_INDICATORS = "graphical:.custom-display"
+
+category = graphical
++ .bashrc
+
+category = terminal
++ .zshrc
+CONF
+	export DOTFILES_LIB_DIR="$dlib"
+	unset _CFG_CATEGORIES_LOADED
+	. "$dlib/utils/categories.sh"
+
+	create_mock_cfg_repo ".bashrc"
+	mkdir -p "$HOME/.config-backup"
+	printf '99.0.0\n' > "$HOME/.config-backup/CURRENT_CONFIG_VERSION"
+	touch "$HOME/.custom-display"
+
+	local state
+	state=$(cfg_detect_state "$HOME/.cfg")
+	[ "$state" = "graphical" ]
+}
+
 @test "TC-03d: macos HEAD metadata overrides graphical compatibility indicators" {
 	create_mock_cfg_repo ".bashrc"
 	mkdir -p "$HOME/.config/x11"

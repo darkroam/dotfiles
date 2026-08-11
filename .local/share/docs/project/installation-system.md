@@ -1274,9 +1274,13 @@ include = empty
 #### 状态检测
 
 `cfg_detect_state()` 先检查 `.cfg`，不存在时返回 `fresh`。仓库存在且节点元数据有效时，读取 HEAD
-节点的 `type` 并规范化旧值：`desktop → full`、`server → min`。这使 `macos` 不会被 Linux 文件
-特征误判。没有节点元数据的旧安装才使用兼容指标：`.xinitrc`、`.xprofile` 或
-`.config/x11/xinitrc` 存在时返回 `full`，否则返回 `min`；空的 `.config/x11/` 目录不构成指标。
+节点的 `type`，并使用当前 category 版本的 `CATEGORY_ALIASES` 规范化旧值；缺少该元数据时保留
+`desktop → full`、`server → min`。这使 `macos` 不会被 Linux 文件特征误判。
+
+没有节点元数据时，优先读取当前 category 版本的 `STATE_INDICATORS` 和 `STATE_DEFAULT`；旧配置
+缺少这些字段时回退到 `.xinitrc`、`.xprofile` 或 `.config/x11/xinitrc` 存在即为 `full`，否则为
+`min`。空的 `.config/x11/` 目录不构成指标。独立调用未加载 category 库的 `cfg-validate.sh` 时
+仍使用同一组兼容指标。
 
 #### dotcfg list 的 TYPE 来源
 

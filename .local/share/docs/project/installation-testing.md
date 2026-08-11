@@ -109,6 +109,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-03a..03b | `.cfg` 无图形指标 → min |
 | TC-03c | 空 `.config/x11/` 目录不是图形指标，仍判定为 min |
 | TC-03d | HEAD 节点类型为 macos 时，节点元数据优先于图形兼容指标 |
+| TC-03e | category 版本元数据提供自定义状态指标 |
 
 ### TC-04..10：备份逻辑（backup-logic.bats）
 
@@ -247,6 +248,7 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
 | TC-54 | 旧 `desktop` 入口映射到 full 并完成安装 |
 | TC-55 | 旧 `server` 入口映射到 min 并完成切换 |
 | TC-56 | switch：`--dry-run` 透传 |
+| TC-56b | switch：接受当前版本配置中定义的自定义 category |
 | TC-57 | validate：仓库验证详情 |
 | TC-58 | 默认 status + 未知子命令报错 |
 | TC-59 | 顶层和子命令 `--help` 与 `dotcfg help` 输出一致 |
@@ -387,8 +389,8 @@ bats -r .local/share/test/ --tap
 Bats 满足本文 `>= 1.11.0` 的前置要求。
 
 ```
-Total:  249
-Passed: 249
+Total:  251
+Passed: 251
 Failed: 0
 ```
 
@@ -412,4 +414,4 @@ Failed: 0
 ---
 
 **最后更新**: 2026-08-11
-**版本**: 4.0 — 249 个受管测试 + 节点/category 缓存 + dotcfg 按需加载 + 配置元数据外部化
+**版本**: 4.1 — 251 个受管测试 + 节点/category 缓存 + dotcfg 按需加载 + 动态 category 状态检测

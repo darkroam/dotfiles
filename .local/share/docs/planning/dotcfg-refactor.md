@@ -2,11 +2,11 @@
 
 ## 计划状态
 
-- 状态：阶段 0、阶段 1、阶段 2 已完成，阶段 3 待执行
+- 状态：阶段 0、阶段 1、阶段 2、阶段 3 已完成，阶段 4 待执行
 - 确认日期：2026-08-10
 - 基线提交：`0d3209a fix: align dotcfg command output documentation`
 - 基线测试：181/181 个受管 Bats 测试通过
-- 当前检查点：249 个受管 Bats 测试，包含原本未纳管的 category、配置版本和生命周期测试
+- 当前检查点：251 个受管 Bats 测试，包含原本未纳管的 category、配置版本和生命周期测试
 - 适用平台：本轮只在[平台档案索引](../platforms/index.md)所列当前 Debian 平台执行真实性验证；
   其他发行版只做 Shell 语法和兼容性判断
 
@@ -101,7 +101,8 @@ exclude 或 fresh 业务库；bootstrap 路径保持原有自举逻辑。
 - 状态检测优先使用节点元数据，其次使用 category 元数据，最后使用现有三个指标回退
 - 保留 `full`、`bootstrap`、`desktop/server` 的特殊和兼容语义
 - 当前正式 category 下的输出顺序和文字不改变
-- 验收：新增 category、缺失元数据、旧配置和旧节点测试通过
+- 自定义 category 可通过 `dotcfg switch <category>` 使用；未知目标继续保持原错误文本
+- 验收：251/251 测试通过，状态元数据和自定义 category 回归通过；阶段 3 已完成
 
 ### 阶段 4：入口和命令拆分
 

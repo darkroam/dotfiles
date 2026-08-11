@@ -35,7 +35,7 @@
 安装脚本、状态机和已知问题：
 
 - [安装系统设计](project/installation-system.md) — 节点幂等安装系统架构、统一 CLI 和共享验证库
-- [安装测试](project/installation-testing.md) — 节点系统测试框架、249 个受管测试用例验证
+- [安装测试](project/installation-testing.md) — 节点系统测试框架、251 个受管测试用例验证
 - [安装修复记录](planning/installation-fixes.md) — B1-B8 已修复缺陷、设计变更和验证记录
 
 ## 项目跟踪

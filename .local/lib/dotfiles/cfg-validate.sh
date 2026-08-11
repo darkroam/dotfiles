@@ -157,9 +157,32 @@ cfg_check_updates() {
     fi
 }
 
+# _cfg_load_category_state_metadata [backup_root]
+# Loads the selected category version when the category library is available.
+# Returns 0 when metadata was loaded or no category library is present.
+_cfg_load_category_state_metadata() {
+    local backup_root="$1"
+    declare -F cfg_categories_load >/dev/null 2>&1 || return 0
+
+    local version=""
+    if [ -f "$backup_root/CURRENT_CONFIG_VERSION" ]; then
+        version=$(<"$backup_root/CURRENT_CONFIG_VERSION")
+        version="${version%%$'\n'*}"
+        version="${version#"${version%%[![:space:]]*}"}"
+        version="${version%"${version##*[![:space:]]}"}"
+    fi
+
+    if [ -n "$version" ]; then
+        cfg_categories_load "$version" >/dev/null 2>&1 || cfg_categories_load >/dev/null 2>&1 || true
+    else
+        cfg_categories_load >/dev/null 2>&1 || true
+    fi
+}
+
 # cfg_detect_state [git_dir]
 # Detects the canonical installation state. Node metadata is authoritative;
-# legacy file detection is only a compatibility fallback.
+# category metadata drives aliases and indicators when available; legacy file
+# detection remains the final compatibility fallback.
 cfg_detect_state() {
     local git_dir="${1:-$HOME/.cfg}"
 
@@ -169,6 +192,8 @@ cfg_detect_state() {
     fi
 
     local backup_root="${DOTCFG_BACKUP_ROOT:-$HOME/.config-backup}"
+    _cfg_load_category_state_metadata "$backup_root"
+
     if declare -F cfg_nodes_init >/dev/null 2>&1 && \
        [ -f "$backup_root/HEAD" ] && [ -f "$backup_root/nodes/index.json" ]; then
         cfg_nodes_init "$backup_root"
@@ -191,7 +216,30 @@ cfg_detect_state() {
         fi
     fi
 
-    local indicator
+    local indicator indicator_category
+    if declare -p CFG_STATE_INDICATOR_PATHS >/dev/null 2>&1 && \
+       [ ${#CFG_STATE_INDICATOR_PATHS[@]} -gt 0 ]; then
+        for indicator in "${CFG_STATE_INDICATOR_PATHS[@]}"; do
+            indicator_category=$(cfg_state_indicator_category "$indicator" 2>/dev/null) || indicator_category="full"
+            if [ -e "$HOME/$indicator" ] || [ -L "$HOME/$indicator" ]; then
+                echo "$indicator_category"
+                return
+            fi
+        done
+    else
+        for indicator in ".xinitrc" ".xprofile" ".config/x11/xinitrc"; do
+            if [ -e "$HOME/$indicator" ] || [ -L "$HOME/$indicator" ]; then
+                echo "full"
+                return
+            fi
+        done
+    fi
+
+    if declare -F cfg_state_default_category >/dev/null 2>&1; then
+        cfg_state_default_category
+        return
+    fi
+
     for indicator in ".xinitrc" ".xprofile" ".config/x11/xinitrc"; do
         if [ -e "$HOME/$indicator" ] || [ -L "$HOME/$indicator" ]; then
             echo "full"

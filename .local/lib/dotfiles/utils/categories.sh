@@ -29,6 +29,7 @@ declare -gA _CFG_CONFIG_STATE_DEFAULT_CACHE=()
 declare -gA _CFG_CONFIG_STATE_INDICATORS_CACHE=()
 declare -gA CFG_CATEGORY_ALIASES=()
 declare -gA CFG_STATE_INDICATOR_CATEGORIES=()
+declare -ga CFG_STATE_INDICATOR_PATHS=()
 
 _CFG_VALID_TAGS_DEFAULT="stable,test,experimental"
 _CFG_CATEGORY_ALIASES_DEFAULT="desktop:full,server:min"
@@ -437,9 +438,10 @@ cfg_categories_invalidate() {
 # cfg_categories_metadata_reset
 # Restores metadata defaults before loading a version or legacy config file.
 cfg_categories_metadata_reset() {
-	unset CFG_CATEGORY_ALIASES CFG_STATE_INDICATOR_CATEGORIES
+	unset CFG_CATEGORY_ALIASES CFG_STATE_INDICATOR_CATEGORIES CFG_STATE_INDICATOR_PATHS
 	declare -gA CFG_CATEGORY_ALIASES=()
 	declare -gA CFG_STATE_INDICATOR_CATEGORIES=()
+	declare -ga CFG_STATE_INDICATOR_PATHS=()
 	CFG_VALID_TAGS="$_CFG_VALID_TAGS_DEFAULT"
 	CFG_STATE_DEFAULT="$_CFG_STATE_DEFAULT_DEFAULT"
 }
@@ -473,7 +475,10 @@ cfg_categories_metadata_apply() {
 		[ "$entry" = "$category" ] && continue
 		_cfg_trim_into category "$category"
 		_cfg_trim_into path "$path"
-		[ -n "$category" ] && [ -n "$path" ] && CFG_STATE_INDICATOR_CATEGORIES["$path"]="$category"
+		if [ -n "$category" ] && [ -n "$path" ]; then
+			CFG_STATE_INDICATOR_CATEGORIES["$path"]="$category"
+			CFG_STATE_INDICATOR_PATHS+=("$path")
+		fi
 	done
 }
 

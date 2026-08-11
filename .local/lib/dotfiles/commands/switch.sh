@@ -24,14 +24,19 @@ if [ -z "$SWITCH_TYPE" ]; then
 fi
 
 requested_type="$SWITCH_TYPE"
+	# Load the selected version before repository work so custom categories can
+	# be validated without changing the old invalid-target error contract.
+preflight_version=$(cfg_config_version_get_current 2>/dev/null) || preflight_version=""
+if [ -n "$preflight_version" ]; then
+	cfg_categories_load "$preflight_version" >/dev/null 2>&1 || cfg_categories_load >/dev/null 2>&1 || true
+else
+	cfg_categories_load >/dev/null 2>&1 || true
+fi
 SWITCH_TYPE=$(cfg_category_canonical_name "$SWITCH_TYPE")
-case "$SWITCH_TYPE" in
-	full|min|macos) ;;
-	*)
-		printf 'ERROR: unknown type "%s". Use full, min, or macos.\n' "$requested_type" >&2
-		exit 1
-		;;
-esac
+if ! cfg_category_exists "$SWITCH_TYPE"; then
+	printf 'ERROR: unknown type "%s". Use full, min, or macos.\n' "$requested_type" >&2
+	exit 1
+fi
 
 cfg_parse_common_args "${remaining_args[@]+"${remaining_args[@]}"}"
 

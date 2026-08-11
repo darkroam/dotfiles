@@ -867,6 +867,14 @@ cmd_switch() {
     fi
     shift
 
+    local category_version=""
+    category_version=$(cfg_config_version_get_current 2>/dev/null) || category_version=""
+    if [ -n "$category_version" ]; then
+        cfg_categories_load "$category_version" >/dev/null 2>&1 || cfg_categories_load >/dev/null 2>&1 || true
+    else
+        cfg_categories_load >/dev/null 2>&1 || true
+    fi
+
     if [[ "$target" =~ ^[a-z0-9]{8}$ ]]; then
         _cmd_switch_to_code "$target" "$@"
         return
@@ -891,9 +899,15 @@ cmd_switch() {
             return
             ;;
         *)
-            printf 'Error: unknown target "%s"\n' "$target" >&2
-            printf 'Valid targets: full, min, macos, fresh, or an 8-char node CODE\n' >&2
-            exit 1
+            local canonical_target
+            canonical_target=$(cfg_category_canonical_name "$target")
+            if cfg_category_exists "$canonical_target"; then
+                target="$canonical_target"
+            else
+                printf 'Error: unknown target "%s"\n' "$target" >&2
+                printf 'Valid targets: full, min, macos, fresh, or an 8-char node CODE\n' >&2
+                exit 1
+            fi
             ;;
     esac
 
