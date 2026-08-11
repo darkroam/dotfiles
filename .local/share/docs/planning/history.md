@@ -10,6 +10,11 @@
 
 ## 最近记录的变更
 
+- [x] 2026-08-11：完成 dotcfg 内部重构阶段 0 至 6。重构保留用户命令、参数、输出和返回码，
+  完成按需加载、进程内节点/category 缓存、策略配置外部化、动态 category 状态检测、命令模块拆分、
+  公共函数契约注释和文档对齐。全量 Bats `251/251` 通过，ShellCheck 严重级别 `warning/error` 为 0，
+  性能和隐私/文档一致性复查结果见[重构计划](dotcfg-refactor.md)。
+
 - [x] 2026-08-11：完成 dotcfg 内部重构阶段 4/5。将 `status/list/history/categories` 从入口
   拆为 `.local/lib/dotfiles/commands/` 的 source 模块，保留 bootstrap、参数分发和用户可见
   接口；为公共函数补充参数/返回值契约，修复确定性的静态问题。全量 Bats `251/251` 通过，

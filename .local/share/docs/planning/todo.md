@@ -13,7 +13,6 @@
 - [ ] 决定是否重写已发布 Git 历史，以移除历史作者/提交者邮箱元数据和旧跟踪
   `.gitconfig` 身份。此操作需要协调 force-push，不能轻率执行。
 - [ ] 已跟踪功能或所需命令变化时，更新 `dependencies.md`。
-- [ ] 按[dotcfg 内部重构计划](dotcfg-refactor.md)分阶段降低加载耦合、外部化策略配置并优化节点/category 查询；每阶段保持用户接口和全部受管测试可用。
 - [ ] 本机 k10temp 设备识别与驱动补丁工作已移至[平台档案的活动待办](../platforms/kaitian-x7h-g1e-debian-13.md#平台活动待办)，
   通用 planning 文档不再保存设备型号、PCI ID 或发行版专属事实。
 - [x] 测试脚本环境隔离加固：已从 Gen 1 shell 脚本迁移到 Bats 框架，测试目录迁移到
