@@ -42,7 +42,7 @@ if [ "$node_type" = "fresh" ]; then
 		exit 0
 	fi
 
-	read -r restored failed <<< "$(cfg_restore_node_backup "$current_code" "$backup_root")"
+	read -r restored _ <<< "$(cfg_restore_node_backup "$current_code" "$backup_root")"
 	cfg_deploy_status_set "uninstalled"
 
 	printf '\n=== Undeploy Complete ===\n'
@@ -117,9 +117,8 @@ rm -f "$HOME/.cfg-checkout-state" 2>/dev/null || true
 # ── Restore from backup ───────────────────────────────────────────────
 
 restored=0
-failed=0
 if $has_backup; then
-	read -r restored failed <<< "$(cfg_restore_node_backup "$current_code" "$backup_root")"
+	read -r restored _ <<< "$(cfg_restore_node_backup "$current_code" "$backup_root")"
 fi
 
 # ── Update deploy status ──────────────────────────────────────────────

@@ -94,7 +94,7 @@ cfg_restore_node_backup() {
 	local restored=0
 	local failed=0
 
-	while IFS=$'\t' read -r rel_path md5 status; do
+	while IFS=$'\t' read -r rel_path _ _; do
 		[[ "$rel_path" =~ ^# ]] && continue
 		[ -z "$rel_path" ] && continue
 

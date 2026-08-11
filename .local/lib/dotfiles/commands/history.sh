@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # commands/history.sh - graph-style node history command for dotcfg.
+# shellcheck disable=SC2034  # nameref output arrays are consumed by renderers.
 
 if [ -n "${_DOTCFG_HISTORY_COMMAND_LOADED:-}" ]; then
     return 0
@@ -27,11 +28,13 @@ cmd_history() {
     local -a main_line=()
     _history_compute_main_line main_line
 
-    local -A on_main_line=()
+	# shellcheck disable=SC2034  # Arrays are populated through nameref arguments.
+	local -A on_main_line=()
     local c
     for c in "${main_line[@]}"; do on_main_line["$c"]=1; done
 
-    local -a disp_codes=() disp_lanes=() disp_types=()
+	# shellcheck disable=SC2034  # Arrays are populated through nameref arguments.
+	local -a disp_codes=() disp_lanes=() disp_types=()
     _history_build_display main_line on_main_line disp_codes disp_lanes disp_types
 
     _history_render disp_codes disp_lanes disp_types "$head_code" "$deploy_status"

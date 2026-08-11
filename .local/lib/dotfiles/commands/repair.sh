@@ -124,7 +124,6 @@ _repair_rebuild_index() {
 	_CFG_NODE_STATUSES=()
 
 	local code type ts root_found=""
-	local i
 	# First pass: find the fresh root directory if present
 	for d in "${dirs[@]}"; do
 		code="${d##*/}"
@@ -164,10 +163,8 @@ _repair_rebuild_index() {
 	return 0
 }
 
-index_ok=true
 if [ ! -f "$backup_root/nodes/index.json" ]; then
 	printf '\xe2\x9d\x8c %s/nodes/index.json: missing\n' "$backup_root"
-	index_ok=false
 	problems=$((problems + 1))
 	if confirm "Rebuild index.json from node directories?"; then
 		if _repair_rebuild_index; then
@@ -182,7 +179,6 @@ if [ ! -f "$backup_root/nodes/index.json" ]; then
 	fi
 elif ! cfg_nodes_read_index 2>/dev/null || [ ${#_CFG_NODE_CODES[@]} -eq 0 ]; then
 	printf '\xe2\x9d\x8c %s/nodes/index.json: invalid or empty\n' "$backup_root"
-	index_ok=false
 	problems=$((problems + 1))
 	if confirm "Attempt to rebuild index.json from node manifests?"; then
 		if _repair_rebuild_index; then

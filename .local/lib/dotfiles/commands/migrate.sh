@@ -108,7 +108,7 @@ for i in "${sorted_indices[@]}"; do
 	if [ -f "$manifest" ]; then
 		cp -- "$manifest" "$node_dir/manifest.txt"
 
-		while IFS=$'\t' read -r rel_path md5 status; do
+		while IFS=$'\t' read -r rel_path _ _; do
 			[[ "$rel_path" =~ ^# ]] && continue
 			[ -z "$rel_path" ] && continue
 

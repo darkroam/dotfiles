@@ -163,7 +163,7 @@ if [ -d "$backup_root" ]; then
 			manifest="$session_dir/manifest.txt"
 		fi
 		if [ -n "$manifest" ]; then
-			while IFS=$'\t' read -r rel_path md5 status; do
+			while IFS=$'\t' read -r rel_path _ _; do
 				[[ "$rel_path" =~ ^#.*$ ]] && continue
 				[[ -z "$rel_path" ]] && continue
 

@@ -127,6 +127,7 @@ cfg_record_checkout_state() {
 	local git_dir="$1"
 	local state_file="${2:-$HOME/.cfg-checkout-state}"
 
+	# shellcheck disable=SC2034
 	local config_fn
 	config_fn() { git --git-dir="$git_dir/" --work-tree="$HOME" "$@"; }
 

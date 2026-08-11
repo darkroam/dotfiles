@@ -7,6 +7,7 @@
 #   cfg_check_updates()    - Check if updates are available
 #   cfg_detect_state()     - Detect current installation state (fresh/full/min/macos)
 #   cfg_should_backup_file() - Determine if a file should be backed up
+# shellcheck disable=SC2034  # CFG_NEEDS_PULL is an intentional output global.
 
 # Prevent double-sourcing
 if [ -n "${_CFG_VALIDATE_LOADED:-}" ]; then
@@ -143,8 +144,9 @@ cfg_check_updates() {
     CFG_NEEDS_PULL="false"
 
     # Only check if we have a remote
-    local remote_url
-    remote_url=$(git --git-dir="$target/" config --get remote.origin.url 2>/dev/null) || return 0
+    if ! git --git-dir="$target/" config --get remote.origin.url >/dev/null 2>&1; then
+        return 0
+    fi
 
     # Try to fetch (with timeout to avoid hanging)
     if git --git-dir="$target/" fetch --dry-run origin 2>/dev/null; then

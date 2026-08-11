@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # commands/track.sh - Add a file to the fresh node backup
 # Usage: track.sh <path> [--dry-run] [--force] [--no-add]
+# shellcheck disable=SC2034  # FORCE is retained for the documented interface.
 set -euo pipefail
 
 DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"

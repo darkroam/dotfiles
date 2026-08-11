@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # utils/args.sh - Common argument parsing for dotfiles commands
 # Source via utils/common.sh, do not source directly.
+# shellcheck disable=SC2034  # CFG_* flags are consumed by sourced command files.
 
 if [ -n "${_CFG_ARGS_LOADED:-}" ]; then
 	return 0
