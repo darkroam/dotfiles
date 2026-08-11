@@ -317,6 +317,9 @@ sudo /root/networkmanager-transition-20260719/networkmanager-transition.sh rollb
 - [ ] 复查仍依赖真实 X11、账户或网络的交互路径：Transmission、RSS/邮件和媒体预览。
 - [ ] 按“运行必要性、跨设备价值、效率、结构和维护成本”评估未跟踪的 HDA audio user unit/helper；
   未经单独审查不纳入配置仓库。
+- [ ] k10temp 当前不识别 Hygon C86-4G (3450M) 的 DF_F3 设备 `[1d94:14d3]`；内核上游表仅有
+  `[1d94:1463]`，后续可在本机内核树添加 `{ PCI_VDEVICE(HYGON, 0x14d3) }` 后重编译模块，
+  或向内核社区提交支持请求。内核更新后需重新评估补丁。
 
 ### 平台挂起项目
 

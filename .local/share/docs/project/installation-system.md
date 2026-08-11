@@ -853,6 +853,10 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 
 | 脚本 | 用途 |
 |------|------|
+| `status.sh` | `dotcfg status` 查询模块（由入口 source） |
+| `list.sh` | `dotcfg list` 查询模块（由入口 source） |
+| `history.sh` | `dotcfg history` 及 ASCII 图形渲染模块（由入口 source） |
+| `categories.sh` | `dotcfg categories` 版本管理模块（由入口 source） |
 | `switch.sh` | 统一切换逻辑（`--type=full|min|macos`） |
 | `switch-desktop.sh` | 旧入口兼容：转发到 `switch.sh --type=full` |
 | `switch-server.sh` | 旧入口兼容：转发到 `switch.sh --type=min` |
@@ -888,6 +892,11 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 | `utils/categories.sh` | 声明式文件类别系统（categories.conf 解析、继承、排除和 TAG） |
 | `utils/exclude.sh` | fresh 备份排除规则和仓库路径跟踪检查 |
 | `utils/fresh.sh` | fresh 混合选择器、旧备份采纳、根节点与 manifest 管理 |
+
+`status.sh`、`list.sh`、`history.sh` 和 `categories.sh` 只提供入口所需的 `cmd_*` 函数，不能直接
+执行；入口在 help/version 路径之外按需 source 它们。`switch.sh`、部署/撤销、Fresh、诊断和迁移
+脚本仍由入口以独立 Bash 进程调用。这样既减少单次入口解析范围，又保留旧脚本的直接调用和
+bootstrap 自举能力。
 
 ### 通用参数
 

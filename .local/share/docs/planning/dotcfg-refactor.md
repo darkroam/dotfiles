@@ -2,7 +2,7 @@
 
 ## 计划状态
 
-- 状态：阶段 0、阶段 1、阶段 2、阶段 3、阶段 4 已完成，阶段 5 待执行
+- 状态：阶段 0、阶段 1、阶段 2、阶段 3、阶段 4、阶段 5、阶段 6 已完成
 - 确认日期：2026-08-10
 - 基线提交：`0d3209a fix: align dotcfg command output documentation`
 - 基线测试：181/181 个受管 Bats 测试通过
@@ -117,19 +117,42 @@ exclude 或 fresh 业务库；bootstrap 路径保持原有自举逻辑。
 
 ### 阶段 5：可读性和静态检查
 
+（已完成）
+
 - 为公共 `cfg_*`、`fresh_*` 函数补充参数、返回值和副作用说明
 - 修复高置信度 ShellCheck 问题，动态 source 和跨文件全局变量使用有理由的注释
 - 新增代码统一四空格、双引号和局部变量风格
 - 统一错误辅助函数只用于新代码，既有错误文字不批量改写
-- 验收：ShellCheck 无新增 warning，Bash 语法、diff 检查和全量测试通过
+- 验收：公共函数参数、返回值和副作用说明已补充；ShellCheck 严重级别
+  `warning/error` 为 0（保留 59 条动态 source 信息和 12 条 style 提示）；Bash 语法、
+  diff 检查和全量测试 `251/251` 通过。阶段 5 已提交 `91ac775`、`c7e0a50`
 
 ### 阶段 6：文档和最终复查
+
+（已完成）
 
 - 更新 `installation-system.md` 的内部架构、加载关系和配置元数据说明
 - 更新 architecture、testing 和依赖文档中受影响的内容
 - 执行全库文档一致性检查：术语、链接、目录结构、逻辑关系和平台事实
 - 记录完成项到 `history.md`，未完成项保留在 `todo.md` 或 `suspended.md`
-- 只有全部验收通过后才进行阶段性提交
+- 最终复查：文档链接、目录/代码路径、术语与平台边界检查通过；未发现凭据、主机名、序列号、
+  UUID、MAC/IP 或私钥内容。已知 `.gitconfig` 中仍有用户明确要求暂时保留的 Git 身份邮箱，
+  是否重写公开历史继续由 `todo.md` 单独跟踪；完整 Bats `251/251`、Bash 语法、
+  `git diff --check` 和 ShellCheck 严重级别检查通过。
+
+### 阶段 6 性能检查点
+
+2026-08-11 在同一 Debian 会话中使用 `hyperfine --warmup 5 --runs 30` 测得：
+
+| 命令 | 平均耗时 |
+|------|---------:|
+| `dotcfg help >/dev/null` | 7.0 ms |
+| `dotcfg status >/dev/null` | 103.9 ms |
+| `dotcfg list >/dev/null` | 35.8 ms |
+| `dotcfg categories list >/dev/null` | 98.4 ms |
+
+四个查询命令均低于既定 `help <= 0.2s`、`status <= 0.5s` 目标；状态和类别耗时受当前
+节点数量、网络验证和会话负载影响，后续性能比较必须复用同一快照和测量参数。
 
 ## 允许保留的硬编码
 

@@ -14,10 +14,8 @@
   `.gitconfig` 身份。此操作需要协调 force-push，不能轻率执行。
 - [ ] 已跟踪功能或所需命令变化时，更新 `dependencies.md`。
 - [ ] 按[dotcfg 内部重构计划](dotcfg-refactor.md)分阶段降低加载耦合、外部化策略配置并优化节点/category 查询；每阶段保持用户接口和全部受管测试可用。
-- [ ] 海光 CPU 温度传感器支持：k10temp 驱动已加载但不识别 Hygon C86-4G (3450M) 的
-  DF_F3 设备 `[1d94:14d3]`（上游仅支持 `[1d94:1463]`）。需给 k10temp 打补丁在
-  `k10temp_id_table` 中添加 `{ PCI_VDEVICE(HYGON, 0x14d3) }` 并重新编译模块；
-  或向海光/内核社区报告请求主线支持。内核更新后需重新打补丁。
+- [ ] 本机 k10temp 设备识别与驱动补丁工作已移至[平台档案的活动待办](../platforms/kaitian-x7h-g1e-debian-13.md#平台活动待办)，
+  通用 planning 文档不再保存设备型号、PCI ID 或发行版专属事实。
 - [x] 测试脚本环境隔离加固：已从 Gen 1 shell 脚本迁移到 Bats 框架，测试目录迁移到
   `.local/share/test/installation/`。所有测试在 `/tmp/dotfiles-test-*` 隔离环境中运行，
   `teardown` 有双重安全检查（拒绝删除 `$REAL_HOME`，只删除 `/tmp/` 下路径）。72 个测试全部通过。

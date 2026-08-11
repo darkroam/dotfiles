@@ -47,6 +47,27 @@ Fresh 是恢复锚点，不是另一个 category。新设备由 bootstrap 按混
 | 平台档案 | `.local/share/docs/platforms/` | 设备类别与发行版组合的包映射、系统事实、验证和恢复记录 |
 | 系统示例 | `.local/share/sys-etc/` | 必须显式复制并调整的未激活模板 |
 
+### dotcfg 入口与命令层
+
+`.local/bin/dotcfg` 是唯一用户入口，也是 bootstrap 的自包含实现。库已安装时，入口先加载
+`cfg-validate.sh`，help/version 路径不加载业务库；其他命令按需加载节点、category、排除和 Fresh
+工具，以及下列查询命令模块：
+
+| 模块 | 职责 | 依赖边界 |
+| --- | --- | --- |
+| `commands/status.sh` | `cmd_status`，验证仓库并显示当前节点与可用操作 | 验证库、节点库 |
+| `commands/list.sh` | `cmd_list`，显示节点索引和部署标记 | 节点库 |
+| `commands/history.sh` | `cmd_history` 及图形渲染辅助函数 | 节点库、版本显示辅助 |
+| `commands/categories.sh` | `cmd_categories` 的版本/类别查询与切换 | category、节点库 |
+
+这些文件是由入口 `source` 的函数模块，不是可独立执行的用户命令；用户接口、参数、输出和返回码
+仍由 `dotcfg` 统一分发。部署类、Fresh 类和诊断类脚本继续作为独立进程执行，以保持既有隔离和
+bootstrap 提取规则。`common.sh` 仍是旧脚本使用的兼容聚合加载器，不能被误认为新的分层领域服务。
+
+本项目没有引入 `core/`、`domain/`、`service/` 三层目录：现有 `cfg-validate.sh`、`utils/` 和
+`commands/` 已形成稳定职责边界，继续拆分会增加 bootstrap 文件清单、source 顺序和测试隔离的
+复杂度。后续只有出现真实依赖边界或可独立测试的领域服务时，才评估新增层级。
+
 正常 X11 链路是：登录 shell 加载 profile；`startx` 加载 `.xinitrc`；X 会话加载 `xprofile`；
 `xprofile` 加载资源并启动会话负责的程序；`.xinitrc` 启动 `ssh-agent dwm`。音频等系统能力由
 目标平台的用户服务管理器负责，X11 链路不得重复启动；具体实现见

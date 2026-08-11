@@ -2,11 +2,24 @@
 
 本文面向 Agent 和维护者。
 
-## 待办
+## 已完成待办
 
-- [ ] **配置文件版本化 + 节点生命周期管理**：支持多版本配置文件（`categories-*.conf` 带 VERSION/NAME/DESCRIPTION 头部），语义版本发现，节点绑定创建时的配置版本。新增 `full`（所有跟踪文件）和 `empty`（空）内置类别。节点生命周期：`dotcfg remove <CODE>` 标记待删除、`dotcfg unremove <CODE>` 取消标记、`dotcfg autoclean` 递归永久删除标记节点及子节点（支持 `--dry-run`）。`dotcfg categories list/show/switch/current` 管理版本。index.json 新增 `config_version` 和 `status` 字段。`dotcfg list` 新增 VERSION/STATUS 列，`dotcfg history` 显示版本和 `[REMOVED]` 标记。向后兼容旧 index.json。计划详见 `~/.qoder-cn/plans/rosy-narrows-bear.md`。
+- [x] 2026-08-06：配置文件版本化与节点生命周期已实现。支持 `categories-*.conf` 元数据、
+  `full`/`empty` 内置类别、节点 `config_version/status`、`list/history` 展示以及
+  `remove/unremove/autoclean` 和向后兼容旧 `index.json`；相关实现和测试见下方记录。
 
 ## 最近记录的变更
+
+- [x] 2026-08-11：完成 dotcfg 内部重构阶段 4/5。将 `status/list/history/categories` 从入口
+  拆为 `.local/lib/dotfiles/commands/` 的 source 模块，保留 bootstrap、参数分发和用户可见
+  接口；为公共函数补充参数/返回值契约，修复确定性的静态问题。全量 Bats `251/251` 通过，
+  Bash 语法和 `git diff --check` 通过，ShellCheck 严重级别 `warning/error` 为 0。阶段提交：
+  `8352c95`、`a34dea8`、`cc86f93`、`91ac775`、`c7e0a50`。
+
+- [x] 2026-08-11：完成重构阶段 6 的文档对齐。`architecture.md`、`installation-system.md`、
+  `installation-testing.md` 已记录命令模块、按需加载边界和测试纳管要求；修正历史待办的完成
+  状态，并将设备专属 k10temp 工作移回 Debian 平台档案。Markdown 链接、路径、术语、平台边界
+  和隐私扫描通过；已知 Git 身份邮箱按用户决定保留并继续列入活动 TODO。
 
 - [x] 2026-08-06：文件分类体系重构。将 `files.sh` 中 4 个硬编码数组（CFG_SERVER_FILES_DEFAULT、
   CFG_DESKTOP_INDICATORS、CFG_DESKTOP_ONLY_SYMLINKS、CFG_DESKTOP_ONLY_DIRS）和

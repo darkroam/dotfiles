@@ -96,6 +96,11 @@ export USE_REAL_REMOTE=true  # 使用真实 GitHub 远程
     └── generate-conflicts.sh   ← 冲突文件生成器
 ```
 
+测试文件属于配置库的可复现验证基础设施，必须全部被 `.cfg` 跟踪；新增或恢复测试后先用
+`git --git-dir="$HOME/.cfg" ls-files .local/share/test/installation/` 核对纳管状态，再运行套件。
+当前目录包含 `nodes-lifecycle.bats`、`refactor-contract.bats` 等新增回归用例，不依赖真实
+`$HOME`，也不应把测试产物或缓存加入仓库。
+
 ---
 
 ## 测试用例目录
