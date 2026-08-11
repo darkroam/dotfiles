@@ -83,3 +83,34 @@ teardown() {
 		assert_output_contains "hardcoded"
 	done
 }
+
+@test "TC-E07: missing exclude.conf uses the compatibility fallback" {
+	local dlib="$HOME/dlib"
+	cp -r "$REAL_HOME/.local/lib/dotfiles" "$dlib"
+	rm -f "$dlib/exclude.conf"
+
+	run env DOTFILES_LIB_DIR="$dlib" bash "$dlib/commands/check-exclude.sh" "Downloads/file.pdf"
+	[ "$status" -eq 0 ]
+	[ "$output" = "Path is excluded by hardcoded rule: ~/Downloads/" ]
+}
+
+@test "TC-E08: compatibility and user rules keep distinct labels" {
+	local dlib="$HOME/dlib"
+	cp -r "$REAL_HOME/.local/lib/dotfiles" "$dlib"
+	cat > "$dlib/exclude.conf" <<'CONF'
+# DOTCFG_COMPATIBILITY_RULES_BEGIN
+.config/policy/*
+# DOTCFG_COMPATIBILITY_RULES_END
+.config/private/*
+CONF
+
+	run env DOTFILES_LIB_DIR="$dlib" bash "$dlib/commands/check-exclude.sh" \
+		".config/policy/secret"
+	[ "$status" -eq 0 ]
+	[ "$output" = "Path is excluded by hardcoded rule: ~/.config/policy/" ]
+
+	run env DOTFILES_LIB_DIR="$dlib" bash "$dlib/commands/check-exclude.sh" \
+		".config/private/secret"
+	[ "$status" -eq 0 ]
+	[ "$output" = "Path is excluded by exclude.conf: ~/.config/private/" ]
+}

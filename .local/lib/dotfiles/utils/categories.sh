@@ -23,6 +23,19 @@ declare -gA _CFG_CONFIG_VERSION_CACHE=()
 declare -gA _CFG_CONFIG_NAME_CACHE=()
 declare -gA _CFG_CONFIG_DESCRIPTION_CACHE=()
 declare -gA _CFG_CONFIG_TAG_CACHE=()
+declare -gA _CFG_CONFIG_VALID_TAGS_CACHE=()
+declare -gA _CFG_CONFIG_ALIASES_CACHE=()
+declare -gA _CFG_CONFIG_STATE_DEFAULT_CACHE=()
+declare -gA _CFG_CONFIG_STATE_INDICATORS_CACHE=()
+declare -gA CFG_CATEGORY_ALIASES=()
+declare -gA CFG_STATE_INDICATOR_CATEGORIES=()
+
+_CFG_VALID_TAGS_DEFAULT="stable,test,experimental"
+_CFG_CATEGORY_ALIASES_DEFAULT="desktop:full,server:min"
+_CFG_STATE_DEFAULT_DEFAULT="min"
+_CFG_STATE_INDICATORS_DEFAULT="full:.xinitrc,full:.xprofile,full:.config/x11/xinitrc"
+CFG_VALID_TAGS="$_CFG_VALID_TAGS_DEFAULT"
+CFG_STATE_DEFAULT="$_CFG_STATE_DEFAULT_DEFAULT"
 
 # ── Built-in default categories ─────────────────────────────────────────
 
@@ -245,7 +258,7 @@ _cfg_exclude_load() {
 	if [ -f "$exclude_file" ]; then
 		local line lineno=0
 		while IFS= read -r line || [ -n "$line" ]; do
-			((lineno++))
+			((++lineno))
 			_cfg_trim_into line "$line"
 			[ -z "$line" ] && continue
 			[[ "$line" == \#* ]] && continue
@@ -264,6 +277,10 @@ _CFG_CONF_VERSION=""
 _CFG_CONF_NAME=""
 _CFG_CONF_DESCRIPTION=""
 _CFG_CONF_TAG="stable"
+_CFG_CONF_VALID_TAGS="$_CFG_VALID_TAGS_DEFAULT"
+_CFG_CONF_CATEGORY_ALIASES="$_CFG_CATEGORY_ALIASES_DEFAULT"
+_CFG_CONF_STATE_DEFAULT="$_CFG_STATE_DEFAULT_DEFAULT"
+_CFG_CONF_STATE_INDICATORS="$_CFG_STATE_INDICATORS_DEFAULT"
 _CFG_CONF_BODY=""
 
 cfg_config_version_latest() {
@@ -286,6 +303,10 @@ cfg_config_version_read() {
 		_CFG_CONF_NAME="${_CFG_CONFIG_NAME_CACHE[$file]}"
 		_CFG_CONF_DESCRIPTION="${_CFG_CONFIG_DESCRIPTION_CACHE[$file]}"
 		_CFG_CONF_TAG="${_CFG_CONFIG_TAG_CACHE[$file]}"
+		_CFG_CONF_VALID_TAGS="${_CFG_CONFIG_VALID_TAGS_CACHE[$file]}"
+		_CFG_CONF_CATEGORY_ALIASES="${_CFG_CONFIG_ALIASES_CACHE[$file]}"
+		_CFG_CONF_STATE_DEFAULT="${_CFG_CONFIG_STATE_DEFAULT_CACHE[$file]}"
+		_CFG_CONF_STATE_INDICATORS="${_CFG_CONFIG_STATE_INDICATORS_CACHE[$file]}"
 		_CFG_CONF_BODY="${_CFG_CONFIG_BODY_CACHE[$file]}"
 		CFG_CATEGORIES_TAGS["$version"]="$_CFG_CONF_TAG"
 		[ -z "$_CFG_CONF_VERSION" ] || CFG_CATEGORIES_TAGS["${_CFG_CONF_VERSION#v}"]="$_CFG_CONF_TAG"
@@ -300,6 +321,10 @@ cfg_config_version_read() {
 	_CFG_CONF_NAME=""
 	_CFG_CONF_DESCRIPTION=""
 	_CFG_CONF_TAG="stable"
+	_CFG_CONF_VALID_TAGS="$_CFG_VALID_TAGS_DEFAULT"
+	_CFG_CONF_CATEGORY_ALIASES="$_CFG_CATEGORY_ALIASES_DEFAULT"
+	_CFG_CONF_STATE_DEFAULT="$_CFG_STATE_DEFAULT_DEFAULT"
+	_CFG_CONF_STATE_INDICATORS="$_CFG_STATE_INDICATORS_DEFAULT"
 
 	local in_header=true
 	_CFG_CONF_BODY=""
@@ -326,6 +351,22 @@ cfg_config_version_read() {
 					_CFG_CONF_TAG="${_CFG_CONF_TAG#\"}"
 					_CFG_CONF_TAG="${_CFG_CONF_TAG%\'}"
 					_CFG_CONF_TAG="${_CFG_CONF_TAG#\'}"
+				elif [[ "$trimmed" == \#[[:space:]]*VALID_TAGS[[:space:]]*=* ]]; then
+					_cfg_trim_into _CFG_CONF_VALID_TAGS "${trimmed#*=}"
+					_CFG_CONF_VALID_TAGS="${_CFG_CONF_VALID_TAGS%\"}"
+					_CFG_CONF_VALID_TAGS="${_CFG_CONF_VALID_TAGS#\"}"
+				elif [[ "$trimmed" == \#[[:space:]]*CATEGORY_ALIASES[[:space:]]*=* ]]; then
+					_cfg_trim_into _CFG_CONF_CATEGORY_ALIASES "${trimmed#*=}"
+					_CFG_CONF_CATEGORY_ALIASES="${_CFG_CONF_CATEGORY_ALIASES%\"}"
+					_CFG_CONF_CATEGORY_ALIASES="${_CFG_CONF_CATEGORY_ALIASES#\"}"
+				elif [[ "$trimmed" == \#[[:space:]]*STATE_DEFAULT[[:space:]]*=* ]]; then
+					_cfg_trim_into _CFG_CONF_STATE_DEFAULT "${trimmed#*=}"
+					_CFG_CONF_STATE_DEFAULT="${_CFG_CONF_STATE_DEFAULT%\"}"
+					_CFG_CONF_STATE_DEFAULT="${_CFG_CONF_STATE_DEFAULT#\"}"
+				elif [[ "$trimmed" == \#[[:space:]]*STATE_INDICATORS[[:space:]]*=* ]]; then
+					_cfg_trim_into _CFG_CONF_STATE_INDICATORS "${trimmed#*=}"
+					_CFG_CONF_STATE_INDICATORS="${_CFG_CONF_STATE_INDICATORS%\"}"
+					_CFG_CONF_STATE_INDICATORS="${_CFG_CONF_STATE_INDICATORS#\"}"
 				fi
 				continue
 			fi
@@ -334,14 +375,25 @@ cfg_config_version_read() {
 		_CFG_CONF_BODY+="$line"$'\n'
 	done <<< "$content"
 
-	case "$_CFG_CONF_TAG" in
-		stable|test|experimental) ;;
-		*)
-			printf 'WARNING: unsupported TAG "%s" in categories-%s.conf; using stable\n' \
-				"$_CFG_CONF_TAG" "$version" >&2
-			_CFG_CONF_TAG="stable"
-			;;
-	esac
+	[ -n "$_CFG_CONF_VALID_TAGS" ] || _CFG_CONF_VALID_TAGS="$_CFG_VALID_TAGS_DEFAULT"
+	[ -n "$_CFG_CONF_CATEGORY_ALIASES" ] || _CFG_CONF_CATEGORY_ALIASES="$_CFG_CATEGORY_ALIASES_DEFAULT"
+	[ -n "$_CFG_CONF_STATE_DEFAULT" ] || _CFG_CONF_STATE_DEFAULT="$_CFG_STATE_DEFAULT_DEFAULT"
+	[ -n "$_CFG_CONF_STATE_INDICATORS" ] || _CFG_CONF_STATE_INDICATORS="$_CFG_STATE_INDICATORS_DEFAULT"
+
+	local tag_is_valid=false valid_tag
+	IFS=',' read -ra _cfg_valid_tags <<< "$_CFG_CONF_VALID_TAGS"
+	for valid_tag in "${_cfg_valid_tags[@]}"; do
+		_cfg_trim_into valid_tag "$valid_tag"
+		if [ "$_CFG_CONF_TAG" = "$valid_tag" ]; then
+			tag_is_valid=true
+			break
+		fi
+	done
+	if ! $tag_is_valid; then
+		printf 'WARNING: unsupported TAG "%s" in categories-%s.conf; using stable\n' \
+			"$_CFG_CONF_TAG" "$version" >&2
+		_CFG_CONF_TAG="stable"
+	fi
 	CFG_CATEGORIES_TAGS["$version"]="$_CFG_CONF_TAG"
 	if [ -n "$_CFG_CONF_VERSION" ]; then
 		CFG_CATEGORIES_TAGS["${_CFG_CONF_VERSION#v}"]="$_CFG_CONF_TAG"
@@ -351,6 +403,10 @@ cfg_config_version_read() {
 	_CFG_CONFIG_NAME_CACHE["$file"]="$_CFG_CONF_NAME"
 	_CFG_CONFIG_DESCRIPTION_CACHE["$file"]="$_CFG_CONF_DESCRIPTION"
 	_CFG_CONFIG_TAG_CACHE["$file"]="$_CFG_CONF_TAG"
+	_CFG_CONFIG_VALID_TAGS_CACHE["$file"]="$_CFG_CONF_VALID_TAGS"
+	_CFG_CONFIG_ALIASES_CACHE["$file"]="$_CFG_CONF_CATEGORY_ALIASES"
+	_CFG_CONFIG_STATE_DEFAULT_CACHE["$file"]="$_CFG_CONF_STATE_DEFAULT"
+	_CFG_CONFIG_STATE_INDICATORS_CACHE["$file"]="$_CFG_CONF_STATE_INDICATORS"
 
 	printf '%s' "$_CFG_CONF_BODY"
 }
@@ -360,14 +416,97 @@ cfg_config_version_read() {
 # categories configuration file is changed in the current process.
 cfg_categories_invalidate() {
 	unset _CFG_CONFIG_BODY_CACHE _CFG_CONFIG_VERSION_CACHE _CFG_CONFIG_NAME_CACHE
-	unset _CFG_CONFIG_DESCRIPTION_CACHE _CFG_CONFIG_TAG_CACHE CFG_CATEGORIES_TAGS
+	unset _CFG_CONFIG_DESCRIPTION_CACHE _CFG_CONFIG_TAG_CACHE
+	unset _CFG_CONFIG_VALID_TAGS_CACHE _CFG_CONFIG_ALIASES_CACHE
+	unset _CFG_CONFIG_STATE_DEFAULT_CACHE _CFG_CONFIG_STATE_INDICATORS_CACHE
+	unset CFG_CATEGORIES_TAGS
 	declare -gA _CFG_CONFIG_BODY_CACHE=()
 	declare -gA _CFG_CONFIG_VERSION_CACHE=()
 	declare -gA _CFG_CONFIG_NAME_CACHE=()
 	declare -gA _CFG_CONFIG_DESCRIPTION_CACHE=()
 	declare -gA _CFG_CONFIG_TAG_CACHE=()
+	declare -gA _CFG_CONFIG_VALID_TAGS_CACHE=()
+	declare -gA _CFG_CONFIG_ALIASES_CACHE=()
+	declare -gA _CFG_CONFIG_STATE_DEFAULT_CACHE=()
+	declare -gA _CFG_CONFIG_STATE_INDICATORS_CACHE=()
 	declare -gA CFG_CATEGORIES_TAGS=()
 	_cfg_categories_parse ""
+	cfg_categories_metadata_reset
+}
+
+# cfg_categories_metadata_reset
+# Restores metadata defaults before loading a version or legacy config file.
+cfg_categories_metadata_reset() {
+	unset CFG_CATEGORY_ALIASES CFG_STATE_INDICATOR_CATEGORIES
+	declare -gA CFG_CATEGORY_ALIASES=()
+	declare -gA CFG_STATE_INDICATOR_CATEGORIES=()
+	CFG_VALID_TAGS="$_CFG_VALID_TAGS_DEFAULT"
+	CFG_STATE_DEFAULT="$_CFG_STATE_DEFAULT_DEFAULT"
+}
+
+# cfg_categories_metadata_apply
+# Applies optional header metadata parsed from the selected category file.
+cfg_categories_metadata_apply() {
+	cfg_categories_metadata_reset
+	CFG_VALID_TAGS="${_CFG_CONF_VALID_TAGS:-$_CFG_VALID_TAGS_DEFAULT}"
+	CFG_STATE_DEFAULT="${_CFG_CONF_STATE_DEFAULT:-$_CFG_STATE_DEFAULT_DEFAULT}"
+
+	local entry alias target path category
+	IFS=',' read -ra _cfg_aliases <<< "${_CFG_CONF_CATEGORY_ALIASES:-}"
+	for entry in "${_cfg_aliases[@]}"; do
+		_cfg_trim_into entry "$entry"
+		[ -z "$entry" ] && continue
+		alias="${entry%%:*}"
+		target="${entry#*:}"
+		[ "$entry" = "$alias" ] && continue
+		_cfg_trim_into alias "$alias"
+		_cfg_trim_into target "$target"
+		[ -n "$alias" ] && [ -n "$target" ] && CFG_CATEGORY_ALIASES["$alias"]="$target"
+	done
+
+	IFS=',' read -ra _cfg_indicators <<< "${_CFG_CONF_STATE_INDICATORS:-}"
+	for entry in "${_cfg_indicators[@]}"; do
+		_cfg_trim_into entry "$entry"
+		[ -z "$entry" ] && continue
+		category="${entry%%:*}"
+		path="${entry#*:}"
+		[ "$entry" = "$category" ] && continue
+		_cfg_trim_into category "$category"
+		_cfg_trim_into path "$path"
+		[ -n "$category" ] && [ -n "$path" ] && CFG_STATE_INDICATOR_CATEGORIES["$path"]="$category"
+	done
+}
+
+cfg_category_alias_target() {
+	local name="${1:-}"
+	if [ -n "${CFG_CATEGORY_ALIASES[$name]+x}" ]; then
+		printf '%s' "${CFG_CATEGORY_ALIASES[$name]}"
+		return 0
+	fi
+	return 1
+}
+
+cfg_state_default_category() {
+	printf '%s' "$CFG_STATE_DEFAULT"
+}
+
+cfg_state_indicator_category() {
+	local path="${1:-}"
+	if [ -n "${CFG_STATE_INDICATOR_CATEGORIES[$path]+x}" ]; then
+		printf '%s' "${CFG_STATE_INDICATOR_CATEGORIES[$path]}"
+		return 0
+	fi
+	return 1
+}
+
+cfg_config_tag_is_valid() {
+	local value="${1:-}" tag
+	IFS=',' read -ra _cfg_valid_tags <<< "$CFG_VALID_TAGS"
+	for tag in "${_cfg_valid_tags[@]}"; do
+		_cfg_trim_into tag "$tag"
+		[ "$value" = "$tag" ] && return 0
+	done
+	return 1
 }
 
 cfg_config_get_tag() {
@@ -395,6 +534,8 @@ cfg_config_version_info() {
 cfg_categories_load() {
 	local arg="${1:-}"
 	local content=""
+	local selected_version=false
+	cfg_categories_metadata_reset
 
 	if [ -n "$arg" ] && [[ "$arg" == [0-9]*.[0-9]* ]]; then
 		cfg_config_version_read "$arg" >/dev/null 2>&1 || {
@@ -403,6 +544,7 @@ cfg_categories_load() {
 			_CFG_CATEGORIES_LOADED=1
 			return 1
 		}
+		selected_version=true
 		content="$_CFG_CONF_BODY"
 	elif [ -n "$arg" ] && [ -f "$arg" ]; then
 		content=$(<"$arg")
@@ -417,7 +559,12 @@ cfg_categories_load() {
 			latest_ver=$(cfg_config_version_latest 2>/dev/null) || latest_ver=""
 			if [ -n "$latest_ver" ]; then
 				cfg_config_version_read "$latest_ver" >/dev/null 2>&1 || _CFG_CONF_BODY=""
-				[ -n "$_CFG_CONF_BODY" ] && content="$_CFG_CONF_BODY" || content=$(<"$DOTFILES_LIB_DIR/categories.conf")
+				if [ -n "$_CFG_CONF_BODY" ]; then
+					content="$_CFG_CONF_BODY"
+					selected_version=true
+				else
+					content=$(<"$DOTFILES_LIB_DIR/categories.conf")
+				fi
 			else
 				content=$(<"$DOTFILES_LIB_DIR/categories.conf")
 			fi
@@ -433,6 +580,10 @@ cfg_categories_load() {
 		fi
 	else
 		_cfg_categories_parse "$_CFG_CATEGORIES_BUILTIN"
+	fi
+
+	if $selected_version; then
+		cfg_categories_metadata_apply
 	fi
 
 	_cfg_exclude_load
@@ -457,6 +608,11 @@ cfg_categories_list() {
 # cfg_category_canonical_name <name>
 # Maps legacy public names to the canonical category names.
 cfg_category_canonical_name() {
+	local alias_target
+	if alias_target=$(cfg_category_alias_target "${1:-}"); then
+		printf '%s' "$alias_target"
+		return 0
+	fi
 	case "${1:-}" in
 		desktop) printf 'full' ;;
 		server) printf 'min' ;;

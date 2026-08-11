@@ -2,11 +2,11 @@
 
 ## 计划状态
 
-- 状态：阶段 0 已完成，阶段 1 执行中
+- 状态：阶段 0、阶段 1、阶段 2 已完成，阶段 3 待执行
 - 确认日期：2026-08-10
 - 基线提交：`0d3209a fix: align dotcfg command output documentation`
 - 基线测试：181/181 个受管 Bats 测试通过
-- 当前检查点：246 个受管 Bats 测试，包含原本未纳管的 category、配置版本和生命周期测试
+- 当前检查点：249 个受管 Bats 测试，包含原本未纳管的 category、配置版本和生命周期测试
 - 适用平台：本轮只在[平台档案索引](../platforms/index.md)所列当前 Debian 平台执行真实性验证；
   其他发行版只做 Shell 语法和兼容性判断
 
@@ -72,25 +72,28 @@ exclude 或 fresh 业务库；bootstrap 路径保持原有自举逻辑。
 - 固化当前测试数量、性能数据和 ShellCheck 统计
 - 验收：181/181 通过，工作树无非预期改动
 
-### 阶段 1：按需加载与进程内缓存（执行中）
+### 阶段 1：按需加载与进程内缓存（已完成）
 
-- 增加 `core/env.sh`、`core/loader.sh` 和配置缓存边界
+- 在现有入口和 `utils/` 文件内增加加载边界，不新增 `core/` 目录
 - 保留 `common.sh` 作为兼容聚合入口
 - help/version 在已安装状态下不加载业务库；bootstrap 路径保持原样
 - 为节点索引增加 `code -> index` 关联数组和进程内缓存
 - 为 category 版本解析增加按版本缓存和显式失效函数
 - 不首先引入磁盘缓存，避免 stale cache、并发和恢复复杂度
-- 验收：所有测试通过，status 不超过基线，categories list 明显改善
+- 验收：246/246 测试通过，status 不超过基线，categories list 明显改善；已提交
+  `2ff737f`、`676703b`、`ac13370`
 
-### 阶段 2：外部化配置性硬编码
+### 阶段 2：外部化配置性硬编码（已完成）
 
 - 将 23 项策略性排除规则迁移到 `.local/lib/dotfiles/exclude.conf`
 - 7 项安装基础设施保护继续硬编码并始终生效
 - 保留缺失配置文件时的默认回退
 - 保持既有 `check-exclude` 输出中的 `hardcoded rule` 兼容标签
-- 在 category 文件头部增加可选的状态指标、状态类别、TAG 值和旧别名元数据
+- 在 category 文件头部增加可选的 `VALID_TAGS`、`CATEGORY_ALIASES`、`STATE_DEFAULT` 和
+  `STATE_INDICATORS` 元数据
 - 旧配置缺少元数据时使用现有默认值
-- 验收：绝对路径、排除规则、配置回退和安全边界测试全部通过
+- 兼容区段规则仍显示为 `hardcoded rule`，普通用户规则显示为 `exclude.conf`
+- 验收：249/249 测试通过；阶段 2 修改已完成，待阶段性提交
 
 ### 阶段 3：动态 category 与状态检测
 

@@ -18,57 +18,73 @@ _FRESH_EXCLUDE_HARDCODED=(
 	".local/bin/dotcfg"
 	".local/lib/dotfiles/*"
 	".local/share/test/*"
-	# User data directories
-	"Downloads/*"
-	"Desktop/*"
-	"Documents/*"
-	"Videos/*"
-	"Music/*"
-	"Pictures/*"
-	".cache/*"
-	".local/share/Trash/*"
-	".thumbnails/*"
-	".npm/*"
-	".cargo/*"
-	# Application caches and mutable browser/runtime state
-	".config/microsoft-edge/*"
-	".config/nvm/*"
-	".config/chromium/*"
-	".config/google-chrome-for-testing/*"
-	# Temp files and logs
-	".bash_history"
-	".zsh_history"
-	".lesshst"
-	".viminfo"
-	"*.log"
-	"*.tmp"
-	"*.swp"
-	"core.*"
 )
 
+# Compact fallback used only when exclude.conf is absent or does not contain
+# the compatibility block. The tracked exclude.conf remains the policy source.
+_FRESH_EXCLUDE_POLICY_FALLBACK=(
+	"Downloads/*" "Desktop/*" "Documents/*" "Videos/*" "Music/*" "Pictures/*"
+	".cache/*" ".local/share/Trash/*" ".thumbnails/*" ".npm/*" ".cargo/*"
+	".config/microsoft-edge/*" ".config/nvm/*" ".config/chromium/*"
+	".config/google-chrome-for-testing/*" ".bash_history" ".zsh_history"
+	".lesshst" ".viminfo" "*.log" "*.tmp" "*.swp" "core.*"
+)
+
+_FRESH_EXCLUDE_COMPAT_PATTERNS=()
 _FRESH_EXCLUDE_CONF_PATTERNS=()
 _FRESH_EXCLUDE_CONF_LOADED=false
+
+# fresh_exclude_invalidate
+# Discards the parsed exclude.conf cache. Takes no arguments.
+fresh_exclude_invalidate() {
+	_FRESH_EXCLUDE_COMPAT_PATTERNS=()
+	_FRESH_EXCLUDE_CONF_PATTERNS=()
+	_FRESH_EXCLUDE_CONF_LOADED=false
+}
 
 _fresh_exclude_load_conf() {
 	$_FRESH_EXCLUDE_CONF_LOADED && return 0
 	_FRESH_EXCLUDE_CONF_LOADED=true
+	_FRESH_EXCLUDE_COMPAT_PATTERNS=()
 	_FRESH_EXCLUDE_CONF_PATTERNS=()
 
 	local conf="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}/exclude.conf"
-	[ -f "$conf" ] || return 0
+	if [ ! -f "$conf" ]; then
+		_FRESH_EXCLUDE_COMPAT_PATTERNS=("${_FRESH_EXCLUDE_POLICY_FALLBACK[@]}")
+		return 0
+	fi
 
-	local line trimmed
+	local line trimmed in_compat=false saw_compat=false
 	while IFS= read -r line || [ -n "$line" ]; do
 		trimmed="${line#"${line%%[![:space:]]*}"}"
 		trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
 		[ -z "$trimmed" ] && continue
+		case "$trimmed" in
+			"# DOTCFG_COMPATIBILITY_RULES_BEGIN")
+				in_compat=true
+				saw_compat=true
+				continue
+				;;
+			"# DOTCFG_COMPATIBILITY_RULES_END")
+				in_compat=false
+				continue
+				;;
+		esac
 		[[ "$trimmed" == \#* ]] && continue
 		if [[ "$trimmed" == /* ]]; then
 			printf 'WARNING: absolute path in exclude.conf ignored: %s\n' "$trimmed" >&2
 			continue
 		fi
-		_FRESH_EXCLUDE_CONF_PATTERNS+=("$trimmed")
+		if $in_compat; then
+			_FRESH_EXCLUDE_COMPAT_PATTERNS+=("$trimmed")
+		else
+			_FRESH_EXCLUDE_CONF_PATTERNS+=("$trimmed")
+		fi
 	done < "$conf"
+
+	if ! $saw_compat; then
+		_FRESH_EXCLUDE_COMPAT_PATTERNS=("${_FRESH_EXCLUDE_POLICY_FALLBACK[@]}")
+	fi
 }
 
 # fresh_exclude_is_excluded <relpath>
@@ -86,6 +102,12 @@ fresh_exclude_is_excluded() {
 	done
 
 	_fresh_exclude_load_conf
+	for p in "${_FRESH_EXCLUDE_COMPAT_PATTERNS[@]}"; do
+		# shellcheck disable=SC2254
+		case "$path" in
+			$p) return 0 ;;
+		esac
+	done
 	for p in "${_FRESH_EXCLUDE_CONF_PATTERNS[@]}"; do
 		# shellcheck disable=SC2254
 		case "$path" in
@@ -111,6 +133,12 @@ fresh_exclude_reason() {
 	done
 
 	_fresh_exclude_load_conf
+	for p in "${_FRESH_EXCLUDE_COMPAT_PATTERNS[@]}"; do
+		# shellcheck disable=SC2254
+		case "$path" in
+			$p) printf 'hardcoded: %s\n' "$p"; return 0 ;;
+		esac
+	done
 	for p in "${_FRESH_EXCLUDE_CONF_PATTERNS[@]}"; do
 		# shellcheck disable=SC2254
 		case "$path" in

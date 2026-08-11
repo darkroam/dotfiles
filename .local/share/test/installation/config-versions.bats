@@ -239,3 +239,32 @@ create_version_file() {
 	[ "$_CFG_CONF_NAME" = "Updated Name" ]
 	[[ "$(cfg_config_version_list)" == *"97.1.0"* ]]
 }
+
+@test "TC-CV09: optional metadata controls tags, aliases and state indicators" {
+	local conf="$DOTFILES_LIB_DIR/categories-97.2.0.conf"
+	cat > "$conf" <<'CONF'
+# VERSION = "97.2.0"
+# TAG = "qa"
+# VALID_TAGS = "stable,qa"
+# CATEGORY_ALIASES = "desktop:graphical,server:terminal"
+# STATE_DEFAULT = "terminal"
+# STATE_INDICATORS = "graphical:.custom-display"
+
+category = graphical
++ .bashrc
+
+category = terminal
++ .zshrc
+CONF
+	TEST_VERSION_FILES+=("$conf")
+	cfg_config_versions_invalidate
+	cfg_categories_invalidate
+
+	cfg_categories_load "97.2.0"
+	[ "$(cfg_config_get_tag 97.2.0)" = "qa" ]
+	cfg_config_tag_is_valid qa
+	[ "$(cfg_category_canonical_name desktop)" = "graphical" ]
+	[ "$(cfg_category_canonical_name server)" = "terminal" ]
+	[ "$(cfg_state_default_category)" = "terminal" ]
+	[ "$(cfg_state_indicator_category .custom-display)" = "graphical" ]
+}

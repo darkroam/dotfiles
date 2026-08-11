@@ -24,6 +24,11 @@ category 只控制用户配置集合。`.local/bin/dotcfg` 与 `.local/lib/dotfi
 在 fresh、full、min、macos 及 undeploy/uninstall 中都保留；完全移除由用户按命令提示手动执行。
 旧 `desktop/server` 名称仅是 `full/min` 的兼容入口，新节点和文档不得继续采用旧名称。
 
+类别版本文件头部还可以声明 `VALID_TAGS`、`CATEGORY_ALIASES`、`STATE_DEFAULT` 和
+`STATE_INDICATORS`。这些字段只提供可选策略元数据；缺失时使用兼容默认值。Fresh 备份的策略性
+排除规则位于 `.local/lib/dotfiles/exclude.conf`，其中兼容区段保持旧 `check-exclude` 的
+`hardcoded rule` 标签；安装基础设施保护仍由 `utils/exclude.sh` 硬编码维护。
+
 Fresh 是恢复锚点，不是另一个 category。新设备由 bootstrap 按混合规则创建；早期安装设备可用
 显式旧备份采纳流程重建。采纳只信任旧备份中的仓库跟踪原件，并补充当前未跟踪、未排除的
 `.config/` 文件，不能把当前已部署的跟踪内容当作安装前状态。实现细节和操作边界见

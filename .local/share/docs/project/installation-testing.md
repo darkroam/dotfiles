@@ -270,11 +270,16 @@ TC-H07 固定验证 `bootstrap` 是特殊版本标识，历史图不会错误添
 锁定 `dotcfg help` 的完整文本、`check-exclude` 的兼容标签、`categories show` 的 `full` 动态标记，
 未知切换目标的错误文字和返回码，以及 help 不加载业务库。后续内部重构不得改变这些用户可见行为。
 
-### TC-E01..E06：Fresh 排除规则（exclude-rules.bats）
+### TC-E01..E08：Fresh 排除规则（exclude-rules.bats）
 
-覆盖硬编码排除、普通配置、`exclude.conf`、绝对路径拒绝和仓库跟踪判断。TC-E06 固定验证
+覆盖安装保护、兼容排除区段、普通 `exclude.conf` 规则、绝对路径拒绝和仓库跟踪判断。TC-E06 固定验证
 `.config-backup.bak` 以及 Microsoft Edge、NVM、Chromium、Chrome for Testing 可变状态不会进入
-Fresh 选择集。
+Fresh 选择集；TC-E07 验证配置缺失时的默认回退；TC-E08 验证兼容区段和用户规则的文案标签。
+
+### TC-CV09：category 可选元数据（config-versions.bats）
+
+验证 `VALID_TAGS`、`CATEGORY_ALIASES`、`STATE_DEFAULT` 和 `STATE_INDICATORS` 从版本配置头部
+读取，并在缺少这些字段时使用稳定的旧配置默认值。
 
 ### TC-F01..F12：Fresh 根节点（fresh-node.bats）
 
@@ -382,8 +387,8 @@ bats -r .local/share/test/ --tap
 Bats 满足本文 `>= 1.11.0` 的前置要求。
 
 ```
-Total:  246
-Passed: 246
+Total:  249
+Passed: 249
 Failed: 0
 ```
 
@@ -407,4 +412,4 @@ Failed: 0
 ---
 
 **最后更新**: 2026-08-11
-**版本**: 3.9 — 246 个受管测试 + 节点/category 缓存 + dotcfg 按需加载
+**版本**: 4.0 — 249 个受管测试 + 节点/category 缓存 + dotcfg 按需加载 + 配置元数据外部化

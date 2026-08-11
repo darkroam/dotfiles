@@ -1020,6 +1020,10 @@ uninstall 都不会删除；完全清除时只输出手动删除提示。
 # NAME = "categories"
 # DESCRIPTION = "默认配置分类定义"
 # TAG = "stable"
+# VALID_TAGS = "stable,test,experimental"
+# CATEGORY_ALIASES = "desktop:full,server:min"
+# STATE_DEFAULT = "min"
+# STATE_INDICATORS = "full:.xinitrc,full:.xprofile,full:.config/x11/xinitrc"
 # ============================================
 
 category = macos
@@ -1033,6 +1037,13 @@ category = macos
 | `NAME` | 否 | 配置文件名，便于识别 |
 | `DESCRIPTION` | 否 | 简要说明该版本的用途 |
 | `TAG` | 否 | `stable`（默认）、`test` 或 `experimental`；非法值警告并回退 `stable` |
+| `VALID_TAGS` | 否 | 逗号分隔的合法 TAG 值；缺失时使用 `stable,test,experimental` |
+| `CATEGORY_ALIASES` | 否 | 逗号分隔的旧名称映射，例如 `desktop:full,server:min` |
+| `STATE_DEFAULT` | 否 | 无节点元数据时的默认状态类别，默认 `min` |
+| `STATE_INDICATORS` | 否 | 逗号分隔的 `类别:路径` 图形状态指标映射 |
+
+上述扩展字段均为可选注释元数据，不影响旧版 `categories-*.conf` 的类别语法。解析器只在版本
+文件头部读取它们；缺少字段时使用现有兼容默认值。
 
 **文件名规范**：推荐 `categories-{VERSION}.conf`（如 `categories-1.0.0.conf`）。
 
@@ -1081,6 +1092,11 @@ $DOTFILES_LIB_DIR/
 **TAG 处理规则**：
 
 - `utils/categories.sh` 解析头部 TAG，并通过 `CFG_CATEGORIES_TAGS[version]` 缓存；未声明时为 `stable`
+- `VALID_TAGS` 控制该配置版本接受的 TAG 值；缺失时使用 `stable,test,experimental`
+- `CATEGORY_ALIASES` 提供 `desktop/server` 等旧公开名称到当前类别的映射；缺失时保留
+  `desktop → full`、`server → min`
+- `STATE_DEFAULT` 和 `STATE_INDICATORS` 为状态检测提供可选元数据；缺失时保留 `min` 以及
+  `.xinitrc`、`.xprofile`、`.config/x11/xinitrc` 的兼容指标
 - `dotcfg categories list/current/show` 显示 TAG，`test` 追加 `[TEST]`，`experimental` 追加
   `[EXPERIMENTAL]`
 - 切换到 `test` 或 `experimental` 版本时输出谨慎使用提示，但不施加安全限制
@@ -1216,9 +1232,13 @@ include = empty
 
 #### exclude.conf 排除规则
 
-**文件位置**：`$DOTFILES_LIB_DIR/exclude.conf`（不存在时仅使用内置保护）
+**文件位置**：`$DOTFILES_LIB_DIR/exclude.conf`。正式库随配置跟踪该文件；文件缺失时仍使用内置
+兼容回退，不改变既有 Fresh 行为。
 
-**格式**：每行一个通配符模式（支持 `*`、`?`），`#` 开头为注释。
+**格式**：每行一个通配符模式（支持 `*`、`?`），`#` 开头为注释。默认迁移规则位于
+`# DOTCFG_COMPATIBILITY_RULES_BEGIN` 与 `# DOTCFG_COMPATIBILITY_RULES_END` 之间；这些规则
+仍在 `dotcfg check-exclude` 中显示为 `hardcoded rule`，以保持旧输出兼容。区段之外新增的规则
+显示为 `exclude.conf`。
 
 **行为**：文件分析时（`cfg_analyze_files`），如果文件路径匹配 `exclude.conf` 中任一模式，则直接跳过（归入 `CFG_TO_SKIP`，不备份、不 checkout）。
 
@@ -1247,6 +1267,9 @@ include = empty
 | `.config/google-chrome-for-testing/*` | Chrome for Testing 浏览器状态 |
 | `.cfg-checkout-state` | checkout 状态记录文件 |
 | `.local/share/test/*` | 测试目录 |
+
+浏览器、NVM、下载目录、缓存、历史记录和临时文件等策略性规则不再硬编码在运行逻辑中，统一
+位于 `exclude.conf` 的兼容区段；配置缺失时由内置回退提供同样的保护。
 
 #### 状态检测
 
