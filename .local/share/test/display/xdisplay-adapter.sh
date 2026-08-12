@@ -190,6 +190,30 @@ assert_contains "$log" 'exit=42 status=FAILURE'
 assert_contains "$log" 'restore failed'
 pass 'failed adapter restore logs diagnostics and invokes legacy fallback'
 
+setup_case legacy-pending
+write_adapter
+mkdir "$case_dir/bin"
+cat > "$case_dir/bin/legacy-restore" <<'LEGACY'
+#!/bin/sh
+printf '%s\n' "$1" >> "$LEGACY_CALLS"
+LEGACY
+chmod 700 "$case_dir/bin/legacy-restore"
+cat > "$case_dir/pending-internal.xrandr" <<'XRANDR'
+Screen 0: minimum 320 x 200, current 0 x 0, maximum 16384 x 16384
+eDP-1 connected (normal left inverted right x axis y axis) 300mm x 190mm
+XRANDR
+set +e
+XDISPLAY_ACTION=--apply XDISPLAY_RESTORE_COMMAND=legacy-restore \
+LEGACY_CALLS="$legacy_calls" run_xdisplay "$case_dir/pending-internal.xrandr" 1 \
+    >/dev/null 2>&1
+pending_result=$?
+set -e
+[ "$pending_result" -ne 0 ] || fail 'pending internal unexpectedly converged'
+[ -s "$legacy_calls" ] || fail 'pending internal skipped legacy restore'
+! grep -q '^restore-internal' "$adapter_calls" ||
+    fail 'adapter restore ran without a valid missing expected mode'
+pass 'missing expected-mode uses only the legacy restore path'
+
 setup_case timeout
 write_adapter
 status=$(ADAPTER_SLEEP=3 run_xdisplay "$fixtures/single.xrandr" 1)
@@ -198,5 +222,18 @@ log=$(cat "$home/.local/share/x11/xdisplay-adapter.log")
 assert_contains "$log" 'subcommand=expected-mode output=eDP-1'
 assert_contains "$log" 'status=TIMEOUT'
 pass 'timed out adapter query degrades without blocking layout'
+
+setup_case log-rotation
+write_adapter
+mkdir -p "$home/.local/share/x11"
+log_path=$home/.local/share/x11/xdisplay-adapter.log
+old_log=$log_path.1
+dd if=/dev/zero of="$log_path" bs=1024 count=1025 2>/dev/null
+printf '%s\n' old-rotation > "$old_log"
+status=$(ADAPTER_EXPECTED=1920x1080 run_xdisplay "$fixtures/single.xrandr" 1)
+[ -s "$log_path" ] || fail 'rotated adapter log was not recreated'
+assert_contains "$(cat "$log_path")" 'subcommand=expected-mode'
+[ "$(wc -c < "$old_log")" -ge 1048576 ] || fail 'rotated adapter log did not preserve old contents'
+pass 'adapter log rotates at the size limit without blocking'
 
 printf 'PASS: %s adapter fixture tests\n' "$tests"
