@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # dotcfg.bats - Tests for the unified dotcfg CLI
-# TC-44 through TC-63
+# TC-44 through TC-64
 
 load helpers.bash
 
@@ -20,6 +20,21 @@ teardown() {
 	[ "$status" -eq 0 ]
 	assert_output_contains "fresh"
 	[[ "$output" != *"Available operations"* ]]
+}
+
+@test "TC-64: version reports current version and supports help forms" {
+	run run_dotcfg version
+	[ "$status" -eq 0 ]
+	[ "$output" = "dotcfg 5.5" ]
+
+	run run_dotcfg version --help
+	[ "$status" -eq 0 ]
+	local help_long="$output"
+	[[ "$output" == *"Usage: dotcfg <subcommand> [options]"* ]]
+
+	run run_dotcfg version -h
+	[ "$status" -eq 0 ]
+	[ "$output" = "$help_long" ]
 }
 
 @test "TC-45: status shows full state when indicators present" {

@@ -62,7 +62,7 @@ bats -r .local/share/test/ --tap
 
 所有测试在隔离的 `/tmp/dotfiles-test-*` 目录中运行。真实 `$HOME` 永远不被修改。
 
-当前 Debian 回归套件共 271 个受管测试；所有 `.bats` 文件都应由 `.cfg` 跟踪，测试产物和缓存
+当前 Debian 回归套件共 272 个受管测试；所有 `.bats` 文件都应由 `.cfg` 跟踪，测试产物和缓存
 不得加入仓库。
 
 ## 环境变量

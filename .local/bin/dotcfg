@@ -13,7 +13,7 @@
 
 set -euo pipefail
 
-DOTCFG_VERSION="2.0.0"
+DOTCFG_VERSION="5.5"
 GIT_DIR="${DOTCFG_GIT_DIR:-$HOME/.cfg}"
 BACKUP_ROOT="$HOME/.config-backup"
 BIN_DIR="${DOTCFG_BIN_DIR:-$HOME/.local/bin}"

@@ -249,7 +249,7 @@ category 数量且版本不带 `v` 前缀；TC-CL09 固定 `categories show` 的
 覆盖健康状态、HEAD 和部署状态修复、启动自检提示，以及备份根或节点存储缺失时重建索引并立即
 重新加载节点数据。
 
-### TC-ST09、TC-45..63：统一 CLI（dotcfg.bats）
+### TC-ST09、TC-45..64：统一 CLI（dotcfg.bats）
 
 | 用例 | 描述 |
 |------|------|
@@ -274,6 +274,7 @@ category 数量且版本不带 `v` 前缀；TC-CL09 固定 `categories show` 的
 | TC-61 | 正式 `1.0.0 stable` 只展示 full、min、macos，未定义的 desktop/server 不被映射 |
 | TC-62 | `fresh-adopt-legacy --help` 展示完整调用参数 |
 | TC-63 | `categories show` 将 full 标记为动态全部跟踪文件且不显示数量 |
+| TC-64 | version：输出当前版本 `5.5`，且 `-h` 与 `--help` 输出一致 |
 
 ### TC-L01..L05 / TC-H01..H07：节点清单与历史图（history.bats）
 
@@ -405,8 +406,8 @@ bats -r .local/share/test/ --tap
 Bats 满足本文 `>= 1.11.0` 的前置要求。
 
 ```
-Total:  271
-Passed: 271
+Total:  272
+Passed: 272
 Failed: 0
 ```
 
@@ -430,4 +431,4 @@ Failed: 0
 ---
 
 **最后更新**: 2026-08-12
-**版本**: 5.5 — 271 个受管测试 + 配置驱动边界 + full/min/macos 切换专题
+**版本**: 5.5 — 272 个受管测试 + 配置驱动边界 + full/min/macos 切换专题
