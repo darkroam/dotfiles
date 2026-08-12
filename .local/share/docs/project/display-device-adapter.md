@@ -2,9 +2,11 @@
 
 本文面向适配器开发者和维护者。
 
-> 状态：已实现灰度路径，默认关闭。设置 `XDISPLAY_USE_ADAPTER=1` 且适配器可执行时，
+> 状态：显示管理引擎已实现状态计算、多外屏扩展链、可选引擎/布局配置和自定义布局保存与恢复。
+> 设备适配器仍是默认关闭的灰度路径：设置 `XDISPLAY_USE_ADAPTER=1` 且适配器可执行时，
 > `xdisplay.sh` 才调用本文三个子命令；未设置时仍只使用 `XDISPLAY_INTERNAL_OUTPUTS` 和
-> `XDISPLAY_RESTORE_COMMAND` 兼容路径。
+> `XDISPLAY_RESTORE_COMMAND` 兼容路径。可执行测试方案见
+> [`tests/display-test-plan.md`](../../../../tests/display-test-plan.md)。
 
 ## 目的与边界
 
@@ -41,7 +43,7 @@
 | `MULTI_EXTERNAL` | lid 关闭（或内屏有效数量为零），至少两块外屏 |
 | `NONE` | 没有可用的内屏或外屏 |
 | `MIRROR` | 预留状态，本批次不主动计算 |
-| `CUSTOM` | 预留状态，本批次不主动计算 |
+| `CUSTOM` | 保留枚举；自定义配置命中时不切换到此状态，仍显示实际的物理/lid 状态 |
 
 外屏和内屏均以换行分隔的输出名列表在 POSIX Shell 中传递；状态层只统计列表，不改变现有
 `configure_open()`、`configure_closed()` 或兼容恢复路径。`--status` 输出 `state=... internal=...
@@ -52,6 +54,10 @@ external=...` 摘要，便于观察当前状态。状态映射到布局时，`DU
 `external_position` 决定，允许 `right`、`left`、`above`、`below`，缺失或非法时默认为 `right`。
 对应的 RandR 关系参数分别为 `--right-of`、`--left-of`、`--above` 和 `--below`。
 `--status` 另外输出 `layout=extend_chain` 或 `layout=legacy`。
+
+数据流顺序为：读取 lid 与 RandR 快照 → 解析连接输出、模式签名和目标模式 → 灰度查询适配器（如启用）
+→ 计算物理状态并匹配自定义布局 → 在 `apply.lock` 内选择自定义布局或默认布局函数 → 重读 RandR
+并验证。只读查询不修改 X 状态；只有布局应用和 `restore-internal` 会进入布局锁。
 
 ### 配置系统
 
@@ -175,7 +181,8 @@ present`”。禁止输出用户名、主机名、序列号、完整 EDID/`xrand
 
 - 标准输出每行只能包含一个完整的 RandR 输出名；空行由引擎忽略。
 - 诊断信息只能写入标准错误，不能与输出名混在一起。
-- 返回的候选补充标准 `eDP-*`、`LVDS-*`、`DSI-*` 探测，不替代标准探测。
+- 引擎优先使用标准 `eDP-*`、`LVDS-*`、`DSI-*` 探测；只有标准候选为空时，才把适配器返回值作为
+  内屏候选回退，不替代已识别的标准候选。
 - 此命令只能报告身份，不能调用 `xrandr` 修改状态。
 - 没有额外候选时输出为空并返回 `0`；参数或适配器配置错误时返回非零。
 
@@ -294,12 +301,17 @@ watcher 主循环每 0.5 秒运行，稳定时约每 1 秒读取 `--current`；�
 查询使用配置的 `timeout_seconds`/`kill_after_seconds`（默认 `2/1`）且适配器不得自行重试。`restore-internal` 只在布局锁内执行，
 其重试继续由同一状态级 watcher 调度，而不是在适配器内部等待。
 
-灰度路径在同一个稳定快照周期内缓存 `internal-outputs` 和 `expected-mode` 的查询结果，避免同一
-状态反复调用适配器。缓存失效条件为以下任一变化：
+灰度路径在同一个稳定快照周期内缓存查询结果，避免同一状态反复调用适配器。`internal-outputs` 使用
+适配器文件 mtime 和 RandR 连接拓扑作为缓存键；`expected-mode` 额外包含目标内屏名称和该输出的
+`mode_signature`。因此模式签名变化会重新查询 `expected-mode`，而标准内屏身份已经确定时不会单独
+重复查询 `internal-outputs`。
 
-- 适配器文件 `~/.config/x11/xdisplay-device.local` 的 mtime 发生变化；
-- RandR topology（输出连接/断开）发生变化；
-- 目标内屏的模式签名（`mode_signature`）发生变化。
+缓存失效条件按查询类型如下：
+
+- 适配器文件 `~/.config/x11/xdisplay-device.local` 的 mtime 发生变化：两类查询均失效；
+- RandR topology（输出连接/断开）发生变化：两类查询均失效；
+- 目标内屏的模式签名（`mode_signature`）发生变化：仅 `expected-mode` 失效，
+  `internal-outputs` 不重复执行。
 
 缓存失效后，下一次快照将重新查询适配器；失效前即使适配器内容被修改，也不会重新执行查询。
 
@@ -430,6 +442,7 @@ docked 状态和平台默认值仍可能采用不同策略。修改系统电源�
 ## 验证矩阵
 
 适配器和通用引擎完成迁移后，至少逐项验证以下场景。单次成功不能替代完整矩阵。
+每个场景的可执行步骤和 mock 替代方案见 [`tests/display-test-plan.md`](../../../../tests/display-test-plan.md)。
 
 | 场景 | 验收结果 |
 | --- | --- |
@@ -446,6 +459,14 @@ docked 状态和平台默认值仍可能采用不同策略。修改系统电源�
 | `displayselect` 手动布局 | 与 watcher 共用锁，手动操作期间没有竞争写入 |
 | 无盖子的桌面设备 | 不要求适配器或 lid 路径，多屏仍按通用策略工作 |
 | 使用电池合盖 | 行为符合 logind 策略，文档不把挂起误判为布局失败 |
+| 自定义配置精确匹配（`exact`） | 应用自定义布局，状态仍为实际的 `DUAL_EXTEND`/`MULTI_EXTEND` 等 |
+| 自定义配置包含匹配（`contains`） | 应用自定义布局，多出的输出按默认策略追加且保持可见 |
+| 多个自定义配置同时匹配 | 按 lid 精确、`exact`、输出数量、mtime 的顺序选择优先级最高者 |
+| 保存自定义配置后删除 | 下一次稳定快照回到默认布局 |
+| 配置文件损坏/格式错误 | 静默回退默认布局，同时记录 `custom-layout` 诊断 |
+| 3 块及以上外屏自定义布局 | 按配置顺序排列所有输出，多出的输出继续追加 |
+| 配置 `external_position=above` | 扩展方向使用 `--above` 关系 |
+| 配置 `external_primary=largest` | 合盖时选择当前模式面积最大的外屏为主屏 |
 
 新设备至少完成一次冷启动、一次登录后热插拔、一次开合盖和一次故障降级测试。驱动枚举较慢的设备
 还应分别测试外屏在启动前已连接和登录后延迟出现的情况。
