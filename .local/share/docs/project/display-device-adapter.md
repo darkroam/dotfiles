@@ -45,7 +45,12 @@
 
 外屏和内屏均以换行分隔的输出名列表在 POSIX Shell 中传递；状态层只统计列表，不改变现有
 `configure_open()`、`configure_closed()` 或兼容恢复路径。`--status` 输出 `state=... internal=...
-external=...` 摘要，便于观察当前状态。
+external=...` 摘要，便于观察当前状态。状态映射到布局时，`DUAL_EXTEND` 和 `MULTI_EXTEND`
+（开盖）以及 `EXTERNAL_ONLY` 和 `MULTI_EXTERNAL`（合盖）使用 `apply_extend_layout()` 的扩展链；
+其余状态继续使用现有的 single/legacy 路径。扩展链按当前 RandR 快照的接口顺序排序，内屏或合盖
+时的第一块外屏位于原点，后续外屏默认依次使用 `--right-of` 锚定前一块输出。布局方向参数已预留
+`right`、`left`、`above`、`below`，当前生产调用固定为 `right`。`--status` 另外输出
+`layout=extend_chain` 或 `layout=legacy`。
 
 ### 执行环境约定
 

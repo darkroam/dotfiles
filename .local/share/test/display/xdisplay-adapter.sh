@@ -43,6 +43,34 @@ pass 'state MULTI_EXTERNAL: closed with multiple external outputs'
 [ "$(state_test open '' '')" = NONE ] || fail 'none state mismatch'
 pass 'state NONE: no available outputs'
 
+layout_test() {
+    XDISPLAY_LAYOUT_TEST=1 "$xdisplay" "$1" "$2" "$3"
+}
+
+layout=$(layout_test open eDP-1 'HDMI-1 DP-1')
+assert_contains "$layout" 'state=MULTI_EXTEND'
+assert_contains "$layout" 'layout=extend_chain direction=right'
+assert_contains "$layout" 'primary=eDP-1'
+assert_contains "$layout" 'output=HDMI-1 relation=--right-of anchor=eDP-1'
+assert_contains "$layout" 'output=DP-1 relation=--right-of anchor=HDMI-1'
+pass 'open with two externals uses a rightward chain'
+
+layout=$(layout_test open eDP-1 'HDMI-1 DP-1 DP-2')
+assert_contains "$layout" 'state=MULTI_EXTEND'
+assert_contains "$layout" 'output=DP-2 relation=--right-of anchor=DP-1'
+pass 'open with three externals extends the chain'
+
+layout=$(layout_test closed '' 'HDMI-1 DP-1')
+assert_contains "$layout" 'state=MULTI_EXTERNAL'
+assert_contains "$layout" 'primary=HDMI-1'
+assert_contains "$layout" 'output=DP-1 relation=--right-of anchor=HDMI-1'
+pass 'closed with two externals uses first connector as primary'
+
+layout=$(layout_test closed '' 'HDMI-1 DP-1 DP-2')
+assert_contains "$layout" 'state=MULTI_EXTERNAL'
+assert_contains "$layout" 'output=DP-2 relation=--right-of anchor=DP-1'
+pass 'closed with three externals extends the chain'
+
 setup_case() {
     name=$1
     case_dir=$test_root/$name
@@ -105,6 +133,58 @@ run_xdisplay() {
         "${XDISPLAY_ACTION:---status}"
 }
 
+setup_case apply-open-chain
+cat > "$case_dir/open-chain.xrandr" <<'XRANDR'
+Screen 0: minimum 320 x 200, current 6400 x 1440, maximum 16384 x 16384
+eDP-1 connected primary 1920x1080+0+0 (normal left inverted right x axis y axis) 300mm x 190mm
+   1920x1080     60.00*+
+HDMI-1 connected primary 2560x1440+0+0 (normal left inverted right x axis y axis) 600mm x 340mm
+   2560x1440     60.00*+
+DP-1 connected 1920x1080+0+0 (normal left inverted right x axis y axis) 600mm x 340mm
+   1920x1080     60.00*+
+XRANDR
+set +e
+FAKE_XRANDR_MUTATION_RESULT=0 XDISPLAY_ACTION=--apply \
+    run_xdisplay "$case_dir/open-chain.xrandr" 0 >/dev/null 2>&1
+set -e
+assert_contains "$(cat "$mutations")" '--right-of eDP-1'
+assert_contains "$(cat "$mutations")" '--right-of HDMI-1'
+pass 'configure_open applies a two-external rightward chain'
+
+setup_case apply-closed-chain
+mkdir -p "$case_dir/test-root/proc/acpi/button/lid/LID0"
+printf 'state:      closed\n' > "$case_dir/test-root/proc/acpi/button/lid/LID0/state"
+cat > "$case_dir/closed-chain.xrandr" <<'XRANDR'
+Screen 0: minimum 320 x 200, current 4480 x 1440, maximum 16384 x 16384
+eDP-1 connected primary 1920x1080+0+0 (normal left inverted right x axis y axis) 300mm x 190mm
+   1920x1080     60.00+
+HDMI-1 connected 2560x1440+0+0 (normal left inverted right x axis y axis) 600mm x 340mm
+   2560x1440     60.00*+
+DP-1 connected 1920x1080+0+0 (normal left inverted right x axis y axis) 600mm x 340mm
+   1920x1080     60.00*+
+XRANDR
+set +e
+FAKE_XRANDR_MUTATION_RESULT=0 XDISPLAY_ACTION=--apply \
+    run_xdisplay "$case_dir/closed-chain.xrandr" 0 >/dev/null 2>&1
+set -e
+assert_contains "$(cat "$mutations")" '--right-of HDMI-1'
+assert_contains "$(cat "$mutations")" '--output eDP-1 --off'
+pass 'configure_closed applies the chain before disabling the internal output'
+
+setup_case apply-closed-dock-single
+mkdir -p "$case_dir/test-root/proc/acpi/button/lid/LID0"
+printf 'state:      closed\n' > "$case_dir/test-root/proc/acpi/button/lid/LID0/state"
+cat > "$case_dir/closed-dock-single.xrandr" <<'XRANDR'
+Screen 0: minimum 320 x 200, current 2560 x 1440, maximum 16384 x 16384
+HDMI-1 connected primary 2560x1440+0+0 (normal left inverted right x axis y axis) 600mm x 340mm
+   2560x1440     60.00*+
+XRANDR
+FAKE_XRANDR_MUTATION_RESULT=0 XDISPLAY_ACTION=--apply \
+    run_xdisplay "$case_dir/closed-dock-single.xrandr" 0 >/dev/null 2>&1 ||
+    fail 'single-output closed dock did not converge'
+[ ! -s "$mutations" ] || fail 'converged single-output closed dock mutated'
+pass 'closed external-only dock converges without an internal output'
+
 setup_case disabled
 write_adapter
 status=$(ADAPTER_INTERNAL=DP-2 ADAPTER_EXPECTED=1280x720 \
@@ -129,6 +209,7 @@ status=$(ADAPTER_INTERNAL=DP-2 run_xdisplay \
     "$fixtures/mirror-unknown-internal.xrandr" 1)
 assert_contains "$status" 'policy=extend-from-internal'
 assert_contains "$status" 'state=DUAL_EXTEND internal=1 external=1'
+assert_contains "$status" 'layout=extend_chain'
 grep -q '^internal-outputs' "$adapter_calls" || fail 'internal-outputs not called'
 grep -q '^DISPLAY=:99$' "$adapter_env" || fail 'DISPLAY was not passed explicitly'
 grep -q "^XAUTHORITY=$case_dir/Xauthority$" "$adapter_env" || fail 'XAUTHORITY was not passed explicitly'

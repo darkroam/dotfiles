@@ -30,6 +30,9 @@ ADAPTER_LOG_MAX_BYTES=1048576
 # A stable watcher attempts a snapshot once per second. This wait therefore
 # outlasts the old watcher's consecutive-failure exit window.
 WATCH_LOCK_WAIT=8
+# The second-batch chain layout is enabled in this build. Keep the guard
+# explicit so a future rollout can safely fall back to the legacy path.
+MULTI_SCREEN_LAYOUT_READY=1
 
 # Explicit display states. MIRROR and CUSTOM are reserved for later layout
 # batches; this batch only computes the physical/lid-derived states.
@@ -61,6 +64,7 @@ CURRENT_INTERNAL_OUTPUTS=
 CURRENT_EXTERNAL_OUTPUTS=
 CURRENT_DISPLAY_INTERNAL_COUNT=0
 CURRENT_DISPLAY_EXTERNAL_COUNT=0
+CURRENT_LAYOUT_FUNCTION=legacy
 
 notify_problem() {
     message=$1
@@ -645,6 +649,18 @@ refresh_display_state() {
         "$state_connected" "$CURRENT_INTERNAL_OUTPUTS")
     compute_display_state "$state_lid" "$CURRENT_INTERNAL_OUTPUTS" \
         "$CURRENT_EXTERNAL_OUTPUTS"
+    case "$state_lid:$CURRENT_DISPLAY_STATE" in
+        open:DUAL_EXTEND|unknown:DUAL_EXTEND|absent:DUAL_EXTEND|\
+        open:MULTI_EXTEND|unknown:MULTI_EXTEND|absent:MULTI_EXTEND|\
+        closed:EXTERNAL_ONLY|closed:MULTI_EXTERNAL)
+            if [ "$MULTI_SCREEN_LAYOUT_READY" -eq 1 ]; then
+                CURRENT_LAYOUT_FUNCTION=extend_chain
+            else
+                CURRENT_LAYOUT_FUNCTION=legacy
+            fi
+            ;;
+        *) CURRENT_LAYOUT_FUNCTION=legacy ;;
+    esac
 }
 
 output_in_list() {
@@ -1123,6 +1139,83 @@ output_right_of() {
         '
 }
 
+# Return external outputs in RandR connector order. A future configuration
+# layer can replace this function without changing the layout callers.
+sort_external_outputs() {
+    requested=$1
+    [ -n "$requested" ] || return 0
+    connected=$(connected_outputs)
+    for output in $connected; do
+        output_in_list "$requested" "$output" || continue
+        printf '%s\n' "$output"
+    done
+}
+
+first_output() {
+    printf '%s\n' "$1" | awk 'NF { print; exit }'
+}
+
+# Apply a primary plus a chained external layout in one RandR mutation.
+# Each output is positioned relative to the previous output, preserving the
+# existing target-mode and primary-selection helpers.
+apply_extend_layout() {
+    primary=$1
+    outputs=$2
+    direction=${3:-right}
+    disable_output=${4:-}
+    [ -n "$primary" ] || return 1
+    case "$direction" in
+        right) relation=--right-of ;;
+        left) relation=--left-of ;;
+        above) relation=--above ;;
+        below) relation=--below ;;
+        *) return 2 ;;
+    esac
+
+    set -- --output "$primary" --primary
+    if ! output_at_target_mode "$primary"; then
+        target_mode=$(output_target_mode "$primary")
+        [ "$target_mode" != - ] || return 1
+        set -- "$@" --mode "$target_mode"
+        target_rate=$(output_target_rate "$primary")
+        [ "$target_rate" = - ] || set -- "$@" --rate "$target_rate"
+    fi
+    set -- "$@" --pos 0x0
+    [ -n "$disable_output" ] &&
+        set -- "$@" --output "$disable_output" --off
+
+    anchor=$primary
+    if [ "${XDISPLAY_LAYOUT_DRY_RUN:-0}" = 1 ]; then
+        printf 'layout=extend_chain direction=%s\n' "$direction"
+        printf 'primary=%s\n' "$primary"
+    fi
+    sorted=$(sort_external_outputs "$outputs" | tr '\n' ' ')
+    old_ifs=$IFS
+    IFS=' '
+    for output in $sorted; do
+        [ "$output" = "$primary" ] && continue
+        set -- "$@" --output "$output"
+        if ! output_at_target_mode "$output"; then
+            target_mode=$(output_target_mode "$output")
+            [ "$target_mode" != - ] || { IFS=$old_ifs; return 1; }
+            set -- "$@" --mode "$target_mode"
+            target_rate=$(output_target_rate "$output")
+            [ "$target_rate" = - ] || set -- "$@" --rate "$target_rate"
+        fi
+        if [ "${XDISPLAY_LAYOUT_DRY_RUN:-0}" = 1 ]; then
+            printf 'output=%s relation=%s anchor=%s\n' "$output" \
+                "$relation" "$anchor"
+        fi
+        set -- "$@" "$relation" "$anchor"
+        anchor=$output
+    done
+    IFS=$old_ifs
+    if [ "${XDISPLAY_LAYOUT_DRY_RUN:-0}" = 1 ]; then
+        return 0
+    fi
+    xrandr "$@"
+}
+
 outputs_extended_from() {
     anchor=$1
     outputs=$2
@@ -1250,8 +1343,58 @@ configure_closed() {
     internal=$1
     externals=$(usable_outputs "$2")
     [ -n "$externals" ] || return 1
-    primary=$(choose_primary "$externals")
+    sorted_externals=$(sort_external_outputs "$externals")
+    case "$CURRENT_DISPLAY_STATE" in
+        EXTERNAL_ONLY|MULTI_EXTERNAL)
+            if [ "$MULTI_SCREEN_LAYOUT_READY" -eq 1 ]; then
+                externals=$sorted_externals
+                if [ "$CURRENT_DISPLAY_STATE" = MULTI_EXTERNAL ]; then
+                    primary=$(first_output "$externals")
+                else
+                    primary=$(choose_primary "$externals")
+                fi
+                layout_mode=extend_chain
+            else
+                primary=$(choose_primary "$externals")
+                layout_mode=legacy
+            fi
+            ;;
+        *)
+            primary=$(choose_primary "$externals")
+            layout_mode=legacy
+            ;;
+    esac
     [ -n "$primary" ] || return 1
+
+    if [ "$layout_mode" = extend_chain ]; then
+        # Keep an external primary active before applying the external chain
+        # and internal-off transition in one RandR mutation.
+        if ! snapshot_has_stale_outputs &&
+            output_primary "$primary" &&
+            output_at_origin "$primary" &&
+            ! output_active "$internal" &&
+            verify_active_outputs "$externals" &&
+            verify_target_modes "$externals" &&
+            outputs_extended_from "$primary" "$externals"; then
+            return 0
+        fi
+        if ! output_active "$primary"; then
+            output_ready "$primary" || return 1
+            set_output_primary_at_origin "$primary" || return 1
+            read_snapshot || return 1
+            output_active "$primary" && output_at_target_mode "$primary" || return 1
+        fi
+        apply_extend_layout "$primary" "$externals" right "$internal" || return 1
+        read_snapshot || return 1
+        ! snapshot_has_stale_outputs &&
+            output_primary "$primary" &&
+            output_at_origin "$primary" &&
+            ! output_active "$internal" &&
+            verify_active_outputs "$externals" &&
+            verify_target_modes "$externals" &&
+            outputs_extended_from "$primary" "$externals"
+        return
+    fi
 
     if ! snapshot_has_stale_outputs &&
         output_primary "$primary" &&
@@ -1314,6 +1457,16 @@ configure_closed() {
 configure_open() {
     internal=$1
     externals=$(usable_outputs "$2")
+    sorted_externals=$(sort_external_outputs "$externals")
+    layout_mode=legacy
+    case "$CURRENT_DISPLAY_STATE" in
+        DUAL_EXTEND|MULTI_EXTEND)
+            if [ "$MULTI_SCREEN_LAYOUT_READY" -eq 1 ]; then
+                externals=$sorted_externals
+                layout_mode=extend_chain
+            fi
+            ;;
+    esac
 
     if adapter_expected_mode_missing "$internal"; then
         recover_or_degrade_adapter_target "$internal" || return 1
@@ -1344,6 +1497,20 @@ configure_open() {
         set_output_primary_at_origin "$internal" || return 1
         read_snapshot || return 1
         output_active "$internal" && output_at_target_mode "$internal" || return 1
+    fi
+
+    if [ "$layout_mode" = extend_chain ]; then
+        apply_extend_layout "$internal" "$externals" right || return 1
+        read_snapshot || return 1
+        ! snapshot_has_stale_outputs &&
+            output_primary "$internal" &&
+            output_active "$internal" &&
+            output_at_origin "$internal" &&
+            verify_active_outputs "$externals" &&
+            output_at_target_mode "$internal" &&
+            verify_target_modes "$externals" &&
+            outputs_extended_from "$internal" "$externals"
+        return
     fi
 
     set -- --output "$internal" --primary
@@ -1522,6 +1689,7 @@ display_status() {
     printf 'state=%s internal=%s external=%s\n' \
         "$CURRENT_DISPLAY_STATE" "$CURRENT_DISPLAY_INTERNAL_COUNT" \
         "$CURRENT_DISPLAY_EXTERNAL_COUNT"
+    printf 'layout=%s\n' "$CURRENT_LAYOUT_FUNCTION"
     printf '%s\n' "$XRANDR_PARSED" |
         awk -F '\t' '
             $1 == "screen" {
@@ -1597,6 +1765,12 @@ apply_snapshot() {
             ! snapshot_has_stale_outputs
             return
         fi
+        if [ "$lid" = closed ] &&
+            [ "$CURRENT_DISPLAY_STATE" = EXTERNAL_ONLY ]; then
+            configure_closed "$internal" \
+                "$(external_outputs "$outputs" "$internal")"
+            return
+        fi
         if [ "$outputs" = "$internal" ] &&
             adapter_expected_mode_missing "$internal"; then
             recover_or_degrade_adapter_target "$internal" || return 1
@@ -1618,11 +1792,20 @@ apply_snapshot() {
 
     case "$lid" in
         closed)
-            if [ -n "$internal" ]; then
-                configure_closed "$internal" "$(external_outputs "$outputs" "$internal")"
-            else
-                configure_mirror "$outputs"
-            fi
+            case "$CURRENT_DISPLAY_STATE" in
+                EXTERNAL_ONLY|MULTI_EXTERNAL)
+                    configure_closed "$internal" \
+                        "$(external_outputs "$outputs" "$internal")"
+                    ;;
+                *)
+                    if [ -n "$internal" ]; then
+                        configure_closed "$internal" \
+                            "$(external_outputs "$outputs" "$internal")"
+                    else
+                        configure_mirror "$outputs"
+                    fi
+                    ;;
+            esac
             ;;
         open|unknown|absent)
             if [ -n "$internal" ]; then
@@ -1833,6 +2016,32 @@ if [ "${XDISPLAY_STATE_TEST:-0}" = 1 ]; then
     # initialization, so state unit tests do not require a live X server.
     compute_display_state "${1:-unknown}" "${2:-}" "${3:-}"
     printf '%s\n' "$CURRENT_DISPLAY_STATE"
+    exit 0
+fi
+
+if [ "${XDISPLAY_LAYOUT_TEST:-0}" = 1 ]; then
+    # Test-only planner hook: exercise sorting and state-to-layout mapping
+    # without requiring a live X server or issuing an xrandr mutation.
+    layout_lid=${1:-open}
+    layout_internal=${2:-}
+    layout_external=${3:-}
+    layout_direction=${4:-right}
+    layout_external=$(printf '%s\n' "$layout_external" | tr ' ' '\n')
+    # The hook receives its complete topology explicitly; do not let a
+    # caller's legacy internal-output environment alter the mock planner.
+    ADAPTER_INTERNAL_OUTPUTS=
+    XDISPLAY_INTERNAL_OUTPUTS=
+    XRANDR_PARSED=$(printf 'screen\t0\t320\t200\t320\t200\t16384\t16384\n'; for layout_output in $layout_internal $layout_external; do
+        [ -n "$layout_output" ] || continue
+        printf 'output\t%s\tconnected\t0\t-\t1920\t1080\t0\t0\t1\t1920x1080\t1\t0\t0\t1920x1080\t60\t1920x1080\t60\t1920x1080\t60\t1\t1920x1080@60\t-\t-\n' "$layout_output"
+    done)
+    refresh_display_state "$layout_lid"
+    layout_sorted=$(sort_external_outputs "$layout_external")
+    layout_primary=$layout_internal
+    [ "$layout_lid" = closed ] && layout_primary=$(first_output "$layout_sorted")
+    printf 'state=%s\n' "$CURRENT_DISPLAY_STATE"
+    XDISPLAY_LAYOUT_DRY_RUN=1 apply_extend_layout "$layout_primary" \
+        "$layout_sorted" "$layout_direction"
     exit 0
 fi
 
