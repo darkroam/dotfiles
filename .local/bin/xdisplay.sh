@@ -31,6 +31,19 @@ ADAPTER_LOG_MAX_BYTES=1048576
 # outlasts the old watcher's consecutive-failure exit window.
 WATCH_LOCK_WAIT=8
 
+# Explicit display states. MIRROR and CUSTOM are reserved for later layout
+# batches; this batch only computes the physical/lid-derived states.
+STATE_INTERNAL_ONLY=INTERNAL_ONLY
+STATE_EXTERNAL_ONLY=EXTERNAL_ONLY
+STATE_DUAL_EXTEND=DUAL_EXTEND
+STATE_MULTI_EXTEND=MULTI_EXTEND
+STATE_MULTI_EXTERNAL=MULTI_EXTERNAL
+STATE_MIRROR=MIRROR
+STATE_CUSTOM=CUSTOM
+STATE_NONE=NONE
+# Keep reserved states explicit without selecting them in this batch.
+: "$STATE_MIRROR" "$STATE_CUSTOM"
+
 ADAPTER_INTERNAL_OUTPUTS=
 ADAPTER_INTERNAL_CACHE_KEY=
 ADAPTER_INTERNAL_CACHE_VALUE=
@@ -43,6 +56,11 @@ ADAPTER_EXPECTED_CACHE_VALID=0
 ADAPTER_EXPECTED_MISSING_LOG_KEY=
 ADAPTER_UNAVAILABLE_LOGGED=0
 ADAPTER_RESTORE_ATTEMPTED=0
+CURRENT_DISPLAY_STATE=$STATE_NONE
+CURRENT_INTERNAL_OUTPUTS=
+CURRENT_EXTERNAL_OUTPUTS=
+CURRENT_DISPLAY_INTERNAL_COUNT=0
+CURRENT_DISPLAY_EXTERNAL_COUNT=0
 
 notify_problem() {
     message=$1
@@ -536,6 +554,7 @@ read_snapshot() {
     [ -n "$XRANDR_PARSED" ] || return 1
     adapter_refresh_internal_outputs
     adapter_refresh_expected_target
+    refresh_display_state "${LID_STATE:-unknown}"
 }
 
 connected_outputs() {
@@ -551,6 +570,81 @@ all_outputs() {
 output_count() {
     printf '%s\n' "$1" |
         awk 'NF { count++ } END { print count + 0 }'
+}
+
+compute_display_state() {
+    state_lid=$1
+    state_internal_outputs=$2
+    state_external_outputs=$3
+    state_internal_count=$(output_count "$state_internal_outputs")
+    state_external_count=$(output_count "$state_external_outputs")
+
+    # A closed lid makes the internal panel unavailable to the effective
+    # layout state, while retaining the physical list for diagnostics.
+    case "$state_lid" in
+        closed) state_effective_internal_count=0 ;;
+        *) state_effective_internal_count=$state_internal_count ;;
+    esac
+
+    if [ "$state_effective_internal_count" -eq 0 ]; then
+        if [ "$state_external_count" -eq 0 ]; then
+            CURRENT_DISPLAY_STATE=$STATE_NONE
+        elif [ "$state_external_count" -eq 1 ]; then
+            CURRENT_DISPLAY_STATE=$STATE_EXTERNAL_ONLY
+        else
+            CURRENT_DISPLAY_STATE=$STATE_MULTI_EXTERNAL
+        fi
+    elif [ "$state_external_count" -eq 0 ]; then
+        CURRENT_DISPLAY_STATE=$STATE_INTERNAL_ONLY
+    elif [ "$state_external_count" -eq 1 ]; then
+        CURRENT_DISPLAY_STATE=$STATE_DUAL_EXTEND
+    else
+        CURRENT_DISPLAY_STATE=$STATE_MULTI_EXTEND
+    fi
+
+    CURRENT_DISPLAY_INTERNAL_COUNT=$state_effective_internal_count
+    CURRENT_DISPLAY_EXTERNAL_COUNT=$state_external_count
+}
+
+display_internal_outputs() {
+    state_connected=$1
+    state_standard=$(printf '%s\n' "$state_connected" |
+        awk '$1 ~ /^(eDP|LVDS|DSI)-?[0-9]/ { print }')
+    if [ -n "$state_standard" ]; then
+        printf '%s\n' "$state_standard"
+        return
+    fi
+    if [ -n "$ADAPTER_INTERNAL_OUTPUTS" ]; then
+        printf '%s\n' "$ADAPTER_INTERNAL_OUTPUTS"
+        return
+    fi
+    for state_candidate in ${XDISPLAY_INTERNAL_OUTPUTS:-}; do
+        output_in_list "$state_connected" "$state_candidate" &&
+            printf '%s\n' "$state_candidate"
+    done
+}
+
+display_external_outputs() {
+    state_connected=$1
+    state_internal_outputs=$2
+    old_ifs=$IFS
+    IFS='
+'
+    for state_output in $state_connected; do
+        output_in_list "$state_internal_outputs" "$state_output" ||
+            printf '%s\n' "$state_output"
+    done
+    IFS=$old_ifs
+}
+
+refresh_display_state() {
+    state_lid=${1:-unknown}
+    state_connected=$(connected_outputs)
+    CURRENT_INTERNAL_OUTPUTS=$(display_internal_outputs "$state_connected")
+    CURRENT_EXTERNAL_OUTPUTS=$(display_external_outputs \
+        "$state_connected" "$CURRENT_INTERNAL_OUTPUTS")
+    compute_display_state "$state_lid" "$CURRENT_INTERNAL_OUTPUTS" \
+        "$CURRENT_EXTERNAL_OUTPUTS"
 }
 
 output_in_list() {
@@ -1425,6 +1519,9 @@ display_status() {
     fi
     printf 'lid_present=%s\n' "$lid_present"
     printf 'lid_state=%s\n' "$LID_STATE"
+    printf 'state=%s internal=%s external=%s\n' \
+        "$CURRENT_DISPLAY_STATE" "$CURRENT_DISPLAY_INTERNAL_COUNT" \
+        "$CURRENT_DISPLAY_EXTERNAL_COUNT"
     printf '%s\n' "$XRANDR_PARSED" |
         awk -F '\t' '
             $1 == "screen" {
@@ -1730,6 +1827,14 @@ watch_displays() {
         sleep 0.5
     done
 }
+
+if [ "${XDISPLAY_STATE_TEST:-0}" = 1 ]; then
+    # Test-only read-only hook. It is evaluated before normal command and X
+    # initialization, so state unit tests do not require a live X server.
+    compute_display_state "${1:-unknown}" "${2:-}" "${3:-}"
+    printf '%s\n' "$CURRENT_DISPLAY_STATE"
+    exit 0
+fi
 
 usage() {
     printf 'Usage: %s [--apply|--watch|--status|--help]\n' "$0"

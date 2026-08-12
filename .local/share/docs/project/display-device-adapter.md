@@ -27,6 +27,26 @@
 
 ## 调用契约
 
+### 状态定义
+
+引擎在每次 RandR 快照完成后，以当前 lid 状态、已连接的内屏列表和外屏列表执行只读状态计算，
+结果写入 `CURRENT_DISPLAY_STATE`，不修改任何 X 状态。当前状态枚举为：
+
+| 状态 | 判定 |
+| --- | --- |
+| `INTERNAL_ONLY` | lid 未关闭，存在内屏且没有外屏 |
+| `EXTERNAL_ONLY` | lid 关闭（或内屏有效数量为零），恰好一块外屏 |
+| `DUAL_EXTEND` | lid 未关闭，存在内屏且恰好一块外屏 |
+| `MULTI_EXTEND` | lid 未关闭，存在内屏且至少两块外屏 |
+| `MULTI_EXTERNAL` | lid 关闭（或内屏有效数量为零），至少两块外屏 |
+| `NONE` | 没有可用的内屏或外屏 |
+| `MIRROR` | 预留状态，本批次不主动计算 |
+| `CUSTOM` | 预留状态，本批次不主动计算 |
+
+外屏和内屏均以换行分隔的输出名列表在 POSIX Shell 中传递；状态层只统计列表，不改变现有
+`configure_open()`、`configure_closed()` 或兼容恢复路径。`--status` 输出 `state=... internal=...
+external=...` 摘要，便于观察当前状态。
+
 ### 执行环境约定
 
 `xdisplay.sh` 默认不接入 `xdisplay-device.local`。设置 `XDISPLAY_USE_ADAPTER=1` 后，

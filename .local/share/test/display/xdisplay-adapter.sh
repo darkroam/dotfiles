@@ -26,6 +26,23 @@ assert_contains() {
         fail "missing: $expected"
 }
 
+state_test() {
+    XDISPLAY_STATE_TEST=1 "$xdisplay" "$1" "$2" "$(printf '%b' "$3")"
+}
+
+[ "$(state_test open eDP-1 '')" = INTERNAL_ONLY ] || fail 'open with no external state mismatch'
+pass 'state INTERNAL_ONLY: open with zero external outputs'
+[ "$(state_test open eDP-1 HDMI-1)" = DUAL_EXTEND ] || fail 'dual extend state mismatch'
+pass 'state DUAL_EXTEND: open with one external output'
+[ "$(state_test open eDP-1 'HDMI-1\nDP-1')" = MULTI_EXTEND ] || fail 'multi extend state mismatch'
+pass 'state MULTI_EXTEND: open with multiple external outputs'
+[ "$(state_test closed '' HDMI-1)" = EXTERNAL_ONLY ] || fail 'external only state mismatch'
+pass 'state EXTERNAL_ONLY: closed with one external output'
+[ "$(state_test closed '' 'HDMI-1\nDP-1')" = MULTI_EXTERNAL ] || fail 'multi external state mismatch'
+pass 'state MULTI_EXTERNAL: closed with multiple external outputs'
+[ "$(state_test open '' '')" = NONE ] || fail 'none state mismatch'
+pass 'state NONE: no available outputs'
+
 setup_case() {
     name=$1
     case_dir=$test_root/$name
@@ -111,6 +128,7 @@ write_adapter
 status=$(ADAPTER_INTERNAL=DP-2 run_xdisplay \
     "$fixtures/mirror-unknown-internal.xrandr" 1)
 assert_contains "$status" 'policy=extend-from-internal'
+assert_contains "$status" 'state=DUAL_EXTEND internal=1 external=1'
 grep -q '^internal-outputs' "$adapter_calls" || fail 'internal-outputs not called'
 grep -q '^DISPLAY=:99$' "$adapter_env" || fail 'DISPLAY was not passed explicitly'
 grep -q "^XAUTHORITY=$case_dir/Xauthority$" "$adapter_env" || fail 'XAUTHORITY was not passed explicitly'
