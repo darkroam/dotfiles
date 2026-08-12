@@ -15,9 +15,34 @@ SNAPSHOT_FAILURE_LIMIT=6
 # continue at the normal low-frequency interval after this limit is reached.
 APPLY_FAILURE_LIMIT=3
 APPLY_RETRY_TICKS=10
+# Device-local adapter support is opt-in. The legacy environment variables
+# remain the default compatibility path when this gate is disabled.
+XDISPLAY_USE_ADAPTER=${XDISPLAY_USE_ADAPTER:-0}
+case "$XDISPLAY_USE_ADAPTER" in
+    1) ;;
+    *) XDISPLAY_USE_ADAPTER=0 ;;
+esac
+ADAPTER_PATH=${HOME}/.config/x11/xdisplay-device.local
+ADAPTER_LOG=${XDG_STATE_HOME:-$HOME/.local/share}/x11/xdisplay-adapter.log
+ADAPTER_TIMEOUT=2
+ADAPTER_KILLAFTER=1
+ADAPTER_LOG_MAX_BYTES=1048576
 # A stable watcher attempts a snapshot once per second. This wait therefore
 # outlasts the old watcher's consecutive-failure exit window.
 WATCH_LOCK_WAIT=8
+
+ADAPTER_INTERNAL_OUTPUTS=
+ADAPTER_INTERNAL_CACHE_KEY=
+ADAPTER_INTERNAL_CACHE_VALUE=
+ADAPTER_EXPECTED_OUTPUT=
+ADAPTER_EXPECTED_VALID=0
+ADAPTER_EXPECTED_PRESENT=0
+ADAPTER_EXPECTED_CACHE_KEY=
+ADAPTER_EXPECTED_CACHE_VALUE=
+ADAPTER_EXPECTED_CACHE_VALID=0
+ADAPTER_EXPECTED_MISSING_LOG_KEY=
+ADAPTER_UNAVAILABLE_LOGGED=0
+ADAPTER_RESTORE_ATTEMPTED=0
 
 notify_problem() {
     message=$1
@@ -207,6 +232,121 @@ drm_signature() {
     [ "$found" -eq 1 ] || printf '%s' unavailable
 }
 
+adapter_timestamp() {
+    date -Iseconds 2>/dev/null || date
+}
+
+adapter_log_value() {
+    LC_ALL=C tr -cd '\11\12\40-\176' |
+        sed -E \
+            -e 's#(/home/[^[:space:]]+)#<path>#g' \
+            -e 's#([Xx][Aa][Uu][Tt][Hh][Oo][Rr][Ii][Tt][Yy])([=:][^[:space:]]*)#\1=<redacted>#g' \
+            -e 's#([Ee][Dd][Ii][Dd])[^[:space:]]*#\1=<redacted>#g' \
+            -e 's#([Ss][Ee][Rr][Ii][Aa][Ll])([=:][^[:space:]]*)#\1=<redacted>#g' \
+            -e 's#([Hh][Oo][Ss][Tt][Nn][Aa][Mm][Ee])([=:][^[:space:]]*)#\1=<redacted>#g'
+}
+
+adapter_log_event() (
+    subcommand=$1
+    output=${2:-none}
+    exit_code=$3
+    status=$4
+    detail=${5:-}
+    log_dir=${ADAPTER_LOG%/*}
+    [ "$log_dir" != "$ADAPTER_LOG" ] || log_dir=.
+    old_umask=$(umask)
+    umask 077
+    mkdir -p "$log_dir" 2>/dev/null || {
+        umask "$old_umask"
+        return 0
+    }
+    touch "$ADAPTER_LOG" 2>/dev/null || {
+        umask "$old_umask"
+        return 0
+    }
+    chmod 600 "$ADAPTER_LOG" 2>/dev/null || :
+    umask "$old_umask"
+    if [ -f "$ADAPTER_LOG" ]; then
+        log_size=$(stat -c %s "$ADAPTER_LOG" 2>/dev/null || printf 0)
+        if [ "$log_size" -ge "$ADAPTER_LOG_MAX_BYTES" ]; then
+            mv -f "$ADAPTER_LOG" "$ADAPTER_LOG.1" 2>/dev/null || :
+        fi
+    fi
+    (
+        umask 077
+        printf '[%s] subcommand=%s output=%s pid=%s exit=%s status=%s' \
+            "$(adapter_timestamp)" "$subcommand" "$output" "$$" "$exit_code" "$status"
+        [ -n "$detail" ] && printf ' detail=%s' "$detail"
+        printf '\n'
+    ) >> "$ADAPTER_LOG" 2>/dev/null || :
+)
+
+# Execute one device-local adapter command. stdout is returned to the caller;
+# stderr, timeout state, and the exit code are persisted without blocking layout.
+run_adapter() (
+    subcommand=$1
+    output=${2:-}
+
+    [ "$XDISPLAY_USE_ADAPTER" -eq 1 ] || return 127
+    if [ ! -x "$ADAPTER_PATH" ]; then
+        adapter_log_event "$subcommand" "${output:-none}" 127 UNAVAILABLE adapter_missing
+        return 127
+    fi
+    if ! command -v timeout >/dev/null 2>&1 ||
+        ! command -v mktemp >/dev/null 2>&1 ||
+        ! command -v env >/dev/null 2>&1; then
+        adapter_log_event "$subcommand" "${output:-none}" 127 UNAVAILABLE runtime_tools_missing
+        return 127
+    fi
+    if [ -z "${DISPLAY:-}" ] || [ -z "${XAUTHORITY:-}" ] || [ -z "${PATH:-}" ]; then
+        adapter_log_event "$subcommand" "${output:-none}" 127 UNAVAILABLE missing_session_environment
+        return 127
+    fi
+
+    tmp_stderr=$(mktemp "${TMPDIR:-/tmp}/xdisplay-adapter-stderr.XXXXXX") || {
+        adapter_log_event "$subcommand" "${output:-none}" 127 FAILURE temp_failed
+        return 127
+    }
+    tmp_stdout=$(mktemp "${TMPDIR:-/tmp}/xdisplay-adapter-stdout.XXXXXX") || {
+        rm -f "$tmp_stderr"
+        adapter_log_event "$subcommand" "${output:-none}" 127 FAILURE temp_failed
+        return 127
+    }
+    trap 'rm -f "$tmp_stderr" "$tmp_stdout"' 0
+
+    start_time=$(date +%s%3N 2>/dev/null || date +%s000)
+    if [ -n "$output" ]; then
+        timeout --kill-after="$ADAPTER_KILLAFTER" "$ADAPTER_TIMEOUT" \
+            env DISPLAY="$DISPLAY" XAUTHORITY="$XAUTHORITY" PATH="$PATH" \
+            "$ADAPTER_PATH" "$subcommand" "$output" >"$tmp_stdout" 2>"$tmp_stderr"
+    else
+        timeout --kill-after="$ADAPTER_KILLAFTER" "$ADAPTER_TIMEOUT" \
+            env DISPLAY="$DISPLAY" XAUTHORITY="$XAUTHORITY" PATH="$PATH" \
+            "$ADAPTER_PATH" "$subcommand" >"$tmp_stdout" 2>"$tmp_stderr"
+    fi
+    exit_code=$?
+    end_time=$(date +%s%3N 2>/dev/null || date +%s000)
+    elapsed=$((end_time - start_time))ms
+    status=SUCCESS
+    if [ "$exit_code" -eq 124 ] || [ "$exit_code" -eq 137 ]; then
+        status=TIMEOUT
+    elif [ "$exit_code" -ne 0 ]; then
+        status=FAILURE
+    fi
+
+    adapter_log_event "$subcommand" "${output:-none}" "$exit_code" "$status" "elapsed=$elapsed"
+    if [ -s "$tmp_stderr" ]; then
+        (
+            umask 077
+            printf '[%s] subcommand=%s output=%s stderr:\n' \
+                "$(adapter_timestamp)" "$subcommand" "${output:-none}"
+            head -c 4096 "$tmp_stderr" | adapter_log_value | sed 's/^/  /'
+        ) >> "$ADAPTER_LOG" 2>/dev/null || :
+    fi
+    cat "$tmp_stdout"
+    return "$exit_code"
+)
+
 read_snapshot() {
     XRANDR_STATE=$(LC_ALL=C xrandr "${1:---current}" 2>/dev/null) || return 1
 
@@ -387,12 +527,14 @@ read_snapshot() {
                         mode_ready, first_mode[i], active, stale, pending,
                         current_mode[i], current_rate[i], preferred_mode[i],
                         preferred_rate[i], target_mode, target_rate,
-                        mode_count[i], mode_signature[i]
+                        mode_count[i], mode_signature[i], "-", "-"
                 }
             }
         ') || return 1
 
-    [ -n "$XRANDR_PARSED" ]
+    [ -n "$XRANDR_PARSED" ] || return 1
+    adapter_refresh_internal_outputs
+    adapter_refresh_expected_target
 }
 
 connected_outputs() {
@@ -451,7 +593,11 @@ output_ready() {
 output_target_mode() {
     printf '%s\n' "$XRANDR_PARSED" |
         awk -F '\t' -v output="$1" '
-            $1 == "output" && $2 == output { print $19; found = 1; exit }
+            $1 == "output" && $2 == output {
+                print ($23 != "-" ? $23 : $19)
+                found = 1
+                exit
+            }
             END { if (!found) print "-" }
         '
 }
@@ -459,7 +605,11 @@ output_target_mode() {
 output_target_rate() {
     printf '%s\n' "$XRANDR_PARSED" |
         awk -F '\t' -v output="$1" '
-            $1 == "output" && $2 == output { print $20; found = 1; exit }
+            $1 == "output" && $2 == output {
+                print ($24 != "-" ? $24 : $20)
+                found = 1
+                exit
+            }
             END { if (!found) print "-" }
         '
 }
@@ -468,13 +618,202 @@ output_at_target_mode() {
     printf '%s\n' "$XRANDR_PARSED" |
         awk -F '\t' -v output="$1" '
             $1 == "output" && $2 == output && $12 == 1 {
-                if ($19 == "-")
+                target_mode = ($23 != "-" ? $23 : $19)
+                target_rate = ($24 != "-" ? $24 : $20)
+                if (target_mode == "-")
                     found = 1
-                else if ($15 == $19 && ($20 == "-" || $16 == $20))
+                else if ($23 != "-" && $15 == target_mode &&
+                    (target_rate == "-" || ($16 + 0) == (target_rate + 0)))
+                    found = 1
+                else if ($23 == "-" && $15 == target_mode &&
+                    (target_rate == "-" || $16 == target_rate))
                     found = 1
             }
             END { exit !found }
         '
+}
+
+adapter_output_is_connected() {
+    output_in_list "$(connected_outputs)" "$1"
+}
+
+adapter_validate_internal_outputs() {
+    outputs=$1
+    adapter_result=$2
+    # An empty successful response means the device has no extra candidates.
+    [ -n "$adapter_result" ] || return 0
+
+    valid_outputs=
+    invalid=0
+    while IFS= read -r candidate; do
+        [ -n "$candidate" ] || continue
+        printf '%s\n' "$candidate" |
+            LC_ALL=C awk '$0 !~ /[[:space:][:cntrl:]]/ { valid = 1 } END { exit !valid }' || {
+                invalid=1
+                continue
+            }
+        adapter_output_is_connected "$candidate" || {
+            invalid=1
+            continue
+        }
+        printf '%s\n' "$valid_outputs" | grep -qxF "$candidate" && continue
+        if [ -n "$valid_outputs" ]; then
+            valid_outputs=$(printf '%s\n%s' "$valid_outputs" "$candidate")
+        else
+            valid_outputs=$candidate
+        fi
+    done <<EOF
+$adapter_result
+EOF
+
+    if [ "$(output_count "$valid_outputs")" -gt 1 ]; then
+        invalid=1
+    fi
+    if [ "$invalid" -eq 1 ] || [ -z "$valid_outputs" ]; then
+        adapter_log_event internal-outputs none 65 INVALID invalid_candidate
+        return 1
+    fi
+    printf '%s\n' "$valid_outputs"
+}
+
+adapter_refresh_internal_outputs() {
+    ADAPTER_INTERNAL_OUTPUTS=
+    [ "$XDISPLAY_USE_ADAPTER" -eq 1 ] || return 0
+
+    if [ ! -x "$ADAPTER_PATH" ]; then
+        if [ "$ADAPTER_UNAVAILABLE_LOGGED" -eq 0 ]; then
+            adapter_log_event internal-outputs none 127 UNAVAILABLE adapter_missing
+            ADAPTER_UNAVAILABLE_LOGGED=1
+        fi
+        return 0
+    fi
+
+    connected=$(connected_outputs)
+    standard_output=$(printf '%s\n' "$connected" |
+        awk '$1 ~ /^(eDP|LVDS|DSI)-?[0-9]/ { print; exit }')
+    [ -z "$standard_output" ] || return 0
+    adapter_mtime=$(stat -c %Y "$ADAPTER_PATH" 2>/dev/null || printf unknown)
+    cache_key=$adapter_mtime\|$(printf '%s\n' "$connected" | tr '\n' ',')
+    if [ "$cache_key" = "$ADAPTER_INTERNAL_CACHE_KEY" ]; then
+        ADAPTER_INTERNAL_OUTPUTS=$ADAPTER_INTERNAL_CACHE_VALUE
+        return 0
+    fi
+    adapter_result=$(run_adapter internal-outputs)
+    adapter_status=$?
+    [ "$adapter_status" -eq 0 ] || return 0
+    ADAPTER_INTERNAL_OUTPUTS=$(adapter_validate_internal_outputs "$connected" "$adapter_result") ||
+        ADAPTER_INTERNAL_OUTPUTS=
+    ADAPTER_INTERNAL_CACHE_KEY=$cache_key
+    ADAPTER_INTERNAL_CACHE_VALUE=$ADAPTER_INTERNAL_OUTPUTS
+}
+
+adapter_mode_is_available() {
+    output=$1
+    mode=$2
+    rate=$3
+    printf '%s\n' "$XRANDR_PARSED" |
+        awk -F '\t' -v output="$output" -v mode="$mode" -v rate="$rate" '
+            $1 == "output" && $2 == output {
+                count = split($22, entries, ";")
+                for (i = 1; i <= count; i++) {
+                    split(entries[i], parts, "@")
+                    if (parts[1] != mode)
+                        continue
+                    gsub(/[+]/, "", parts[2])
+                    if (rate == "-") {
+                        found = 1
+                    } else {
+                        rates_count = split(parts[2], rates, ",")
+                        for (j = 1; j <= rates_count; j++)
+                            if ((rates[j] + 0) == (rate + 0))
+                                found = 1
+                    }
+                }
+            }
+            END { exit !found }
+        '
+}
+
+adapter_apply_expected_target() {
+    output=$1
+    mode=$2
+    rate=$3
+    XRANDR_PARSED=$(printf '%s\n' "$XRANDR_PARSED" |
+        awk -F '\t' -v OFS='\t' -v output="$output" -v mode="$mode" -v rate="$rate" '
+            $1 == "output" && $2 == output { $23 = mode; $24 = rate }
+            { print }
+        ')
+}
+
+adapter_refresh_expected_target() {
+    ADAPTER_EXPECTED_OUTPUT=
+    ADAPTER_EXPECTED_VALID=0
+    ADAPTER_EXPECTED_PRESENT=0
+    [ "$XDISPLAY_USE_ADAPTER" -eq 1 ] || return 0
+    [ -x "$ADAPTER_PATH" ] || return 0
+
+    connected=$(connected_outputs)
+    internal=$(internal_output "$connected")
+    [ -n "$internal" ] || return 0
+    adapter_mtime=$(stat -c %Y "$ADAPTER_PATH" 2>/dev/null || printf unknown)
+    output_signature=$(printf '%s\n' "$XRANDR_PARSED" |
+        awk -F '\t' -v output="$internal" '$1 == "output" && $2 == output { print $22 }')
+    cache_key=$adapter_mtime\|$internal\|$output_signature
+    if [ "$cache_key" = "$ADAPTER_EXPECTED_CACHE_KEY" ]; then
+        [ "$ADAPTER_EXPECTED_CACHE_VALID" -eq 1 ] || return 0
+        expected=$ADAPTER_EXPECTED_CACHE_VALUE
+    else
+        expected=$(run_adapter expected-mode "$internal")
+        expected_status=$?
+        ADAPTER_EXPECTED_CACHE_KEY=$cache_key
+        ADAPTER_EXPECTED_CACHE_VALUE=$expected
+        if [ "$expected_status" -eq 0 ]; then
+            ADAPTER_EXPECTED_CACHE_VALID=1
+        else
+            ADAPTER_EXPECTED_CACHE_VALID=0
+            return 0
+        fi
+    fi
+
+    printf '%s\n' "$expected" | awk 'NR != 1 || NF != 1 { exit 1 }' || {
+        adapter_log_event expected-mode "$internal" 65 INVALID invalid_output_shape
+        ADAPTER_EXPECTED_CACHE_VALID=0
+        return 0
+    }
+    expected_mode=$expected
+    expected_rate=-
+    case "$expected" in
+        *@*)
+            expected_mode=${expected%@*}
+            expected_rate=${expected##*@}
+            ;;
+    esac
+    printf '%s\n' "$expected_mode" |
+        grep -Eq '^[1-9][0-9]*x[1-9][0-9]*$' || {
+            adapter_log_event expected-mode "$internal" 65 INVALID invalid_mode_format
+            ADAPTER_EXPECTED_CACHE_VALID=0
+            return 0
+        }
+    if [ "$expected_rate" != - ]; then
+        printf '%s\n' "$expected_rate" |
+            grep -Eq '^[1-9][0-9]*(\.[0-9]+)?$' || {
+                adapter_log_event expected-mode "$internal" 65 INVALID invalid_rate_format
+                ADAPTER_EXPECTED_CACHE_VALID=0
+                return 0
+            }
+    fi
+
+    ADAPTER_EXPECTED_OUTPUT=$internal
+    ADAPTER_EXPECTED_VALID=1
+    if adapter_mode_is_available "$internal" "$expected_mode" "$expected_rate"; then
+        ADAPTER_EXPECTED_PRESENT=1
+        adapter_apply_expected_target "$internal" "$expected_mode" "$expected_rate"
+    else
+        if [ "$cache_key" != "$ADAPTER_EXPECTED_MISSING_LOG_KEY" ]; then
+            adapter_log_event expected-mode "$internal" 0 MISSING expected_mode_missing
+            ADAPTER_EXPECTED_MISSING_LOG_KEY=$cache_key
+        fi
+    fi
 }
 
 verify_target_modes() {
@@ -500,6 +839,11 @@ internal_output() {
         awk '$1 ~ /^(eDP|LVDS|DSI)-?[0-9]/ { print; exit }')
     if [ -n "$standard_output" ]; then
         printf '%s\n' "$standard_output"
+        return
+    fi
+
+    if [ -n "$ADAPTER_INTERNAL_OUTPUTS" ]; then
+        printf '%s\n' "$ADAPTER_INTERNAL_OUTPUTS"
         return
     fi
 
@@ -733,6 +1077,51 @@ try_internal_restore() {
         { output_ready "$output" || output_active "$output"; }
 }
 
+try_adapter_restore() {
+    output=$1
+    [ "$XDISPLAY_USE_ADAPTER" -eq 1 ] || return 127
+    [ -x "$ADAPTER_PATH" ] || return 127
+    [ "$ADAPTER_RESTORE_ATTEMPTED" -eq 0 ] || return 1
+    ADAPTER_RESTORE_ATTEMPTED=1
+    if [ "$ADAPTER_EXPECTED_VALID" -eq 1 ] &&
+        [ "$ADAPTER_EXPECTED_PRESENT" -eq 1 ]; then
+        return 1
+    fi
+
+    run_adapter restore-internal "$output" >/dev/null || return 1
+    read_snapshot || return 1
+    if [ "$ADAPTER_EXPECTED_VALID" -eq 1 ]; then
+        [ "$ADAPTER_EXPECTED_OUTPUT" = "$output" ] &&
+            [ "$ADAPTER_EXPECTED_PRESENT" -eq 1 ]
+    else
+        output_ready "$output" || output_active "$output"
+    fi
+}
+
+adapter_expected_mode_missing() {
+    [ "$XDISPLAY_USE_ADAPTER" -eq 1 ] || return 1
+    [ "$ADAPTER_EXPECTED_VALID" -eq 1 ] || return 1
+    [ "$ADAPTER_EXPECTED_PRESENT" -eq 0 ]
+}
+
+recover_or_degrade_adapter_target() {
+    output=$1
+    adapter_expected_mode_missing || return 0
+    try_adapter_restore "$output" && return 0
+    # Preserve the legacy recovery hook as the next compatibility fallback
+    # when the explicitly enabled adapter cannot converge the expected mode.
+    try_internal_restore "$output" || :
+    if [ "$ADAPTER_EXPECTED_OUTPUT" = "$output" ] &&
+        [ "$ADAPTER_EXPECTED_PRESENT" -eq 1 ]; then
+        return 0
+    fi
+    output_ready "$output" || return 1
+    ADAPTER_EXPECTED_VALID=0
+    ADAPTER_EXPECTED_PRESENT=0
+    adapter_log_event expected-mode "$output" 0 FALLBACK randr_preferred
+    return 0
+}
+
 configure_single() {
     output=$1
     if ! snapshot_has_stale_outputs &&
@@ -823,6 +1212,10 @@ configure_open() {
     internal=$1
     externals=$(usable_outputs "$2")
 
+    if adapter_expected_mode_missing "$internal"; then
+        recover_or_degrade_adapter_target "$internal" || return 1
+    fi
+
     if ! snapshot_has_stale_outputs &&
         output_primary "$internal" &&
         output_active "$internal" &&
@@ -836,8 +1229,13 @@ configure_open() {
 
     if ! output_active "$internal"; then
         if ! output_ready "$internal"; then
-            try_internal_restore "$internal"
-            return 1
+            if [ "$XDISPLAY_USE_ADAPTER" -eq 1 ] && [ -x "$ADAPTER_PATH" ] &&
+                try_adapter_restore "$internal"; then
+                :
+            else
+                try_internal_restore "$internal"
+                return 1
+            fi
         fi
         set_output_primary_at_origin "$internal" || return 1
         read_snapshot || return 1
@@ -1026,7 +1424,9 @@ display_status() {
             $1 == "output" {
                 printf "output=%s connection:%s primary:%s geometry:%s width:%s height:%s x:%s y:%s mode_ready:%s first_mode:%s active:%s stale:%s pending:%s current_mode:%s current_rate:%s preferred_mode:%s preferred_rate:%s target_mode:%s target_rate:%s mode_count:%s mode_signature:%s\n",
                     $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-                    $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
+                    $13, $14, $15, $16, $17, $18,
+                    ($23 != "-" ? $23 : $19),
+                    ($24 != "-" ? $24 : $20), $21, $22
             }
         '
 
@@ -1076,6 +1476,9 @@ display_status() {
 
 apply_snapshot() {
     lid=$1
+    # Bound adapter mutation to one attempt per layout transaction. A later
+    # watcher cycle may retry after the existing failure cooldown.
+    ADAPTER_RESTORE_ATTEMPTED=0
     clear_stale_outputs "$lid" || return 1
     outputs=$(connected_outputs)
     count=$(output_count "$outputs")
@@ -1087,10 +1490,19 @@ apply_snapshot() {
             ! snapshot_has_stale_outputs
             return
         fi
+        if [ "$outputs" = "$internal" ] &&
+            adapter_expected_mode_missing "$internal"; then
+            recover_or_degrade_adapter_target "$internal" || return 1
+        fi
         if [ "$outputs" = "$internal" ] && ! output_ready "$internal" &&
             ! output_active "$internal"; then
-            try_internal_restore "$internal"
-            return 1
+            if [ "$XDISPLAY_USE_ADAPTER" -eq 1 ] && [ -x "$ADAPTER_PATH" ] &&
+                try_adapter_restore "$internal"; then
+                :
+            else
+                try_internal_restore "$internal"
+                return 1
+            fi
         fi
         configure_single "$outputs"
         return

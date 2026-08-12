@@ -2,8 +2,9 @@
 
 本文面向适配器开发者和维护者。
 
-> 状态：目标设计，尚未实施。当前显示链路仍使用 `XDISPLAY_INTERNAL_OUTPUTS` 和
-> `XDISPLAY_RESTORE_COMMAND`；完成通用引擎迁移和实机验证前，不得把本文接口描述为已生效行为。
+> 状态：已实现灰度路径，默认关闭。设置 `XDISPLAY_USE_ADAPTER=1` 且适配器可执行时，
+> `xdisplay.sh` 才调用本文三个子命令；未设置时仍只使用 `XDISPLAY_INTERNAL_OUTPUTS` 和
+> `XDISPLAY_RESTORE_COMMAND` 兼容路径。
 
 ## 目的与边界
 
@@ -26,7 +27,59 @@
 
 ## 调用契约
 
-通用引擎只调用以下两个子命令。适配器应使用 POSIX Shell，保持快速、确定且可重复执行。
+### 执行环境约定
+
+`xdisplay.sh` 默认不接入 `xdisplay-device.local`。设置 `XDISPLAY_USE_ADAPTER=1` 后，
+引擎通过 `run_adapter()` 调用适配器；未启用或适配器不可执行时立即回到兼容路径。旧的
+`XDISPLAY_RESTORE_COMMAND` 仍由 `try_internal_restore()` 通过 `timeout 2
+"$restore_command" "$output"` 启动，未构造独立的 `envp`，因此旧子进程继承 `xdisplay.sh`
+的完整环境。
+
+在本机标准 X11 会话中，`xdisplay.sh --watch` 由 `.config/x11/xprofile` 后台启动：
+`DISPLAY` 和 `XAUTHORITY` 来自父级图形会话环境，xprofile 不为它们设置默认值；`PATH`
+则由 xprofile 显式确保包含 `$HOME/.local/bin` 后导出。灰度适配器路径通过 `env` 显式传递
+当前会话的 `DISPLAY`、`XAUTHORITY` 和 `PATH`，并在任一变量
+缺失时报告环境不可用而跳过适配器调用。适配器不得假定 SSH、GDM 登录前或 systemd
+冷启动会自动提供这些变量，也不得通过猜测显示器或授权文件路径来替代会话环境。
+
+因此，直接从无图形会话的 systemd/SSH 环境触发当前恢复命令可能得到
+`xrandr: Can't open display`；现行调用会丢弃恢复命令的标准错误并继续兼容探测，故可能
+表现为静默的恢复失败。灰度适配器路径会把该失败记录为 `missing_session_environment`；旧
+兼容路径仍保持历史的静默降级行为。由引擎传递会话环境可保持适配器 POSIX、无状态且与 X11
+会话边界一致。
+
+### 诊断与日志
+
+当前实现与目标适配器接口的诊断行为必须区分：
+
+- 当前 `try_internal_restore()`（`.local/bin/xdisplay.sh`）只执行
+  `XDISPLAY_RESTORE_COMMAND`，并将其标准输出和标准错误重定向到 `/dev/null`，同时忽略
+  `timeout` 的退出码。灰度适配器调用由 `run_adapter()` 捕获并记录；旧兼容命令仍保持历史
+  的丢弃行为。当前没有 `XDISPLAY_DEBUG`、`--verbose` 或 `--debug` 入口。
+- 当前 `xdisplay.sh` 没有全局 `exec 2>>...` 重定向。`--status` 输出
+  RandR 快照、健康状态、锁路径、generation 和 legacy 配置可用性，但不包含适配器 stderr、
+  适配器退出码或恢复诊断；灰度开启时，输出的 `target_mode`/`target_rate` 会反映已验证的
+  `expected-mode`。
+
+灰度适配器路径中，统一由引擎捕获每个子进程的 stderr，并追加到用户私有日志：
+`~/.local/share/x11/xdisplay-adapter.log`（若设置了 `XDG_STATE_HOME`，实际路径为
+`$XDG_STATE_HOME/x11/xdisplay-adapter.log`）。每条记录至少包含 ISO-8601 时间戳、
+子命令名、输出名（如有）、退出码，以及 `timeout`/格式校验结果。建议级别为 `INFO`、`WARN`、
+`ERROR`；正常空 stderr 不产生额外噪声。日志写入失败不得阻塞布局流程，且不得改变子命令返回码。
+
+后续可提供受控调试开关（推荐 `XDISPLAY_DEBUG=1`，或等价的显式调试选项），仅在开启时
+记录调用参数、解析决策和 RandR 重读摘要；默认级别不记录高频轮询细节。日志必须设置用户私有
+权限（`umask 077`，文件不应可被其他用户读取），并采用有界大小和轮转/截断策略，避免 watcher
+长期运行导致无限增长。当前灰度路径使用 1 MiB 上限和 `.1` 单次轮转；日志写入失败不阻塞布局。
+
+适配器 stderr 只能包含非敏感、可操作的摘要，例如“`PANEL-1: expected mode 1920x1080 not
+present`”。禁止输出用户名、主机名、序列号、完整 EDID/`xrandr --prop` 原始内容、授权文件
+路径或环境变量值；需要诊断 EDID 时只输出经过验证的非敏感字段（如分辨率和刷新率）。引擎
+不应假定适配器已经脱敏，必要时应在写日志前进行长度限制和敏感字段过滤。
+
+目标契约包含 `internal-outputs`、`restore-internal` 两个基础子命令，以及可选的
+`expected-mode` 查询。适配器应使用 POSIX Shell，保持快速、确定且可重复执行。灰度开启后，
+`xdisplay.sh` 会按以下规范调用并验证三个子命令。
 
 ### `internal-outputs`
 
@@ -40,9 +93,10 @@
 - 此命令只能报告身份，不能调用 `xrandr` 修改状态。
 - 没有额外候选时输出为空并返回 `0`；参数或适配器配置错误时返回非零。
 
-通用引擎把该子命令作为独立进程执行，使用带 kill-after 的 timeout；不会 `source` 或 `eval`
-适配器。引擎会拒绝包含空白或控制字符的值，只保留当前 RandR 快照中确实存在的单个输出名，
-并对重复候选去重。因此适配器不得依赖修改父进程变量或工作目录。
+引擎把该子命令作为独立进程执行，使用 `timeout 2 --kill-after=1`；不会 `source` 或 `eval`
+适配器。引擎拒绝包含空白或控制字符的值，只保留
+当前 RandR 快照中确实存在的单个输出名，并对重复候选去重。因此适配器不得依赖修改父进程变量或
+工作目录。
 
 输出名必须来自目标会话当前的 `xrandr --query`，大小写和连字符完全一致。不要因为 DRM connector 名
 相似就直接假定 RandR 名称相同。
@@ -52,6 +106,31 @@
 `--status` 中报告。若设备确有多个同时工作的内置面板，需要先扩展通用契约，不能在适配器中
 偷偷关闭其中一个。
 
+### `expected-mode OUTPUT`（可选）
+
+```sh
+~/.config/x11/xdisplay-device.local expected-mode OUTPUT
+```
+
+- `OUTPUT` 必须是引擎已经确认的已连接内屏候选。该查询只声明设备预期模式，不得调用 `xrandr`
+  修改状态。
+- 成功时标准输出必须恰好包含一个非空行，格式只能是 `WIDTHxHEIGHT` 或
+  `WIDTHxHEIGHT@RATE`。宽高必须是非零十进制整数；刷新率必须是正十进制数，不带 `Hz`、空格、
+  注释或其他字段。例如 `1920x1080`、`1920x1080@60`、`1920x1080@59.94` 均合法。
+- 返回 `0` 表示已经输出格式有效的预期模式。没有设备特定预期、未实现此子命令或查询失败时返回
+  非零；适配器可将简短原因写入标准错误。返回 `0` 但输出为空、多行或格式非法视为适配器错误。
+- 引擎以有界 timeout 独立执行查询。适配器缺失、不支持该子命令、超时、返回非零或输出非法时，
+  引擎记录诊断并直接降级到现有 RandR preferred/模式表首项策略，不阻塞布局流程，也不关闭输出。
+- 如果预期模式已存在于当前模式表中，引擎把它作为该内屏的有效目标并直接按现有布局流程启用；
+  指定刷新率时还必须在该模式的刷新率列表中匹配。预期目标优先于错误的 RandR preferred。
+- 如果预期模式不存在，引擎最多调用一次 `restore-internal OUTPUT`，随后用 `--query` 重新读取 RandR。
+  恢复后模式存在时将其作为有效目标；仍不存在但模式表中有其他可用模式时，记录恢复未收敛并
+  降级到 RandR preferred/首项，以保留可见输出。若模式表仍为空，则保持内屏未激活，交给现有
+  pending 和有界重试流程处理。
+
+不实现该可选查询的适配器可以直接对 `expected-mode` 返回非零。引擎不得从面板物理尺寸推断像素
+分辨率，也不得把查询失败解释为应禁用该输出。
+
 ### `restore-internal OUTPUT`
 
 ```sh
@@ -59,17 +138,68 @@
 ```
 
 - `OUTPUT` 是通用引擎已经判定为内屏候选的 RandR 输出名。
-- 引擎只在该输出当前为 `connected`、未激活且没有可用模式时调用恢复，不会为 disconnected
-  输出调用适配器。
+- 兼容路径只在该输出为 `connected`、未激活且模式表为空（`mode_ready=0`）时执行
+  `timeout 2 "$restore_command" "$output"`。GNU `timeout` 的默认超时信号为 `TERM`；兼容调用
+  没有 `--kill-after`，也没有显式的强制 `SIGKILL` 阶段，标准输出、标准错误和超时退出码仍会被
+  `try_internal_restore()` 丢弃/忽略。灰度适配器路径使用 `timeout 2 --kill-after=1`，并在日志中
+  记录 stderr、退出码和超时。两条路径都不会为 disconnected 输出调用恢复。
+- 灰度启用且 `expected-mode` 返回有效值时，预期模式缺失是第二个恢复触发条件，即使模式表非空
+  也最多调用一次 `restore-internal`；查询失败/未实现时清除 adapter target，降级到 RandR
+  preferred/首项策略。恢复成功后重新读取 RandR 并验证；仍缺失但存在其他模式时继续使用
+  preferred/首项；若适配器恢复返回失败，引擎随后按既有兼容顺序尝试
+  `XDISPLAY_RESTORE_COMMAND` 钩子，再按同一规则降级或交给 pending 和有界重试流程。
+- 上述目标模式校验不等同于面板原生模式校验。灰度路径会读取适配器可选的
+  `expected-mode OUTPUT`；适配器不实现该查询、返回非零或输出非法时，当前引擎不解析
+  `xrandr --prop` 的 EDID，而是将 RandR preferred/首项作为兼容目标。如果驱动只暴露了错误的
+  低分辨率/低刷新率，或把它标成 preferred，且适配器没有声明 expected mode，引擎会将其视为
+  可用目标，不会调用恢复。不得仅凭物理尺寸推断像素分辨率。
 - 该命令最多做一次有界恢复，例如为这个输出执行必要的 `xrandr --newmode`、`--addmode`，
-  或调用一次驱动提供的恢复命令。
-- 命令不得自行休眠、轮询或重试。通用引擎在共享布局锁内通过 timeout + kill-after 限制本次
-  调用，并在重新读取 RandR 后决定是否按退避计划重试。
+  或调用一次驱动提供的恢复命令。恢复操作必须幂等：相同的
+  `restore-internal OUTPUT` 重复执行时，不得重复创建同名 Modeline、重复关联已有模式，
+  也不得改变已经收敛的输出布局。适配器在 `--newmode` 前必须检查全局模式表中是否已有
+  完全相同的模式名，在 `--addmode` 前必须检查该输出是否已经关联该模式；已存在时跳过
+  对应操作。检查和修改之间的竞态仍应把“已存在”视为成功，而不是把该结果当作恢复失败。
+- 适配器不得用 `|| :` 或 `|| true` 掩盖关键恢复失败。对“已存在”这类幂等结果可以显式
+  转换为成功；其他 `xrandr`/驱动错误应返回非零并写入简短诊断。引擎不会替适配器删除
+  未使用的 Modeline，也不记录这些 Modeline 的所有权，因此模式生命周期由适配器负责。
+- 目标适配器命令不得自行休眠、轮询或重试。当前兼容恢复命令在共享布局锁内只受 `timeout 2` 限制；
+  灰度适配器调用固定使用 `timeout 2 --kill-after=1`，并在重新读取 RandR 后由 watcher 调度重试。
 - 返回 `0` 仅表示本次尝试已正常结束，不表示模式一定恢复；最终成功只能由引擎重新探测和验证。
 - 不适用于该 `OUTPUT` 时应直接返回 `0`；执行失败时返回非零并将简短原因写入标准错误。
 
 适配器不能执行布局操作。尤其不得在这里设置 `--primary`、`--off`、`--right-of`、`--left-of`、
 `--same-as` 或 `--fb`。模式恢复之后的启用、定位和 framebuffer 收敛仍由通用引擎完成。
+
+实现 `expected-mode` 不能只扩大 `try_internal_restore()` 的调用条件。引擎还必须让目标模式选择、
+`xrandr --mode/--rate` 参数构造和 `output_at_target_mode()` 最终验证共同使用同一个有效预期目标；
+否则恢复脚本即使成功添加模式，现有 preferred/首项逻辑仍可能再次选择错误模式。不要改变
+`internal-outputs` 的逐行输出名格式。直接解析 EDID 可作为后续通用能力，但 EDID 瞬态失败正是本
+故障的一种来源，不能作为唯一依据。
+
+### 当前 watcher 的超时、重试与退避
+
+以下是现行 `xdisplay.sh --watch` 的实际参数，不是适配器目标接口的示例值：
+
+| 项目 | 当前实现 | 作用 |
+| --- | --- | --- |
+| 兼容恢复单次超时 | `timeout 2`（2 秒） | `XDISPLAY_RESTORE_COMMAND` 单次调用；默认发送 `TERM` |
+| `--kill-after` | 未设置 | 超时后没有显式强制 `SIGKILL` 阶段 |
+| 同一状态失败上限 | `APPLY_FAILURE_LIMIT=3` | 对未变化的 topology + lid + health 状态最多连续 3 次布局写入 |
+| 失败冷却 | `APPLY_RETRY_TICKS=10` × 0.5 秒，约 5 秒 | 每次失败后等待；不是指数退避 |
+| 达到失败上限后 | 普通布局尝试暂停 | 拓扑、模式能力、lid 或 health 变化会重置计数并立即允许新尝试 |
+| 低频主动探测 | `HARDWARE_PROBE_TICKS=120` × 0.5 秒，约 60 秒 | 状态不变时以 `xrandr --query` 重新探测；查询轮次允许再次尝试 |
+| pending 能力探测 | `PENDING_PROBE_TICKS=10` × 0.5 秒，约 5 秒 | 仅已有成功布局且保留 pending 输出时触发主动查询 |
+| RandR 快照失败上限 | `SNAPSHOT_FAILURE_LIMIT=6` | 连续 6 次快照失败后 watcher 退出，不是适配器重试次数 |
+
+watcher 主循环每 0.5 秒运行，稳定时约每 1 秒读取 `--current`；事件或能力变化会进入快速查询窗口。
+恢复命令在 `apply.lock` 内执行；只读的 `internal-outputs` 和 `expected-mode` 在快照读取阶段执行，
+不修改布局。灰度路径对稳定快照缓存适配器查询，拓扑、模式签名或适配器文件变化时重新查询；单次
+查询使用 `timeout 2 --kill-after=1` 且适配器不得自行重试。`restore-internal` 只在布局锁内执行，
+其重试继续由同一状态级 watcher 调度，而不是在适配器内部等待。
+
+恢复失败期间，引擎不会主动关闭已有外屏。合盖路径先激活并验证外屏，再关闭内屏；开盖扩展路径
+若内屏恢复/布局失败，会在失败返回前保留已有输出状态。达到失败上限后，内屏保持当前未激活或
+驱动已有状态，watcher 等待状态变化或低频主动探测，不会提交破坏性布局。
 
 ## 新设备探测步骤
 
@@ -80,7 +210,8 @@
    适配器接口值。必要时结合 Xorg 日志确认 DRM 与 RandR 的映射。
 5. 如果内屏只是名称不符合标准前缀，仅实现 `internal-outputs`；不要添加模式恢复逻辑。
 6. 只有开盖后内屏为 `connected` 却长期没有可用模式，且一次明确的驱动或 RandR 操作能够恢复时，
-   才实现 `restore-internal`。
+   才实现 `restore-internal`。若设备还会暴露错误的非原生模式，应同时实现 `expected-mode`，不要把
+   设备分辨率硬编码进通用引擎。
 7. 使用 `cvt` 或驱动资料生成 modeline 时，必须核对面板原生分辨率、刷新率和像素时钟；不得从另一台
    设备复制数值。先在当前 X11 会话中手动验证，再写入适配器。
 
@@ -99,14 +230,41 @@ internal_outputs() {
 	printf '%s\n' 'PANEL-1'
 }
 
+expected_mode() {
+	output=$1
+
+	case "$output" in
+		PANEL-1)
+			# 取得并验证真实设备参数后才输出，例如：
+			# printf '%s\n' '1920x1080@60'
+			return 1
+			;;
+	esac
+	return 1
+}
+
 restore_internal() {
 	output=$1
 
 	case "$output" in
 		PANEL-1)
-			# 仅在确有需要时，在此执行一次已验证的模式恢复操作。
-			# xrandr --newmode "PANEL-NATIVE" ... || :
-			# xrandr --addmode "$output" "PANEL-NATIVE"
+			# 仅在确有需要时执行一次已验证的模式恢复操作。每个修改动作
+			# 先查询当前状态，使重复调用不会创建或关联重复模式。
+			mode='PANEL-NATIVE'
+			if ! xrandr 2>/dev/null | awk -v mode="$mode" \
+				'$1 == mode { found = 1 } END { exit !found }'; then
+				xrandr --newmode "$mode" ... || return 1
+			fi
+			if ! xrandr --query 2>/dev/null | awk -v output="$output" -v mode="$mode" '
+				/^[^[:space:]]/ {
+					in_output = ($1 == output && $2 ~ /^(connected|disconnected)$/)
+					next
+				}
+				in_output && $1 == mode { found = 1 }
+				END { exit !found }
+			'; then
+				xrandr --addmode "$output" "$mode" || return 1
+			fi
 			;;
 	esac
 }
@@ -116,12 +274,16 @@ case ${1-} in
 		[ "$#" -eq 1 ] || exit 64
 		internal_outputs
 		;;
+	expected-mode)
+		[ "$#" -eq 2 ] || exit 64
+		expected_mode "$2"
+		;;
 	restore-internal)
 		[ "$#" -eq 2 ] || exit 64
 		restore_internal "$2"
 		;;
 	*)
-		printf '用法: %s {internal-outputs|restore-internal OUTPUT}\n' "$0" >&2
+		printf '用法: %s {internal-outputs|expected-mode OUTPUT|restore-internal OUTPUT}\n' "$0" >&2
 		exit 64
 		;;
 esac
@@ -132,6 +294,7 @@ esac
 ```sh
 chmod 700 ~/.config/x11/xdisplay-device.local
 ~/.config/x11/xdisplay-device.local internal-outputs
+~/.config/x11/xdisplay-device.local expected-mode PANEL-1
 ~/.config/x11/xdisplay-device.local restore-internal PANEL-1
 ```
 
