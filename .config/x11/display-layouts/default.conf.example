@@ -1,0 +1,5 @@
+# Optional default layout policy. Missing keys use built-in defaults.
+[defaults]
+external_position = right
+external_primary = first
+mirror_on_duplicate = false

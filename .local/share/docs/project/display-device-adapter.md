@@ -48,16 +48,35 @@
 external=...` 摘要，便于观察当前状态。状态映射到布局时，`DUAL_EXTEND` 和 `MULTI_EXTEND`
 （开盖）以及 `EXTERNAL_ONLY` 和 `MULTI_EXTERNAL`（合盖）使用 `apply_extend_layout()` 的扩展链；
 其余状态继续使用现有的 single/legacy 路径。扩展链按当前 RandR 快照的接口顺序排序，内屏或合盖
-时的第一块外屏位于原点，后续外屏默认依次使用 `--right-of` 锚定前一块输出。布局方向参数已预留
-`right`、`left`、`above`、`below`，当前生产调用固定为 `right`。`--status` 另外输出
-`layout=extend_chain` 或 `layout=legacy`。
+时的第一块外屏位于原点，后续外屏依次相对前一块输出定位。方向由可选布局配置中的
+`external_position` 决定，允许 `right`、`left`、`above`、`below`，缺失或非法时默认为 `right`。
+对应的 RandR 关系参数分别为 `--right-of`、`--left-of`、`--above` 和 `--below`。
+`--status` 另外输出 `layout=extend_chain` 或 `layout=legacy`。
+
+### 配置系统
+
+引擎参数和布局策略是两个可选的 POSIX-INI 子集配置文件：
+
+- `~/.config/x11/display-engine.conf` 的 `[engine]` 区段支持
+  `timeout_seconds=2`、`kill_after_seconds=1`、`apply_failure_limit=3`、
+  `apply_retry_ticks=10`、`hardware_probe_ticks=120`、`pending_probe_ticks=10`、
+  `log_max_bytes=1048576` 和 `log_path=~/.local/share/x11/xdisplay-adapter.log`。
+- `~/.config/x11/display-layouts/default.conf` 的 `[defaults]` 区段支持
+  `external_position=right`、`external_primary=first|largest|manual` 和
+  `mirror_on_duplicate=false`。`manual` 与 `mirror_on_duplicate` 当前仅保存为策略占位，
+  不改变镜像或手动主屏逻辑；`largest` 按当前快照中的模式面积选择合盖主屏。
+- 两个文件均可缺失；缺少文件、缺少单项或空值时静默保留对应内置默认值。非法值、未知区段
+  或未知键会向标准错误写一条简短诊断，并只让对应项保留内置默认值，不阻塞启动。
+- 解析在正常命令分派后执行，因此 `--help` 不加载配置，也不产生文件或日志副作用。`--status`
+  增加一行 `config: timeout=... kill-after=... position=... limit=... retry=... probe=...
+  pending=... log=... log_max=...` 摘要。配置仍在 `XDISPLAY_USE_ADAPTER=0` 时加载，但不会启用适配器。
 
 ### 执行环境约定
 
 `xdisplay.sh` 默认不接入 `xdisplay-device.local`。设置 `XDISPLAY_USE_ADAPTER=1` 后，
 引擎通过 `run_adapter()` 调用适配器；未启用或适配器不可执行时立即回到兼容路径。旧的
-`XDISPLAY_RESTORE_COMMAND` 仍由 `try_internal_restore()` 通过 `timeout 2
-"$restore_command" "$output"` 启动，未构造独立的 `envp`，因此旧子进程继承 `xdisplay.sh`
+`XDISPLAY_RESTORE_COMMAND` 仍由 `try_internal_restore()` 通过配置的
+`timeout "$ADAPTER_TIMEOUT" "$restore_command" "$output"` 启动（默认超时 2 秒），未构造独立的 `envp`，因此旧子进程继承 `xdisplay.sh`
 的完整环境。
 
 在本机标准 X11 会话中，`xdisplay.sh --watch` 由 `.config/x11/xprofile` 后台启动：
@@ -137,7 +156,8 @@ present`”。禁止输出用户名、主机名、序列号、完整 EDID/`xrand
 - 此命令只能报告身份，不能调用 `xrandr` 修改状态。
 - 没有额外候选时输出为空并返回 `0`；参数或适配器配置错误时返回非零。
 
-引擎把该子命令作为独立进程执行，使用 `timeout 2 --kill-after=1`；不会 `source` 或 `eval`
+引擎把该子命令作为独立进程执行，使用配置的 `timeout_seconds` 和 `kill_after_seconds`（默认
+`timeout 2 --kill-after=1`）；不会 `source` 或 `eval`
 适配器。引擎拒绝包含空白或控制字符的值，只保留
 当前 RandR 快照中确实存在的单个输出名，并对重复候选去重。因此适配器不得依赖修改父进程变量或
 工作目录。
@@ -185,9 +205,9 @@ present`”。禁止输出用户名、主机名、序列号、完整 EDID/`xrand
 
 - `OUTPUT` 是通用引擎已经判定为内屏候选的 RandR 输出名。
 - 兼容路径只在该输出为 `connected`、未激活且模式表为空（`mode_ready=0`）时执行
-  `timeout 2 "$restore_command" "$output"`。GNU `timeout` 的默认超时信号为 `TERM`；兼容调用
+  `timeout "$ADAPTER_TIMEOUT" "$restore_command" "$output"`（默认超时 2 秒）。GNU `timeout` 的默认超时信号为 `TERM`；兼容调用
   没有 `--kill-after`，也没有显式的强制 `SIGKILL` 阶段，标准输出、标准错误和超时退出码仍会被
-  `try_internal_restore()` 丢弃/忽略。灰度适配器路径使用 `timeout 2 --kill-after=1`，并在日志中
+  `try_internal_restore()` 丢弃/忽略。灰度适配器路径使用配置的 `timeout_seconds`/`kill_after_seconds`（默认 `2/1`），并在日志中
   记录 stderr、退出码和超时。两条路径都不会为 disconnected 输出调用恢复。
 - 灰度启用且 `expected-mode` 返回有效值时，预期模式缺失是第二个恢复触发条件，即使模式表非空
   也最多调用一次 `restore-internal`；查询失败/未实现时清除 adapter target，降级到 RandR
@@ -215,8 +235,9 @@ present`”。禁止输出用户名、主机名、序列号、完整 EDID/`xrand
 - 适配器不得用 `|| :` 或 `|| true` 掩盖关键恢复失败。对“已存在”这类幂等结果可以显式
   转换为成功；其他 `xrandr`/驱动错误应返回非零并写入简短诊断。引擎不会替适配器删除
   未使用的 Modeline，也不记录这些 Modeline 的所有权，因此模式生命周期由适配器负责。
-- 目标适配器命令不得自行休眠、轮询或重试。当前兼容恢复命令在共享布局锁内只受 `timeout 2` 限制；
-  灰度适配器调用固定使用 `timeout 2 --kill-after=1`，并在重新读取 RandR 后由 watcher 调度重试。
+- 目标适配器命令不得自行休眠、轮询或重试。当前兼容恢复命令在共享布局锁内使用配置的
+  `timeout_seconds`（默认 `timeout 2`）；灰度适配器调用使用配置的 `timeout_seconds` 和
+  `kill_after_seconds`（默认 `timeout 2 --kill-after=1`），并在重新读取 RandR 后由 watcher 调度重试。
 - 返回 `0` 仅表示本次尝试已正常结束，不表示模式一定恢复；最终成功只能由引擎重新探测和验证。
 - 不适用于该 `OUTPUT` 时应直接返回 `0`；执行失败时返回非零并将简短原因写入标准错误。
 
@@ -235,19 +256,19 @@ present`”。禁止输出用户名、主机名、序列号、完整 EDID/`xrand
 
 | 项目 | 当前实现 | 作用 |
 | --- | --- | --- |
-| 兼容恢复单次超时 | `timeout 2`（2 秒） | `XDISPLAY_RESTORE_COMMAND` 单次调用；默认发送 `TERM` |
-| `--kill-after` | 未设置 | 超时后没有显式强制 `SIGKILL` 阶段 |
-| 同一状态失败上限 | `APPLY_FAILURE_LIMIT=3` | 对未变化的 topology + lid + health 状态最多连续 3 次布局写入 |
-| 失败冷却 | `APPLY_RETRY_TICKS=10` × 0.5 秒，约 5 秒 | 每次失败后等待；不是指数退避 |
+| 兼容恢复单次超时 | `timeout_seconds`（默认 2 秒） | `XDISPLAY_RESTORE_COMMAND` 单次调用；默认发送 `TERM` |
+| 适配器 `--kill-after` | `kill_after_seconds`（默认 1 秒） | 适配器超时后进入显式强制阶段 |
+| 同一状态失败上限 | `apply_failure_limit`（默认 3） | 对未变化的 topology + lid + health 状态最多连续 3 次布局写入 |
+| 失败冷却 | `apply_retry_ticks`（默认 10）× 0.5 秒，约 5 秒 | 每次失败后等待；不是指数退避 |
 | 达到失败上限后 | 普通布局尝试暂停 | 拓扑、模式能力、lid 或 health 变化会重置计数并立即允许新尝试 |
-| 低频主动探测 | `HARDWARE_PROBE_TICKS=120` × 0.5 秒，约 60 秒 | 状态不变时以 `xrandr --query` 重新探测；查询轮次允许再次尝试 |
-| pending 能力探测 | `PENDING_PROBE_TICKS=10` × 0.5 秒，约 5 秒 | 仅已有成功布局且保留 pending 输出时触发主动查询 |
+| 低频主动探测 | `hardware_probe_ticks`（默认 120）× 0.5 秒，约 60 秒 | 状态不变时以 `xrandr --query` 重新探测；查询轮次允许再次尝试 |
+| pending 能力探测 | `pending_probe_ticks`（默认 10）× 0.5 秒，约 5 秒 | 仅已有成功布局且保留 pending 输出时触发主动查询 |
 | RandR 快照失败上限 | `SNAPSHOT_FAILURE_LIMIT=6` | 连续 6 次快照失败后 watcher 退出，不是适配器重试次数 |
 
 watcher 主循环每 0.5 秒运行，稳定时约每 1 秒读取 `--current`；事件或能力变化会进入快速查询窗口。
 恢复命令在 `apply.lock` 内执行；只读的 `internal-outputs` 和 `expected-mode` 在快照读取阶段执行，
 不修改布局。灰度路径对稳定快照缓存适配器查询，拓扑、模式签名或适配器文件变化时重新查询；单次
-查询使用 `timeout 2 --kill-after=1` 且适配器不得自行重试。`restore-internal` 只在布局锁内执行，
+查询使用配置的 `timeout_seconds`/`kill_after_seconds`（默认 `2/1`）且适配器不得自行重试。`restore-internal` 只在布局锁内执行，
 其重试继续由同一状态级 watcher 调度，而不是在适配器内部等待。
 
 灰度路径在同一个稳定快照周期内缓存 `internal-outputs` 和 `expected-mode` 的查询结果，避免同一

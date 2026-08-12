@@ -1,0 +1,10 @@
+# Optional xdisplay.sh engine parameters. Missing keys use built-in defaults.
+[engine]
+timeout_seconds = 2
+kill_after_seconds = 1
+apply_failure_limit = 3
+apply_retry_ticks = 10
+hardware_probe_ticks = 120
+pending_probe_ticks = 10
+log_max_bytes = 1048576
+log_path = ~/.local/share/x11/xdisplay-adapter.log

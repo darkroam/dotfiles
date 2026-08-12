@@ -44,8 +44,125 @@ pass 'state MULTI_EXTERNAL: closed with multiple external outputs'
 pass 'state NONE: no available outputs'
 
 layout_test() {
-    XDISPLAY_LAYOUT_TEST=1 "$xdisplay" "$1" "$2" "$3"
+    XDISPLAY_LAYOUT_TEST=1 "$xdisplay" "$1" "$2" "$3" "${4:-}"
 }
+
+setup_case() {
+    name=$1
+    case_dir=$test_root/$name
+    home=$case_dir/home
+    runtime=$case_dir/runtime
+    calls=$case_dir/xrandr.calls
+    mutations=$case_dir/xrandr.mutations
+    adapter_calls=$case_dir/adapter.calls
+    adapter_env=$case_dir/adapter.env
+    legacy_calls=$case_dir/legacy.calls
+    mkdir -p "$home/.config/x11" "$runtime" "$case_dir/test-root/proc" \
+        "$case_dir/test-root/sys/class/drm"
+    chmod 700 "$runtime"
+    : > "$calls"
+    : > "$mutations"
+    : > "$adapter_calls"
+    : > "$adapter_env"
+    : > "$legacy_calls"
+}
+
+config_test() {
+    XDISPLAY_CONFIG_TEST=1 HOME="$home" \
+        XDISPLAY_ENGINE_CONFIG="$engine_config" \
+        XDISPLAY_LAYOUT_CONFIG="$layout_config" "$xdisplay"
+}
+
+setup_case config-defaults
+engine_config=$home/.config/x11/display-engine.conf
+layout_config=$home/.config/x11/display-layouts/default.conf
+defaults=$(config_test)
+assert_contains "$defaults" 'timeout=2'
+assert_contains "$defaults" 'kill-after=1'
+assert_contains "$defaults" 'external-position=right'
+pass 'missing configuration uses built-in defaults'
+
+setup_case config-valid
+engine_config=$home/.config/x11/display-engine.conf
+layout_config=$home/.config/x11/display-layouts/default.conf
+mkdir -p "$(dirname "$layout_config")"
+cat > "$engine_config" <<'CONF'
+[engine]
+timeout_seconds = 7
+kill_after_seconds = 4
+apply_failure_limit = 8
+apply_retry_ticks = 12
+hardware_probe_ticks = 30
+pending_probe_ticks = 5
+log_max_bytes = 2048
+log_path = ~/.cache/xdisplay/test.log
+CONF
+cat > "$layout_config" <<'CONF'
+[defaults]
+external_position = above
+external_primary = largest
+mirror_on_duplicate = true
+CONF
+valid=$(config_test)
+assert_contains "$valid" 'timeout=7'
+assert_contains "$valid" 'kill-after=4'
+assert_contains "$valid" 'apply-failure-limit=8'
+assert_contains "$valid" 'log-path='
+assert_contains "$valid" '/.cache/xdisplay/test.log'
+assert_contains "$valid" 'external-position=above'
+assert_contains "$valid" 'external-primary=largest'
+assert_contains "$valid" 'mirror-on-duplicate=true'
+pass 'valid engine and layout configuration loads'
+
+setup_case config-missing-key
+engine_config=$home/.config/x11/display-engine.conf
+layout_config=$home/.config/x11/display-layouts/default.conf
+cat > "$engine_config" <<'CONF'
+[engine]
+timeout_seconds = 9
+CONF
+mkdir -p "$(dirname "$layout_config")"
+: > "$layout_config"
+partial=$(config_test)
+assert_contains "$partial" 'timeout=9'
+assert_contains "$partial" 'kill-after=1'
+assert_contains "$partial" 'log-max-bytes=1048576'
+pass 'missing configuration keys retain individual defaults'
+
+setup_case config-invalid
+engine_config=$home/.config/x11/display-engine.conf
+layout_config=$home/.config/x11/display-layouts/default.conf
+cat > "$engine_config" <<'CONF'
+[engine]
+timeout_seconds = 2s
+log_max_bytes = nope
+CONF
+mkdir -p "$(dirname "$layout_config")"
+cat > "$layout_config" <<'CONF'
+[defaults]
+external_position = diagonal
+CONF
+invalid=$(config_test 2>"$case_dir/config.err")
+assert_contains "$invalid" 'timeout=2'
+assert_contains "$invalid" 'log-max-bytes=1048576'
+assert_contains "$invalid" 'external-position=right'
+assert_contains "$(cat "$case_dir/config.err")" 'invalid value'
+pass 'invalid configuration reports diagnostics and falls back'
+
+setup_case config-above-layout
+engine_config=$home/.config/x11/display-engine.conf
+layout_config=$home/.config/x11/display-layouts/default.conf
+mkdir -p "$(dirname "$layout_config")"
+cat > "$layout_config" <<'CONF'
+[defaults]
+external_position = above
+CONF
+above=$(XDISPLAY_CONFIG_TEST=0 XDISPLAY_LAYOUT_TEST=1 HOME="$home" \
+    XDISPLAY_LAYOUT_CONFIG="$layout_config" "$xdisplay" open eDP-1 'HDMI-1 DP-1')
+assert_contains "$above" 'direction=above'
+assert_contains "$above" 'relation=--above anchor=eDP-1'
+assert_contains "$above" 'relation=--above anchor=HDMI-1'
+pass 'external_position=above uses --above chain relations'
 
 layout=$(layout_test open eDP-1 'HDMI-1 DP-1')
 assert_contains "$layout" 'state=MULTI_EXTEND'
@@ -70,26 +187,6 @@ layout=$(layout_test closed '' 'HDMI-1 DP-1 DP-2')
 assert_contains "$layout" 'state=MULTI_EXTERNAL'
 assert_contains "$layout" 'output=DP-2 relation=--right-of anchor=DP-1'
 pass 'closed with three externals extends the chain'
-
-setup_case() {
-    name=$1
-    case_dir=$test_root/$name
-    home=$case_dir/home
-    runtime=$case_dir/runtime
-    calls=$case_dir/xrandr.calls
-    mutations=$case_dir/xrandr.mutations
-    adapter_calls=$case_dir/adapter.calls
-    adapter_env=$case_dir/adapter.env
-    legacy_calls=$case_dir/legacy.calls
-    mkdir -p "$home/.config/x11" "$runtime" "$case_dir/test-root/proc" \
-        "$case_dir/test-root/sys/class/drm"
-    chmod 700 "$runtime"
-    : > "$calls"
-    : > "$mutations"
-    : > "$adapter_calls"
-    : > "$adapter_env"
-    : > "$legacy_calls"
-}
 
 write_adapter() {
     cat > "$home/.config/x11/xdisplay-device.local" <<'ADAPTER'

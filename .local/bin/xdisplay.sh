@@ -7,14 +7,29 @@
 
 FAST_WINDOW_CHECKS=10
 FAST_QUERY_INTERVAL=2
-PENDING_PROBE_TICKS=10
-HARDWARE_PROBE_TICKS=120
 STABLE_POLL_TICKS=1
 SNAPSHOT_FAILURE_LIMIT=6
-# Bound layout mutations per unchanged topology/health state. Hardware queries
-# continue at the normal low-frequency interval after this limit is reached.
-APPLY_FAILURE_LIMIT=3
-APPLY_RETRY_TICKS=10
+# Built-in defaults are intentionally kept next to the configuration schema.
+# A missing or invalid optional configuration file must preserve these values.
+CONFIG_TIMEOUT_SECONDS=2
+CONFIG_KILL_AFTER_SECONDS=1
+CONFIG_APPLY_FAILURE_LIMIT=3
+CONFIG_APPLY_RETRY_TICKS=10
+CONFIG_HARDWARE_PROBE_TICKS=120
+CONFIG_PENDING_PROBE_TICKS=10
+CONFIG_LOG_MAX_BYTES=1048576
+CONFIG_LOG_PATH=${HOME}/.local/share/x11/xdisplay-adapter.log
+CONFIG_EXTERNAL_POSITION=right
+CONFIG_EXTERNAL_PRIMARY=first
+CONFIG_MIRROR_ON_DUPLICATE=false
+CONFIG_LAYOUT_FILE_PRESENT=0
+CONFIG_PARSE_ERROR=0
+
+# Runtime aliases retained for the existing watcher and adapter code.
+PENDING_PROBE_TICKS=$CONFIG_PENDING_PROBE_TICKS
+HARDWARE_PROBE_TICKS=$CONFIG_HARDWARE_PROBE_TICKS
+APPLY_FAILURE_LIMIT=$CONFIG_APPLY_FAILURE_LIMIT
+APPLY_RETRY_TICKS=$CONFIG_APPLY_RETRY_TICKS
 # Device-local adapter support is opt-in. The legacy environment variables
 # remain the default compatibility path when this gate is disabled.
 XDISPLAY_USE_ADAPTER=${XDISPLAY_USE_ADAPTER:-0}
@@ -23,10 +38,10 @@ case "$XDISPLAY_USE_ADAPTER" in
     *) XDISPLAY_USE_ADAPTER=0 ;;
 esac
 ADAPTER_PATH=${HOME}/.config/x11/xdisplay-device.local
-ADAPTER_LOG=${XDG_STATE_HOME:-$HOME/.local/share}/x11/xdisplay-adapter.log
-ADAPTER_TIMEOUT=2
-ADAPTER_KILLAFTER=1
-ADAPTER_LOG_MAX_BYTES=1048576
+ADAPTER_LOG=$CONFIG_LOG_PATH
+ADAPTER_TIMEOUT=$CONFIG_TIMEOUT_SECONDS
+ADAPTER_KILLAFTER=$CONFIG_KILL_AFTER_SECONDS
+ADAPTER_LOG_MAX_BYTES=$CONFIG_LOG_MAX_BYTES
 # A stable watcher attempts a snapshot once per second. This wait therefore
 # outlasts the old watcher's consecutive-failure exit window.
 WATCH_LOCK_WAIT=8
@@ -86,6 +101,222 @@ path_uid() {
 
 path_mode() {
     stat -c %a "$1" 2>/dev/null
+}
+
+config_diagnostic() {
+    CONFIG_PARSE_ERROR=1
+    printf 'xdisplay.sh: config %s\n' "$1" >&2
+}
+
+config_is_integer() {
+    case "$1" in
+        ''|*[!0-9]*) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+config_is_positive_integer() {
+    config_is_integer "$1" && [ "$1" -gt 0 ]
+}
+
+config_is_position() {
+    case "$1" in
+        right|left|above|below) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+config_is_primary_rule() {
+    case "$1" in
+        first|largest|manual) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+config_is_boolean() {
+    case "$1" in
+        true|false|0|1) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Emit section|key|value records from a small INI subset. Comments and blank
+# lines are ignored; malformed records are reported to the caller as errors.
+parse_config_records() {
+    awk '
+        function trim(value) {
+            sub(/^[[:space:]]+/, "", value)
+            sub(/[[:space:]]+$/, "", value)
+            return value
+        }
+        {
+            line = $0
+            sub(/[[:space:]]*#.*/, "", line)
+            line = trim(line)
+            if (line == "") next
+            if (line ~ /^\[[A-Za-z_][A-Za-z0-9_-]*\]$/) {
+                section = line
+                sub(/^\[/, "", section)
+                sub(/\]$/, "", section)
+                next
+            }
+            if (line !~ /^[A-Za-z_][A-Za-z0-9_-]*[[:space:]]*=/) {
+                printf "ERROR|%d|malformed line\n", NR
+                next
+            }
+            split(line, pair, "=")
+            key = trim(pair[1])
+            value = line
+            sub(/^[^=]*=/, "", value)
+            value = trim(value)
+            if (section == "")
+                printf "ERROR|%d|key outside section\n", NR
+            else
+                printf "%s|%s|%s\n", section, key, value
+        }
+    ' "$1"
+}
+
+expand_config_path() {
+    case "$1" in
+        \~/*) value=${1#\~/}; printf '%s/%s\n' "$HOME" "$value" ;;
+        *) printf '%s\n' "$1" ;;
+    esac
+}
+
+load_engine_config() {
+    CONFIG_TIMEOUT_SECONDS=2
+    CONFIG_KILL_AFTER_SECONDS=1
+    CONFIG_APPLY_FAILURE_LIMIT=3
+    CONFIG_APPLY_RETRY_TICKS=10
+    CONFIG_HARDWARE_PROBE_TICKS=120
+    CONFIG_PENDING_PROBE_TICKS=10
+    CONFIG_LOG_MAX_BYTES=1048576
+    CONFIG_LOG_PATH=${XDG_STATE_HOME:-$HOME/.local/share}/x11/xdisplay-adapter.log
+    CONFIG_PARSE_ERROR=0
+    engine_file=${XDISPLAY_ENGINE_CONFIG:-$HOME/.config/x11/display-engine.conf}
+    [ -r "$engine_file" ] || {
+        PENDING_PROBE_TICKS=$CONFIG_PENDING_PROBE_TICKS
+        HARDWARE_PROBE_TICKS=$CONFIG_HARDWARE_PROBE_TICKS
+        APPLY_FAILURE_LIMIT=$CONFIG_APPLY_FAILURE_LIMIT
+        APPLY_RETRY_TICKS=$CONFIG_APPLY_RETRY_TICKS
+        ADAPTER_TIMEOUT=$CONFIG_TIMEOUT_SECONDS
+        ADAPTER_KILLAFTER=$CONFIG_KILL_AFTER_SECONDS
+        ADAPTER_LOG_MAX_BYTES=$CONFIG_LOG_MAX_BYTES
+        ADAPTER_LOG=$CONFIG_LOG_PATH
+        return 0
+    }
+    records=$(parse_config_records "$engine_file")
+    while IFS='|' read -r section key value; do
+        [ -n "${section}${key}${value}" ] || continue
+        case "$section" in
+            ERROR) config_diagnostic "$engine_file:$key: $value"; continue ;;
+            engine) ;;
+            *) config_diagnostic "$engine_file: unknown section [$section]"; continue ;;
+        esac
+        case "$key" in
+            timeout_seconds)
+                if config_is_positive_integer "$value"; then CONFIG_TIMEOUT_SECONDS=$value
+                else config_diagnostic "$engine_file:$key: invalid value '$value'"; fi ;;
+            kill_after_seconds)
+                if config_is_integer "$value"; then CONFIG_KILL_AFTER_SECONDS=$value
+                else config_diagnostic "$engine_file:$key: invalid value '$value'"; fi ;;
+            apply_failure_limit)
+                if config_is_integer "$value"; then CONFIG_APPLY_FAILURE_LIMIT=$value
+                else config_diagnostic "$engine_file:$key: invalid value '$value'"; fi ;;
+            apply_retry_ticks)
+                if config_is_integer "$value"; then CONFIG_APPLY_RETRY_TICKS=$value
+                else config_diagnostic "$engine_file:$key: invalid value '$value'"; fi ;;
+            hardware_probe_ticks)
+                if config_is_integer "$value"; then CONFIG_HARDWARE_PROBE_TICKS=$value
+                else config_diagnostic "$engine_file:$key: invalid value '$value'"; fi ;;
+            pending_probe_ticks)
+                if config_is_integer "$value"; then CONFIG_PENDING_PROBE_TICKS=$value
+                else config_diagnostic "$engine_file:$key: invalid value '$value'"; fi ;;
+            log_max_bytes)
+                if config_is_positive_integer "$value"; then CONFIG_LOG_MAX_BYTES=$value
+                else config_diagnostic "$engine_file:$key: invalid value '$value'"; fi ;;
+            log_path)
+                if [ -n "$value" ]; then CONFIG_LOG_PATH=$(expand_config_path "$value")
+                else config_diagnostic "$engine_file:$key: empty value"; fi ;;
+            *) config_diagnostic "$engine_file: unknown key '$key'" ;;
+        esac
+    done <<EOF
+$records
+EOF
+    PENDING_PROBE_TICKS=$CONFIG_PENDING_PROBE_TICKS
+    HARDWARE_PROBE_TICKS=$CONFIG_HARDWARE_PROBE_TICKS
+    APPLY_FAILURE_LIMIT=$CONFIG_APPLY_FAILURE_LIMIT
+    APPLY_RETRY_TICKS=$CONFIG_APPLY_RETRY_TICKS
+    ADAPTER_TIMEOUT=$CONFIG_TIMEOUT_SECONDS
+    ADAPTER_KILLAFTER=$CONFIG_KILL_AFTER_SECONDS
+    ADAPTER_LOG_MAX_BYTES=$CONFIG_LOG_MAX_BYTES
+    ADAPTER_LOG=$CONFIG_LOG_PATH
+    [ "$CONFIG_PARSE_ERROR" -eq 0 ]
+}
+
+load_layout_config() {
+    CONFIG_EXTERNAL_POSITION=right
+    CONFIG_EXTERNAL_PRIMARY=first
+    CONFIG_MIRROR_ON_DUPLICATE=false
+    CONFIG_LAYOUT_FILE_PRESENT=0
+    CONFIG_PARSE_ERROR=0
+    layout_file=${XDISPLAY_LAYOUT_CONFIG:-$HOME/.config/x11/display-layouts/default.conf}
+    [ -r "$layout_file" ] || return 0
+    CONFIG_LAYOUT_FILE_PRESENT=1
+    records=$(parse_config_records "$layout_file")
+    while IFS='|' read -r section key value; do
+        [ -n "${section}${key}${value}" ] || continue
+        case "$section" in
+            ERROR) config_diagnostic "$layout_file:$key: $value"; continue ;;
+            defaults) ;;
+            *) config_diagnostic "$layout_file: unknown section [$section]"; continue ;;
+        esac
+        case "$key" in
+            external_position)
+                if config_is_position "$value"; then CONFIG_EXTERNAL_POSITION=$value
+                else config_diagnostic "$layout_file:$key: invalid value '$value'"; fi ;;
+            external_primary)
+                if config_is_primary_rule "$value"; then CONFIG_EXTERNAL_PRIMARY=$value
+                else config_diagnostic "$layout_file:$key: invalid value '$value'"; fi ;;
+            mirror_on_duplicate)
+                if config_is_boolean "$value"; then CONFIG_MIRROR_ON_DUPLICATE=$value
+                else config_diagnostic "$layout_file:$key: invalid value '$value'"; fi ;;
+            *) config_diagnostic "$layout_file: unknown key '$key'" ;;
+        esac
+    done <<EOF
+$records
+EOF
+    [ "$CONFIG_PARSE_ERROR" -eq 0 ]
+}
+
+choose_layout_primary() {
+    outputs=$1
+    if [ "$CONFIG_LAYOUT_FILE_PRESENT" -eq 0 ]; then
+        choose_primary "$outputs"
+        return
+    fi
+    case "$CONFIG_EXTERNAL_PRIMARY" in
+        largest)
+            printf '%s\n' "$XRANDR_PARSED" |
+                awk -F '\t' -v candidates="$outputs" '
+                    BEGIN { count = split(candidates, names, /\n/) }
+                    $1 == "output" && $3 == "connected" {
+                        for (i = 1; i <= count; i++) if ($2 == names[i]) {
+                            area = ($6 + 0) * ($7 + 0)
+                            if (!found || area > best_area) {
+                                best_area = area
+                                best = $2
+                                found = 1
+                            }
+                        }
+                    }
+                    END { if (found) print best }
+                '
+            ;;
+        manual|first) first_output "$outputs" ;;
+        *) choose_primary "$outputs" ;;
+    esac
 }
 
 init_observation_roots() {
@@ -1116,27 +1347,46 @@ set_output_primary_at_origin() {
     xrandr "$@"
 }
 
-output_right_of() {
+output_relation() {
+    output=$1
+    anchor=$2
+    relation=$3
     printf '%s\n' "$XRANDR_PARSED" |
-        awk -F '\t' -v output="$1" -v anchor="$2" '
+        awk -F '\t' -v output="$output" -v anchor="$anchor" -v relation="$relation" '
             $1 == "output" && ($2 == output || $2 == anchor) && $12 == 1 {
                 if ($2 == output) {
                     output_x = $8
                     output_y = $9
+                    output_width = $6
+                    output_height = $7
                     have_output = 1
                 } else {
                     anchor_width = $6
+                    anchor_height = $7
                     anchor_x = $8
                     anchor_y = $9
                     have_anchor = 1
                 }
             }
             END {
-                exit !(have_output && have_anchor &&
-                    output_x == anchor_x + anchor_width &&
-                    output_y == anchor_y)
+                if (!have_output || !have_anchor) exit 1
+                if (relation == "right")
+                    ok = output_x == anchor_x + anchor_width && output_y == anchor_y
+                else if (relation == "left")
+                    ok = output_x + output_width == anchor_x && output_y == anchor_y
+                else if (relation == "above")
+                    ok = output_y + output_height == anchor_y && output_x == anchor_x
+                else if (relation == "below")
+                    ok = output_y == anchor_y + anchor_height && output_x == anchor_x
+                else
+                    ok = 0
+                exit !ok
             }
         '
+}
+
+output_right_of() {
+    output_relation "$1" "$2" right
 }
 
 # Return external outputs in RandR connector order. A future configuration
@@ -1231,6 +1481,31 @@ outputs_extended_from() {
     IFS=$old_ifs
 }
 
+outputs_extended_from_direction() {
+    anchor=$1
+    outputs=$2
+    direction=${3:-right}
+    case "$direction" in
+        right) relation=right ;;
+        left) relation=left ;;
+        above) relation=above ;;
+        below) relation=below ;;
+        *) return 1 ;;
+    esac
+    old_ifs=$IFS
+    IFS='
+'
+    for output in $outputs; do
+        [ "$output" = "$anchor" ] && continue
+        output_relation "$output" "$anchor" "$relation" || {
+            IFS=$old_ifs
+            return 1
+        }
+        anchor=$output
+    done
+    IFS=$old_ifs
+}
+
 outputs_mirrored() {
     primary=$1
     outputs=$2
@@ -1268,7 +1543,7 @@ try_internal_restore() {
     [ -n "$restore_command" ] || return 1
     command -v "$restore_command" >/dev/null 2>&1 || return 1
     command -v timeout >/dev/null 2>&1 || return 1
-    timeout 2 "$restore_command" "$output" >/dev/null 2>&1 || true
+    timeout "$ADAPTER_TIMEOUT" "$restore_command" "$output" >/dev/null 2>&1 || true
     read_snapshot &&
         { output_ready "$output" || output_active "$output"; }
 }
@@ -1348,11 +1623,7 @@ configure_closed() {
         EXTERNAL_ONLY|MULTI_EXTERNAL)
             if [ "$MULTI_SCREEN_LAYOUT_READY" -eq 1 ]; then
                 externals=$sorted_externals
-                if [ "$CURRENT_DISPLAY_STATE" = MULTI_EXTERNAL ]; then
-                    primary=$(first_output "$externals")
-                else
-                    primary=$(choose_primary "$externals")
-                fi
+                primary=$(choose_layout_primary "$externals")
                 layout_mode=extend_chain
             else
                 primary=$(choose_primary "$externals")
@@ -1375,7 +1646,8 @@ configure_closed() {
             ! output_active "$internal" &&
             verify_active_outputs "$externals" &&
             verify_target_modes "$externals" &&
-            outputs_extended_from "$primary" "$externals"; then
+            outputs_extended_from_direction "$primary" "$externals" \
+                "$CONFIG_EXTERNAL_POSITION"; then
             return 0
         fi
         if ! output_active "$primary"; then
@@ -1384,7 +1656,8 @@ configure_closed() {
             read_snapshot || return 1
             output_active "$primary" && output_at_target_mode "$primary" || return 1
         fi
-        apply_extend_layout "$primary" "$externals" right "$internal" || return 1
+        apply_extend_layout "$primary" "$externals" \
+            "$CONFIG_EXTERNAL_POSITION" "$internal" || return 1
         read_snapshot || return 1
         ! snapshot_has_stale_outputs &&
             output_primary "$primary" &&
@@ -1392,7 +1665,8 @@ configure_closed() {
             ! output_active "$internal" &&
             verify_active_outputs "$externals" &&
             verify_target_modes "$externals" &&
-            outputs_extended_from "$primary" "$externals"
+            outputs_extended_from_direction "$primary" "$externals" \
+                "$CONFIG_EXTERNAL_POSITION"
         return
     fi
 
@@ -1402,7 +1676,8 @@ configure_closed() {
         ! output_active "$internal" &&
         verify_active_outputs "$externals" &&
         verify_target_modes "$externals" &&
-        outputs_extended_from "$primary" "$externals"; then
+            outputs_extended_from_direction "$primary" "$externals" \
+                "$CONFIG_EXTERNAL_POSITION"; then
         return 0
     fi
 
@@ -1438,7 +1713,7 @@ configure_closed() {
             target_rate=$(output_target_rate "$output")
             [ "$target_rate" = - ] || set -- "$@" --rate "$target_rate"
         fi
-        set -- "$@" --right-of "$anchor"
+        set -- "$@" "--${CONFIG_EXTERNAL_POSITION}-of" "$anchor"
         anchor=$output
     done
     IFS=$old_ifs
@@ -1451,7 +1726,8 @@ configure_closed() {
         ! output_active "$internal" &&
         verify_active_outputs "$externals" &&
         verify_target_modes "$externals" &&
-        outputs_extended_from "$primary" "$externals"
+            outputs_extended_from_direction "$primary" "$externals" \
+                "$CONFIG_EXTERNAL_POSITION"
 }
 
 configure_open() {
@@ -1479,7 +1755,8 @@ configure_open() {
         verify_active_outputs "$externals" &&
         output_at_target_mode "$internal" &&
         verify_target_modes "$externals" &&
-        outputs_extended_from "$internal" "$externals"; then
+        outputs_extended_from_direction "$internal" "$externals" \
+            "$CONFIG_EXTERNAL_POSITION"; then
         return 0
     fi
 
@@ -1500,7 +1777,8 @@ configure_open() {
     fi
 
     if [ "$layout_mode" = extend_chain ]; then
-        apply_extend_layout "$internal" "$externals" right || return 1
+        apply_extend_layout "$internal" "$externals" \
+            "$CONFIG_EXTERNAL_POSITION" || return 1
         read_snapshot || return 1
         ! snapshot_has_stale_outputs &&
             output_primary "$internal" &&
@@ -1509,7 +1787,8 @@ configure_open() {
             verify_active_outputs "$externals" &&
             output_at_target_mode "$internal" &&
             verify_target_modes "$externals" &&
-            outputs_extended_from "$internal" "$externals"
+            outputs_extended_from_direction "$internal" "$externals" \
+                "$CONFIG_EXTERNAL_POSITION"
         return
     fi
 
@@ -1535,7 +1814,7 @@ configure_open() {
             target_rate=$(output_target_rate "$output")
             [ "$target_rate" = - ] || set -- "$@" --rate "$target_rate"
         fi
-        set -- "$@" --right-of "$anchor"
+        set -- "$@" "--${CONFIG_EXTERNAL_POSITION}-of" "$anchor"
         anchor=$output
     done
     IFS=$old_ifs
@@ -1548,8 +1827,9 @@ configure_open() {
         output_at_origin "$internal" &&
         verify_active_outputs "$externals" &&
         output_at_target_mode "$internal" &&
-        verify_target_modes "$externals" &&
-        outputs_extended_from "$internal" "$externals"
+            verify_target_modes "$externals" &&
+            outputs_extended_from_direction "$internal" "$externals" \
+                "$CONFIG_EXTERNAL_POSITION"
 }
 
 configure_mirror() {
@@ -1690,6 +1970,12 @@ display_status() {
         "$CURRENT_DISPLAY_STATE" "$CURRENT_DISPLAY_INTERNAL_COUNT" \
         "$CURRENT_DISPLAY_EXTERNAL_COUNT"
     printf 'layout=%s\n' "$CURRENT_LAYOUT_FUNCTION"
+    printf 'config: timeout=%s kill-after=%s position=%s limit=%s retry=%s probe=%s pending=%s log=%s log_max=%s\n' \
+        "$CONFIG_TIMEOUT_SECONDS" "$CONFIG_KILL_AFTER_SECONDS" \
+        "$CONFIG_EXTERNAL_POSITION" "$CONFIG_APPLY_FAILURE_LIMIT" \
+        "$CONFIG_APPLY_RETRY_TICKS" "$CONFIG_HARDWARE_PROBE_TICKS" \
+        "$CONFIG_PENDING_PROBE_TICKS" "$CONFIG_LOG_PATH" \
+        "$CONFIG_LOG_MAX_BYTES"
     printf '%s\n' "$XRANDR_PARSED" |
         awk -F '\t' '
             $1 == "screen" {
@@ -2025,7 +2311,9 @@ if [ "${XDISPLAY_LAYOUT_TEST:-0}" = 1 ]; then
     layout_lid=${1:-open}
     layout_internal=${2:-}
     layout_external=${3:-}
-    layout_direction=${4:-right}
+    load_engine_config || :
+    load_layout_config || :
+    layout_direction=${4:-$CONFIG_EXTERNAL_POSITION}
     layout_external=$(printf '%s\n' "$layout_external" | tr ' ' '\n')
     # The hook receives its complete topology explicitly; do not let a
     # caller's legacy internal-output environment alter the mock planner.
@@ -2042,6 +2330,19 @@ if [ "${XDISPLAY_LAYOUT_TEST:-0}" = 1 ]; then
     printf 'state=%s\n' "$CURRENT_DISPLAY_STATE"
     XDISPLAY_LAYOUT_DRY_RUN=1 apply_extend_layout "$layout_primary" \
         "$layout_sorted" "$layout_direction"
+    exit 0
+fi
+
+if [ "${XDISPLAY_CONFIG_TEST:-0}" = 1 ]; then
+    load_engine_config || :
+    load_layout_config || :
+    printf 'timeout=%s\nkill-after=%s\napply-failure-limit=%s\napply-retry-ticks=%s\nhardware-probe-ticks=%s\npending-probe-ticks=%s\nlog-max-bytes=%s\nlog-path=%s\nexternal-position=%s\nexternal-primary=%s\nmirror-on-duplicate=%s\n' \
+        "$CONFIG_TIMEOUT_SECONDS" "$CONFIG_KILL_AFTER_SECONDS" \
+        "$CONFIG_APPLY_FAILURE_LIMIT" "$CONFIG_APPLY_RETRY_TICKS" \
+        "$CONFIG_HARDWARE_PROBE_TICKS" "$CONFIG_PENDING_PROBE_TICKS" \
+        "$CONFIG_LOG_MAX_BYTES" "$CONFIG_LOG_PATH" \
+        "$CONFIG_EXTERNAL_POSITION" "$CONFIG_EXTERNAL_PRIMARY" \
+        "$CONFIG_MIRROR_ON_DUPLICATE"
     exit 0
 fi
 
@@ -2067,6 +2368,12 @@ case "${1:-}" in
         exit 2
         ;;
 esac
+
+# Optional configuration is loaded after help parsing so `--help` retains its
+# lightweight, side-effect-free behavior. Invalid values only produce a
+# diagnostic and leave the corresponding built-in default in place.
+load_engine_config || :
+load_layout_config || :
 
 require_command xrandr
 require_command stat
