@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# backup-logic.bats - Unit tests for cfg_should_backup_file() and backup flow
+# node-backup.bats - Unit tests for cfg_should_backup_file() and node backup flow
 # TC-04 through TC-10
 
 load helpers.bash

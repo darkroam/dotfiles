@@ -13,30 +13,7 @@ VALIDATE_LIB="$DOTFILES_ROOT/.local/lib/dotfiles/cfg-validate.sh"
 SWITCH_DESKTOP="$DOTFILES_ROOT/.local/lib/dotfiles/commands/switch-desktop.sh"
 SWITCH_SERVER="$DOTFILES_ROOT/.local/lib/dotfiles/commands/switch-server.sh"
 COMMANDS_UNINSTALL="$DOTFILES_ROOT/.local/lib/dotfiles/commands/uninstall.sh"
-GENERATE_CONFLICTS="${BATS_TEST_FILENAME%/*}/generate-conflicts.sh"
 DOTCFG="$DOTFILES_ROOT/.local/bin/dotcfg"
-
-# ── Git mirror ─────────────────────────────────────────────────────────
-GIT_MIRROR_DIR="/tmp/dotfiles-test-git-mirror"
-
-setup_git_mirror() {
-	if [ -d "$GIT_MIRROR_DIR/dotfiles.git" ]; then
-		return 0
-	fi
-	mkdir -p "$GIT_MIRROR_DIR"
-	if [ "${USE_REAL_REMOTE:-false}" = "true" ]; then
-		git clone --bare git@github.com:darkroam/dotfiles.git "$GIT_MIRROR_DIR/dotfiles.git" 2>/dev/null
-	else
-		git --git-dir="$REAL_HOME/.cfg/" archive HEAD | \
-			(cd "$(mktemp -d)" && git init >/dev/null 2>&1 && \
-			 git config user.email "test@test.com" && \
-			 git config user.name "Test" && \
-			 git checkout -b master >/dev/null 2>&1 && \
-			 git add -A && git commit -m "mirror" >/dev/null 2>&1 && \
-			 git clone --bare . "$GIT_MIRROR_DIR/dotfiles.git" >/dev/null 2>&1) || \
-			git init --bare "$GIT_MIRROR_DIR/dotfiles.git"
-	fi
-}
 
 # ── Source repository for integration tests ────────────────────────────
 # setup_source_repo [file1 file2 ...]
@@ -188,7 +165,7 @@ setup_installed_state() {
 	git --git-dir="$HOME/.cfg/" --work-tree="$HOME" checkout HEAD -- . >/dev/null 2>&1
 	git --git-dir="$HOME/.cfg/" --work-tree="$HOME" config status.showUntrackedFiles no
 	local state_file="$HOME/.cfg-checkout-state"
-	> "$state_file"
+	: > "$state_file"
 	while IFS= read -r path; do
 		local hash
 		hash=$(git --git-dir="$HOME/.cfg/" --work-tree="$HOME" show HEAD:"$path" | md5sum | cut -d' ' -f1)
@@ -284,6 +261,7 @@ source_validate_lib() {
 	unset _CFG_VALIDATE_LOADED
 	unset CFG_STATE CFG_IS_OURS CFG_NEEDS_PULL CFG_REMOTE_URL
 	if [ -f "$VALIDATE_LIB" ]; then
+		# shellcheck disable=SC1090
 		. "$VALIDATE_LIB"
 	else
 		echo "WARNING: validate library not found at $VALIDATE_LIB" >&2
@@ -294,6 +272,7 @@ source_validate_lib() {
 
 source_categories_lib() {
 	unset _CFG_CATEGORIES_LOADED
+	# shellcheck disable=SC1091
 	. "$DOTFILES_LIB_DIR/utils/categories.sh"
 }
 
@@ -318,6 +297,28 @@ run_restore_server() {
 	yes | bash "$SWITCH_SERVER" "$@" 2>&1
 }
 
+# run_switch_full / run_switch_min exercise the unified user-facing entrypoint.
+run_switch_full() {
+	yes | bash "$DOTCFG" switch full "$@" 2>&1
+}
+
+run_switch_min() {
+	yes | bash "$DOTCFG" switch min "$@" 2>&1
+}
+
+run_switch_macos() {
+	yes | bash "$DOTCFG" switch macos "$@" 2>&1
+}
+
+# Legacy wrappers remain supported and are tested explicitly in switch-full/min.
+run_legacy_switch_full() {
+	yes | bash "$SWITCH_DESKTOP" "$@" 2>&1
+}
+
+run_legacy_switch_min() {
+	yes | bash "$SWITCH_SERVER" "$@" 2>&1
+}
+
 # run_uninstall [args...] - calls commands/uninstall.sh
 run_uninstall() {
 	yes | yes | bash "$COMMANDS_UNINSTALL" "$@" 2>&1
@@ -332,34 +333,10 @@ run_dotcfg() {
 # Checks that $output contains the given grep pattern
 assert_output_contains() {
 	local expected="$1"
+	# shellcheck disable=SC2154  # output is provided by Bats' run helper.
 	echo "$output" | grep -q "$expected" || {
 		echo "expected output to contain: $expected" >&2
 		echo "actual output: $output" >&2
-		return 1
-	}
-}
-
-# ── Backup session helpers ────────────────────────────────────────────
-get_latest_backup_session() {
-	find "$HOME/.config-backup" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | tail -1
-}
-
-get_earliest_backup_session() {
-	find "$HOME/.config-backup" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | head -1
-}
-
-# Search across ALL backup sessions for a file
-assert_any_backup_contains() {
-	local relative_path="$1"
-	local found=false
-	for session_dir in $(find "$HOME/.config-backup" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort); do
-		if [ -e "$session_dir/$relative_path" ]; then
-			found=true
-			break
-		fi
-	done
-	$found || {
-		echo "expected any backup session to contain: $relative_path" >&2
 		return 1
 	}
 }
@@ -389,14 +366,6 @@ assert_is_symlink() {
 	}
 }
 
-assert_is_regular_file() {
-	local path="$1"
-	[ -f "$HOME/$path" ] || {
-		echo "expected regular file: $path" >&2
-		return 1
-	}
-}
-
 assert_file_contains() {
 	local path="$1"
 	local expected="$2"
@@ -420,19 +389,6 @@ assert_cfg_not_exists() {
 	}
 }
 
-assert_backup_dir_exists() {
-	[ -d "$HOME/.config-backup" ] || {
-		echo "expected .config-backup directory to exist" >&2
-		return 1
-	}
-	local count
-	count=$(find "$HOME/.config-backup" -mindepth 1 -maxdepth 1 -type d ! -name nodes ! -name sessions 2>/dev/null | wc -l)
-	(( count > 0 )) || {
-		echo "expected at least one backup session directory" >&2
-		return 1
-	}
-}
-
 assert_backup_count() {
 	local expected="$1"
 	local count
@@ -443,15 +399,6 @@ assert_backup_count() {
 	fi
 	(( count == expected )) || {
 		echo "expected $expected backup session dirs, found $count" >&2
-		return 1
-	}
-}
-
-assert_manifest_exists() {
-	local backup_dir
-	backup_dir=$(find "$HOME/.config-backup" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | tail -1)
-	[ -n "$backup_dir" ] && [ -f "$backup_dir/MANIFEST.txt" ] || {
-		echo "expected MANIFEST.txt in latest backup session" >&2
 		return 1
 	}
 }
@@ -485,38 +432,6 @@ assert_backup_naming() {
 	local pattern='^(fresh|desktop|server)-to-(fresh|desktop|server)-[0-9]{8}T[0-9]{6}$'
 	[[ "$backup_name" =~ $pattern ]] || {
 		echo "backup name does not match convention: $backup_name" >&2
-		return 1
-	}
-}
-
-# ── File count helpers ────────────────────────────────────────────────
-count_home_files() {
-	find "$HOME" -maxdepth 4 -type f 2>/dev/null | wc -l
-}
-
-count_home_symlinks() {
-	find "$HOME" -maxdepth 4 -type l 2>/dev/null | wc -l
-}
-
-# ── Additional assertions for integration tests ───────────────────────
-assert_path_exists() {
-	local path="$1"
-	[ -e "$path" ] || [ -L "$path" ] || {
-		echo "expected path to exist: $path" >&2
-		return 1
-	}
-}
-
-assert_backup_contains() {
-	local relative_path="$1"
-	local backup_dir
-	backup_dir=$(find "$HOME/.config-backup" -mindepth 1 -maxdepth 1 -type d ! -name nodes ! -name sessions 2>/dev/null | sort | tail -1)
-	[ -n "$backup_dir" ] || {
-		echo "no backup session directory found" >&2
-		return 1
-	}
-	[ -e "$backup_dir/$relative_path" ] || {
-		echo "expected backup to contain: $relative_path" >&2
 		return 1
 	}
 }

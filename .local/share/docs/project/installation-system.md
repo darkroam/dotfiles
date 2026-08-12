@@ -334,7 +334,12 @@ dotcfg repair                   # 自动修复（逐项确认，--force 跳过�
 dotcfg check-exclude <path>     # 查询某路径被哪条排除规则排除
 dotcfg fresh-adopt-legacy <path> [--dry-run] [--config-version VERSION]  # 采纳旧安装备份作为 Fresh 根
 dotcfg help                     # 使用帮助（也可使用 dotcfg --help）
+dotcfg version                  # 显示 dotcfg 版本
 ```
+
+**确认**：`dotcfg help` 的输出包含上述所有顶层命令。新增命令时需同步更新 `help` 的静态文本
+（入口脚本中的 `cmd_help()` 函数）。`refactor-contract.bats` 中的 TC-R01 锁定帮助文本的完整输出，
+修改帮助内容时需同步更新测试。
 
 > **库缺失时**：任何 `dotcfg` 命令检测到库不存在都会进入 **bootstrap 安装模式**
 > （见下文「自举安装」章节），因此 `curl dotcfg | bash` 即可完成全新安装。
@@ -451,6 +456,12 @@ Nodes using each version:
   1.0.0: a1b2c3d4, e5f6g7h8 (2 nodes)
 ```
 
+`full` 是内置特殊 category，不依赖 `categories-*.conf` 中的文件列表，解析时动态返回 HEAD 的
+全部跟踪文件，因此不计入版本内普通 category 数量，仅在 `categories show` 中单独展示。
+
+**注意**：`categories list` 输出的版本号不包含 `v` 前缀（显示 `1.0.0` 而非 `v1.0.0`），
+以保持与节点 `config_version` 字段的一致性。`categories show` 同样使用不带前缀的版本号。
+
 **`categories show 1.0.0` 输出示例**：
 
 ```
@@ -465,9 +476,7 @@ Categories:
   full            (dynamic, all tracked files)
 ```
 
-`full` 是内置特殊 category，不依赖 `categories-*.conf` 中的文件列表；解析时动态返回
-HEAD 的全部跟踪文件，因此不显示具体文件数量，也不计入 `categories list` 的版本内普通
-category 数量。
+`full` 不显示具体文件数量，因为其内容随 HEAD 动态变化。
 
 **版本切换行为**：
 
@@ -1048,6 +1057,10 @@ category = macos
 | `STATE_DEFAULT` | 否 | 无节点元数据时的默认状态类别，默认 `min` |
 | `STATE_INDICATORS` | 否 | 逗号分隔的 `类别:路径` 图形状态指标映射 |
 
+- `STATE_INDICATORS` 用于无节点元数据时的兼容状态检测。示例中 `full:.xinitrc` 表示若
+  `~/.xinitrc` 存在则判定为 `full`。旧配置缺少该字段时，回退到 `.xinitrc`、`.xprofile`、
+  `.config/x11/xinitrc` 三个指标。
+
 上述扩展字段均为可选注释元数据，不影响旧版 `categories-*.conf` 的类别语法。解析器只在版本
 文件头部读取它们；缺少字段时使用现有兼容默认值。
 
@@ -1078,14 +1091,12 @@ $DOTFILES_LIB_DIR/
 **`v` 前缀处理规则**：
 
 - 文件名中的 `v` 前缀（如 `categories-v1.0.0.conf`）在**内部排序和比较时自动去除**
-- 展示时保留用户使用的格式：
-  - `categories-1.0.0.conf` → 展示为 `1.0.0`
-  - `categories-v1.0.0.conf` → 展示为 `v1.0.0`
-  - 内部 `VERSION = "2.0.0"` → 展示时与文件名风格保持一致（优先使用文件名的前缀风格）
+- `categories list` 和 `categories show` 始终展示无前缀版本号，与节点 `config_version` 保持一致
+- 历史图和版本切换提示可保留版本文件原有的 `v` 展示风格，仅作为兼容性显示，不影响存储值
 
 **示例**：
-- `categories-v1.0.0.conf` + `VERSION = "2.0.0"` → 实际版本号为 `2.0.0`，展示为 `v2.0.0`（沿用文件名的 `v` 前缀风格）
-- `categories-1.0.0.conf` + `VERSION = "2.0.0"` → 实际版本号为 `2.0.0`，展示为 `2.0.0`
+- `categories-v1.0.0.conf` + `VERSION = "2.0.0"` → 实际和 `categories list/show` 展示均为 `2.0.0`
+- `categories-1.0.0.conf` + `VERSION = "2.0.0"` → 实际和 `categories list/show` 展示均为 `2.0.0`
 
 **版本发现流程**：
 
@@ -1249,6 +1260,8 @@ category = empty
 | 安装基础设施与备份保护 | 无 | dotcfg、运行库、仓库、备份和测试路径 | 必须保留，防止 Fresh 或 category 操作破坏安装系统本身 |
 | 官方入口的帮助文字 | `.local/bin/dotcfg`、bootstrap 提示 | “配置的 category”、`full` 和 `fresh` | 特定普通 category 只作为示例，不参与目标校验 |
 
+**新增普通 category 的修改清单**：
+
 新增普通 category 时，只需在新的 `categories-*.conf` 中增加 category 块，并按需调整同一文件的
 `CATEGORY_ALIASES`、`STATE_DEFAULT` 或 `STATE_INDICATORS`；`dotcfg switch <category>` 会动态验证并
 部署，不需要修改 Shell 代码。`desktop`、`server` 和 `empty` 可按此方式重新使用。只有修改保留的
@@ -1273,6 +1286,16 @@ macOS 的 `Applications/`、`Library/`、`Movies/`、`Public/`、`Sites/`、`.Tr
 `*.DS_Store`。混合模式不会全量扫描 `~/.config/` 之外的未跟踪文件，所以未跟踪的 `~/Library`
 本来就不会进入 Fresh；这些规则仍明确跨平台策略边界，并供 `check-exclude` 和配置缺失回退使用。
 若仓库显式跟踪 `Library/...` 配置，普通策略排除不会阻止它进入 Fresh；只有安装基础设施保护不可覆盖。
+
+30 项规则覆盖以下类别：
+
+- Linux 标准用户目录：`~/Downloads/`、`~/Desktop/`、`~/Documents/`、`~/Videos/`、`~/Music/`、`~/Pictures/`
+- Linux 缓存和运行时状态：`~/.cache/`、`~/.local/share/Trash/`、`~/.thumbnails/`、`~/.npm/`、`~/.cargo/`
+- Shell 历史文件：`~/.bash_history`、`~/.zsh_history`、`~/.lesshst`、`~/.viminfo`
+- 浏览器状态目录：`~/.config/microsoft-edge/`、`~/.config/nvm/`、`~/.config/chromium/`、`~/.config/google-chrome-for-testing/`
+- macOS 系统目录：`~/Applications/`、`~/Library/`、`~/Movies/`、`~/Public/`、`~/Sites/`、`~/.Trash/`
+- macOS 元数据：`*.DS_Store`
+- 日志和临时文件：`*.log`、`*.tmp`、`*.swp`、`core.*`
 
 示例：
 

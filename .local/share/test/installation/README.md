@@ -1,4 +1,4 @@
-# 测试框架
+# 安装测试框架
 
 Bats (Bash Automated Testing System) 测试套件，按专题组织在子目录中。
 
@@ -17,7 +17,7 @@ bats -r .local/share/test/
 bats .local/share/test/installation/
 
 # 运行单个文件
-bats .local/share/test/installation/install-desktop.bats
+bats .local/share/test/installation/switch-full.bats
 
 # 过滤运行
 bats --filter "TC-11" .local/share/test/installation/
@@ -32,27 +32,27 @@ bats -r .local/share/test/ --tap
 .local/share/test/
 ├── installation/          ← 安装系统测试（状态机、备份、卸载、CLI）
 │   ├── helpers.bash       ← 共享辅助函数
-│   ├── backup-logic.bats  ← TC-04..10  备份逻辑
+│   ├── node-backup.bats   ← TC-04..10  节点备份逻辑
 │   ├── bootstrap.bats     ← 自举安装
 │   ├── categories.bats    ← category 解析、继承和排除
 │   ├── commands-lifecycle.bats ← 生命周期命令
-│   ├── config-versions.bats ← category 版本管理
+│   ├── config-boundary.bats ← 配置驱动边界
+│   ├── config-versions.bats ← category 版本和元数据
 │   ├── deploy-undeploy.bats ← 节点部署与撤销
 │   ├── detect-state.bats  ← 状态检测
 │   ├── doctor-repair.bats ← 完整性诊断与修复
 │   ├── dotcfg.bats        ← 统一 CLI
 │   ├── e2e-state-machine.bats ← 端到端生命周期
 │   ├── exclude-rules.bats ← Fresh 排除规则
-│   ├── fresh-node.bats    ← Fresh 根节点
-│   ├── history-graph.bats ← 节点清单和历史图
-│   ├── install-desktop.bats ← 旧直接脚本包装的 full 安装
-│   ├── install-server.bats  ← 旧直接脚本包装的 min 安装
+│   ├── fresh.bats         ← Fresh 根节点
+│   ├── history.bats       ← 节点清单和历史图
+│   ├── switch-full.bats   ← full 切换和旧 wrapper 兼容
+│   ├── switch-min.bats    ← min 切换和旧 wrapper 兼容
+│   ├── switch-macos.bats  ← macos 切换
 │   ├── migration.bats     ← 旧会话迁移
 │   ├── nodes.bats         ← 节点索引
 │   ├── nodes-lifecycle.bats ← 节点生命周期
 │   ├── refactor-contract.bats ← 重构接口契约
-│   ├── restore-desktop.bats ← 旧直接脚本包装的 full 恢复
-│   ├── restore-server.bats  ← 旧直接脚本包装的 min 恢复
 │   ├── uninstall.bats     ← 卸载与恢复
 │   ├── validate.bats      ← 仓库验证
 │   └── generate-conflicts.sh ← 冲突文件生成器
@@ -61,6 +61,9 @@ bats -r .local/share/test/ --tap
 ## 测试隔离
 
 所有测试在隔离的 `/tmp/dotfiles-test-*` 目录中运行。真实 `$HOME` 永远不被修改。
+
+当前 Debian 回归套件共 271 个受管测试；所有 `.bats` 文件都应由 `.cfg` 跟踪，测试产物和缓存
+不得加入仓库。
 
 ## 环境变量
 

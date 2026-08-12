@@ -38,27 +38,22 @@ cmd_categories() {
                     [ "$c" = "full" ] && continue
                     cats+=("$c")
                 done
-                local tag marker="" tag_gap cats_text display_version
+                local tag marker="" tag_gap cats_text
                 tag=$(cfg_config_get_tag "$ver" 2>/dev/null) || tag="stable"
                 [ "$tag" = "test" ] && marker="   [TEST]"
                 [ "$tag" = "experimental" ] && marker="   [EXPERIMENTAL]"
-                local vprefix
-                vprefix=$(cfg_version_display_prefix "$ver")
-                display_version="$vprefix$ver"
                 printf -v tag_gap '%*s' "$((9 - ${#tag} > 0 ? 9 - ${#tag} : 1))" ''
                 printf -v cats_text '%s, ' "${cats[@]}"
                 cats_text="${cats_text%, }"
                 printf '  %-7s (%s)%s%d categories: %s%s\n' \
-                    "$display_version" "$tag" "$tag_gap" "${#cats[@]}" "$cats_text" "$marker"
+                    "$ver" "$tag" "$tag_gap" "${#cats[@]}" "$cats_text" "$marker"
             done <<< "$versions"
 
-            local cur_prefix
-            cur_prefix=$(cfg_version_display_prefix "$current_ver")
             local current_tag
             if current_tag=$(cfg_config_get_tag "$current_ver" 2>/dev/null); then
-                printf '\nCurrent version: %s%s (%s)\n' "$cur_prefix" "$current_ver" "$current_tag"
+                printf '\nCurrent version: %s (%s)\n' "$current_ver" "$current_tag"
             else
-                printf '\nCurrent version: %s%s\n' "$cur_prefix" "$current_ver"
+                printf '\nCurrent version: %s\n' "$current_ver"
             fi
 
             if cfg_nodes_read_index 2>/dev/null && [ ${#_CFG_NODE_CODES[@]} -gt 0 ]; then
@@ -79,11 +74,10 @@ cmd_categories() {
                         local nodes_str="${ver_nodes[$ver]}"
 					local -a narr=()
 					read -r -a narr <<< "$nodes_str"
-                        local np nodes_text
-                        np=$(cfg_version_display_prefix "$ver")
+                        local nodes_text
                         printf -v nodes_text '%s, ' "${narr[@]}"
                         nodes_text="${nodes_text%, }"
-                        printf '  %s%s: %s (%d node%s)\n' "$np" "$ver" "$nodes_text" \
+                        printf '  %s: %s (%d node%s)\n' "$ver" "$nodes_text" \
                             "${#narr[@]}" "$([ ${#narr[@]} -gt 1 ] && printf 's')"
                     done
                 fi

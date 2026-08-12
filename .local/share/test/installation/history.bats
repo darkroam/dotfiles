@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# history-graph.bats - Tests for list and history commands
+# history.bats - Tests for list and history commands
 
 load helpers.bash
 

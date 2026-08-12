@@ -1,6 +1,7 @@
 #!/usr/bin/env bats
-# install-desktop.bats - Integration tests for install-2.sh (desktop installer)
-# TC-11 through TC-16
+# switch-full.bats - Integration tests for dotcfg switch full
+# Includes compatibility coverage for the old switch-desktop wrapper.
+# TC-11 through TC-16 and TC-SF01 through TC-SF07
 
 load helpers.bash
 
@@ -17,7 +18,7 @@ teardown() {
 
 @test "TC-11: fresh install creates .cfg and checks out all files" {
 	setup_source_repo
-	run run_install_desktop
+	run run_switch_full
 	[ "$status" -eq 0 ]
 
 	assert_cfg_exists
@@ -50,7 +51,7 @@ teardown() {
 	mkdir -p "$HOME/.config/custom-untracked"
 	echo "untracked config" > "$HOME/.config/custom-untracked/settings.conf"
 
-	run run_install_desktop
+	run run_switch_full
 	[ "$status" -eq 0 ]
 
 	# Backup directory should exist with proper naming
@@ -82,7 +83,7 @@ teardown() {
 	setup_source_repo
 	echo "user bashrc" > "$HOME/.bashrc"
 
-	run run_install_desktop --dry-run
+	run run_switch_full --dry-run
 	[ "$status" -eq 0 ]
 
 	# Nothing should have changed
@@ -104,7 +105,7 @@ teardown() {
 	setup_source_repo
 	create_valid_existing_cfg ".bashrc" ".gitconfig" ".local/bin/dotcfg"
 
-	run run_install_desktop --force
+	run run_switch_full --force
 	[ "$status" -eq 0 ]
 
 	# Old .cfg should have been backed up
@@ -127,7 +128,7 @@ teardown() {
 @test "TC-15: checkout state file records all tracked files" {
 	setup_source_repo
 
-	run run_install_desktop
+	run run_switch_full
 	[ "$status" -eq 0 ]
 
 	assert_checkout_state_exists
@@ -151,9 +152,111 @@ teardown() {
 @test "TC-16: showUntrackedFiles configured to no" {
 	setup_source_repo
 
-	run run_install_desktop
+	run run_switch_full
 	[ "$status" -eq 0 ]
 
 	assert_cfg_exists
 	assert_show_untracked_no
+}
+
+# ── Existing-state and compatibility coverage (formerly restore-desktop) ──
+
+@test "TC-SF01: switch full adds desktop files from a min state" {
+	setup_source_repo
+	git clone --bare "$SOURCE_REPO_DIR" "$HOME/.cfg" >/dev/null 2>&1
+	git --git-dir="$HOME/.cfg/" --work-tree="$HOME" checkout HEAD -- \
+		. ':!.xinitrc' ':!.xprofile' ':!.asoundrc' \
+		':!.config/x11' ':!.config/alsa' ':!.gtkrc-2.0' >/dev/null 2>&1
+	git --git-dir="$HOME/.cfg/" --work-tree="$HOME" config status.showUntrackedFiles no
+	[ ! -e "$HOME/.xinitrc" ]
+
+	run run_switch_full
+	[ "$status" -eq 0 ]
+	assert_file_exists ".xinitrc"
+	assert_file_exists ".xprofile"
+	assert_file_exists ".asoundrc"
+	assert_file_exists ".config/x11/xinitrc"
+	assert_file_exists ".config/x11/picom.conf"
+	assert_file_exists ".bashrc"
+	assert_file_exists ".gitconfig"
+	assert_state_is "full"
+}
+
+@test "TC-SF02: switch full backs up modified files" {
+	setup_source_repo
+	git clone --bare "$SOURCE_REPO_DIR" "$HOME/.cfg" >/dev/null 2>&1
+	git --git-dir="$HOME/.cfg/" --work-tree="$HOME" checkout HEAD -- \
+		. ':!.xinitrc' ':!.xprofile' ':!.asoundrc' \
+		':!.config/x11' ':!.config/alsa' ':!.gtkrc-2.0' >/dev/null 2>&1
+	git --git-dir="$HOME/.cfg/" --work-tree="$HOME" config status.showUntrackedFiles no
+	echo "user modified bashrc" > "$HOME/.bashrc"
+	echo "user modified gitconfig" > "$HOME/.gitconfig"
+
+	run run_switch_full
+	[ "$status" -eq 0 ]
+	assert_node_backup_exists
+	assert_file_contains ".bashrc" "repo content for .bashrc"
+	assert_file_contains ".gitconfig" "repo content for .gitconfig"
+}
+
+@test "TC-SF03: switch full --dry-run preserves a min state" {
+	setup_source_repo
+	git clone --bare "$SOURCE_REPO_DIR" "$HOME/.cfg" >/dev/null 2>&1
+	git --git-dir="$HOME/.cfg/" --work-tree="$HOME" checkout HEAD -- \
+		. ':!.xinitrc' ':!.xprofile' ':!.asoundrc' \
+		':!.config/x11' ':!.config/alsa' ':!.gtkrc-2.0' >/dev/null 2>&1
+	echo "user bashrc" > "$HOME/.bashrc"
+
+	run run_switch_full --dry-run
+	[ "$status" -eq 0 ]
+	assert_file_not_exists ".xinitrc"
+	assert_file_contains ".bashrc" "user bashrc"
+	assert_backup_count 0
+	[[ "$output" == *"DRY RUN"* ]]
+}
+
+@test "TC-SF04: switch full --auto-stash backs up without prompting" {
+	setup_source_repo
+	git clone --bare "$SOURCE_REPO_DIR" "$HOME/.cfg" >/dev/null 2>&1
+	git --git-dir="$HOME/.cfg/" --work-tree="$HOME" checkout HEAD -- \
+		. ':!.xinitrc' ':!.xprofile' ':!.asoundrc' \
+		':!.config/x11' ':!.config/alsa' ':!.gtkrc-2.0' >/dev/null 2>&1
+	echo "user modified" > "$HOME/.bashrc"
+	echo "user modified" > "$HOME/.gitconfig"
+
+	run run_switch_full --auto-stash
+	[ "$status" -eq 0 ]
+	assert_node_backup_count 1
+	assert_file_contains ".bashrc" "repo content for .bashrc"
+	assert_file_contains ".gitconfig" "repo content for .gitconfig"
+	[[ "$output" == *"auto-stash"* ]]
+}
+
+@test "TC-SF05: switch full works from a fresh state" {
+	setup_source_repo
+	run run_switch_full
+	[ "$status" -eq 0 ]
+	assert_cfg_exists
+	assert_file_exists ".bashrc"
+	assert_file_exists ".xinitrc"
+	assert_state_is "full"
+}
+
+@test "TC-SF06: switch full --reinstall is accepted in full state" {
+	setup_source_repo
+	setup_installed_state
+	run run_switch_full --reinstall
+	[ "$status" -eq 0 ]
+	assert_file_exists ".bashrc"
+	assert_file_exists ".xinitrc"
+	assert_state_is "full"
+}
+
+@test "TC-SF07: legacy switch-desktop wrapper still targets full" {
+	setup_source_repo
+	run run_legacy_switch_full --dry-run
+	[ "$status" -eq 0 ]
+	assert_cfg_not_exists
+	[[ "$output" == *"Target state: full"* ]]
+	[[ "$output" == *"DRY RUN"* ]]
 }

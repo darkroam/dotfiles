@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
-# config-versions.bats - Unit tests for config version management
-# TC-CV01 through TC-CV07
+# config-versions.bats - Unit tests for config version management and metadata
+# TC-CV01 through TC-CV12
 
 load helpers.bash
 
@@ -269,21 +269,15 @@ CONF
 	[[ "$(cfg_config_version_list)" == *"97.1.0"* ]]
 }
 
-@test "TC-CV09: optional metadata controls tags, aliases and state indicators" {
+@test "TC-CV09: VALID_TAGS accepts configured tag values" {
 	local conf="$DOTFILES_LIB_DIR/categories-97.2.0.conf"
 	cat > "$conf" <<'CONF'
 # VERSION = "97.2.0"
 # TAG = "qa"
 # VALID_TAGS = "stable,qa"
-# CATEGORY_ALIASES = "gui:graphical,cli:terminal"
-# STATE_DEFAULT = "terminal"
-# STATE_INDICATORS = "graphical:.custom-display"
-
-category = graphical
-+ .bashrc
 
 category = terminal
-+ .zshrc
++ .bashrc
 CONF
 	TEST_VERSION_FILES+=("$conf")
 	cfg_config_versions_invalidate
@@ -292,8 +286,76 @@ CONF
 	cfg_categories_load "97.2.0"
 	[ "$(cfg_config_get_tag 97.2.0)" = "qa" ]
 	cfg_config_tag_is_valid qa
-	[ "$(cfg_category_canonical_name gui)" = "graphical" ]
-	[ "$(cfg_category_canonical_name cli)" = "terminal" ]
+	! cfg_config_tag_is_valid experimental
+}
+
+@test "TC-CV10: CATEGORY_ALIASES controls switch targets and defaults to empty" {
+	local conf="$DOTFILES_LIB_DIR/categories-97.3.0.conf"
+	cat > "$conf" <<'CONF'
+# VERSION = "97.3.0"
+# CATEGORY_ALIASES = "cli:min"
+
+category = min
++ .bashrc
+CONF
+	TEST_VERSION_FILES+=("$conf")
+	cfg_config_versions_invalidate
+	cfg_categories_invalidate
+	create_mock_cfg_repo ".bashrc" ".local/bin/dotcfg"
+	mkdir -p "$HOME/.config-backup"
+	printf '97.3.0\n' > "$HOME/.config-backup/CURRENT_CONFIG_VERSION"
+
+	cfg_categories_load "97.3.0"
+	[ "$(cfg_category_canonical_name cli)" = "min" ]
+	run env DOTFILES_LIB_DIR="$DOTFILES_LIB_DIR" bash "$DOTCFG" switch cli --dry-run --reinstall
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"Target state: min"* ]]
+
+	cat > "$conf" <<'CONF'
+# VERSION = "97.3.0"
+
+category = min
++ .bashrc
+CONF
+	cfg_config_versions_invalidate
+	cfg_categories_invalidate
+	cfg_categories_load "97.3.0"
+	[ "$(cfg_category_canonical_name cli)" = "cli" ]
+	run env DOTFILES_LIB_DIR="$DOTFILES_LIB_DIR" bash "$DOTCFG" switch cli --dry-run
+	[ "$status" -eq 1 ]
+	[[ "$output" == *'Error: unknown target "cli"'* ]]
+}
+
+@test "TC-CV11: STATE_DEFAULT controls compatibility state" {
+	local conf="$DOTFILES_LIB_DIR/categories-97.4.0.conf"
+	cat > "$conf" <<'CONF'
+# VERSION = "97.4.0"
+# STATE_DEFAULT = "terminal"
+
+category = terminal
++ .zshrc
+CONF
+	TEST_VERSION_FILES+=("$conf")
+	cfg_config_versions_invalidate
+	cfg_categories_invalidate
+
+	cfg_categories_load "97.4.0"
 	[ "$(cfg_state_default_category)" = "terminal" ]
+}
+
+@test "TC-CV12: STATE_INDICATORS maps paths to categories" {
+	local conf="$DOTFILES_LIB_DIR/categories-97.5.0.conf"
+	cat > "$conf" <<'CONF'
+# VERSION = "97.5.0"
+# STATE_INDICATORS = "graphical:.custom-display"
+
+category = graphical
++ .bashrc
+CONF
+	TEST_VERSION_FILES+=("$conf")
+	cfg_config_versions_invalidate
+	cfg_categories_invalidate
+
+	cfg_categories_load "97.5.0"
 	[ "$(cfg_state_indicator_category .custom-display)" = "graphical" ]
 }

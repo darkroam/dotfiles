@@ -6,7 +6,7 @@
 - 确认日期：2026-08-10
 - 基线提交：`0d3209a fix: align dotcfg command output documentation`
 - 基线测试：181/181 个受管 Bats 测试通过
-- 当前检查点：255 个受管 Bats 测试，包含原本未纳管的 category、配置版本和生命周期测试，
+- 当前检查点：271 个受管 Bats 测试，包含配置驱动边界、category 元数据、full/min/macos 切换专题，
   长字段表格对齐、错误/帮助输出边界、回退/稳定 category 定义一致性，以及 macOS Fresh 排除回归
 - 适用平台：本轮只在[平台档案索引](../platforms/index.md)所列当前 Debian 平台执行真实性验证；
   其他发行版只做 Shell 语法和兼容性判断

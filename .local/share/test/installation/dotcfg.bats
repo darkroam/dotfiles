@@ -15,7 +15,7 @@ teardown() {
 
 # ── status subcommand ──────────────────────────────────────────────────
 
-@test "TC-44: status shows fresh state without command help" {
+@test "TC-ST09: status shows fresh state without available operations" {
 	run run_dotcfg status
 	[ "$status" -eq 0 ]
 	assert_output_contains "fresh"

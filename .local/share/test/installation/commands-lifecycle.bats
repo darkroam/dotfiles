@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # commands-lifecycle.bats - Integration tests for lifecycle commands
-# TC-CL01 through TC-CL07
+# TC-CL01 through TC-CL09
 
 load helpers.bash
 
@@ -262,4 +262,27 @@ teardown() {
 	current=$(<"$HOME/.config-backup/CURRENT_CONFIG_VERSION")
 	current="${current%%$'\n'*}"
 	[ "$current" = "95.1.0" ]
+}
+
+@test "TC-CL08: categories list omits dynamic full from ordinary counts" {
+	create_test_version_file "93.0.0" "List Contract"
+	mv "$DOTFILES_LIB_DIR/categories-93.0.0.conf" \
+		"$DOTFILES_LIB_DIR/categories-v93.0.0.conf"
+	TEST_VERSION_FILES+=("$DOTFILES_LIB_DIR/categories-v93.0.0.conf")
+
+	run run_dotcfg categories list
+	[ "$status" -eq 0 ]
+	local version_line
+	version_line=$(printf '%s\n' "$output" | awk '/93\.0\.0/{ print; exit }')
+	[[ "$version_line" == *"2 categories: macos, min"* ]]
+	[[ "$version_line" != *"full"* ]]
+	[[ "$output" != *"v93.0.0"* ]]
+}
+
+@test "TC-CL09: categories show marks full as dynamic" {
+	create_test_version_file "93.1.0" "Show Contract"
+
+	run run_dotcfg categories show "93.1.0"
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"full            (dynamic, all tracked files)"* ]]
 }

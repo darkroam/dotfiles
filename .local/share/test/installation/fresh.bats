@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# fresh-node.bats - Fresh root node, track/untrack and fresh-* command tests
+# fresh.bats - Fresh root node, track/untrack and fresh-* command tests
 # TC-F01 through TC-F12
 
 load helpers.bash
