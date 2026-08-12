@@ -71,6 +71,29 @@ external=...` 摘要，便于观察当前状态。状态映射到布局时，`DU
   增加一行 `config: timeout=... kill-after=... position=... limit=... retry=... probe=...
   pending=... log=... log_max=...` 摘要。配置仍在 `XDISPLAY_USE_ADAPTER=0` 时加载，但不会启用适配器。
 
+#### 自定义布局
+
+用户可用独立的 `displayselect` 命令保存当前布局：
+
+```text
+displayselect --save [NAME]
+displayselect --list
+displayselect --delete NAME
+```
+
+配置保存在 `~/.config/x11/display-layouts/custom/NAME.conf`。保存使用当前活动输出的
+绝对 `x/y` 坐标、当前模式和刷新率，并记录 `[identity]` 的 `outputs`、`lid` 和
+`match_mode`；目录权限为 `0700`，文件权限为 `0600`，写入使用临时文件后原子替换。省略
+名称时生成 `auto-YYYY-MM-DD-HH-MM-SS`。
+
+引擎每次稳定快照读取后扫描该目录。`outputs` 比较不考虑顺序；`exact` 要求集合完全相同，
+`contains` 要求配置集合是当前集合的子集，当前多出的输出按 `external_position` 追加到链式布局。
+候选按 `lid` 精确匹配优先于 `any`，`exact` 优先于 `contains`，然后按配置输出数量较多、文件
+修改时间较新选择。文件缺失、为空或解析/字段校验失败时静默回退默认布局，并记录简短诊断。
+自定义布局生效时状态仍显示实际的 `DUAL_EXTEND`、`MULTI_EXTEND` 等状态，`--status` 另显示
+`layout=custom` 和 `custom=NAME`；不会使用保留的 `CUSTOM` 状态枚举。删除配置后下一次快照
+自动回到默认布局策略，保存命令不会停止 watcher。
+
 ### 执行环境约定
 
 `xdisplay.sh` 默认不接入 `xdisplay-device.local`。设置 `XDISPLAY_USE_ADAPTER=1` 后，

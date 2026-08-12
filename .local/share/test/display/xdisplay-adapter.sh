@@ -44,7 +44,9 @@ pass 'state MULTI_EXTERNAL: closed with multiple external outputs'
 pass 'state NONE: no available outputs'
 
 layout_test() {
-    XDISPLAY_LAYOUT_TEST=1 "$xdisplay" "$1" "$2" "$3" "${4:-}"
+    XDISPLAY_LAYOUT_TEST=1 HOME="$home" \
+        XDISPLAY_CUSTOM_LAYOUT_DIR="$home/.config/x11/display-layouts/custom" \
+        "$xdisplay" "$1" "$2" "$3" "${4:-}"
 }
 
 setup_case() {
@@ -163,6 +165,147 @@ assert_contains "$above" 'direction=above'
 assert_contains "$above" 'relation=--above anchor=eDP-1'
 assert_contains "$above" 'relation=--above anchor=HDMI-1'
 pass 'external_position=above uses --above chain relations'
+
+setup_case custom-exact
+custom_dir=$home/.config/x11/display-layouts/custom
+mkdir -p "$custom_dir"
+cat > "$custom_dir/exact-dock.conf" <<'CONF'
+[identity]
+outputs = eDP-1,HDMI-1
+lid = open
+match_mode = exact
+
+[layout]
+primary = eDP-1
+order = eDP-1,HDMI-1
+output_1 = eDP-1|0|0|1920x1080|60
+output_2 = HDMI-1|120|80|2560x1440|60
+CONF
+custom=$(HOME="$home" XDISPLAY_CUSTOM_LAYOUT_DIR="$custom_dir" \
+    XDISPLAY_LAYOUT_TEST=1 "$xdisplay" open eDP-1 HDMI-1)
+assert_contains "$custom" 'layout=custom name=exact-dock'
+assert_contains "$custom" 'custom_primary=eDP-1'
+assert_contains "$custom" 'custom_output=HDMI-1 pos=120x80 mode=2560x1440 rate=60'
+pass 'exact custom layout is selected and applied'
+
+setup_case custom-contains
+custom_dir=$home/.config/x11/display-layouts/custom
+mkdir -p "$custom_dir"
+cat > "$custom_dir/contains-dock.conf" <<'CONF'
+[identity]
+outputs = eDP-1,HDMI-1
+lid = open
+match_mode = contains
+
+[layout]
+primary = eDP-1
+order = eDP-1,HDMI-1
+output_1 = eDP-1|0|0|1920x1080|60
+output_2 = HDMI-1|100|0|2560x1440|60
+CONF
+custom=$(HOME="$home" XDISPLAY_CUSTOM_LAYOUT_DIR="$custom_dir" \
+    XDISPLAY_LAYOUT_TEST=1 "$xdisplay" open eDP-1 'HDMI-1 DP-1')
+assert_contains "$custom" 'layout=custom name=contains-dock'
+assert_contains "$custom" 'custom_extra=DP-1 relation=--right-of anchor=HDMI-1'
+pass 'contains custom layout remains eligible with an extra output'
+
+setup_case custom-priority
+custom_dir=$home/.config/x11/display-layouts/custom
+mkdir -p "$custom_dir"
+cat > "$custom_dir/any.conf" <<'CONF'
+[identity]
+outputs = eDP-1,HDMI-1
+lid = any
+match_mode = exact
+[layout]
+primary = HDMI-1
+order = HDMI-1,eDP-1
+output_1 = HDMI-1|0|0|1920x1080|60
+output_2 = eDP-1|1920|0|1920x1080|60
+CONF
+cat > "$custom_dir/exact.conf" <<'CONF'
+[identity]
+outputs = eDP-1,HDMI-1
+lid = open
+match_mode = exact
+[layout]
+primary = eDP-1
+order = eDP-1,HDMI-1
+output_1 = eDP-1|0|0|1920x1080|60
+output_2 = HDMI-1|1920|0|1920x1080|60
+CONF
+custom=$(HOME="$home" XDISPLAY_CUSTOM_LAYOUT_DIR="$custom_dir" \
+    XDISPLAY_LAYOUT_TEST=1 "$xdisplay" open eDP-1 HDMI-1)
+assert_contains "$custom" 'layout=custom name=exact'
+pass 'custom matching prioritizes exact lid over any'
+
+setup_case custom-invalid
+custom_dir=$home/.config/x11/display-layouts/custom
+mkdir -p "$custom_dir"
+cat > "$custom_dir/broken.conf" <<'CONF'
+[identity]
+outputs = eDP-1,HDMI-1
+lid = open
+match_mode = exact
+[layout]
+primary = eDP-1
+output_1 = eDP-1|not-a-position|0|bad-mode|oops
+CONF
+custom=$(HOME="$home" XDISPLAY_CUSTOM_LAYOUT_DIR="$custom_dir" \
+    XDISPLAY_LAYOUT_TEST=1 "$xdisplay" open eDP-1 HDMI-1 2>"$case_dir/custom.err")
+assert_contains "$custom" 'layout=extend_chain direction=right'
+custom_log=$home/.local/share/x11/xdisplay-adapter.log
+assert_contains "$(cat "$custom_log")" 'parse_failed'
+pass 'invalid custom layout falls back and records a diagnostic'
+
+setup_case custom-save
+mkdir -p "$case_dir/bin"
+cat > "$case_dir/bin/xrandr" <<'XRANDR_MOCK'
+#!/bin/sh
+if [ "$1" = --query ] || [ "$1" = -q ]; then
+    cat "$FAKE_XRANDR_FIXTURE"
+else
+    printf '%s\n' "$*" >> "$FAKE_XRANDR_MUTATIONS"
+fi
+XRANDR_MOCK
+chmod 700 "$case_dir/bin/xrandr"
+save_dir=$home/.config/x11/display-layouts/custom
+HOME="$home" PATH="$case_dir/bin:/usr/bin:/bin" \
+    DISPLAY=:99 XAUTHORITY="$case_dir/Xauthority" \
+    XDISPLAY_CUSTOM_LAYOUT_DIR="$save_dir" \
+    FAKE_XRANDR_FIXTURE="$fixtures/extended.xrandr" \
+    "$HOME/.local/bin/displayselect" --save test-dock >/dev/null
+[ -f "$save_dir/test-dock.conf" ] || fail 'save did not create custom layout'
+[ "$(stat -c %a "$save_dir")" = 700 ] || fail 'custom directory is not private'
+[ "$(stat -c %a "$save_dir/test-dock.conf")" = 600 ] || fail 'custom layout is not private'
+assert_contains "$(cat "$save_dir/test-dock.conf")" '[identity]'
+assert_contains "$(cat "$save_dir/test-dock.conf")" 'output_1 = '
+list=$(HOME="$home" XDISPLAY_CUSTOM_LAYOUT_DIR="$save_dir" \
+        PATH="$case_dir/bin:/usr/bin:/bin" \
+        DISPLAY=:99 XAUTHORITY="$case_dir/Xauthority" \
+        "$HOME/.local/bin/displayselect" --list)
+assert_contains "$list" 'test-dock'
+HOME="$home" XDISPLAY_CUSTOM_LAYOUT_DIR="$save_dir" \
+    PATH="$case_dir/bin:/usr/bin:/bin" DISPLAY=:99 \
+    XAUTHORITY="$case_dir/Xauthority" \
+"$HOME/.local/bin/displayselect" --delete test-dock
+[ ! -e "$save_dir/test-dock.conf" ] || fail 'delete did not remove custom layout'
+fallback=$(HOME="$home" XDISPLAY_CUSTOM_LAYOUT_DIR="$save_dir" \
+    XDISPLAY_LAYOUT_TEST=1 "$xdisplay" open eDP-1 HDMI-1)
+assert_contains "$fallback" 'layout=extend_chain direction=right'
+pass 'displayselect saves, lists and deletes private custom layouts'
+
+auto_path=$(HOME="$home" PATH="$case_dir/bin:/usr/bin:/bin" \
+    DISPLAY=:99 XAUTHORITY="$case_dir/Xauthority" \
+    XDISPLAY_CUSTOM_LAYOUT_DIR="$save_dir" \
+    FAKE_XRANDR_FIXTURE="$fixtures/extended.xrandr" \
+    "$HOME/.local/bin/displayselect" --save)
+auto_name=${auto_path##*/}
+auto_name=${auto_name%.conf}
+printf '%s\n' "$auto_name" | grep -Eq '^auto-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}$' ||
+    fail 'automatic custom layout name has unexpected format'
+rm -f "$auto_path"
+pass 'displayselect generates timestamped automatic names'
 
 layout=$(layout_test open eDP-1 'HDMI-1 DP-1')
 assert_contains "$layout" 'state=MULTI_EXTEND'

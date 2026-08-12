@@ -80,6 +80,13 @@ CURRENT_EXTERNAL_OUTPUTS=
 CURRENT_DISPLAY_INTERNAL_COUNT=0
 CURRENT_DISPLAY_EXTERNAL_COUNT=0
 CURRENT_LAYOUT_FUNCTION=legacy
+CUSTOM_LAYOUT_NAME=
+CUSTOM_LAYOUT_PRIMARY=
+CUSTOM_LAYOUT_ORDER=
+CUSTOM_LAYOUT_POSITIONS=
+CUSTOM_LAYOUT_LID=
+CUSTOM_LAYOUT_MATCH_MODE=
+CUSTOM_LAYOUT_MTIME=0
 
 notify_problem() {
     message=$1
@@ -880,6 +887,7 @@ refresh_display_state() {
         "$state_connected" "$CURRENT_INTERNAL_OUTPUTS")
     compute_display_state "$state_lid" "$CURRENT_INTERNAL_OUTPUTS" \
         "$CURRENT_EXTERNAL_OUTPUTS"
+    load_custom_layouts "$state_lid"
     case "$state_lid:$CURRENT_DISPLAY_STATE" in
         open:DUAL_EXTEND|unknown:DUAL_EXTEND|absent:DUAL_EXTEND|\
         open:MULTI_EXTEND|unknown:MULTI_EXTEND|absent:MULTI_EXTEND|\
@@ -892,6 +900,266 @@ refresh_display_state() {
             ;;
         *) CURRENT_LAYOUT_FUNCTION=legacy ;;
     esac
+    if [ -n "$CUSTOM_LAYOUT_NAME" ]; then
+        CURRENT_LAYOUT_FUNCTION=custom
+    fi
+    return 0
+}
+
+custom_layout_reset() {
+    CUSTOM_LAYOUT_NAME=
+    CUSTOM_LAYOUT_PRIMARY=
+    CUSTOM_LAYOUT_ORDER=
+    CUSTOM_LAYOUT_POSITIONS=
+    CUSTOM_LAYOUT_LID=
+    CUSTOM_LAYOUT_MATCH_MODE=
+    CUSTOM_LAYOUT_MTIME=0
+}
+
+custom_config_records() {
+    awk '
+        function trim(value) {
+            sub(/^[[:space:]]+/, "", value)
+            sub(/[[:space:]]+$/, "", value)
+            return value
+        }
+        {
+            line = $0
+            sub(/[[:space:]]*#.*/, "", line)
+            line = trim(line)
+            if (line == "") next
+            if (line ~ /^\[[A-Za-z_][A-Za-z0-9_-]*\]$/) {
+                section = line
+                sub(/^\[/, "", section)
+                sub(/\]$/, "", section)
+                next
+            }
+            if (line !~ /^[A-Za-z_][A-Za-z0-9_-]*[[:space:]]*=/) {
+                printf "ERROR\t%d\tmalformed line\n", NR
+                next
+            }
+            key = line
+            sub(/[[:space:]]*=.*/, "", key)
+            key = trim(key)
+            value = line
+            sub(/^[^=]*=/, "", value)
+            value = trim(value)
+            if (section == "")
+                printf "ERROR\t%d\tkey outside section\n", NR
+            else
+                printf "%s\t%s\t%s\n", section, key, value
+        }
+    ' "$1"
+}
+
+custom_output_lines() {
+    value=$1
+    printf '%s\n' "$value" | tr ',' '\n' | awk 'NF { gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print }'
+}
+
+custom_output_set_equal() {
+    left=$(custom_output_lines "$1" | sort -u)
+    right=$(custom_output_lines "$2" | sort -u)
+    [ "$(printf '%s\n' "$left" | sed '/^$/d')" = "$(printf '%s\n' "$right" | sed '/^$/d')" ]
+}
+
+custom_output_set_contains() {
+    configured=$(custom_output_lines "$1" | sort -u)
+    current=$(custom_output_lines "$2" | sort -u)
+    [ -n "$(printf '%s\n' "$configured" | sed '/^$/d')" ] || return 1
+    while IFS= read -r configured_output; do
+        [ -n "$configured_output" ] || continue
+        printf '%s\n' "$current" | grep -qxF "$configured_output" || return 1
+    done <<EOF
+$configured
+EOF
+}
+
+custom_valid_output_name() {
+    printf '%s\n' "$1" | LC_ALL=C awk '$0 ~ /^[^[:space:][:cntrl:],|]+$/ { ok=1 } END { exit !ok }'
+}
+
+custom_valid_position_value() {
+    printf '%s\n' "$1" | LC_ALL=C awk '$0 ~ /^-?[0-9]+$/ { ok=1 } END { exit !ok }'
+}
+
+custom_valid_mode_value() {
+    printf '%s\n' "$1" | LC_ALL=C awk '$0 ~ /^[1-9][0-9]*x[1-9][0-9]*$/ { ok=1 } END { exit !ok }'
+}
+
+custom_valid_rate_value() {
+    [ "$1" = - ] || printf '%s\n' "$1" | LC_ALL=C awk '$0 ~ /^[1-9][0-9]*(\.[0-9]+)?$/ { ok=1 } END { exit !ok }'
+}
+
+custom_validate_position_record() {
+    record=$1
+    old_ifs=$IFS
+    IFS='|'
+    read -r record_output record_x record_y record_mode record_rate <<EOF
+$record
+EOF
+    IFS=$old_ifs
+    [ -n "$record_output" ] || return 1
+    custom_valid_output_name "$record_output" || return 1
+    custom_valid_position_value "$record_x" || return 1
+    custom_valid_position_value "$record_y" || return 1
+    custom_valid_mode_value "$record_mode" || return 1
+    custom_valid_rate_value "${record_rate:--}"
+}
+
+custom_current_outputs() {
+    # Identity is based on connected outputs, except that a closed lid omits
+    # the physically connected but intentionally disabled internal panel.
+    connected=$(connected_outputs)
+    if [ "${1:-unknown}" = closed ]; then
+        internal=$(internal_output "$connected")
+        printf '%s\n' "$connected" | awk -v internal="$internal" '$1 != internal'
+    else
+        printf '%s\n' "$connected"
+    fi
+}
+
+load_custom_layouts() {
+    custom_layout_reset
+    custom_dir=${XDISPLAY_CUSTOM_LAYOUT_DIR:-$HOME/.config/x11/display-layouts/custom}
+    [ -d "$custom_dir" ] || return 0
+    current_lid=${1:-${LID_STATE:-unknown}}
+    current_outputs=$(custom_current_outputs "$current_lid")
+    [ -n "$(printf '%s\n' "$current_outputs" | sed '/^$/d')" ] || return 0
+
+    best_file=
+    best_name=
+    best_primary=
+    best_order=
+    best_positions=
+    best_lid=
+    best_match=
+    best_lid_rank=0
+    best_match_rank=0
+    best_count=0
+    best_mtime=0
+
+    for custom_file in "$custom_dir"/*.conf; do
+        [ -f "$custom_file" ] || continue
+        custom_outputs=
+        custom_lid=
+        custom_match=
+        custom_primary=
+        custom_order=
+        custom_positions=
+        custom_error=0
+        custom_records=$(custom_config_records "$custom_file") || custom_error=1
+        while IFS='	' read -r section key value; do
+            [ -n "${section}${key}${value}" ] || continue
+            case "$section" in
+                ERROR) custom_error=1; continue ;;
+                identity)
+                    case "$key" in
+                        outputs) custom_outputs=$value ;;
+                        lid) custom_lid=$value ;;
+                        match_mode) custom_match=$value ;;
+                        *) custom_error=1 ;;
+                    esac
+                    ;;
+                layout)
+                    case "$key" in
+                        primary) custom_primary=$value ;;
+                        order) custom_order=$value ;;
+                        output_*)
+                            custom_validate_position_record "$value" || custom_error=1
+                            if [ -n "$custom_positions" ]; then
+                                custom_positions=$(printf '%s\n%s' "$custom_positions" "$value")
+                            else
+                                custom_positions=$value
+                            fi
+                            ;;
+                        *) custom_error=1 ;;
+                    esac
+                    ;;
+                *) custom_error=1 ;;
+            esac
+        done <<EOF
+$custom_records
+EOF
+        [ "$custom_error" -eq 0 ] || {
+            adapter_log_event custom-layout "${custom_file##*/}" 65 INVALID parse_failed
+            continue
+        }
+        case "$custom_lid" in open|closed|any) ;; *) continue ;; esac
+        case "$custom_match" in exact|contains) ;; *) continue ;; esac
+        [ -n "$custom_outputs" ] || continue
+        [ -n "$custom_primary" ] || continue
+        custom_invalid=0
+        while IFS= read -r custom_output; do
+            [ -n "$custom_output" ] || continue
+            custom_valid_output_name "$custom_output" || custom_invalid=1
+        done <<EOF
+$(custom_output_lines "$custom_outputs")
+EOF
+        custom_valid_output_name "$custom_primary" || custom_invalid=1
+        while IFS= read -r custom_order_output; do
+            [ -n "$custom_order_output" ] || continue
+            custom_valid_output_name "$custom_order_output" || custom_invalid=1
+        done <<EOF
+$(custom_output_lines "$custom_order")
+EOF
+        while IFS= read -r custom_position; do
+            [ -n "$custom_position" ] || continue
+            custom_validate_position_record "$custom_position" || custom_invalid=1
+        done <<EOF
+$custom_positions
+EOF
+        [ "$custom_invalid" -eq 0 ] || continue
+        [ -n "$custom_order" ] || custom_order=$custom_outputs
+        custom_primary_in_set=1
+        custom_output_lines "$custom_outputs" | grep -qxF "$custom_primary" || custom_primary_in_set=0
+        [ "$custom_primary_in_set" -eq 1 ] || continue
+        case "$custom_match" in
+            exact) custom_output_set_equal "$custom_outputs" "$current_outputs" || continue ;;
+            contains) custom_output_set_contains "$custom_outputs" "$current_outputs" || continue ;;
+        esac
+        case "$custom_lid:$current_lid" in
+            any:*) custom_lid_rank=1 ;;
+            open:open|closed:closed) custom_lid_rank=2 ;;
+            *) continue ;;
+        esac
+        [ "$custom_match" = exact ] && custom_match_rank=2 || custom_match_rank=1
+        custom_count=$(custom_output_lines "$custom_outputs" | sed '/^$/d' | wc -l | awk '{print $1}')
+        custom_mtime=$(stat -c %Y "$custom_file" 2>/dev/null || printf 0)
+        if [ "$custom_lid_rank" -gt "$best_lid_rank" ] ||
+            { [ "$custom_lid_rank" -eq "$best_lid_rank" ] &&
+                [ "$custom_match_rank" -gt "$best_match_rank" ]; } ||
+            { [ "$custom_lid_rank" -eq "$best_lid_rank" ] &&
+                [ "$custom_match_rank" -eq "$best_match_rank" ] &&
+                [ "$custom_count" -gt "$best_count" ]; } ||
+            { [ "$custom_lid_rank" -eq "$best_lid_rank" ] &&
+                [ "$custom_match_rank" -eq "$best_match_rank" ] &&
+                [ "$custom_count" -eq "$best_count" ] &&
+                [ "$custom_mtime" -gt "$best_mtime" ]; }; then
+            best_file=$custom_file
+            best_name=${custom_file##*/}
+            best_name=${best_name%.conf}
+            best_primary=$custom_primary
+            best_order=$(custom_output_lines "$custom_order")
+            best_positions=$custom_positions
+            best_lid=$custom_lid
+            best_match=$custom_match
+            best_lid_rank=$custom_lid_rank
+            best_match_rank=$custom_match_rank
+            best_count=$custom_count
+            best_mtime=$custom_mtime
+        fi
+    done
+
+    [ -n "$best_file" ] || return 0
+    CUSTOM_LAYOUT_NAME=$best_name
+    CUSTOM_LAYOUT_PRIMARY=$best_primary
+    CUSTOM_LAYOUT_ORDER=$best_order
+    CUSTOM_LAYOUT_POSITIONS=$best_positions
+    CUSTOM_LAYOUT_LID=$best_lid
+    CUSTOM_LAYOUT_MATCH_MODE=$best_match
+    CUSTOM_LAYOUT_MTIME=$best_mtime
+    : "$CUSTOM_LAYOUT_LID" "$CUSTOM_LAYOUT_MATCH_MODE"
 }
 
 output_in_list() {
@@ -1181,6 +1449,7 @@ topology_signature() {
         awk -F '\t' '
             $1 == "output" { printf "%s:%s:%s:%s,", $2, $3, $11, $22 }
         '
+    printf 'custom:%s:%s\n' "$CUSTOM_LAYOUT_NAME" "$CUSTOM_LAYOUT_MTIME"
 }
 
 internal_output() {
@@ -1466,6 +1735,127 @@ apply_extend_layout() {
     xrandr "$@"
 }
 
+# Apply an absolute-position custom snapshot. Extra outputs allowed by a
+# contains match are appended using the configured chain direction.
+apply_custom_layout() {
+    internal=$1
+    externals=$2
+    lid=${3:-open}
+    [ -n "$CUSTOM_LAYOUT_NAME" ] || return 1
+    primary=$CUSTOM_LAYOUT_PRIMARY
+    [ -n "$primary" ] || return 1
+    connected=$(connected_outputs)
+    output_in_list "$connected" "$primary" || return 1
+
+    set --
+    configured_outputs=$CUSTOM_LAYOUT_ORDER
+    [ -n "$configured_outputs" ] || configured_outputs=$primary
+    old_ifs=$IFS
+    IFS='
+'
+    for output in $configured_outputs; do
+        [ -n "$output" ] || continue
+        output_in_list "$connected" "$output" || continue
+        position_line=$(printf '%s\n' "$CUSTOM_LAYOUT_POSITIONS" |
+            awk -F '\|' -v output="$output" '$1 == output { print; exit }')
+        [ -n "$position_line" ] || continue
+        saved_x=$(printf '%s\n' "$position_line" | awk -F '\|' '{ print $2 }')
+        saved_y=$(printf '%s\n' "$position_line" | awk -F '\|' '{ print $3 }')
+        saved_mode=$(printf '%s\n' "$position_line" | awk -F '\|' '{ print $4 }')
+        saved_rate=$(printf '%s\n' "$position_line" | awk -F '\|' '{ print $5 }')
+        [ -n "$saved_rate" ] || saved_rate=-
+        custom_valid_position_value "$saved_x" || { IFS=$old_ifs; return 1; }
+        custom_valid_position_value "$saved_y" || { IFS=$old_ifs; return 1; }
+        custom_valid_mode_value "$saved_mode" || { IFS=$old_ifs; return 1; }
+        custom_valid_rate_value "$saved_rate" || { IFS=$old_ifs; return 1; }
+        set -- "$@" --output "$output"
+        [ "$saved_mode" = - ] || set -- "$@" --mode "$saved_mode"
+        [ "$saved_rate" = - ] || set -- "$@" --rate "$saved_rate"
+        set -- "$@" --pos "${saved_x}x${saved_y}"
+        [ "$output" = "$primary" ] && set -- "$@" --primary
+        if [ "${XDISPLAY_LAYOUT_DRY_RUN:-0}" = 1 ]; then
+            custom_primary_suffix=
+            [ "$output" = "$primary" ] && custom_primary_suffix=' primary'
+            printf 'custom_output=%s pos=%sx%s mode=%s rate=%s%s\n' \
+                "$output" "$saved_x" "$saved_y" "$saved_mode" "$saved_rate" \
+                "$custom_primary_suffix"
+        fi
+    done
+    IFS=$old_ifs
+
+    # Add outputs not recorded by a contains snapshot without hiding them.
+    anchor=$primary
+    for configured_output in $configured_outputs; do
+        output_in_list "$connected" "$configured_output" || continue
+        anchor=$configured_output
+    done
+    for output in $(sort_external_outputs "$externals"); do
+        printf '%s\n' "$configured_outputs" | grep -qxF "$output" && continue
+        set -- "$@" --output "$output" --auto "--${CONFIG_EXTERNAL_POSITION}-of" "$anchor"
+        if [ "${XDISPLAY_LAYOUT_DRY_RUN:-0}" = 1 ]; then
+            printf 'custom_extra=%s relation=--%s-of anchor=%s\n' "$output" \
+                "$CONFIG_EXTERNAL_POSITION" "$anchor"
+        fi
+        anchor=$output
+    done
+    if [ "$lid" = closed ] && [ -n "$internal" ] && [ "$internal" != "$primary" ]; then
+        set -- "$@" --output "$internal" --off
+    fi
+    [ "$#" -gt 0 ] || return 1
+    if [ "${XDISPLAY_LAYOUT_DRY_RUN:-0}" = 1 ]; then
+        printf 'layout=custom name=%s\n' "$CUSTOM_LAYOUT_NAME"
+        printf 'custom_primary=%s\n' "$primary"
+        return 0
+    fi
+    xrandr "$@"
+}
+
+custom_output_at_saved_position() {
+    output=$1
+    position_line=$(printf '%s\n' "$CUSTOM_LAYOUT_POSITIONS" |
+        awk -F '\|' -v output="$output" '$1 == output { print; exit }')
+    [ -n "$position_line" ] || return 0
+    saved_x=$(printf '%s\n' "$position_line" | awk -F '\|' '{ print $2 }')
+    saved_y=$(printf '%s\n' "$position_line" | awk -F '\|' '{ print $3 }')
+    printf '%s\n' "$XRANDR_PARSED" |
+        awk -F '\t' -v output="$output" -v x="$saved_x" -v y="$saved_y" '
+            $1 == "output" && $2 == output && $12 == 1 &&
+                ($8 + 0) == (x + 0) && ($9 + 0) == (y + 0) { found = 1 }
+            END { exit !found }
+        '
+}
+
+custom_output_at_saved_mode() {
+    output=$1
+    position_line=$(printf '%s\n' "$CUSTOM_LAYOUT_POSITIONS" |
+        awk -F '\|' -v output="$output" '$1 == output { print; exit }')
+    [ -n "$position_line" ] || return 0
+    saved_mode=$(printf '%s\n' "$position_line" | awk -F '\|' '{ print $4 }')
+    saved_rate=$(printf '%s\n' "$position_line" | awk -F '\|' '{ print $5 }')
+    printf '%s\n' "$XRANDR_PARSED" |
+        awk -F '\t' -v output="$output" -v mode="$saved_mode" -v rate="$saved_rate" '
+            $1 == "output" && $2 == output && $12 == 1 && $15 == mode &&
+                (rate == "-" || ($16 + 0) == (rate + 0)) { found = 1 }
+            END { exit !found }
+        '
+}
+
+custom_layout_converged() {
+    [ -n "$CUSTOM_LAYOUT_NAME" ] || return 1
+    old_ifs=$IFS
+    IFS='
+'
+    for output in $CUSTOM_LAYOUT_ORDER; do
+        [ -n "$output" ] || continue
+        output_active "$output" || { IFS=$old_ifs; return 1; }
+        custom_output_at_saved_mode "$output" || { IFS=$old_ifs; return 1; }
+        custom_output_at_saved_position "$output" || { IFS=$old_ifs; return 1; }
+    done
+    IFS=$old_ifs
+    output_primary "$CUSTOM_LAYOUT_PRIMARY" || return 1
+    return 0
+}
+
 outputs_extended_from() {
     anchor=$1
     outputs=$2
@@ -1619,6 +2009,15 @@ configure_closed() {
     externals=$(usable_outputs "$2")
     [ -n "$externals" ] || return 1
     sorted_externals=$(sort_external_outputs "$externals")
+    if [ -n "$CUSTOM_LAYOUT_NAME" ] && [ "$CURRENT_DISPLAY_STATE" != "$STATE_NONE" ]; then
+        apply_custom_layout "$internal" "$sorted_externals" closed || return 1
+        read_snapshot || return 1
+        if custom_layout_converged &&
+            { [ -z "$internal" ] || ! output_active "$internal"; }; then
+            return 0
+        fi
+        custom_layout_reset
+    fi
     case "$CURRENT_DISPLAY_STATE" in
         EXTERNAL_ONLY|MULTI_EXTERNAL)
             if [ "$MULTI_SCREEN_LAYOUT_READY" -eq 1 ]; then
@@ -1746,6 +2145,18 @@ configure_open() {
 
     if adapter_expected_mode_missing "$internal"; then
         recover_or_degrade_adapter_target "$internal" || return 1
+    fi
+
+    if [ -n "$CUSTOM_LAYOUT_NAME" ] && [ "$CURRENT_DISPLAY_STATE" != "$STATE_NONE" ]; then
+        apply_custom_layout "$internal" "$sorted_externals" open || return 1
+        read_snapshot || return 1
+        if custom_layout_converged; then
+            return 0
+        fi
+        # A stale custom snapshot must not strand the display; the caller's
+        # existing retry path will re-read RandR and use the default planner.
+        custom_layout_reset
+        layout_mode=legacy
     fi
 
     if ! snapshot_has_stale_outputs &&
@@ -1970,6 +2381,11 @@ display_status() {
         "$CURRENT_DISPLAY_STATE" "$CURRENT_DISPLAY_INTERNAL_COUNT" \
         "$CURRENT_DISPLAY_EXTERNAL_COUNT"
     printf 'layout=%s\n' "$CURRENT_LAYOUT_FUNCTION"
+    if [ -n "$CUSTOM_LAYOUT_NAME" ]; then
+        printf 'custom=%s\n' "$CUSTOM_LAYOUT_NAME"
+    else
+        printf 'custom=none\n'
+    fi
     printf 'config: timeout=%s kill-after=%s position=%s limit=%s retry=%s probe=%s pending=%s log=%s log_max=%s\n' \
         "$CONFIG_TIMEOUT_SECONDS" "$CONFIG_KILL_AFTER_SECONDS" \
         "$CONFIG_EXTERNAL_POSITION" "$CONFIG_APPLY_FAILURE_LIMIT" \
@@ -2050,6 +2466,12 @@ apply_snapshot() {
         if [ "$lid" = closed ] && [ "$outputs" = "$internal" ]; then
             ! snapshot_has_stale_outputs
             return
+        fi
+        if [ -n "$CUSTOM_LAYOUT_NAME" ] && [ "$CURRENT_DISPLAY_STATE" != "$STATE_NONE" ]; then
+            apply_custom_layout "$internal" "$outputs" "$lid" || return 1
+            read_snapshot || return 1
+            custom_layout_converged || return 1
+            return 0
         fi
         if [ "$lid" = closed ] &&
             [ "$CURRENT_DISPLAY_STATE" = EXTERNAL_ONLY ]; then
@@ -2328,8 +2750,13 @@ if [ "${XDISPLAY_LAYOUT_TEST:-0}" = 1 ]; then
     layout_primary=$layout_internal
     [ "$layout_lid" = closed ] && layout_primary=$(first_output "$layout_sorted")
     printf 'state=%s\n' "$CURRENT_DISPLAY_STATE"
-    XDISPLAY_LAYOUT_DRY_RUN=1 apply_extend_layout "$layout_primary" \
-        "$layout_sorted" "$layout_direction"
+    if [ -n "$CUSTOM_LAYOUT_NAME" ]; then
+        XDISPLAY_LAYOUT_DRY_RUN=1 apply_custom_layout "$layout_internal" \
+            "$layout_sorted" "$layout_lid"
+    else
+        XDISPLAY_LAYOUT_DRY_RUN=1 apply_extend_layout "$layout_primary" \
+            "$layout_sorted" "$layout_direction"
+    fi
     exit 0
 fi
 
