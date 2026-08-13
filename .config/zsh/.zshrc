@@ -87,7 +87,7 @@ plugins=(
 	git			#git的alias
 	docker			#docker的补全
 	#extract		#用x智能解压
-	thefuck			#用fuck命令或用ESC键修订最近一个错误命令，需要pip install thefuck
+	thefuck			#用 fuck 命令或 Esc Esc 修订最近一个错误命令
 	#fzf-zsh		#追溯历史命令
 	vi-mode
 )

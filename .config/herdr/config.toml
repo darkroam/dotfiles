@@ -10,3 +10,5 @@ auto_switch = false
 
 [ui]
 show_agent_labels_on_pane_borders = true
+# Leave text selection and paste handling to the outer st terminal.
+mouse_capture = false
