@@ -279,6 +279,10 @@ Mod+F3 -> displayselect -> 共享 RandR apply lock
   `GL_ARB_explicit_uniform_location is not listed by the driver, but shader compilation succeeded; continuing.`，
   Picom 持续运行且未再出现 `Failed to setup OpenGL`。本次验证仅证明当前驱动/GLX 会话通过受限
   shader 探测，不替代后续升级后的重新审计。
+- 2026-08-13 复核 Picom 视觉配置：保留 GLX、10px 圆角、`dual_kawase` strength 4、低强度阴影
+  (`radius=10`, `offset-y=2`, `opacity=0.28`) 和按 `open/show/close/hide` 分组的轻量动画；
+  `class_g *= 'fcitx'` 继续排除 Fcitx/Fcitx5 的动画、阴影、圆角和背景模糊。配置已通过
+  `picom --diagnostics` 并向运行实例发送 `SIGUSR1` 热加载，进程保持运行。
 
 ## 临时隔离与恢复
 
