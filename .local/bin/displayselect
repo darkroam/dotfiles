@@ -4,6 +4,50 @@
 # displays and lets user select one to use. User may also select "manual
 # selection" which opens arandr.
 
+displayselect_bin_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd) || exit 1
+XDISPLAY_LIB_DIR=${XDISPLAY_LIB_DIR:-$displayselect_bin_dir/../lib/xdisplay}
+. "$XDISPLAY_LIB_DIR/init.sh" || exit 1
+
+displayselect_usage() {
+    cat <<'EOF'
+Usage: displayselect [COMMAND]
+
+Commands:
+  save [NAME]       Save the current layout (automatic name if omitted)
+  list              List saved custom layouts
+  delete NAME       Delete a saved custom layout
+  help              Show this help
+
+With no command, open the interactive display selector.
+The legacy --save, --list, and --delete forms remain supported.
+EOF
+}
+
+custom_layout_dir=${XDISPLAY_CUSTOM_LAYOUT_DIR:-$HOME/.config/x11/display-layouts/custom}
+
+case "${1:-}" in
+    list|--list)
+        [ "$#" -eq 1 ] || {
+            printf 'displayselect: list takes no arguments.\n' >&2
+            exit 2
+        }
+        xdisplay_select_list_custom_layouts
+        exit 0
+        ;;
+    delete|--delete)
+        [ "$#" -eq 2 ] || {
+            printf 'displayselect: delete requires a name.\n' >&2
+            exit 2
+        }
+        xdisplay_select_delete_custom_layout "$2"
+        exit $?
+        ;;
+    help|--help|-h)
+        displayselect_usage
+        exit 0
+        ;;
+esac
+
 missing_command() {
     message="displayselect requires $1. Install it before using this feature."
     printf '%s\n' "$message" >&2
@@ -14,7 +58,7 @@ missing_command() {
 
 needs_xrandr=1
 case "${1:-}" in
-    --list|--delete) needs_xrandr=0 ;;
+    *) ;;
 esac
 if [ "$needs_xrandr" -eq 1 ] && ! command -v xrandr >/dev/null 2>&1; then
     missing_command xrandr
@@ -26,100 +70,8 @@ if ! command -v flock >/dev/null 2>&1; then
     exit 127
 fi
 
-user_id=${UID:-$(id -u)}
-case "$user_id" in
-    ''|*[!0-9]*)
-        printf 'displayselect cannot determine a valid numeric user ID.\n' >&2
-        exit 1
-        ;;
-esac
-
-runtime_dir=
-if [ -n "${XDG_RUNTIME_DIR:-}" ] &&
-    [ -d "$XDG_RUNTIME_DIR" ] &&
-    [ ! -L "$XDG_RUNTIME_DIR" ] &&
-    [ -w "$XDG_RUNTIME_DIR" ] &&
-    [ -x "$XDG_RUNTIME_DIR" ] &&
-    [ "$(stat -c '%u' "$XDG_RUNTIME_DIR" 2>/dev/null)" = "$user_id" ] &&
-    [ "$(stat -c '%a' "$XDG_RUNTIME_DIR" 2>/dev/null)" = 700 ]; then
-    runtime_dir=$XDG_RUNTIME_DIR
-else
-    runtime_base=${TMPDIR:-/tmp}
-    case "$runtime_base" in
-        /*) ;;
-        *) runtime_base=/tmp ;;
-    esac
-    if [ ! -d "$runtime_base" ] ||
-        [ ! -w "$runtime_base" ] ||
-        [ ! -x "$runtime_base" ]; then
-        runtime_base=/tmp
-    fi
-    if [ ! -d "$runtime_base" ] ||
-        [ ! -w "$runtime_base" ] ||
-        [ ! -x "$runtime_base" ]; then
-        printf 'displayselect cannot find a usable runtime directory.\n' >&2
-        exit 1
-    fi
-
-    runtime_dir=$runtime_base/xdisplay-$user_id
-    if [ -L "$runtime_dir" ]; then
-        printf 'displayselect refuses a symlinked runtime directory.\n' >&2
-        exit 1
-    fi
-    if ! (umask 077 && mkdir -p "$runtime_dir"); then
-        printf 'displayselect cannot create a private runtime directory.\n' >&2
-        exit 1
-    fi
-    if [ -L "$runtime_dir" ] || [ ! -d "$runtime_dir" ]; then
-        printf 'displayselect refuses an unsafe runtime directory.\n' >&2
-        exit 1
-    fi
-    if [ "$(stat -c '%u' "$runtime_dir" 2>/dev/null)" != "$user_id" ]; then
-        printf 'displayselect runtime directory has the wrong owner.\n' >&2
-        exit 1
-    fi
-
-    if [ "$(stat -c '%a' "$runtime_dir" 2>/dev/null)" != 700 ]; then
-        chmod 700 "$runtime_dir" 2>/dev/null || {
-            printf 'displayselect cannot secure its private runtime directory.\n' >&2
-            exit 1
-        }
-    fi
-    if [ "$(stat -c '%u:%a' "$runtime_dir" 2>/dev/null)" != "$user_id:700" ]; then
-        printf 'displayselect private runtime directory validation failed.\n' >&2
-        exit 1
-    fi
-fi
-
-display_server=${DISPLAY:-}
-[ -n "$display_server" ] || display_server=unknown
-
-case "$display_server" in
-    *:*)
-        display_tail=${display_server##*:}
-        case "$display_tail" in
-            *.*)
-                display_number=${display_tail%.*}
-                screen_number=${display_tail##*.}
-                case "$display_number" in
-                    ''|*[!0-9]*) ;;
-                    *)
-                        case "$screen_number" in
-                            ''|*[!0-9]*) ;;
-                            *) display_server=${display_server%:*}:$display_number ;;
-                        esac
-                        ;;
-                esac
-                ;;
-        esac
-        ;;
-esac
-display_key=$(printf '%s' "$display_server" |
-    LC_ALL=C tr -c 'A-Za-z0-9_-' '_')
-[ -n "$display_key" ] || display_key=unknown
-lock_prefix=$runtime_dir/xdisplay-$user_id-$display_key
-
-exec 8>"$lock_prefix.apply.lock"
+xdisplay_init_runtime_paths || exit 1
+xdisplay_open_apply_lock || exit 1
 if ! flock -w 30 8; then
     message="Another display configuration is still in progress."
     printf '%s\n' "$message" >&2
@@ -203,155 +155,13 @@ postrun() { # Stuff to run to clean up.
 	fi
 	}
 
-custom_layout_dir=${XDISPLAY_CUSTOM_LAYOUT_DIR:-$HOME/.config/x11/display-layouts/custom}
-
-valid_layout_name() {
-    case "$1" in
-        ''|.*|*[!A-Za-z0-9._-]*) return 1 ;;
-        *) return 0 ;;
-    esac
-}
-
-custom_lid_state() {
-    for lid_file in /proc/acpi/button/lid/*/state; do
-        [ -r "$lid_file" ] || continue
-        IFS=' ' read -r _ lid_value < "$lid_file"
-        case "$lid_value" in open|closed) printf '%s\n' "$lid_value"; return ;; esac
-    done
-    printf '%s\n' any
-}
-
-custom_layout_snapshot() {
-    xrandr --query | awk '
-        function geometry(value,    rest, pos, sign, dimensions, tail) {
-            if (value !~ /^[0-9]+x[0-9]+[+-][0-9]+[+-][0-9]+$/) return 0
-            split(value, dimensions, "x")
-            rest=dimensions[2]; pos=match(rest, /[+-]/)
-            if (!pos) return 0
-            w=dimensions[1]; h=substr(rest, 1, pos-1); tail=substr(rest,pos)
-            sign=match(substr(tail,2), /[+-]/); if (!sign) return 0
-            sign++; x=substr(tail,1,sign-1); y=substr(tail,sign); return 1
-        }
-        function flush(    i, token) {
-            if (!name || !active || !have_geometry) return
-            printf "%s\t%s\t%s\t%s\t%s\t%s\n", name, x+0, y+0, mode, rate, primary
-        }
-        /^[^ \t]/ {
-            flush()
-            name=""; active=0; have_geometry=0; primary=0; mode="-"; rate="-"; x=0; y=0
-            if ($2 == "connected") {
-                name=$1; active=1
-                for (i=3; i<=NF; i++) {
-                    if ($i == "primary") primary=1
-                    if (geometry($i)) have_geometry=1
-                }
-                if (primary) primary_name=name
-            }
-            next
-        }
-        active && $1 ~ /^[0-9]+x[0-9]+$/ {
-            if (mode != "-") next
-            mode=$1
-            for (i=2; i<=NF; i++) {
-                token=$i
-                if (token ~ /[*]/) {
-                    gsub(/[+*]/, "", token)
-                    rate=token
-                    break
-                }
-            }
-            next
-        }
-        END { flush() }
-    '
-}
-
-save_custom_layout() {
-    requested=${1:-}
-    if [ -z "$requested" ]; then
-        requested=$(date '+auto-%Y-%m-%d-%H-%M-%S')
-    fi
-    valid_layout_name "$requested" || {
-        printf 'displayselect: invalid layout name: %s\n' "$requested" >&2
-        return 2
-    }
-    snapshot=$(custom_layout_snapshot) || {
-        printf 'displayselect: cannot read current display layout.\n' >&2
-        return 1
-    }
-    [ -n "$snapshot" ] || {
-        printf 'displayselect: no active outputs to save.\n' >&2
-        return 1
-    }
-    saved_lid=$(custom_lid_state)
-    if [ "$saved_lid" = closed ]; then
-        snapshot=$(printf '%s\n' "$snapshot" | awk -F '\t' -v legacy="${XDISPLAY_INTERNAL_OUTPUTS:-}" '
-            BEGIN { split(legacy, names, /[[:space:]]+/) }
-            $1 ~ /^(eDP|LVDS|DSI)-?[0-9]+$/ { next }
-            { for (i in names) if ($1 == names[i]) next }
-            { print }
-        ')
-    fi
-    [ -n "$snapshot" ] || {
-        printf 'displayselect: no active external outputs to save while closed.\n' >&2
-        return 1
-    }
-    old_umask=$(umask)
-    umask 077
-    mkdir -p "$custom_layout_dir" || { umask "$old_umask"; return 1; }
-    chmod 700 "$custom_layout_dir" 2>/dev/null || :
-    target=$custom_layout_dir/$requested.conf
-    temp=$target.tmp.$$
-    primary=$(printf '%s\n' "$snapshot" | awk -F '\t' '$6 == 1 { print $1; exit }')
-    [ -n "$primary" ] || primary=$(printf '%s\n' "$snapshot" | awk -F '\t' 'NR == 1 { print $1 }')
-    outputs=$(printf '%s\n' "$snapshot" | awk -F '\t' '{ if (NR > 1) printf ","; printf "%s", $1 }')
-    {
-        printf '[identity]\noutputs = %s\nlid = %s\nmatch_mode = exact\n\n' \
-            "$outputs" "$saved_lid"
-        printf '[layout]\nprimary = %s\norder = %s\n' "$primary" "$outputs"
-        printf '%s\n' "$snapshot" | awk -F '\t' '{ printf "output_%d = %s|%s|%s|%s|%s\n", NR, $1, $2, $3, $4, $5 }'
-    } > "$temp" || { rm -f "$temp"; umask "$old_umask"; return 1; }
-    chmod 600 "$temp" 2>/dev/null || :
-    mv -f "$temp" "$target" || { rm -f "$temp"; umask "$old_umask"; return 1; }
-    chmod 600 "$target" 2>/dev/null || :
-    umask "$old_umask"
-    printf '%s\n' "$target"
-}
-
-list_custom_layouts() {
-    [ -d "$custom_layout_dir" ] || return 0
-    for layout_file in "$custom_layout_dir"/*.conf; do
-        [ -f "$layout_file" ] || continue
-        basename=${layout_file##*/}; basename=${basename%.conf}
-        printf '%s\n' "$basename"
-    done
-}
-
-delete_custom_layout() {
-    name=$1
-    valid_layout_name "$name" || return 2
-    target=$custom_layout_dir/$name.conf
-    [ -f "$target" ] || {
-        printf 'displayselect: layout not found: %s\n' "$name" >&2
-        return 1
-    }
-    rm -f "$target"
-}
-
 case "${1:-}" in
-    --save)
-        [ "$#" -le 2 ] || { printf 'displayselect: --save accepts at most one name.\n' >&2; exit 2; }
-        save_custom_layout "${2:-}"
-        exit $?
-        ;;
-    --list)
-        [ "$#" -eq 1 ] || { printf 'displayselect: --list takes no arguments.\n' >&2; exit 2; }
-        list_custom_layouts
-        exit 0
-        ;;
-    --delete)
-        [ "$#" -eq 2 ] || { printf 'displayselect: --delete requires a name.\n' >&2; exit 2; }
-        delete_custom_layout "$2"
+    save|--save)
+        [ "$#" -le 2 ] || {
+            printf 'displayselect: save accepts at most one name.\n' >&2
+            exit 2
+        }
+        xdisplay_select_save_custom_layout "${2:-}"
         exit $?
         ;;
 esac

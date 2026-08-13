@@ -1,4 +1,4 @@
-# Optional xdisplay.sh engine parameters. Missing keys use built-in defaults.
+# Optional xdisplay engine parameters. Missing keys use built-in defaults.
 [engine]
 timeout_seconds = 2
 kill_after_seconds = 1

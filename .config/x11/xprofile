@@ -71,7 +71,7 @@ if command -v innogpu-restore-dp1-mode-x11 >/dev/null 2>&1; then
 	XDISPLAY_RESTORE_COMMAND=${XDISPLAY_RESTORE_COMMAND:-innogpu-restore-dp1-mode-x11}
 	export XDISPLAY_RESTORE_COMMAND
 fi
-command -v xdisplay.sh >/dev/null 2>&1 && xdisplay.sh --watch &
+command -v xdisplay >/dev/null 2>&1 && xdisplay watch &
 
 # Screen lock
 if command -v flock >/dev/null 2>&1 &&

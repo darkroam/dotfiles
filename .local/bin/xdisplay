@@ -1,0 +1,134 @@
+#!/bin/sh
+
+XDISPLAY_VERSION=2.0.0
+xdisplay_bin_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd) || exit 1
+XDISPLAY_LIB_DIR=${XDISPLAY_LIB_DIR:-$xdisplay_bin_dir/../lib/xdisplay}
+. "$XDISPLAY_LIB_DIR/init.sh" || exit 1
+
+xdisplay_usage() {
+    cat <<'EOF'
+Usage: xdisplay [COMMAND]
+
+Commands:
+  apply, --apply       Apply the current display policy once (default)
+  watch, --watch       Watch lid and RandR state and keep the layout aligned
+  status, --status     Print the current read-only display state
+  version, --version   Print the xdisplay version
+  help, --help         Show this help
+EOF
+}
+
+if [ "${XDISPLAY_STATE_TEST:-0}" = 1 ]; then
+    xdisplay_compute_display_state "${1:-unknown}" "${2:-}" "${3:-}"
+    printf '%s\n' "$CURRENT_DISPLAY_STATE"
+    exit 0
+fi
+
+if [ "${XDISPLAY_LAYOUT_TEST:-0}" = 1 ]; then
+    layout_lid=${1:-open}
+    layout_internal=${2:-}
+    layout_external=${3:-}
+    xdisplay_load_engine_config || :
+    xdisplay_load_layout_config || :
+    layout_direction=${4:-$CONFIG_EXTERNAL_POSITION}
+    layout_external=$(printf '%s\n' "$layout_external" | tr ' ' '\n')
+    ADAPTER_INTERNAL_OUTPUTS=
+    XDISPLAY_INTERNAL_OUTPUTS=
+    XRANDR_PARSED=$(printf 'screen\t0\t320\t200\t320\t200\t16384\t16384\n'; for layout_output in $layout_internal $layout_external; do
+        [ -n "$layout_output" ] || continue
+        printf 'output\t%s\tconnected\t0\t-\t1920\t1080\t0\t0\t1\t1920x1080\t1\t0\t0\t1920x1080\t60\t1920x1080\t60\t1920x1080\t60\t1\t1920x1080@60\t-\t-\n' "$layout_output"
+    done)
+    xdisplay_refresh_display_state "$layout_lid"
+    layout_sorted=$(xdisplay_sort_external_outputs "$layout_external")
+    layout_primary=$layout_internal
+    [ "$layout_lid" = closed ] &&
+        layout_primary=$(xdisplay_first_output "$layout_sorted")
+    printf 'state=%s\n' "$CURRENT_DISPLAY_STATE"
+    if [ -n "$CUSTOM_LAYOUT_NAME" ]; then
+        XDISPLAY_LAYOUT_DRY_RUN=1 xdisplay_apply_custom_layout \
+            "$layout_internal" "$layout_sorted" "$layout_lid"
+    else
+        XDISPLAY_LAYOUT_DRY_RUN=1 xdisplay_apply_extend_layout \
+            "$layout_primary" "$layout_sorted" "$layout_direction"
+    fi
+    exit 0
+fi
+
+if [ "${XDISPLAY_CONFIG_TEST:-0}" = 1 ]; then
+    xdisplay_load_engine_config || :
+    xdisplay_load_layout_config || :
+    printf 'timeout=%s\nkill-after=%s\napply-failure-limit=%s\napply-retry-ticks=%s\nhardware-probe-ticks=%s\npending-probe-ticks=%s\nlog-max-bytes=%s\nlog-path=%s\nexternal-position=%s\nexternal-primary=%s\nmirror-on-duplicate=%s\n' \
+        "$CONFIG_TIMEOUT_SECONDS" "$CONFIG_KILL_AFTER_SECONDS" \
+        "$CONFIG_APPLY_FAILURE_LIMIT" "$CONFIG_APPLY_RETRY_TICKS" \
+        "$CONFIG_HARDWARE_PROBE_TICKS" "$CONFIG_PENDING_PROBE_TICKS" \
+        "$CONFIG_LOG_MAX_BYTES" "$CONFIG_LOG_PATH" \
+        "$CONFIG_EXTERNAL_POSITION" "$CONFIG_EXTERNAL_PRIMARY" \
+        "$CONFIG_MIRROR_ON_DUPLICATE"
+    exit 0
+fi
+
+[ "$#" -le 1 ] || {
+    xdisplay_usage >&2
+    exit 2
+}
+
+case "${1:-apply}" in
+    apply|--apply) command_mode=apply ;;
+    watch|--watch) command_mode=watch ;;
+    status|--status) command_mode=status ;;
+    version|--version)
+        printf 'xdisplay %s\n' "$XDISPLAY_VERSION"
+        exit 0
+        ;;
+    help|--help|-h)
+        xdisplay_usage
+        exit 0
+        ;;
+    *)
+        xdisplay_usage >&2
+        exit 2
+        ;;
+esac
+
+xdisplay_load_engine_config || :
+xdisplay_load_layout_config || :
+
+xdisplay_require_command xrandr
+xdisplay_require_command stat
+xdisplay_require_command tr
+xdisplay_init_observation_roots || exit 1
+xdisplay_init_runtime_paths || exit 1
+
+case "$command_mode" in
+    apply)
+        xdisplay_require_command flock
+        if ! xdisplay_open_apply_lock; then
+            xdisplay_notify_problem \
+                "Cannot open the display layout lock: $apply_lock"
+            exit 1
+        fi
+        xdisplay_read_lid_state
+        current_lid=$LID_STATE
+        xdisplay_read_snapshot && xdisplay_apply_display_config "$current_lid"
+        result=$?
+        if [ "$result" -eq 75 ]; then
+            xdisplay_notify_problem \
+                'Another display configuration is currently in progress.'
+        elif [ "$result" -ne 0 ]; then
+            xdisplay_notify_problem \
+                'The display layout is not ready yet; try again after the outputs finish connecting.'
+        fi
+        exit "$result"
+        ;;
+    watch)
+        xdisplay_require_command flock
+        if ! xdisplay_open_apply_lock; then
+            xdisplay_notify_problem \
+                "Cannot open the display layout lock: $apply_lock"
+            exit 1
+        fi
+        xdisplay_watch_displays
+        exit $?
+        ;;
+    status) xdisplay_display_status ;;
+esac

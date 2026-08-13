@@ -2,7 +2,8 @@
 
 set -eu
 
-xdisplay=${XDISPLAY_UNDER_TEST:-$HOME/.local/bin/xdisplay.sh}
+xdisplay=${XDISPLAY_UNDER_TEST:-$HOME/.local/bin/xdisplay}
+xdisplay_compat=${XDISPLAY_COMPAT_UNDER_TEST:-$HOME/.local/bin/xdisplay.sh}
 fixtures=$HOME/.local/share/xdisplay-transition-20260714/fixtures
 fake_bin=$fixtures/bin
 tests=0
@@ -42,6 +43,11 @@ pass 'state EXTERNAL_ONLY: closed with one external output'
 pass 'state MULTI_EXTERNAL: closed with multiple external outputs'
 [ "$(state_test open '' '')" = NONE ] || fail 'none state mismatch'
 pass 'state NONE: no available outputs'
+
+[ "$($xdisplay version)" = 'xdisplay 2.0.0' ] || fail 'version output mismatch'
+assert_contains "$($xdisplay help)" 'Usage: xdisplay [COMMAND]'
+assert_contains "$($xdisplay_compat --help)" 'Usage: xdisplay [COMMAND]'
+pass 'new command and legacy wrapper expose the same command interface'
 
 layout_test() {
     XDISPLAY_LAYOUT_TEST=1 HOME="$home" \
@@ -294,6 +300,24 @@ fallback=$(HOME="$home" XDISPLAY_CUSTOM_LAYOUT_DIR="$save_dir" \
     XDISPLAY_LAYOUT_TEST=1 "$xdisplay" open eDP-1 HDMI-1)
 assert_contains "$fallback" 'layout=extend_chain direction=right'
 pass 'displayselect saves, lists and deletes private custom layouts'
+
+HOME="$home" XDISPLAY_CUSTOM_LAYOUT_DIR="$save_dir" \
+    PATH="$case_dir/bin:/usr/bin:/bin" DISPLAY=:99 \
+    XAUTHORITY="$case_dir/Xauthority" \
+    FAKE_XRANDR_FIXTURE="$fixtures/extended.xrandr" \
+    "$HOME/.local/bin/displayselect" save test-dock-new >/dev/null
+list=$(HOME="$home" XDISPLAY_CUSTOM_LAYOUT_DIR="$save_dir" \
+    PATH="$case_dir/bin:/usr/bin:/bin" DISPLAY=:99 \
+    XAUTHORITY="$case_dir/Xauthority" \
+    "$HOME/.local/bin/displayselect" list)
+assert_contains "$list" 'test-dock-new'
+HOME="$home" XDISPLAY_CUSTOM_LAYOUT_DIR="$save_dir" \
+    PATH="$case_dir/bin:/usr/bin:/bin" DISPLAY=:99 \
+    XAUTHORITY="$case_dir/Xauthority" \
+    "$HOME/.local/bin/displayselect" delete test-dock-new
+assert_contains "$("$HOME/.local/bin/displayselect" help)" \
+    'Usage: displayselect [COMMAND]'
+pass 'displayselect supports self-explaining layout subcommands'
 
 auto_path=$(HOME="$home" PATH="$case_dir/bin:/usr/bin:/bin" \
     DISPLAY=:99 XAUTHORITY="$case_dir/Xauthority" \
