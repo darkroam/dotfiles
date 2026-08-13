@@ -15,10 +15,19 @@ alias nvim="$EDITOR"
 # SUDO WRAPPERS
 # ============================================================================
 
-# Run selected system commands through sudo when they are available.
+# Run selected system commands through sudo when they are available. Login
+# shells do not always include sbin directories in PATH, so check them directly.
 for command in mount umount sv pacman apt updatedb su shutdown poweroff reboot ; do
-	command -v "$command" >/dev/null 2>&1 && alias "$command=sudo $command"
-done; unset command
+	command_path=""
+	for command_dir in /usr/local/sbin /usr/local/bin /usr/sbin /usr/bin /sbin /bin; do
+		if [ -x "$command_dir/$command" ] && [ ! -d "$command_dir/$command" ]; then
+			command_path="$command_dir/$command"
+			break
+		fi
+	done
+	[ -n "$command_path" ] && alias "$command=sudo $command_path"
+done
+unset command command_path command_dir
 
 # ============================================================================
 # CORE COMMANDS
