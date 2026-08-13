@@ -38,6 +38,13 @@ teardown() {
 
 	# Repository cloned
 	[ -d "$HOME/.cfg" ]
+	local branch
+	branch=$(git --git-dir="$HOME/.cfg" symbolic-ref --short HEAD)
+	[ "$(git --git-dir="$HOME/.cfg" config --get remote.origin.fetch)" = \
+		'+refs/heads/*:refs/remotes/origin/*' ]
+	[ "$(git --git-dir="$HOME/.cfg" rev-parse --abbrev-ref \
+		--symbolic-full-name "${branch}@{upstream}")" = "origin/$branch" ]
+	git --git-dir="$HOME/.cfg" show-ref --verify --quiet "refs/remotes/origin/$branch"
 
 	# fresh_root node with mixed-mode backup and manifest
 	[ -d "$HOME/.config-backup/nodes/fresh_root/backup" ]

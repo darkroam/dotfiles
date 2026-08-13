@@ -207,7 +207,7 @@ setup_bootstrap_env() # 从当前工作树构造自举安装用的临时 remote
 
 | 用例 | 描述 |
 |------|------|
-| TC-B01 | 空 HOME 自举安装、建立 Fresh；冲突备份保持符号链接，基础设施不进入 category |
+| TC-B01 | 空 HOME 自举安装、建立 Fresh；冲突备份保持符号链接，基础设施不进入 category；裸仓库建立 `origin/<branch>` 跟踪引用 |
 | TC-B02 | 拒绝覆盖外部仓库 |
 | TC-B03 | 重复执行自举保持幂等 |
 

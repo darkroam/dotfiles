@@ -147,6 +147,8 @@ if [ "$CFG_STATE" = "valid" ] && [ "$CFG_FORCE" = false ]; then
 	CFG_USE_EXISTING=true
 	CFG_GIT_DIR="$final_git_dir"
 	printf '\nFetching updates from remote...\n'
+	cfg_configure_remote_tracking "$CFG_GIT_DIR" ||
+		printf 'WARNING: Could not configure remote tracking.\n' >&2
 	if ! git --git-dir="$CFG_GIT_DIR/" --work-tree="$HOME" fetch origin 2>/dev/null; then
 		printf 'WARNING: Could not fetch updates (network or SSH issue).\n'
 		printf 'Continuing with local repository state.\n'

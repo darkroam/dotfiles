@@ -742,7 +742,9 @@ bootstrap 流程（内联实现，只依赖 git/md5sum/coreutils）：
 1. 检测 `~/.cfg`：
    - 存在且为 dotfiles 仓库（ours）→ 从 HEAD 恢复库，继续安装
    - 存在但是外部仓库 → 报错并提示 `rm -rf ~/.cfg` 后重跑
-   - 不存在 → `git clone --bare $REMOTE_URL ~/.cfg`
+   - 不存在 → `git clone --bare $REMOTE_URL ~/.cfg`，同时建立
+     `+refs/heads/*:refs/remotes/origin/*` fetch 映射，并将当前分支关联到对应的
+     `origin/<branch>`；因此 `c status`/`c st` 可显示相对最近一次 fetch 的 ahead/behind
 2. 从 `HEAD` 提取库文件到 `$DOTFILES_LIB_DIR`（cfg-validate.sh、utils/*、commands/*、categories-*.conf、exclude.conf）
 3. 安装 `dotcfg` 自身到 `$BIN_DIR`
 4. source 新装的库，创建 `fresh_root` 节点并执行混合模式备份：

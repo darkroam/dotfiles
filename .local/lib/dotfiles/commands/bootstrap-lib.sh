@@ -18,6 +18,10 @@ bootstrap_finish_install() {
 	. "$DOTFILES_LIB_DIR/utils/exclude.sh"
 	. "$DOTFILES_LIB_DIR/utils/fresh.sh"
 
+	if ! cfg_configure_remote_tracking "$GIT_DIR" true; then
+		printf 'WARNING: remote tracking could not be initialized; continuing offline\n' >&2
+	fi
+
 	cfg_nodes_init "$BACKUP_ROOT"
 
 	# Step 3: create the fresh root node from the mixed-mode backup set.

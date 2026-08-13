@@ -55,7 +55,10 @@ case "${CFG_STATE:-missing}" in
 		problems=$((problems + 1))
 		remote_url="${DOTCFG_REMOTE_URL:-git@github.com:darkroam/dotfiles.git}"
 		if confirm "Enter bootstrap install mode (clone $remote_url)?"; then
-			if git clone --bare --quiet "$remote_url" "$git_dir"; then
+			if git clone --bare --quiet \
+				--config "remote.origin.fetch=$CFG_REMOTE_FETCH_REFSPEC" \
+				"$remote_url" "$git_dir"; then
+				cfg_configure_remote_tracking "$git_dir" || true
 				printf '   Repository cloned to %s\n' "$git_dir"
 				repairs_done=$((repairs_done + 1))
 			else

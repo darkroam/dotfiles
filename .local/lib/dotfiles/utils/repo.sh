@@ -10,6 +10,31 @@ _CFG_REPO_LOADED=1
 CFG_GIT_DIR=""
 CFG_USE_EXISTING=false
 CFG_TEMP_DIR=""
+CFG_REMOTE_FETCH_REFSPEC='+refs/heads/*:refs/remotes/origin/*'
+
+# cfg_configure_remote_tracking [git_dir] [fetch_missing]
+# Keeps the bare work-tree repository's current branch comparable with origin.
+cfg_configure_remote_tracking() {
+	local git_dir="${1:-$HOME/.cfg}"
+	local fetch_missing="${2:-false}"
+	local branch=""
+
+	git --git-dir="$git_dir/" config --get remote.origin.url >/dev/null 2>&1 || return 0
+	if ! git --git-dir="$git_dir/" config --get-all remote.origin.fetch 2>/dev/null |
+		grep -Fqx -- "$CFG_REMOTE_FETCH_REFSPEC"; then
+		git --git-dir="$git_dir/" config --add remote.origin.fetch "$CFG_REMOTE_FETCH_REFSPEC" || return 1
+	fi
+
+	branch=$(git --git-dir="$git_dir/" symbolic-ref --short -q HEAD 2>/dev/null) || branch=""
+	[ -n "$branch" ] || return 0
+	git --git-dir="$git_dir/" config "branch.$branch.remote" origin || return 1
+	git --git-dir="$git_dir/" config "branch.$branch.merge" "refs/heads/$branch" || return 1
+
+	if [ "$fetch_missing" = true ] &&
+		! git --git-dir="$git_dir/" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+		git --git-dir="$git_dir/" fetch origin >/dev/null 2>&1 || return 1
+	fi
+}
 
 # cfg_cleanup_temp_dir
 # Removes the temporary clone directory created by repository setup.
@@ -34,8 +59,10 @@ cfg_setup_repository() {
 	if [ "$current_state" = "fresh" ] || [ "$force" = true ]; then
 		printf 'Cloning repository...\n'
 		CFG_TEMP_DIR=$(mktemp -d "$HOME/.cfg.installing.XXXXXX")
-		git clone --bare "$repository" "$CFG_TEMP_DIR"
+		git clone --bare --config "remote.origin.fetch=$CFG_REMOTE_FETCH_REFSPEC" \
+			"$repository" "$CFG_TEMP_DIR"
 		CFG_GIT_DIR="$CFG_TEMP_DIR"
+		cfg_configure_remote_tracking "$CFG_GIT_DIR"
 
 		printf 'Validating cloned repository...\n'
 		cfg_validate "$CFG_GIT_DIR"
@@ -58,6 +85,8 @@ cfg_setup_repository() {
 		CFG_GIT_DIR="$final_git_dir"
 
 		printf '\nFetching updates from remote...\n'
+		cfg_configure_remote_tracking "$CFG_GIT_DIR" ||
+			printf 'WARNING: Could not configure remote tracking.\n' >&2
 		if ! git --git-dir="$CFG_GIT_DIR/" --work-tree="$HOME" fetch origin 2>/dev/null; then
 			printf 'WARNING: Could not fetch updates (network or SSH issue).\n'
 			printf 'Continuing with local repository state.\n'

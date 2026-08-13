@@ -54,7 +54,9 @@ _bootstrap_install() {
     else
         remote_url="${DOTCFG_REMOTE_URL:-git@github.com:darkroam/dotfiles.git}"
         printf 'Cloning dotfiles repository from %s...\n' "$remote_url"
-        if ! git clone --bare --quiet "$remote_url" "$GIT_DIR"; then
+        if ! git clone --bare --quiet \
+            --config 'remote.origin.fetch=+refs/heads/*:refs/remotes/origin/*' \
+            "$remote_url" "$GIT_DIR"; then
             printf 'ERROR: failed to clone repository\n' >&2
             exit 1
         fi
