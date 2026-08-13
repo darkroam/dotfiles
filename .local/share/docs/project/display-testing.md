@@ -3,7 +3,7 @@
 本文是显示管理系统的可操作验收方案，覆盖 `.local/bin/xdisplay`、兼容包装
 `.local/bin/xdisplay.sh`、`.local/bin/displayselect`、`.local/lib/xdisplay/`、可选设备适配器以及
 两个可选配置文件。适配器调用契约和状态定义见
-[`display-device-adapter.md`](../.local/share/docs/project/display-device-adapter.md)。
+[`display-device-adapter.md`](display-device-adapter.md)。
 
 ## 1. 测试范围与环境
 

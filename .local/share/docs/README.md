@@ -23,6 +23,7 @@
 - [文档质量规范](project/docs-standard.md) — 文件级写作标准、完整性自检、Agent 维护规范
 - [显示管理设计](project/display-management.md) — X11 显示引擎的状态模型、布局策略和验证矩阵
 - [显示设备适配器指引](project/display-device-adapter.md) — 非标准硬件扩展接口规范
+- [显示管理测试](project/display-testing.md) — 状态、布局、配置和适配器的测试方案与验收步骤
 
 ## 平台部署（面向运维）
 
@@ -74,7 +75,7 @@
 docs/README.md (中文，文档索引)
     ├── 用户指南 (desktop-guide-zh.md, keybindings-zh.md)
     ├── 维护者文档 (architecture.md, dependencies.md, maintenance-policy.md, docs-standard.md)
-    ├── 显示管理 (display-management.md, display-device-adapter.md)
+    ├── 显示管理 (display-management.md, display-device-adapter.md, display-testing.md)
     ├── 安装系统 (project/installation-system.md, project/installation-testing.md)
     ├── 平台部署 (platforms/index.md → 各平台档案)
     ├── 审计记录 (audits/ — 按日期归档的审计发现和执行记录)

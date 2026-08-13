@@ -6,7 +6,7 @@
 > 设备适配器仍是默认关闭的灰度路径：设置 `XDISPLAY_USE_ADAPTER=1` 且适配器可执行时，
 > `xdisplay` 才调用本文三个子命令；未设置时仍只使用 `XDISPLAY_INTERNAL_OUTPUTS` 和
 > `XDISPLAY_RESTORE_COMMAND` 兼容路径。可执行测试方案见
-> [`tests/display-test-plan.md`](../../../../tests/display-test-plan.md)。
+> [`display-testing.md`](display-testing.md)。
 
 ## 目的与边界
 
@@ -517,7 +517,7 @@ docked 状态和平台默认值仍可能采用不同策略。修改系统电源�
 ## 验证矩阵
 
 适配器和通用引擎完成迁移后，至少逐项验证以下场景。单次成功不能替代完整矩阵。
-每个场景的可执行步骤和 mock 替代方案见 [`tests/display-test-plan.md`](../../../../tests/display-test-plan.md)。
+每个场景的可执行步骤和 mock 替代方案见 [`display-testing.md`](display-testing.md)。
 
 | 场景 | 验收结果 |
 | --- | --- |
