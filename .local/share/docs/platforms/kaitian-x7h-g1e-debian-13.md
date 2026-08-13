@@ -239,6 +239,18 @@ Mod+F3 -> displayselect -> 共享 RandR apply lock
 和 `1920x1200R` modeline。它通过 `XDISPLAY_RESTORE_COMMAND` 接入，只在内屏缺少模式时运行；
 由于包含硬件假设，不得纳入通用配置。目标设备适配器完成实测前保留现有接口。
 
+### 图形用户态特例：Picom GLX 能力探测
+
+本平台的 `Fantasy II-M` Innogpu 用户态驱动能够编译 Picom 使用的
+`layout(location = ...)` GLSL，但在扩展字符串中不列出
+`GL_ARB_explicit_uniform_location`。这不是通过修改预编译驱动库或伪造扩展名解决的；平台特例位于
+下游 Picom patch `001-probe-explicit-uniform-location.patch`：当扩展未列出时，Picom 在
+`gl_init()` 中实际编译最小 vertex shader，编译成功才继续 GLX，编译失败仍拒绝启动。
+
+该特例只属于本设备的图形用户态兼容边界，不改变内核 DRM、Xorg/RandR 或通用显示布局策略。
+升级 Innogpu 用户态、Picom 基线或 GLSL 编译器后，必须重新验证扩展列表、shader 探测、GLX
+初始化和实际合成；不得把这一设备事实推广为所有 GPU 的能力承诺。
+
 ## 显示验证与已知行为
 
 - 2026-07-16 完成扩展坞外屏热插、热拔、合盖、开盖和再次拔出的完整链路；手动
@@ -263,6 +275,10 @@ Mod+F3 -> displayselect -> 共享 RandR apply lock
   重新同步，最终仍采用通用 framebuffer 收敛，避免不可见区域、鼠标越界和整屏截图尺寸错误。
 - 本平台没有标准 `/sys/class/backlight` 设备；`xlight`、`xbacklight` 和状态栏亮度动作仍待选定
   可用后端后统一。
+- 2026-08-13 重新构建并安装下游 Picom 后，真实 X11 会话日志出现
+  `GL_ARB_explicit_uniform_location is not listed by the driver, but shader compilation succeeded; continuing.`，
+  Picom 持续运行且未再出现 `Failed to setup OpenGL`。本次验证仅证明当前驱动/GLX 会话通过受限
+  shader 探测，不替代后续升级后的重新审计。
 
 ## 临时隔离与恢复
 
