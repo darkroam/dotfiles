@@ -24,3 +24,10 @@ fi
 
 # Switch Escape and Caps Lock when passwordless sudo is available.
 sudo -n loadkeys "${XDG_DATA_HOME:-$HOME/.local/share}/larbs/ttymaps.kmap" 2>/dev/null
+
+# Open validated framebuffer terminals on local recovery consoles. Keep the
+# login shell as a fallback if fbterm exits or cannot start.
+if [[ $(tty) == /dev/tty[2-9] ]] && [ -z "$SSH_CONNECTION" ] && [ -z "$DISPLAY" ] &&
+    command -v fbterm >/dev/null 2>&1; then
+    fbterm || print -u2 -- "fbterm failed; continuing in the login shell."
+fi
