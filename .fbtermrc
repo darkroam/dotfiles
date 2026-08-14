@@ -16,5 +16,8 @@ cursor-interval=500
 # 滚动缓冲行数
 history-lines=1000
 
+# Avoid framebuffer YPan; use the patched fbterm redraw path.
+scrolling=redraw
+
 # 输入法（如果需要中文输入）
 input-method=

@@ -15,13 +15,12 @@ if [[ $(tty) == /dev/tty1 ]] && [ -z "$SSH_CONNECTION" ] && [ -z "$DISPLAY" ]; t
     unset graphics_devices
 fi
 
-# Keep normal shells on recovery consoles and avoid garbled CJK text.
-if [[ $(tty) == /dev/tty[2-9]* ]] && [ -z "$SSH_CONNECTION" ]; then
-    export LANG=en_US.UTF-8
-    export LC_ALL=en_US.UTF-8
-fi
+# TTY login sessions inherit the generated system locale through PAM.
+# Do not override LANG or LC_ALL here: an unavailable locale breaks fbterm,
+# Perl, and manpath before the shell can be used for recovery.
 
-# fbterm remains disabled because the current fbdev driver is unstable.
+# fbterm is validated on the current driver. A normal user may still lack
+# permission to change the kernel keymap, which only disables fbterm shortcuts.
 
 # Switch Escape and Caps Lock when passwordless sudo is available.
 sudo -n loadkeys "${XDG_DATA_HOME:-$HOME/.local/share}/larbs/ttymaps.kmap" 2>/dev/null

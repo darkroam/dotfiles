@@ -75,7 +75,7 @@ innogpu 设备或其他 Debian 版本。同一设备升级到新的发行版主�
 | `.config/shell/aliasrc` | `lazygit` | 可选 Git TUI 别名 | 已安装，Debian 软件包 `lazygit` | Shell、源代码管理与开发 | 不存在 | 已验证；已补入 `dependencies.md` |
 | `.config/shell/aliasrc` | 本地 `cc-switch` 包装 | 可选自定义别名 | 已安装于 `~/.local/bin/cc-switch` | Shell、源代码管理与开发 | 不存在 | 已验证；非外部软件包 |
 | `.config/shell/aliasrc` | APT 分支 | 当前 Debian 包管理 | 已安装 | Shell、源代码管理与开发 | 待核对 | 已验证，`sh -n` 通过；pacman、XBPS、Portage 分支留作语法检查 |
-| `.fbtermrc` | `fbterm` | 必需（使用 FbTerm 时） | 已安装，Debian 软件包 `fbterm` | 外观、字体与壁纸 | 不存在 | 已验证 |
+| `.fbtermrc` | `fbterm` | 必需（使用 FbTerm 时） | Debian `/usr/bin/fbterm` 保留为回退；当前命令优先使用 `~/.local/bin/fbterm`，其补丁与构建入口由 Innogpu 项目维护 | 外观、字体与壁纸 | 不存在 | 真实 VT 已验证 `font-size=16` 与 `scrolling=redraw`；长输出、`clear` 和退出后重入均正常，避免当前 fbdev YPan 显示错位 |
 | `.fbtermrc` | Hack、Fira Code、JetBrains Mono、Noto Sans Mono CJK SC、Sarasa Mono SC、Noto Sans CJK SC | 回退字体链 | 已安装并可被 Fontconfig 解析；Noto Sans Mono CJK SC 由 Debian `fonts-noto-cjk` 提供 | 外观、字体与壁纸 | 待核对 | 已验证；以仓库既有等宽中文字体替换缺失的 Maple Mono CN |
 | `.config/tmux/tmux.conf`、`.config/tmux/tmux.conf.local` | `tmux`、Perl | 必需（使用完整 Tmux 配置时） | 已安装，Debian 软件包为 `tmux`、`perl`；配置使用的核心 Perl 模块可加载 | Shell、源代码管理与开发 | 待核对 | 命令已验证；配置已迁移至 Tmux 支持的 XDG 路径，当前沙箱禁止 Tmux Unix 套接字操作，运行加载需在正常用户会话复查 |
 | `.config/tmux/tmux.conf` | `urlview` | 可选 URL 选择绑定 | 已安装，Debian 软件包 `urlview` | 下载、种子与文本浏览 | 待核对 | 已验证 |
