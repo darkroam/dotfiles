@@ -11,7 +11,7 @@
 日常使用、快捷键、个性化设置：
 
 - [桌面使用指南](user/desktop-guide-zh.md) — 安装、启动、使用和故障处理
-- [快捷键摘要](user/keybindings-zh.md) — DWM 键位和媒体键速查
+- [快捷键摘要](user/keybindings-zh.md) — DWM/st 键位和桌面级按键；Vim、Emacs、Herdr、Tmux 的完整分类速查可用 `getkeys <program>`
 
 ## 维护者/Codex 文档（面向 AI 助手和开发者）
 

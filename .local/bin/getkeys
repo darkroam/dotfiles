@@ -15,6 +15,20 @@ show_list() {
 		printf '    %-10s %s\n' "$name" "$desc"
 	done
 
+	printf '\n  \033[1;4mTerminal & Workspace\033[0m\n'
+	for name in herdr tmux; do
+		[ -f "$keysdir/$name" ] || continue
+		desc=$(grep -m1 ' is the ' "$keysdir/$name" | sed 's/^[[:space:]]*//')
+		printf '    %-10s %s\n' "$name" "$desc"
+	done
+
+	printf '\n  \033[1;4mEditors\033[0m\n'
+	for name in vim emacs; do
+		[ -f "$keysdir/$name" ] || continue
+		desc=$(grep -m1 ' is the ' "$keysdir/$name" | sed 's/^[[:space:]]*//')
+		printf '    %-10s %s\n' "$name" "$desc"
+	done
+
 	printf '\n  \033[1;4mFile Manager\033[0m\n'
 	for name in lf; do
 		[ -f "$keysdir/$name" ] || continue

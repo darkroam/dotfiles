@@ -1,0 +1,49 @@
+ _   _                 _             _
+| | | | ___ _ __ __| |_ __ ___
+| |_| |/ _ \ '__/ _` | '__/ _ \
+|  _  |  __/ | | (_| | | |  __/
+|_| |_|\___|_|  \__,_|_|  \___|
+
+herdr is the terminal workspace manager for AI coding agents.
+The current config uses prefix Ctrl+J (the built-in default is Ctrl+B).
+Prefix notation means press the prefix, release it, then press the command key.
+
+Current configuration:
+	Prefix - Ctrl+j
+	Mouse capture - Enabled (Herdr handles pane clicks and scrolling)
+	Theme - tokyo-night; agent labels on pane borders - Enabled
+
+Prefix actions (default actions, with Ctrl+j substituted for prefix):
+	Prefix ? - Show key help
+	Prefix s - Open settings
+	Prefix q - Detach from the workspace
+	Prefix Shift+r - Reload configuration
+	Prefix o - Open the notification target
+	Prefix w - Workspace picker; Prefix g - Goto
+	Prefix Shift+n - Create workspace
+	Prefix Shift+g - Create worktree; Prefix e - Edit scrollback
+	Prefix c - New tab; Prefix Shift+t - Rename tab
+	Prefix p/n - Previous/next tab; Prefix 1-9 - Switch tab
+	Prefix Shift+x - Close tab; Prefix Shift+p - Rename pane
+	Prefix h/j/k/l - Focus pane left/down/up/right
+	Prefix Tab / Shift+Tab - Cycle to next/previous pane
+	Prefix v - Split vertically; Prefix - - Split horizontally
+	Prefix x - Close pane; Prefix z - Zoom/fullscreen pane
+	Prefix r - Enter resize mode; Prefix b - Toggle sidebar
+
+Navigate mode:
+	h/j/k/l - Move to pane left/down/up/right
+	Arrow keys - Move through workspace navigation where shown
+
+Useful CLI equivalents:
+	herdr status - Show client/server status
+	herdr workspace list - List workspaces
+	herdr tab list - List tabs
+	herdr pane list - List panes
+	herdr pane read <pane> - Read pane output
+	herdr pane focus --pane <pane> --direction left|right|up|down - Focus a neighbor
+	herdr pane split <pane> - Split a pane
+
+Remote sessions use the same prefix actions unless overridden by
+`--remote-keybindings local|server`. Run `herdr --default-config` to inspect
+all optional bindings before adding them to `~/.config/herdr/config.toml`.

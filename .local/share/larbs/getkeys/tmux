@@ -1,0 +1,53 @@
+ _____                        
+|_   _| __ ___  _   _  _ __  
+  | || '_ ` _ \| | | || '_ \ 
+  | || | | | | | |_| || |_) |
+  |_||_| |_| |_|\__,_|| .__/ 
+                      |_|    
+
+tmux is the terminal multiplexer. The active config keeps the default
+prefix Ctrl+B and adds Ctrl+A as a secondary prefix for nested sessions.
+Most bindings below require the prefix unless marked `direct`.
+
+Current configuration:
+	Prefix - Ctrl+b; secondary prefix - Ctrl+a
+	Prefix e - Edit the local tmux configuration
+	Prefix r - Reload the tmux configuration
+	Direct Ctrl+l - Clear the pane and its history
+	Prefix Ctrl+c - Create a new session
+	Prefix Ctrl+f - Find and switch to a session
+	Prefix Shift+Tab - Switch to the last session
+	Prefix - / _ - Split below / split right
+	Prefix h/j/k/l - Focus pane left/down/up/right (repeatable)
+	Prefix > / < - Swap pane down/up
+	Prefix + - Toggle/maximize the current pane
+	Prefix H/J/K/L - Resize pane left/down/up/right by 2 (repeatable)
+	Prefix Ctrl+h/Ctrl+l - Previous/next window (repeatable)
+	Prefix Ctrl+Shift+h/l - Move current window left/right
+	Prefix Tab - Switch to the last window
+	Prefix m - Toggle mouse support
+	Prefix F - Run the configured path picker
+
+Copy mode (vi keys):
+	Prefix Enter - Enter copy mode
+	v - Begin selection; Ctrl+v - Toggle rectangular selection
+	y - Copy selection to the tmux buffer and exit; Escape - Cancel
+	H/L - Start/end of line
+	Prefix y - Export the top tmux buffer to the system clipboard when available
+
+Paste buffers:
+	Prefix b - List paste buffers
+	Prefix p - Paste the top buffer
+	Prefix P - Choose a buffer
+
+High-frequency tmux defaults (reference; n/p are overridden here):
+	Prefix c - New window; Prefix , - Rename window
+	Prefix d - Detach; Prefix & - Kill window
+	Prefix n/p - Next/previous window (the current config uses Ctrl+l/Ctrl+h)
+	Prefix 0-9 - Select window 0-9
+	Prefix z - Zoom/unzoom the current pane
+	Prefix [ / ] - Enter copy mode / paste the top buffer
+	Prefix ? - List key bindings; Prefix : - Command prompt
+
+The local Oh My Tmux layer is sourced after the main file. `mouse` starts
+disabled in the local file; Prefix+m toggles it and reports the new state.

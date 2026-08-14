@@ -1,0 +1,75 @@
+ _____                         _
+| ____|_ __ ___   __ _  ___  / \   _ __ ___
+|  _| | '_ ` _ \ / _` |/ __|/ _ \ | '_ ` _ \
+| |___| | | | | | (_| | (__/ ___ \| | | | | |
+|_____|_| |_| |_|\__,_|\___/_/   \_\_| |_| |_|
+
+emacs is the extensible editor. This sheet combines the current Emacs/Evil
+configuration with stable Emacs defaults. Keys marked Hydra are active after
+the prefix shown; Evil keys apply in Evil Normal/Insert states.
+
+Global and minibuffer:
+	M-x - Execute an extended command
+	C-g - Quit/cancel the current command
+	C-x C-f - Find/open a file; C-x C-s - Save the buffer
+	C-x C-b or C-x b - Open Ibuffer
+	C-x 2 / C-x 3 - Split below/right; C-x 1 - Keep one window
+	C-x o - Select the next window (ace-window is configured)
+	C-x u - Undo; C-s / C-r - Search forward/backward
+	M-/ - Hippie expand
+	C-x C-l - Complete a line from the project/buffer
+	C-c C-l - Complete a line from the current buffer
+	C-c C-; - Complete multiple lines
+	C-x C-z - Switch to a shell; C-x C-m - Execute a command
+	C-q - Open a line for snippet expansion; C-x C-o - Find a file at point
+	C-M-s / C-M-r - Regular-expression search forward/backward
+	C-\\ - Toggle the configured input method
+
+Hydra entry points:
+	C-c C-y - Launcher / workgroup / media / study Hydra
+	C-c C-t - Toggle editing options Hydra
+	C-c C-w - Window management Hydra
+	C-c C-g - Git and git-gutter Hydra
+	C-c C-s - Dictionary and documentation search Hydra
+	C-c C-q - Describe/help Hydra
+
+Window Hydra (after C-c C-w):
+	h/j/k/l - Move focus left/down/up/right
+	q/w/e/r - Resize split left/down/up/right
+	v/x - Split right/below; z/Z - Winner undo/redo
+	b - Switch buffer; f - Find file; F - Follow mode
+	a - Select window; s - Swap windows; S - Save buffer
+	d - Delete window; D - Delete via ace-window; o/i - Keep one window
+	Space - Quit the Hydra
+
+Toggle Hydra (after C-c C-t):
+	u - Toggle company-ispell; a - Abbrev mode; d - Debug on error
+	f - Auto-fill; t - Truncate lines; w - Whitespace mode
+	i - Toggle indent-tabs-mode; q - Quit
+
+Git Hydra (after C-c C-g):
+	dd - Diff; dc - Staged diff; dr - Diff range
+	au - Stage modified files; cc - Create commit; ca - Amend commit
+	tt - Stash; ta - Apply stash; l - File log; b - Show branches
+	s - Show commit; k - Git link; f - Find file in commit
+	ri - Interactive rebase; cr - Cherry-pick from reflog
+	rr / rh - Reset gutter to default/HEAD; Q - Toggle gutter; q - Quit
+
+Launcher Hydra (after C-c C-y):
+	f/d - Recent file/directory; B/m - Set/go to bookmark
+	ss/ll - Save/load workgroup; e/r - Erase/reset shell buffer
+	ii - Imenu; id - Insert date; z - Jump around; q - Quit
+	s1/s2 - Start 15/60 minute Pomodoro; st/sr/sp - Stop/resume/pause
+	R/n/p/P/S - Shuffle/next/previous/pause/stop Emms playback
+
+Evil mode defaults:
+	h/j/k/l - Move; w/b/e - Word motions; gg/G - Buffer start/end
+	i/a/o/O - Insert or open lines; v/V - Visual character/line mode
+	y/d/c/p - Yank/delete/change/paste; u/C-r - Undo/redo
+	/ ? n N - Search and move between matches; : - Evil Ex command
+	Current config: Y yanks to end of line, Ctrl+] finds a tag, gh starts a definition
+	Current config: gc/gb/gy comment, copy-comment, or yank-comment an operator motion
+	Insert Ctrl-x Ctrl-n/p - Complete next/previous line; Ctrl-] - Expand snippet
+	Insert Ctrl-e - End of line; Ctrl-k - Kill line; Alt-j - Expand snippet
+
+Hydra keys are context-sensitive; use C-c C-q then b for the active bindings list.

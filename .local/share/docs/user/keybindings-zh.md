@@ -4,6 +4,19 @@
 
 相关文档：[桌面使用指南](desktop-guide-zh.md)、[架构与设计](../project/architecture.md)
 
+本页集中记录 DWM、st 和桌面级按键。需要查看当前 Vim/Neovim、Emacs、Herdr 或 Tmux 的
+完整分类速查时，使用 `getkeys <program>`：
+
+```sh
+getkeys vim       # Vim/Neovim（当前配置以 Neovim 为准）
+getkeys emacs     # Emacs、Evil 和 Hydra
+getkeys herdr     # Herdr 工作区、窗格和标签
+getkeys tmux      # Tmux 前缀、窗格和 copy-mode
+```
+
+这些资料位于 `~/.local/share/larbs/getkeys/`，同时整理当前配置和程序默认键；配置专属内容
+以当前仓库文件为准，插件或版本相关按键可能随启用条件变化。
+
 DWM 部分以当前 `~/src/dwm/config.h` 为准，st 鼠标操作以当前 `~/src/st/config.h` 为准。
 `Mod` 是 Super/Windows 键；大写字母表示同时按 Shift。依赖缺失时，快捷键会启动失败而不会
 自动安装程序。

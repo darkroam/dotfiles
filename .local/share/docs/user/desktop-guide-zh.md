@@ -33,7 +33,9 @@
 
 ## Shell、源代码管理与开发
 
-日常终端使用 `vim`、`nvim`、`lf`、`tmux` 和 FZF。`c` 是配置库专用 Git 命令：用
+日常终端使用 `vim`、`nvim`、`lf`、`tmux` 和 FZF。需要查看当前配置与默认键的分类速查时，执行
+`getkeys vim`、`getkeys emacs`、`getkeys herdr` 或 `getkeys tmux`；完整资料位于
+`~/.local/share/larbs/getkeys/`。`c` 是配置库专用 Git 命令：用
 `c status` 查看已跟踪改动，`c diff` 检查差异，确认后再 `c add` 和提交。
 
 共享 Git 快捷命令包括 `gco`、`gpo`、`gpl`、`gd`、`gst`、`gss`、`gsh`、`gpt`、`glt`、

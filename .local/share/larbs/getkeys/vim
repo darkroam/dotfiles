@@ -1,0 +1,67 @@
+ __   _      _             _   _
+ \ \ /(_)__ _| |_  _ __  __| | (_)_ __ ___
+  \ V / / _` | ' \| '  \/ _` | | | '_ ` _ \
+   |_| \__,_|_||_|_|_|_|\__,_| |_|_| |_| |_|
+
+vim is the Vim/Neovim editor. This sheet reflects the current Neovim config
+(`~/.config/nvim`) plus the most useful built-in motions. Leader = `,`.
+
+Current configuration:
+	Leader / LocalLeader - `,`
+	Normal ,tn - Edit a new tab (`:tabedit`)
+	Normal ,tc - Close the current tab
+	Normal ,cd - Change directory to the current file
+	Normal ,xo or Space - Cycle to the next window
+	Normal ,wh / ,wj / ,wk / ,wl - Focus left/down/up/right window
+	Normal sh / sj / sk / sl - Focus left/down/up/right window
+	Normal ,x1 - Keep only the current window
+	Normal ,x2 or ss - Horizontal split
+	Normal ,x3 or sv - Vertical split
+	Normal Ctrl+Arrow - Resize the current window by 2
+	Normal Shift+j/k - Next/previous buffer
+	Normal ,xs - Save the current file
+	Normal ,xm - Open the command-line prompt
+	Normal x - Delete without yanking
+	Normal Ctrl+d - Delete the previous word without yanking
+	Normal +/- - Increment/decrement number
+	Insert kj - Return to Normal mode
+	Visual < / > - Indent and keep the selection
+	Visual Alt+j/k - Move selected lines down/up
+	Visual p - Paste without replacing the yank register
+	Normal/Visual ,rb - Start substitute; Normal uses the whole file
+	Terminal Ctrl+h/j/k/l - Leave terminal mode and move by direction
+
+Plugin and language mappings:
+	Normal ,e - Toggle NvimTree
+	Normal ,rr - Find files (Telescope)
+	Normal ,dd - Live grep (Telescope)
+	Normal ,bb - List buffers (Telescope)
+	Normal ;t - Help tags; ;; - Resume the last picker
+	Normal ;e - Diagnostics; ,kk - Show keymaps
+	Normal ,xf - File browser for the current directory
+	Normal ,ff - Toggle ZenMode
+	Normal ,ll / ,l{motion} - Comment toggle (Comment.nvim)
+	Normal/Visual ys{motion}{char} - Add surround
+	Normal ds{char} - Delete surround; cs{old}{new} - Change surround
+	Insert Alt+e - Autopairs fast-wrap
+	Insert Ctrl+p/n - Previous/next completion item
+	Insert Ctrl+Space - Trigger completion; Ctrl+e - Cancel it
+	Insert Enter - Confirm the selected completion
+	Insert Tab / Shift+Tab - Completion and snippet navigation
+	LSP Normal gd/gD/gi/gr - Definition/declaration/implementation/references
+	LSP Normal K - Hover; ,rn - Rename; ,ca - Code action
+	LSP Normal ,lf - Format; [d / ]d - Previous/next diagnostic
+	LSP Normal ,df - Show the current-line diagnostic
+
+Built-in Normal mode:
+	h/j/k/l - Move left/down/up/right
+	w/b/e - Move by word; 0/$ - Start/end of line
+	gg/G - Start/end of buffer
+	i/a/o/O - Insert before/after, or open a line below/above
+	v/V/Ctrl+v - Character/line/blockwise Visual mode
+	y/d/c - Yank/delete/change; p/P - Paste after/before
+	u / Ctrl+r - Undo/redo; . - Repeat the last change
+	/ or ? - Search forward/backward; n/N - Next/previous match
+	: - Enter Ex command-line; Ctrl+w then h/j/k/l - Move windows
+
+See `~/.config/nvim/docs/guide/keymaps.md` for the complete plugin and mode matrix.
