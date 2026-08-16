@@ -97,7 +97,9 @@ kill-after 限制，输出经过当前 RandR 快照校验；迁移完成前不�
 
 盖子状态从可用系统接口读取。没有 lid 接口的设备按桌面设备处理；接口存在但不可读时按有盖
 设备安全降级，不能因为读取失败关闭最后一个可见输出。合盖是否挂起由平台电源策略决定，显示
-引擎不得自动改写 logind 或其他电源管理配置。
+引擎不得自动改写 logind 或其他电源管理配置。本机目标策略是：电池且无外屏合盖挂起，电池且有
+外屏合盖继续运行，接入外部电源时无论外屏状态都继续运行。外屏在电池合盖期间拔出后，平台必须
+重新评估已闭合 lid；这不是通用布局引擎的职责。
 
 ## 通用布局策略
 
@@ -119,6 +121,21 @@ kill-after 限制，输出经过当前 RandR 快照校验；迁移完成前不�
 当前尚未实现“最高共同模式镜像”和有 lid/无 lid 的独立多屏回退；表中相应行是验收目标。
 扩展前还必须计算计划包围盒并与 RandR maximum framebuffer 比较。超限时采用已验证的安全镜像
 或只保留一个安全活屏，不得执行会留下半完成布局的命令序列。
+
+### 平台 connector 与 logind 边界
+
+本项目不定义显卡 connector 类型。Innogpu 项目是本机 DRM connector、ACPI/DPU 映射和阶段补丁的
+权威来源；dotconfig 只使用其提供的 X11 输出候选和恢复钩子。p21 的历史运行事实是 DRM `DP-1`
+对应 RandR `eDP-1`，这会令 logind 产生假 `Docked`；Innogpu 的 patched-22/`patch-009` 已在当前
+设备安装并重启，实测 DRM 内置面板为 `eDP-1`、`Docked=false`，connector 语义修复生效。
+电池合盖、外屏热插拔和外部电源矩阵仍以 Innogpu 验收记录为准，尚未全部完成。
+候选包的版本、SHA-256、补丁实现和实机验收记录只维护在 Innogpu 项目的阶段补丁文档中；本文件
+不复制显卡实现或发布结论。
+
+logind 配置保持 `HandleLidSwitch=suspend`、`HandleLidSwitchExternalPower=ignore` 和
+`HandleLidSwitchDocked=ignore`。外屏接入时电池合盖继续运行；无外屏时电池合盖挂起；接电时合盖
+忽略。外屏断开后是否自动重新评估已闭合 lid，必须由平台验收，不得在共享 xdisplay 中另起电源
+或热插拔处理链。
 
 目标模式优先使用 preferred；没有 preferred 时使用模式表首项及其首个刷新率。不得从 EDID
 猜测驱动未暴露的模式，不得复用另一 connector 的能力，也不得把 `--auto` 当作确定策略。
