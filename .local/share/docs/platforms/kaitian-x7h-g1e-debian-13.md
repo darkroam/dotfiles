@@ -12,7 +12,7 @@
 | 内存 | 约 31 GiB 可用内存 |
 | 显卡与驱动 | Fantasy II-M `[1ec8:9810]`；内核驱动 `inno-drv`，模块 `innogpu` |
 | 发行版 | Debian GNU/Linux 13 `trixie`；审计快照为 13.6 |
-| 内核快照 | `6.12.95+deb13-amd64`，仅表示 2026-07-17 的验证环境 |
+| 内核快照 | `6.12.96+deb13-amd64`，仅表示 2026-08-17 的验证环境 |
 | 图形会话 | X11、`startx`、DWM 6.5；登录链由 Xinit/Xprofile 启动 |
 | 服务与包管理 | systemd 257；APT 3、dpkg `amd64` |
 | 本轮起始基线 | 配置仓库 `257ae78`；DWM 仓库 `a00b789`；首轮记录 2026-07-17，内容复核 2026-07-19 |
@@ -197,6 +197,39 @@ success；恢复后 slock 完成认证并退出，原 xss-lock 实例继续存�
 该包使用 PAM 且刻意不授予 setuid-root，本次解锁未受影响。不得仅为消除该日志提高 slock 权限；
 若后续发生实际认证失败，再单独审计 PAM 栈。
 
+### CPU 温度传感器支持
+
+截至 2026-08-17，本机 Hygon C86-4G 3450M（family `0x18`、model `0x10`）没有可供状态栏读取的
+CPU 温度传感器。当前内核 `6.12.96+deb13-amd64` 已启用 `CONFIG_HWMON=y`、
+`CONFIG_SENSORS_K10TEMP=m` 和 `CONFIG_ACPI_THERMAL=y`，因此不是内核配置或 `lm-sensors` 缺失。
+实际证据为：
+
+- 处理器节点是 root `[1d94:14c0]`、DF_F3 `[1d94:14d3]` 和 DF_F4 `[1d94:14d4]`；当前
+  `k10temp` 模块只声明旧 Hygon DF_F3 `[1d94:1463]`，`modprobe -R` 对三个新 ID 均找不到模块。
+- 本机保留的 Debian 6.12 内核 `.63`、`.86`、`.88`、`.90`、`.94`、`.95`、`.96` 版本均只有
+  `[1d94:1463]` 别名；6.12 的 `amd_nb` 识别链也只包含旧一代 Hygon root/F3/F4 ID。
+- `sensors` 只显示电池和 NVMe `Composite`/`Sensor`，`/sys/class/thermal/` 只有 cooling device，
+  没有 `thermal_zone*`；固件没有提供可用的 ACPI 温度区作为 CPU 温度回退。
+
+内核上游也尚未直接支持该设备。以 kernel.org 当日元数据为准，最新稳定版是 `7.1.8`，主线是
+`7.2-rc7`，另检查了 `linux-next` 的 `next-20260814` 快照；三者的 `k10temp_id_table` 仍只为
+Hygon 声明 `[1d94:1463]`，没有 `[1d94:14d3]`。`pci_ids.h` 中虽然存在数值同为 `0x14d3` 的
+`PCI_DEVICE_ID_AMD_MI200_DF_F3`，它配合 AMD vendor `[1022]` 使用，不会匹配 Hygon vendor
+`[1d94]`。7.1 及之后的 `amd_node` 已改为按 host-bridge class/vendor 和固定节点
+slot/function 发现 Hygon 节点，不再受 6.12 那组 root/F3/F4 ID 表限制；当前剩余的显式绑定缺口
+位于 `k10temp`，但这不等于增加一条 PCI alias 就已经证明温度读数正确。
+
+安全推进必须先确认 3450M 是否沿用 `k10temp` 的 SMN `0x00059800` 温度寄存器、位域和换算规则，
+再在隔离内核或模块中增加绑定并核对 `Tctl`/`Tdie`：空闲、持续负载和降温时读数应合理变化，且
+模块加载、卸载、挂起恢复及重启不得产生 PCI/SMN 错误。若基于 Debian 6.12 回移，还需同步处理
+旧 `amd_nb` 的新一代 Hygon 节点识别；若基于 7.1 或之后版本验证，则复用新版 `amd_node`，不应
+重新引入旧 ID 表。优先取得厂商寄存器资料或提交上游支持请求，禁止直接在生产内核盲加
+`{ PCI_VDEVICE(HYGON, 0x14d3) }`。
+
+在真实 CPU hwmon 节点出现并通过上述验证前，`sb-cpu` 保持无温度输出；不得把 NVMe 温度冒充
+CPU 温度。即使后续驱动成功，Hygon/AMD 驱动通常提供 `Tctl`、`Tdie` 或 `Tccd*`，而不是当前脚本
+面向 Intel 的 `Core 0` 标签，届时再依据实际 hwmon 标签单独调整状态栏解析。
+
 系统 Xorg 层存在以下未跟踪配置，它们只属于本平台：
 
 | 系统路径 | 当前作用 |
@@ -340,9 +373,10 @@ sudo /root/networkmanager-transition-20260719/networkmanager-transition.sh rollb
 - [ ] 复查仍依赖真实 X11、账户或网络的交互路径：Transmission、RSS/邮件和媒体预览。
 - [ ] 按“运行必要性、跨设备价值、效率、结构和维护成本”评估未跟踪的 HDA audio user unit/helper；
   未经单独审查不纳入配置仓库。
-- [ ] k10temp 当前不识别 Hygon C86-4G (3450M) 的 DF_F3 设备 `[1d94:14d3]`；内核上游表仅有
-  `[1d94:1463]`，后续可在本机内核树添加 `{ PCI_VDEVICE(HYGON, 0x14d3) }` 后重编译模块，
-  或向内核社区提交支持请求。内核更新后需重新评估补丁。
+- [ ] 按“CPU 温度传感器支持”小节的安全边界推进 Hygon 3450M hwmon 支持：优先取得寄存器资料
+  或请求上游支持；隔离验证 SMN 地址、位域、温度换算和生命周期后再考虑补丁。Debian 6.12
+  回移必须同时处理旧 `amd_nb` 节点识别，7.1 及之后版本复用新版 `amd_node`；不得在生产内核
+  只增加 `[1d94:14d3]` alias 后直接使用。
 
 ### 平台挂起项目
 
