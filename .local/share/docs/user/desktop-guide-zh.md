@@ -50,6 +50,41 @@
 
 安装 `fzf` 后，Zsh 的 Tab 会使用 `fzf-tab` 交互式筛选候选；未安装时自动保留原生补全。
 
+### Windows Terminal 与 PowerShell
+
+Windows Terminal 使用 `$PROFILE.CurrentUserCurrentHost` 加载
+[`user_profile.ps1`](../../../../.config/powershell/user_profile.ps1)。先在 PowerShell 中执行：
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+& "$env:USERPROFILE\.config\powershell\install-modules.ps1" -InstallFzf
+& "$env:USERPROFILE\.config\powershell\install-profile.ps1" -Backup
+. $PROFILE
+```
+
+[`install-modules.ps1`](../../../../.config/powershell/install-modules.ps1) 安装
+Terminal-Icons、`z`、PSReadLine 和 PSFzf；`-InstallFzf` 会在缺少 `fzf.exe` 时优先使用
+Scoop 或 WinGet。模块和 `fzf.exe` 都是可选增强，部分依赖缺失时 profile 仍应正常启动。
+Starship 同样按 PATH 中是否存在命令自动加载。
+
+PowerShell 的 fzf 快捷键与 Linux Zsh 保持一致：
+
+| 快捷键 | 作用 |
+| --- | --- |
+| `Ctrl+T` | 文件/路径筛选 |
+| `Ctrl+R` | 历史命令筛选 |
+| `Alt+C` | 目录筛选并切换 |
+| `Alt+J` / `Alt+K` | fzf 面板向下/向上移动 |
+| `Alt+I` | 选择当前项目并移动到下一项 |
+
+支持该选项的 PSFzf 版本还会将 `**` + `Tab` 用于模糊补全；旧版或不完整安装自动回退到
+PSReadLine 的 `MenuComplete`。profile 只补充缺失的 `--height 90%`、反向布局、边框和上述
+导航绑定，不覆盖用户已有的 `FZF_DEFAULT_OPTS`；Linux 专用的 `fzf_preview` 不会复制到 Windows。
+
+两个安装脚本可重复执行：profile 安装器通过精确匹配 dot-source 行避免重复添加，模块安装器
+使用 `Install-Module -Force` 收敛到当前版本，且已存在的 `fzf.exe` 不会重复安装。`-Backup` 是
+有意的例外，每次执行都会为现有 PowerShell profile 创建一个新的备份快照。
+
 Tmux 从 `${XDG_CONFIG_HOME:-$HOME/.config}/tmux/tmux.conf` 加载配置，并继续加载已跟踪的仓库共享
 覆盖层 `tmux.conf.local`。运行 `ref` 重新生成快捷方式后，`cft` 打开主 `tmux.conf`；相邻的
 `tmux.conf.local` 也是共享配置，不要向其中写入机器私有值。
