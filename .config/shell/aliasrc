@@ -254,45 +254,47 @@ git_unset_proxy() {
 # PACKAGE MANAGEMENT
 # ============================================================================
 
-# All aliases use the same p-prefix across distributions:
-# p: manager, pu: update, pi: install, pr: remove, pse: search,
-# pp: package information, pl: installed packages, pc: cleanup.
+# All aliases use the same pm-prefix across distributions.  The old p-prefix
+# is deliberately removed because pi is also a standalone command.
+unalias p pu pi pr pse pp pl pc pms 2>/dev/null || true
+# pm: manager, pmu: update, pmi: install, pmr: remove, pms: search,
+# pmp: package information, pml: installed packages, pmc: cleanup.
 if command -v apt >/dev/null 2>&1; then
-	alias p='sudo apt'
-	alias pu='sudo apt update && sudo apt upgrade'
-	alias pi='sudo apt install'
-	alias pr='sudo apt remove'
-	alias pse='apt search'
-	alias pp='apt show'
-	alias pl='apt list --installed'
-	alias pc='sudo apt autoremove --purge'
+	alias pm='sudo apt'
+	alias pmu='sudo apt update && sudo apt upgrade'
+	alias pmi='sudo apt install'
+	alias pmr='sudo apt remove'
+	alias pms='apt search'
+	alias pmp='apt show'
+	alias pml='apt list --installed'
+	alias pmc='sudo apt autoremove --purge'
 elif command -v pacman >/dev/null 2>&1; then
-	alias p='sudo pacman'
-	alias pu='sudo pacman -Syu'
-	alias pi='sudo pacman -S'
-	alias pr='sudo pacman -Rns'
-	alias pse='pacman -Ss'
-	alias pp='pacman -Qi'
-	alias pl='pacman -Q'
-	alias pc='pacman -Qtdq | xargs -r sudo pacman -Rns'
+	alias pm='sudo pacman'
+	alias pmu='sudo pacman -Syu'
+	alias pmi='sudo pacman -S'
+	alias pmr='sudo pacman -Rns'
+	alias pms='pacman -Ss'
+	alias pmp='pacman -Qi'
+	alias pml='pacman -Q'
+	alias pmc='pacman -Qtdq | xargs -r sudo pacman -Rns'
 elif command -v xbps-install >/dev/null 2>&1; then
-	alias p='sudo xbps-install'
-	alias pu='sudo xbps-install -Syu'
-	alias pi='sudo xbps-install'
-	alias pr='sudo xbps-remove -R'
-	alias pse='xbps-query -Rs'
-	alias pp='xbps-query -R'
-	alias pl='xbps-query -l'
-	alias pc='sudo xbps-remove -Oo'
+	alias pm='sudo xbps-install'
+	alias pmu='sudo xbps-install -Syu'
+	alias pmi='sudo xbps-install'
+	alias pmr='sudo xbps-remove -R'
+	alias pms='xbps-query -Rs'
+	alias pmp='xbps-query -R'
+	alias pml='xbps-query -l'
+	alias pmc='sudo xbps-remove -Oo'
 elif command -v emerge >/dev/null 2>&1; then
-	alias p='sudo emerge'
-	alias pu='sudo emerge-webrsync && sudo emerge --ask -uDN @world'
-	alias pi='sudo emerge'
-	alias pr='sudo emerge --ask --unmerge'
-	alias pse='emerge --search'
-	alias pp='emerge -pv'
-	alias pl='find /var/db/pkg -mindepth 2 -maxdepth 2 -type d -printf "%P\n"'
-	alias pc='sudo emerge --depclean'
+	alias pm='sudo emerge'
+	alias pmu='sudo emerge-webrsync && sudo emerge --ask -uDN @world'
+	alias pmi='sudo emerge'
+	alias pmr='sudo emerge --ask --unmerge'
+	alias pms='emerge --search'
+	alias pmp='emerge -pv'
+	alias pml='find /var/db/pkg -mindepth 2 -maxdepth 2 -type d -printf "%P\n"'
+	alias pmc='sudo emerge --depclean'
 fi
 
 # ============================================================================

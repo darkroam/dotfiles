@@ -148,7 +148,7 @@ innogpu 设备或其他 Debian 版本。同一设备升级到新的发行版主�
 
 | 通用能力 | Debian 13 映射或本平台结论 |
 | --- | --- |
-| 包管理 | APT/dpkg；`p` 系列别名在本平台选择 APT 分支，`checkup` 使用 APT 更新检查 |
+| 包管理 | APT/dpkg；`pm` 系列别名在本平台选择 APT 分支，`checkup` 使用 APT 更新检查 |
 | `fd` 文件查找能力 | `fd-find` 软件包提供 `fdfind`；Shell 配置会自动选择该兼容命令 |
 | 普通块设备工具 | `mount` 软件包提供 `mount`/`umount`，`util-linux` 提供 `lsblk`/`flock` |
 | X11 与 D-Bus | `xserver-xorg-core`、`xinit`、`dbus-x11`；实际会话使用 `startx` |

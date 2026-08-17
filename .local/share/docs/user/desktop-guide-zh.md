@@ -99,8 +99,9 @@ Tmux 从 `${XDG_CONFIG_HOME:-$HOME/.config}/tmux/tmux.conf` 加载配置，并�
 覆盖层 `tmux.conf.local`。运行 `ref` 重新生成快捷方式后，`cft` 打开主 `tmux.conf`；相邻的
 `tmux.conf.local` 也是共享配置，不要向其中写入机器私有值。
 
-常用软件安装、更新、删除和查询使用 `p` 前缀别名，例如 `pu`、`pi`、`pr`。不同发行版
-会选择对应包管理器。个人机器差异放进未跟踪的 `profile.local` 或 `aliasrc.local`，不要
+常用软件安装、更新、删除和查询使用 `pm` 前缀别名，例如 `pmu`、`pmi`、`pmr`。不同发行版
+会选择对应包管理器；`pms` 搜索、`pmp` 查看包信息、`pml` 列出已安装包、`pmc` 清理无用包。
+旧的 `p`/`pi` 系列已移除，以免与独立的 `pi` 命令冲突。个人机器差异放进未跟踪的 `profile.local` 或 `aliasrc.local`，不要
 修改公共配置来保存账户、令牌或设备专属路径。
 
 需要临时使用本地代理时，在 Bash 或 Zsh 中执行 `setproxy`；执行 `unsetproxy` 清除当前 shell

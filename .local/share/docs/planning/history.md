@@ -302,7 +302,7 @@
 
 ## 其他已完成决定
 
-- [x] 在 APT、pacman、XBPS 和 Portage 中统一 `p`、`pu`、`pi`、`pr`、`pse`、`pp`、`pl`、`pc` 包别名。
+- [x] 在 APT、pacman、XBPS 和 Portage 中统一 `pm`、`pmu`、`pmi`、`pmr`、`pms`、`pmp`、`pml`、`pmc` 包别名；旧 `p`/`pi` 系列因独立 `pi` 命令冲突而移除。
 - [x] 将状态栏音量动作切换至 `wpctl`，同时保留 ALSA 兼容入口和 `pulsemixer` 界面。
 - [x] 使壁纸/pywal 行为可选，同时保留静态默认值。
 - [x] 保持 PipeWire 用户服务所有权，并移除重复 X 会话启动。
