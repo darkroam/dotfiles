@@ -90,7 +90,7 @@ innogpu 设备或其他 Debian 版本。同一设备升级到新的发行版主�
 | `.local/bin/podentr` | `entr` | 监控 Newsboat 队列文件并触发后台下载 | 已安装；Debian 包为 `entr` | 下载、种子与文本浏览 | 待核对 | 可执行，关联脚本的 Shell 语法检查通过；实际队列监控需在正常用户会话按需复查 |
 | `.config/newsboat/config` | `urlscan` | Newsboat 外部 URL 选择器 | 已安装；Debian 包为 `urlscan` | 状态栏、通信与网络服务 | 待核对 | 版本可执行；Newsboat 实际交互需在终端会话按需复查 |
 | `.local/bin/statusbar/sb-nettraf` | `bmon` | 状态栏网络流量模块的终端详情界面 | 已安装；Debian 包为 `bmon` | 状态栏、通信与网络服务 | 待核对 | 可执行，脚本语法检查通过；终端交互需在正常用户会话按需复查 |
-| `.local/bin/statusbar/sb-clock` | `cal` | 状态栏日历弹窗 | 已安装；Debian 软件包 `ncal` 提供 | 状态栏、通信与网络服务 | 待核对 | 可执行，脚本语法检查通过 |
+| `.local/bin/statusbar/sb-clock` | `cal`、`curl` | 状态栏日历弹窗；中文 locale 按当地日出、日落划分时段 | 均已安装；Debian 软件包 `ncal` 提供 `cal` | 状态栏、通信与网络服务 | 待核对 | 可执行，脚本语法检查通过；已用 `wttr.in` 实际生成当天缓存，并验证中文时段边界及英文原生 `AM/PM` 回退 |
 | `.local/bin/statusbar/sb-internet`、`~/src/dwm/config.h` | `nmtui` | 状态栏和 `Mod+Shift+w` 的交互式网络管理界面 | 已安装；Debian 软件包 `network-manager` 提供 | 显示、网络、挂载与系统控制；状态栏、通信与网络服务 | 待核对 | 已在正常 X11 会话验证两个入口均可打开 `nmtui`，当前连接显示为已激活 |
 | `.local/bin/statusbar/sb-battery` | `xbacklight` | 状态栏电池模块的背光滚轮控制 | 已安装；Debian 包为 `xbacklight` | 显示、网络、挂载与系统控制 | 待核对 | 可执行，脚本语法检查通过；实际硬件背光支持需在 X11 会话复查 |
 | `.local/bin/statusbar/sb-iplocate` | `geoiplookup` | 可选 IP 地理位置状态栏模块 | 未安装；Debian 包为 `geoip-bin` | 状态栏、通信与网络服务 | 待核对 | 脚本会先检查命令，缺失时静默隐藏模块；按可降级路径处理，不要求安装 |

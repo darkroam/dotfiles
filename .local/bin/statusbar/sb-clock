@@ -1,6 +1,124 @@
 #!/bin/sh
 
+cache_dir=${XDG_CACHE_HOME:-"$HOME/.cache"}
+sun_cache="$cache_dir/sun-times"
+sun_attempt="$cache_dir/sun-times.attempt"
+
+time_to_seconds() {
+	time_value=$1
+	IFS=: read -r time_hour time_minute time_second extra <<EOF
+$time_value
+EOF
+	[ -z "$extra" ] || return 1
+
+	case "$time_hour:$time_minute:$time_second" in
+		*[!0-9:]*) return 1 ;;
+	esac
+	[ -n "$time_hour" ] && [ -n "$time_minute" ] && [ -n "$time_second" ] || return 1
+	time_hour=${time_hour#0}
+	time_minute=${time_minute#0}
+	time_second=${time_second#0}
+	[ -n "$time_hour" ] || time_hour=0
+	[ -n "$time_minute" ] || time_minute=0
+	[ -n "$time_second" ] || time_second=0
+	[ "$time_hour" -ge 0 ] && [ "$time_hour" -le 23 ] || return 1
+	[ "$time_minute" -ge 0 ] && [ "$time_minute" -le 59 ] || return 1
+	[ "$time_second" -ge 0 ] && [ "$time_second" -le 59 ] || return 1
+	printf '%s\n' "$((time_hour * 3600 + time_minute * 60 + time_second))"
+}
+
+read_sun_cache() {
+	[ -r "$sun_cache" ] || return 1
+	IFS=' ' read -r cache_version saved_date saved_sunrise saved_sunset extra < "$sun_cache" || return 1
+	[ "$cache_version" = v1 ] || return 1
+	[ -z "$extra" ] || return 1
+	case "$saved_sunrise:$saved_sunset" in
+		*[!0-9:]*) return 1 ;;
+	esac
+	[ "$saved_sunrise" -ge 0 ] && [ "$saved_sunrise" -lt 86400 ] || return 1
+	[ "$saved_sunset" -ge 0 ] && [ "$saved_sunset" -lt 86400 ] || return 1
+	[ "$saved_sunrise" -lt "$saved_sunset" ] || return 1
+
+	cache_date=$saved_date
+	sunrise_seconds=$saved_sunrise
+	sunset_seconds=$saved_sunset
+}
+
+write_private_cache() (
+	target=$1
+	content=$2
+	temporary="$target.$$"
+
+	mkdir -p "${target%/*}" || exit 1
+	umask 077
+	trap 'rm -f "$temporary"' 0
+	trap 'exit 1' HUP INT TERM
+	printf '%s\n' "$content" > "$temporary" || exit 1
+	mv -f "$temporary" "$target" || exit 1
+	trap - 0 HUP INT TERM
+)
+
+fetch_sun_cache() {
+	expected_date=$1
+	command -v curl >/dev/null 2>&1 || return 1
+
+	sun_times=$(curl -sfm 5 'https://wttr.in/?format=%S;%s') || return 1
+	IFS=';' read -r sunrise_text sunset_text extra <<EOF
+$sun_times
+EOF
+	[ -z "$extra" ] || return 1
+	fetched_sunrise=$(time_to_seconds "$sunrise_text") || return 1
+	fetched_sunset=$(time_to_seconds "$sunset_text") || return 1
+	[ "$fetched_sunrise" -lt "$fetched_sunset" ] || return 1
+	write_private_cache "$sun_cache" "v1 $expected_date $fetched_sunrise $fetched_sunset"
+}
+
+refresh_sun_cache() {
+	expected_date=$1
+	attempt_hour=$(date '+%Y-%m-%dT%H')
+	last_attempt=
+	[ ! -r "$sun_attempt" ] || IFS= read -r last_attempt < "$sun_attempt"
+	[ "$last_attempt" != "$attempt_hour" ] || return 1
+
+	write_private_cache "$sun_attempt" "$attempt_hour" || return 1
+	fetch_sun_cache "$expected_date"
+}
+
+chinese_period() {
+	fallback=$1
+	today=$(date '+%Y-%m-%d')
+	cache_date=
+	sunrise_seconds=
+	sunset_seconds=
+	read_sun_cache || :
+
+	if [ "$cache_date" != "$today" ]; then
+		refresh_sun_cache "$today" && read_sun_cache
+	fi
+	[ -n "$sunrise_seconds" ] || { printf '%s\n' "$fallback"; return; }
+
+	now_seconds=$(time_to_seconds "$(date '+%H:%M:%S')") || {
+		printf '%s\n' "$fallback"
+		return
+	}
+
+	if [ "$now_seconds" -lt "$sunrise_seconds" ]; then
+		period=凌晨
+	elif [ "$now_seconds" -ge "$sunset_seconds" ]; then
+		period=夜晚
+	elif [ "$now_seconds" -lt 43200 ]; then
+		period=上午
+	else
+		period=下午
+	fi
+	printf '%s\n' "$period"
+}
+
 clock=$(date '+%I')
+period=$(date '+%p')
+case "$period" in
+	上午|下午) period=$(chinese_period "$period") ;;
+esac
 
 case "$clock" in
 	"00") icon="🕛" ;;
@@ -26,4 +144,4 @@ case $BLOCK_BUTTON in
 	6) "$TERMINAL" -e "$EDITOR" "$0" ;;
 esac
 
-date "+%Y %b %d (%a) $icon%I:%M%p"
+date "+%Y %b %d (%a) $icon%I:%M$period"
