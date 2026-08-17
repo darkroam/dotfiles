@@ -36,6 +36,105 @@ Set-Alias -Name g -Value git -Scope Global -Force
 Set-Alias -Name grep -Value findstr -Scope Global -Force
 Set-Alias -Name open -Value explorer.exe -Scope Global -Force
 
+# Git helpers mirror the shared Bash/Zsh workflow.  Functions are used where
+# arguments must be forwarded; Set-Alias cannot safely encode those arguments.
+function gco { git checkout @args }
+function gd { git --no-pager diff @args }
+function gst { git --no-pager status @args }
+function gss { git --no-pager status -s @args }
+function gsh { git --no-pager show @args }
+function gpt { git push origin --tags @args }
+
+function gpo {
+    $branch = (git symbolic-ref --short -q HEAD 2>$null)
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($branch)) {
+        Write-Error 'Not on a local Git branch.'
+        return
+    }
+    git push origin $branch
+}
+
+function gpl {
+    $branch = (git symbolic-ref --short -q HEAD 2>$null)
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($branch)) {
+        Write-Error 'Not on a local Git branch.'
+        return
+    }
+    git pull origin $branch --ff-only
+}
+
+function glt {
+    param([int]$Count = 10)
+
+    git tag -n --sort=taggerdate | Select-Object -Last $Count
+}
+
+function gat {
+    if ($args.Count -ne 2) {
+        Write-Error 'Usage: gat <tag> <message>'
+        return
+    }
+    git tag -a $args[0] -m $args[1]
+}
+
+function gam {
+    if ($args.Count -eq 0) {
+        Write-Error 'Usage: gam <commit message>'
+        return
+    }
+    git add --all
+    if ($LASTEXITCODE -eq 0) {
+        git commit -m ($args -join ' ')
+    }
+}
+
+function gitlog {
+    param(
+        [Parameter(Mandatory, Position = 0)][string]$Format,
+        [int]$Count = 10
+    )
+
+    git --no-pager log --date='format:%Y-%m-%d %H:%M' "--pretty=tformat:$Format" --graph -n $Count
+}
+
+function gll {
+    param([int]$Count = 10)
+
+    gitlog '%C(magenta)%h %C(cyan)%s%Creset' $Count
+}
+
+function glll {
+    param([int]$Count = 10)
+
+    gitlog '%C(magenta)%h %C(yellow)%cd %C(blue)%cn: %C(cyan)%s%Creset' $Count
+}
+
+# Common navigation helpers.  Keep these as functions behind aliases so they
+# can pass the intended relative path without changing Set-Location globally.
+function up {
+    Set-Location ..
+}
+
+function up2 {
+    Set-Location ../..
+}
+
+function up3 {
+    Set-Location ../../..
+}
+
+Set-Alias -Name '..' -Value up -Scope Global -Force
+Set-Alias -Name '...' -Value up2 -Scope Global -Force
+Set-Alias -Name '....' -Value up3 -Scope Global -Force
+
+function l {
+    Get-ChildItem
+}
+
+function la {
+    Get-ChildItem -Force
+}
+
 $tig = Join-Path $HOME 'scoop\apps\git\current\usr\bin\tig.exe'
 if (Test-Path -LiteralPath $tig) {
     Set-Alias -Name tig -Value $tig -Scope Global -Force
@@ -161,6 +260,15 @@ function whereis {
 
     Get-Command -Name $Command -ErrorAction SilentlyContinue |
         Select-Object -ExpandProperty Path -ErrorAction SilentlyContinue
+}
+
+Set-Alias -Name which -Value whereis -Scope Global -Force
+
+function mkcd {
+    param([Parameter(Mandatory, Position = 0)][string]$Path)
+
+    New-Item -ItemType Directory -Path $Path -Force | Out-Null
+    Set-Location -Path $Path
 }
 
 function lsc {

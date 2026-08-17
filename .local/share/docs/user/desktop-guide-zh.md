@@ -85,6 +85,16 @@ PSReadLine 的 `MenuComplete`。profile 只补充缺失的 `--height 90%`、反�
 使用 `Install-Module -Force` 收敛到当前版本，且已存在的 `fzf.exe` 不会重复安装。`-Backup` 是
 有意的例外，每次执行都会为现有 PowerShell profile 创建一个新的备份快照。
 
+常用 PowerShell 导航命令包括：`..`、`...`、`....` 分别向上一级、两级、三级目录，`l`/`la`
+分别列出普通和包含隐藏项的目录内容，`which <命令>` 查询命令路径，`mkcd <目录>` 创建目录并进入。
+`ll`、`g`、`grep` 和 `open` 分别保留为常规列表、Git、文本搜索和资源管理器入口；`c` 不定义为清屏，
+以避免与 Linux 配置仓库命令冲突。
+
+Git 快捷命令与 Linux shell 保持一致：`gco`（checkout）、`gd`（diff）、`gst`/`gss`（完整/简要
+status）、`gsh`（show）、`gpo`/`gpl`（当前分支 push/pull）、`gpt`（推送 tags）、`gam`（暂存并提交）、
+`gat`（创建带注释 tag）、`glt`（最近 tags）以及 `gll`/`glll`（简要/详细彩色日志）。需要参数的命令
+使用 PowerShell 函数包装，能正确转发路径、选项和提交信息。
+
 Tmux 从 `${XDG_CONFIG_HOME:-$HOME/.config}/tmux/tmux.conf` 加载配置，并继续加载已跟踪的仓库共享
 覆盖层 `tmux.conf.local`。运行 `ref` 重新生成快捷方式后，`cft` 打开主 `tmux.conf`；相邻的
 `tmux.conf.local` 也是共享配置，不要向其中写入机器私有值。
