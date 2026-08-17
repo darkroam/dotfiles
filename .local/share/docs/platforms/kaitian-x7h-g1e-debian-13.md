@@ -283,6 +283,9 @@ Mod+F3 -> displayselect -> 共享 RandR apply lock
   (`radius=10`, `offset-y=2`, `opacity=0.28`) 和按 `open/show/close/hide` 分组的轻量动画；
   `class_g *= 'fcitx'` 继续排除 Fcitx/Fcitx5 的动画、阴影、圆角和背景模糊。配置已通过
   `picom --diagnostics` 并向运行实例发送 `SIGUSR1` 热加载，进程保持运行。
+- 2026-08-17 将 Clash Verge 从 Picom 视觉效果中完整排除：`class_g`/`class_i` 的
+  `clash-verge` 匹配均跳过圆角、阴影、淡入淡出、动画和背景模糊；v13
+  配置 diagnostics 通过，当前实例已重新加载配置。
 
 ## 临时隔离与恢复
 
