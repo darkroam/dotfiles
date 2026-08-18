@@ -96,6 +96,15 @@ plugins=(
 bindkey '^n' autosuggest-accept
 
 source $ZSH/oh-my-zsh.sh
+
+# vi-mode resets the keymaps after Oh My Zsh's default bindings are loaded.
+# Support both the standard Delete sequence and st's application-keypad form.
+for keymap in emacs viins vicmd; do
+	bindkey -M "$keymap" $'\e[3~' delete-char
+	bindkey -M "$keymap" $'\e[P' delete-char
+done
+unset keymap
+
 [ -f "$HOME/.config/shell/aliasrc" ] && source "$HOME/.config/shell/aliasrc"
 
 # docker
