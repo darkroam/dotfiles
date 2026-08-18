@@ -36,6 +36,16 @@ Set-Alias -Name g -Value git -Scope Global -Force
 Set-Alias -Name grep -Value findstr -Scope Global -Force
 Set-Alias -Name open -Value explorer.exe -Scope Global -Force
 
+if ((Get-Command nvim -ErrorAction SilentlyContinue) -and
+    -not (Get-Command v -ErrorAction SilentlyContinue)) {
+    Set-Alias -Name v -Value nvim -Scope Global -Force
+}
+
+if ((Get-Command emacs -ErrorAction SilentlyContinue) -and
+    -not (Get-Command e -ErrorAction SilentlyContinue)) {
+    Set-Alias -Name e -Value emacs -Scope Global -Force
+}
+
 # Git helpers mirror the shared Bash/Zsh workflow.  Functions are used where
 # arguments must be forwarded; Set-Alias cannot safely encode those arguments.
 function gco { git checkout @args }
@@ -109,18 +119,56 @@ function glll {
     gitlog '%C(magenta)%h %C(yellow)%cd %C(blue)%cn: %C(cyan)%s%Creset' $Count
 }
 
-# Common navigation helpers.  Keep these as functions behind aliases so they
-# can pass the intended relative path without changing Set-Location globally.
+# Common navigation helpers.  Functions keep path handling explicit while the
+# punctuation aliases below retain the short Unix-style navigation syntax.
 function up {
-    Set-Location ..
+    cd ..
 }
 
 function up2 {
-    Set-Location ../..
+    cd ../..
 }
 
 function up3 {
-    Set-Location ../../..
+    cd ../../..
+}
+
+# PowerShell has no native `cd -` toggle.  Keep the previous successful
+# location here and provide the familiar Unix behavior without changing the
+# normal `cd <path>` argument handling.
+$global:XProfilePreviousLocation = $null
+Remove-Item Alias:\cd -ErrorAction SilentlyContinue
+function cd {
+    $locationArguments = @($args)
+    if ($locationArguments.Count -eq 1 -and [string]$locationArguments[0] -eq '-') {
+        if ([string]::IsNullOrWhiteSpace($global:XProfilePreviousLocation)) {
+            return
+        }
+        $currentLocation = (Get-Location).Path
+        Set-Location -LiteralPath $global:XProfilePreviousLocation
+        if ($?) {
+            $global:XProfilePreviousLocation = $currentLocation
+        }
+        return
+    }
+
+    $currentLocation = (Get-Location).Path
+    if ($locationArguments.Count -eq 0) {
+        Set-Location -Path $HOME
+    } else {
+        Set-Location @locationArguments
+    }
+    if ($?) {
+        $global:XProfilePreviousLocation = $currentLocation
+    }
+}
+
+function back {
+    cd '-'
+}
+
+function home {
+    cd $HOME
 }
 
 Set-Alias -Name '..' -Value up -Scope Global -Force
@@ -133,6 +181,41 @@ function l {
 
 function la {
     Get-ChildItem -Force
+}
+
+function mkd {
+    param([Parameter(Mandatory, Position = 0)][string]$Path)
+
+    New-Item -ItemType Directory -Path $Path -Force | Out-Null
+}
+
+# Windows has no standard touch command.  Do not shadow an existing command;
+# otherwise create the file or update its modification timestamp.
+if (-not (Get-Command touch -ErrorAction SilentlyContinue)) {
+    function touch {
+        param(
+            [Parameter(Mandatory, Position = 0, ValueFromRemainingArguments)]
+            [string[]]$Path
+        )
+
+        foreach ($item in $Path) {
+            $existing = Get-Item -LiteralPath $item -ErrorAction SilentlyContinue
+            if ($null -eq $existing) {
+                New-Item -ItemType File -Path $item -Force | Out-Null
+            } elseif ($existing.PSIsContainer) {
+                Write-Error "'$item' is a directory."
+            } else {
+                $existing.LastWriteTime = Get-Date
+            }
+        }
+    }
+}
+
+if ((Get-Command nvim -ErrorAction SilentlyContinue) -and
+    -not (Get-Command vimdiff -ErrorAction SilentlyContinue)) {
+    function vimdiff {
+        nvim -d @args
+    }
 }
 
 $tig = Join-Path $HOME 'scoop\apps\git\current\usr\bin\tig.exe'
@@ -268,7 +351,7 @@ function mkcd {
     param([Parameter(Mandatory, Position = 0)][string]$Path)
 
     New-Item -ItemType Directory -Path $Path -Force | Out-Null
-    Set-Location -Path $Path
+    cd $Path
 }
 
 function lsc {

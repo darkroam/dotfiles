@@ -67,6 +67,10 @@ Terminal-Icons、`z`、PSReadLine 和 PSFzf；`-InstallFzf` 会在缺少 `fzf.ex
 Scoop 或 WinGet。模块和 `fzf.exe` 都是可选增强，部分依赖缺失时 profile 仍应正常启动。
 Starship 同样按 PATH 中是否存在命令自动加载。
 
+`.ps1` 是 PowerShell 原生脚本文件，由 PowerShell 或 Windows Terminal 按命令调用；它不是 Unix
+可执行文件，因此不需要 `#!` shebang。这里的 Windows profile 通过 `$PROFILE.CurrentUserCurrentHost`
+中的 dot-source 行加载，PowerShell 5.1 和 PowerShell 7 均可使用。
+
 PowerShell 的 fzf 快捷键与 Linux Zsh 保持一致：
 
 | 快捷键 | 作用 |
@@ -85,10 +89,13 @@ PSReadLine 的 `MenuComplete`。profile 只补充缺失的 `--height 90%`、反�
 使用 `Install-Module -Force` 收敛到当前版本，且已存在的 `fzf.exe` 不会重复安装。`-Backup` 是
 有意的例外，每次执行都会为现有 PowerShell profile 创建一个新的备份快照。
 
-常用 PowerShell 导航命令包括：`..`、`...`、`....` 分别向上一级、两级、三级目录，`l`/`la`
-分别列出普通和包含隐藏项的目录内容，`which <命令>` 查询命令路径，`mkcd <目录>` 创建目录并进入。
-`ll`、`g`、`grep` 和 `open` 分别保留为常规列表、Git、文本搜索和资源管理器入口；`c` 不定义为清屏，
-以避免与 Linux 配置仓库命令冲突。
+常用 PowerShell 导航命令包括：`..`、`...`、`....` 分别向上一级、两级、三级目录，`cd -`/`back`
+在这些 profile 导航命令访问过的最近两个目录间切换，`home` 返回用户目录，`l`/`la` 分别列出普通和包含隐藏项的目录内容，
+`which <命令>` 查询命令路径，`mkd <目录>` 创建目录，`mkcd <目录>` 创建目录并进入。`touch <文件>`
+在没有同名命令时创建文件或更新时间戳；`v`/`vimdiff` 和 `e` 仅在对应编辑器已安装且名称未被占用时提供。
+当前会话还没有上一目录时，首次执行 `cd -` 或 `back` 会静默停留在当前目录。
+`ll`、`g`、`grep` 和 `open` 分别保留为常规列表、Git、文本搜索和资源管理器入口；PowerShell 原生的
+`pwd`、`ls`、`cp`、`mv`、`rm`、`cat`、`history` 等别名不重复覆盖。`c` 不定义为清屏，以避免与 Linux 配置仓库命令冲突。
 
 Git 快捷命令与 Linux shell 保持一致：`gco`（checkout）、`gd`（diff）、`gst`/`gss`（完整/简要
 status）、`gsh`（show）、`gpo`/`gpl`（当前分支 push/pull）、`gpt`（推送 tags）、`gam`（暂存并提交）、
