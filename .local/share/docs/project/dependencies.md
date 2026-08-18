@@ -100,7 +100,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | 已跟踪的 `passmenu`、Bash、`dmenu`、`xclip`；可选 `xdotool` | 独立 DWM 的 `Mod+Shift+d` 密码菜单；默认通过 `pass` 复制密码，只有显式 `--type` 才向当前焦点窗口自动输入 |
 | `timedatectl`、`chronyc` 或 `ntpdate`；手动同步另需 `sudo` | OTP 时钟检查和替代同步后端；能响应的 Chrony 拥有同步职责，否则使用 systemd NTP，最后才尝试一次性 `ntpdate` |
 | WPS Office 和 `wps-office-prometheus.desktop` | 已配置办公 MIME 默认项 |
-| `clash-verge` 和已跟踪的 `clash-verge-handler.desktop` | `clash`、`clash-verge` URI 方案处理器；本地 handler 避免依赖发行版 desktop 文件名，仅在使用相应链接时需要 |
+| `clash-verge`、`xdg-mime`（xdg-utils）和 `update-desktop-database`（desktop-file-utils） | `clash`、`clash-verge` URI 方案注册与处理；Clash Verge 的 Tauri deep-link 插件在运行时生成 `clash-verge-handler.desktop`，配置库只跟踪指向该入口的 MIME 默认关联 |
 
 桌面入口会调用 `st`、`lfub`、`nsxiv`、`neomutt`、`zathura`、`nvim`、`rssadd`、
 `transadd` 和 `mpv`；使用相应入口时应安装对应命令。

@@ -125,6 +125,13 @@ Zsh 在 `compinit` 后按条件加载 `fzf-tab`；缺失 `fzf` 时保留原生 T
 嵌入字体。四仓库的获取与构建入口位于根 README，编译能力由依赖清单定义，发行版开发包映射
 只写平台档案。源码、安装副本、字体和代表页面的检查遵循维护策略。
 
+Clash Verge 自己拥有运行时生成的
+`~/.local/share/applications/clash-verge-handler.desktop`：Tauri deep-link 插件根据当前实际
+可执行文件生成该入口，并注册 `clash:` 与 `clash-verge:`。配置库只跟踪
+`.config/mimeapps.list` 中指向 `clash-verge-handler.desktop` 的默认关联，并显式忽略生成文件；
+不得重新加入包含固定安装路径的 handler。Clash Verge 源码属于独立仓库，本配置库只维护双方的
+文件所有权边界和桌面关联结果。
+
 st 自己拥有终端选区状态机：左键完成选区时写入 X11 `PRIMARY`；右键释放时若当前屏幕存在
 已完成选区，就将其复制到 `CLIPBOARD` 并清除终端高亮，否则请求并粘贴 `CLIPBOARD`；中键继续
 请求 `PRIMARY`。该路径使用 st 已有的 X selection 所有权和转换逻辑，不依赖外部 `xclip`。

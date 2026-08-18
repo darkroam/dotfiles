@@ -189,8 +189,9 @@ Shell profile 设为 XDG 数据目录下的密码库，变量缺失时回退到�
 硬链接时导入会拒绝完成。密码库、GPG 私钥和账户数据由你自行初始化和保存，配置库不会跟踪它们。
 常用剪贴板操作依赖 X11 剪贴板，图形程序通常使用 `Ctrl+C`/`Ctrl+V`。
 
-安装 `clash-verge` 后，`clash:` 和 `clash-verge:` 链接由已跟踪的本地 desktop handler 打开；
-该入口通过 PATH 查找命令，不依赖发行版提供的 desktop 文件名。
+安装并启动 `clash-verge` 后，`clash:` 和 `clash-verge:` 链接由程序自动生成的
+`clash-verge-handler.desktop` 打开。该入口会记录当前实际程序路径，因此由 Clash Verge 管理，
+配置库只保存两个 URI scheme 指向该入口的默认关联。
 
 ## 显示、网络、挂载与系统控制
 

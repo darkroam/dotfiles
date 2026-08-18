@@ -122,7 +122,7 @@ innogpu 设备或其他 Debian 版本。同一设备升级到新的发行版主�
 | `.local/bin/xlight`、`.local/bin/cron/checkup`、`.local/bin/cron/crontog`、`.local/bin/ifinstalled` | `xbacklight`、APT、`sudo`、`crontab`、`notify-send` | 背光、包更新检查、cron 切换和依赖检查 | 均已安装；`cron` 包提供服务与 `crontab`，不提供同名命令 | 显示、网络、挂载与系统控制；Shell、源代码管理与开发 | 待核对 | Shell 语法检查通过；计划任务与 sudo 的实际交互需在正常用户会话复查 |
 | `.local/bin/tag` | `vorbiscomment`、`eyeD3`、`metaflac` | OGG、MP3、FLAC 元数据写入 | 已安装；Debian 包分别为 `vorbis-tools`、`eyed3`、`flac` | 音频、音乐、录制与视频 | 待核对 | 可执行；脚本语法检查通过 |
 | `.local/bin/tag` | `opustags` | Opus 元数据写入 | 已安装；Debian 包为 `opustags`。`opus-tools` 仅提供编码、解码和信息查询工具 | 音频、音乐、录制与视频 | 待核对 | 可执行；`tag` 脚本语法检查通过 |
-| `.config/mimeapps.list`、`.local/share/applications/{file,img,mail,pdf,rss,text,torrent,video}.desktop`、`.local/share/applications/clash-verge-handler.desktop` | `st`、`lfub`、`nsxiv`、`neomutt`、`zathura`、`rssadd`、`transadd`、`nvim`、`mpv`、WPS Office、`clash-verge` | MIME 默认程序、自定义桌面入口和 Clash URI 方案处理器 | 自定义入口、WPS 和 `/usr/bin/clash-verge` 均可解析；系统包仍提供含空格文件名的 `Clash Verge.desktop`，但 URI 关联不再依赖它 | 文件、文档、密码与桌面处理 | 待核对 | 本地 handler 使用 `TryExec=clash-verge` 和不经 shell 的 `Exec=clash-verge %u`，同时声明 `clash`、`clash-verge`；2026-07-18 `gio mime` 与 `xdg-mime query default` 均解析到该 handler，实际 GUI 启动留待按需复查 |
+| `.config/mimeapps.list`、`.local/share/applications/{file,img,mail,pdf,rss,text,torrent,video}.desktop` | `st`、`lfub`、`nsxiv`、`neomutt`、`zathura`、`rssadd`、`transadd`、`nvim`、`mpv`、WPS Office、`clash-verge`、`xdg-mime`、`update-desktop-database` | MIME 默认程序、自定义桌面入口和 Clash URI 方案处理器 | 自定义入口、WPS、Clash Verge 和两项 XDG 工具均可解析；`desktop-file-utils 0.28-1` 已安装；现有 `clash-verge-handler.desktop` 由 Clash Verge 按实际二进制路径生成并受 `.gitignore` 排除 | 文件、文档、密码与桌面处理 | 待核对 | 2026-08-18 `xdg-mime query default` 与 `gio mime` 对 `clash`、`clash-verge` 均解析为 `clash-verge-handler.desktop`，`update-desktop-database --version` 为 `0.28`；配置库继续跟踪两项默认关联，但不跟踪运行时 handler。部署修复版 Clash Verge 后，仍需重启应用复查注册日志、URI 实际拉起和配置库状态 |
 | `.config/nsxiv/exec/key-handler` | `setbg`、`dmenu`、ImageMagick、`xclip`、`mediainfo`、`gimp`、本地 `ifinstalled` | nsxiv 的壁纸、文件操作、图像处理与信息按键 | 均已安装或为已跟踪本地脚本 | 文件、文档、密码与桌面处理 | 待核对 | `sh -n` 通过；实际图形按键交互需在 X11 会话复查 |
 | `.config/zsh/.zshrc` | `zsh`、Oh My Zsh、zplug、`thefuck`、`fzf`、`fzf-tab`、NVM、Bun | Zsh 框架、插件与条件加载的开发环境 | `fzf` 已安装；`fzf-tab` 由 zplug 在存在 `fzf` 时按需安装和加载；NVM/Bun 由其本地初始化文件提供 | Shell、源代码管理与开发 | 待核对 | `zsh -n` 通过；本轮不触发 zplug 的联网安装或更新；缺少 `fzf` 时保持原生 Tab 补全 |
 | `.config/zsh/.zshrc` | `fd` 或 `fdfind`、`jq`、Docker (`docker`) | FZF 文件搜索、`json()` 剪贴板格式化、Docker 插件与 `attach()` | 已安装；Debian 包为 `fd-find`、`jq`、`docker.io` | Shell、源代码管理与开发 | 不存在 | Zsh 已修正为支持 Debian 的 `fdfind`，并实际选中该命令；Docker 守护进程运行状态需在正常用户会话复查 |
@@ -370,6 +370,9 @@ sudo /root/networkmanager-transition-20260719/networkmanager-transition.sh rollb
 
 ### 平台活动待办
 
+- [ ] `desktop-file-utils` 已于 2026-08-18 安装；由 Clash Verge 维护者部署已修复 Linux deep-link
+  注册的构建后，重启应用并确认日志无注册错误、两个 URI scheme 均指向
+  `clash-verge-handler.desktop`，且配置库不再出现 `.config/mimeapps.list` 内容变化。
 - [ ] 复查仍依赖真实 X11、账户或网络的交互路径：Transmission、RSS/邮件和媒体预览。
 - [ ] 按“运行必要性、跨设备价值、效率、结构和维护成本”评估未跟踪的 HDA audio user unit/helper；
   未经单独审查不纳入配置仓库。

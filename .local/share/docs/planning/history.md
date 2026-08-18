@@ -10,6 +10,14 @@
 
 ## 最近记录的变更
 
+- [x] 2026-08-18：明确 Clash Verge Linux URI handler 的文件所有权。配置库停止跟踪并忽略
+  运行时生成的 `.local/share/applications/clash-verge-handler.desktop`，避免其实际二进制绝对路径
+  反复形成工作区差异；`.config/mimeapps.list` 继续声明 `clash`、`clash-verge` 均使用该 handler。
+  当前 `xdg-mime` 与 `gio mime` 查询均解析到 `clash-verge-handler.desktop`。Clash Verge 的注册实现
+  由独立源码仓库维护，本库只维护生成文件边界和最终桌面关联。平台已补装提供
+  `update-desktop-database` 的 `desktop-file-utils 0.28-1`；部署修复版并重启后的完整验收已登记到
+  设备档案。
+
 - [x] 2026-08-11：将 Fresh 策略排除从 23 项扩展为 30 项，补齐 macOS 的 `Applications/`、
   `Library/`、`Movies/`、`Public/`、`Sites/`、`.Trash/` 和 `*.DS_Store`。配置缺失回退保持同值，
   仓库显式跟踪的配置仍可覆盖普通策略排除。新增 macOS 专项回归后全量 Bats `255/255` 通过。
@@ -201,7 +209,8 @@
 - [x] 2026-07-18：加入可移植的 `clash-verge-handler.desktop`，统一处理 `clash:` 与
   `clash-verge:` URI。handler 通过 PATH 和 `TryExec` 定位程序，`Exec` 不经过 shell；配置不再
   依赖发行版含空格的 desktop 文件名。`gio` 与 `xdg-mime` 的隔离测试和当前配置查询均正确解析
-  两个 scheme，未在验证中启动 GUI。
+  两个 scheme，未在验证中启动 GUI。该静态跟踪方案已于 2026-08-18 被 Clash Verge 运行时生成
+  handler 的所有权模型取代，保留本条仅用于记录历史。
 
 - [x] 2026-07-18：统一独立桌面源码入口为 `~/src`。规范书签 `rr`/`src`、`cfb`、DWM 状态栏
   `Shift+Button3` 和 DWMBlocks 注释不再引用旧 `~/.local/src`；已重新生成被 Git 忽略的 Shell、
