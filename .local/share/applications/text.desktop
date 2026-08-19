@@ -1,5 +1,5 @@
 [Desktop Entry]
 Type=Application
 Name=Text editor
-Exec=/usr/local/bin/st -e nvim %u
-MimeType=text/plain;text/x-c;text/x-python;text/x-shellscript;text/html;text/css;application/json;
+Exec=/usr/local/bin/st -e nvim %f
+MimeType=text/plain;text/markdown;text/x-c;text/x-python;text/x-shellscript;text/html;text/css;application/json;
