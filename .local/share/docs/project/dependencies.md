@@ -44,7 +44,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | X11、Xft、Xrender、Xinerama、Fontconfig、FreeType、HarfBuzz 开发头文件和库 | DWM、DWMBlocks、dmenu 与 st 的编译、字体和渲染能力 |
 | X11-XCB、XCB、XCB Res 开发头文件和库 | 当前 DWM 补丁使用的进程/窗口资源能力 |
 | `tic` | 安装 st 的 terminfo 条目 |
-| kbd（`loadkeys`） | Zsh 本地控制台登录时可选加载 TTY 键盘映射；失败不阻塞登录 |
+| kbd（`loadkeys`） | 按需手动加载已跟踪的 TTY 键盘映射；登录 Shell 不执行提权命令 |
 | `fbterm` | 使用已跟踪 `.fbtermrc` 时的可选 framebuffer 终端；当前 Innogpu 设备的 redraw 兼容二进制由对应驱动项目维护，系统包保留为回退 |
 | `slock` | 系统安装的 X11 锁屏程序；不属于仓库约定的四个 `~/src/` 源码目录 |
 | `dunst`, `picom`, `unclutter`, `xwallpaper` | 通知、合成器、鼠标隐藏和壁纸 |

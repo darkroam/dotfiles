@@ -19,11 +19,12 @@ fi
 # Do not override LANG or LC_ALL here: an unavailable locale breaks fbterm,
 # Perl, and manpath before the shell can be used for recovery.
 
-# fbterm is validated on the current driver. A normal user may still lack
-# permission to change the kernel keymap, which only disables fbterm shortcuts.
-
-# Switch Escape and Caps Lock when passwordless sudo is available.
-sudo -n loadkeys "${XDG_DATA_HOME:-$HOME/.local/share}/larbs/ttymaps.kmap" 2>/dev/null
+# fbterm is validated on the current driver. The optional map below swaps Esc
+# and Caps Lock in TTY/fbterm; unlike X11 xcape, it cannot distinguish a tap
+# from a held modifier. Keep it disabled because loadkeys is privileged and an
+# automatic noninteractive sudo failure generates a mail_badpass notice.
+# Run this manually after boot when the fixed TTY mapping is needed:
+# sudo loadkeys "${XDG_DATA_HOME:-$HOME/.local/share}/larbs/ttymaps.kmap"
 
 # Open validated framebuffer terminals on local recovery consoles. Keep the
 # login shell as a fallback if fbterm exits or cannot start.
