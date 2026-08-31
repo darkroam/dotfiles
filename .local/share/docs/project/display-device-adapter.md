@@ -1,420 +1,170 @@
 # 显示设备适配器开发指引
 
-本文面向适配器开发者和维护者。
+本文面向非标准 X11 显示硬件的适配器开发者，只定义扩展 API、输入输出校验、超时、缓存、日志、
+降级和验证。状态、默认布局、配置、自定义布局、锁和 watcher 统一由
+[X11 显示管理设计](display-management.md)维护，本文不复制这些策略。
 
-> 状态：显示管理引擎已实现状态计算、多外屏扩展链、可选引擎/布局配置和自定义布局保存与恢复。
-> 设备适配器仍是默认关闭的灰度路径：设置 `XDISPLAY_USE_ADAPTER=1` 且适配器可执行时，
-> `xdisplay` 才调用本文三个子命令；未设置时仍只使用 `XDISPLAY_INTERNAL_OUTPUTS` 和
-> `XDISPLAY_RESTORE_COMMAND` 兼容路径。可执行测试方案见
-> [`display-testing.md`](display-testing.md)。
+> 适配器是已经实现但默认关闭的灰度路径。只有 `XDISPLAY_USE_ADAPTER=1` 且本地文件可执行时才调用；
+> 缺失、失败或非法都会回到标准探测和 legacy 兼容路径。
 
 ## 目的与边界
 
-通用显示引擎负责读取 RandR 和盖子状态、决定布局、串行应用、验证结果、超时及重试。
-绝大多数以 `eDP-*`、`LVDS-*` 或 `DSI-*` 暴露内屏且模式正常的设备应当零配置运行。
-
-只有设备无法按标准输出名识别内屏，或驱动在开盖后不能自行恢复内屏模式时，才创建平台本地适配器：
+标准内屏名称和 RandR 模式可用时不需要适配器。只有设备无法按 `eDP-*`、`LVDS-*`、`DSI-*` 识别
+内屏，或驱动未暴露正确预期模式且需要一次有界恢复时，才创建：
 
 ```text
 ~/.config/x11/xdisplay-device.local
 ```
 
-该文件是未跟踪的平台本地可执行文件，是显示管理唯一预期的设备个性化入口。它只回答“哪些输出可能是
-内屏”和“怎样对指定内屏做一次模式恢复”，不得决定单屏、扩展、镜像、主屏或输出位置。
-目标实现必须通过 Git ignore 规则保持它未跟踪；创建后应使用
-`c check-ignore -v ~/.config/x11/xdisplay-device.local` 复核。
+该路径由仓库 `.gitignore` 精确排除；文件应为用户所有、权限 `0700`，不得提交设备值或凭据。
+引擎用独立进程执行它，不会 `source`、`eval` 或读取它来修改父进程变量。
 
-驱动模块、Xorg 配置和电源策略属于系统层，不得复制进适配器。确有系统级配置时，应在对应
-[平台档案](../platforms/index.md)记录来源和恢复方法，不能以适配器存在为由假设其他设备也具备。
+职责边界：
 
-## 核心设计原则
+- 引擎负责快照、状态、布局、primary、off、framebuffer、锁、重试和最终验证；
+- 适配器只报告一个额外内屏候选、声明预期模式，或为该内屏执行一次幂等模式恢复；
+- 驱动、Xorg、udev、login manager 和电源策略属于系统/平台层，不得放进适配器；
+- 设备事实和实机恢复证据只写[平台档案](../platforms/index.md)，通用文档不复制。
 
-以下原则贯穿整个实现，任何修改都应保持这些方向：
+## 启用与调用环境
 
-1. **引擎管策略，适配器管设备怪癖。** 通用引擎统一负责状态、布局、锁、验证和重试；适配器只报告
-   非标准内屏身份、预期模式或执行一次设备恢复，不得决定主屏和位置。（出处：“目的与边界”、
-   “`restore-internal OUTPUT`”、“禁止事项”）
-2. **用户命令只负责分派，共享实现统一进入库。** `xdisplay` 和 `displayselect` 保持窄入口，状态、
-   布局、配置、适配器、日志和自定义布局逻辑由 `.local/lib/xdisplay/` 中带 `xdisplay_` 前缀的函数
-   复用，避免入口间复制策略。（出处：“命令与库结构”）
-3. **状态来自只读快照计算，不靠副作用猜测。** 引擎只根据 lid、已连接内屏列表和外屏列表计算明确
-   枚举，状态计算本身不修改 X 状态，自定义布局也不覆盖物理状态名。（出处：“状态定义”、
-   “自定义布局”）
-4. **多外屏是列表问题，不是特定接口或固定数量问题。** 外屏由运行时 RandR 快照发现并按接口顺序
-   形成扩展链，不硬编码输出名、屏幕数量或固定方向。（出处：“状态定义”、“禁止事项”）
-5. **配置覆盖策略，内置值只提供可靠默认。** 引擎参数和布局策略优先从可选配置加载；文件缺失、
-   单项缺失或值非法时，只回退对应默认值且不阻塞启动。（出处：“配置系统”）
-6. **匹配的自定义布局优先于默认布局。** 引擎按 lid、`exact`/`contains`、输出数量和 mtime 选择最佳
-   自定义配置；没有匹配或解析失败时自动回到默认策略。（出处：“自定义布局”、“验证矩阵”）
-7. **始终优先保留安全活屏。** 合盖时先激活并验证外屏再关闭内屏，恢复或布局失败时保留已有可见
-   输出，不提交可能关闭全部输出的破坏性布局。（出处：“当前 watcher 的超时、重试与退避”、
-   “验证矩阵”）
-8. **所有写操作都必须串行、有界并经重读验证。** 布局和恢复在共享锁内执行，适配器不得自行轮询或
-   重试；命令返回 `0` 也必须重新读取 RandR 才能认定收敛。（出处：“`restore-internal OUTPUT`”、
-   “当前 watcher 的超时、重试与退避”、“禁止事项”）
-9. **可观测性不能成为新的故障源。** `xdisplay status` 暴露状态、布局和配置摘要，适配器日志记录调用结果、
-   超时和格式错误；日志写入失败不得阻塞布局，诊断内容必须有界并保护隐私。（出处：“诊断与日志”、
-   “状态定义”、“配置系统”）
-10. **测试矩阵是设计契约的一部分。** 状态、布局、配置、自定义匹配、灰度适配器和故障回退都必须有
-   fixture 或真实硬件验收；只有验证矩阵持续通过，兼容钩子才可进入清理阶段。（出处：“验证矩阵”、
-   “故障回退”）
-11. **新能力默认灰度启用，旧路径始终可退。** 设备适配器只有在 `XDISPLAY_USE_ADAPTER=1` 且文件可执行
-    时启用，未启用时继续保留 `XDISPLAY_INTERNAL_OUTPUTS` 和 `XDISPLAY_RESTORE_COMMAND` 行为。
-    （出处：“目的与边界”、“执行环境约定”）
-12. **失败应降级而不是阻塞显示流程。** 适配器缺失、超时、非零、格式非法或配置损坏时，依次回到
-    兼容恢复、RandR preferred/模式表首项或默认布局，并优先保持输出可见。
-    （出处：“`expected-mode OUTPUT`”、“`restore-internal OUTPUT`”、“故障回退”）
+先在标准路径验证，再在同一 X11 会话临时启用：
 
-## 调用契约
-
-### 命令与库结构
-
-显示系统采用“窄命令入口 + POSIX Shell 共享库”结构。新集成使用不带后缀的 `xdisplay`；
-`.local/bin/xdisplay.sh` 仅是参数原样转发的兼容包装，至少保留一个版本周期。`displayselect` 因 DWM
-等外部调用保持原名，无参数时继续打开交互选屏界面。所有共享函数使用 `xdisplay_` 前缀，命令入口
-只负责参数校验、依赖检查、初始化和顶层分派。
-
-| 路径 | 职责 |
-| --- | --- |
-| `.local/bin/xdisplay` | 引擎主入口和命令分派 |
-| `.local/bin/xdisplay.sh` | 旧路径兼容包装，转发全部参数到 `xdisplay` |
-| `.local/bin/displayselect` | 交互选屏及自定义布局保存、列出和删除 |
-| `.local/lib/xdisplay/init.sh` | 默认值、共享状态和全部库的确定性加载顺序 |
-| `lib-utils.sh`、`lib-runtime.sh` | 通用诊断、依赖、X11 观察根、lid 和共享锁路径 |
-| `lib-config-parse.sh`、`lib-config.sh` | POSIX-INI 解析、容错默认值和布局主屏策略 |
-| `lib-log.sh`、`lib-adapter-run.sh`、`lib-adapter-query.sh`、`lib-adapter-restore.sh` | 有界日志、适配器进程、查询缓存和恢复降级 |
-| `lib-snapshot.sh`、`lib-state.sh`、`lib-output.sh`、`lib-topology.sh`、`lib-health.sh` | RandR 快照模型、状态计算、输出查询、拓扑和健康检查 |
-| `lib-layout.sh`、`lib-layout-verify.sh`、`lib-layout-configure.sh` | 通用布局原语、收敛验证和按状态配置 |
-| `lib-custom-parse.sh`、`lib-custom-validate.sh`、`lib-custom.sh`、`lib-custom-apply.sh` | 自定义布局解析、匹配、校验和应用 |
-| `lib-engine.sh`、`lib-status.sh`、`lib-select.sh` | apply/watch 调度、只读状态和 `displayselect` 持久化命令 |
-
-库文件不可作为用户命令直接执行；入口通过 `XDISPLAY_LIB_DIR` 定位并 source `init.sh`。每个库文件
-顶部列出所含函数，文件权限为 `0644`，入口权限为 `0755`。
-
-### 命令参考
-
-| 命令 | 用途 | 接口 |
-| --- | --- | --- |
-| `xdisplay` | 显示引擎 | `apply`、`watch`、`status`、`version`、`help` |
-| `displayselect` | 交互选屏和自定义布局 | 无参数、`save [NAME]`、`list`、`delete NAME`、`help` |
-| `xdisplay.sh` | 旧入口兼容包装 | 原样转发旧 `--apply`、`--watch`、`--status`、`--version`、`--help` |
-| `xlight` | 既有平台亮度辅助 | 本轮不重构；不属于布局引擎共享库 |
-
-`xdisplay` 同时接受上述不带前缀的子命令和对应旧 `--` 参数；无参数等价于 `apply`。
-`displayselect` 继续接受 `--save`、`--list`、`--delete` 旧形式。`switch`、`reset` 和新的亮度命令
-没有可靠的现有行为契约，本轮不声明也不实现，避免把新增策略混入结构重构。
-
-### 状态定义
-
-引擎在每次 RandR 快照完成后，以当前 lid 状态、已连接的内屏列表和外屏列表执行只读状态计算，
-结果写入 `CURRENT_DISPLAY_STATE`，不修改任何 X 状态。当前状态枚举为：
-
-| 状态 | 判定 |
-| --- | --- |
-| `INTERNAL_ONLY` | lid 未关闭，存在内屏且没有外屏 |
-| `EXTERNAL_ONLY` | lid 关闭（或内屏有效数量为零），恰好一块外屏 |
-| `DUAL_EXTEND` | lid 未关闭，存在内屏且恰好一块外屏 |
-| `MULTI_EXTEND` | lid 未关闭，存在内屏且至少两块外屏 |
-| `MULTI_EXTERNAL` | lid 关闭（或内屏有效数量为零），至少两块外屏 |
-| `NONE` | 没有可用的内屏或外屏 |
-| `MIRROR` | 预留状态，本批次不主动计算 |
-| `CUSTOM` | 保留枚举；自定义配置命中时不切换到此状态，仍显示实际的物理/lid 状态 |
-
-外屏和内屏均以换行分隔的输出名列表在 POSIX Shell 中传递；状态层只统计列表，不改变现有
-`xdisplay_configure_open()`、`xdisplay_configure_closed()` 或兼容恢复路径。`xdisplay status` 输出 `state=... internal=...
-external=...` 摘要，便于观察当前状态。状态映射到布局时，`DUAL_EXTEND` 和 `MULTI_EXTEND`
-（开盖）以及 `EXTERNAL_ONLY` 和 `MULTI_EXTERNAL`（合盖）使用 `xdisplay_apply_extend_layout()` 的扩展链；
-其余状态继续使用现有的 single/legacy 路径。扩展链按当前 RandR 快照的接口顺序排序，内屏或合盖
-时的第一块外屏位于原点，后续外屏依次相对前一块输出定位。方向由可选布局配置中的
-`external_position` 决定，允许 `right`、`left`、`above`、`below`，缺失或非法时默认为 `right`。
-对应的 RandR 关系参数分别为 `--right-of`、`--left-of`、`--above` 和 `--below`。
-`xdisplay status` 另外输出 `layout=extend_chain` 或 `layout=legacy`。
-
-数据流顺序为：读取 lid 与 RandR 快照 → 解析连接输出、模式签名和目标模式 → 灰度查询适配器（如启用）
-→ 计算物理状态并匹配自定义布局 → 在 `apply.lock` 内选择自定义布局或默认布局函数 → 重读 RandR
-并验证。只读查询不修改 X 状态；只有布局应用和 `restore-internal` 会进入布局锁。
-
-### 配置系统
-
-引擎参数和布局策略是两个可选的 POSIX-INI 子集配置文件：
-
-- `~/.config/x11/display-engine.conf` 的 `[engine]` 区段支持
-  `timeout_seconds=2`、`kill_after_seconds=1`、`apply_failure_limit=3`、
-  `apply_retry_ticks=10`、`hardware_probe_ticks=120`、`pending_probe_ticks=10`、
-  `log_max_bytes=1048576` 和 `log_path=~/.local/share/x11/xdisplay-adapter.log`。
-- `~/.config/x11/display-layouts/default.conf` 的 `[defaults]` 区段支持
-  `external_position=right`、`external_primary=first|largest|manual` 和
-  `mirror_on_duplicate=false`。`manual` 与 `mirror_on_duplicate` 当前仅保存为策略占位，
-  不改变镜像或手动主屏逻辑；`largest` 按当前快照中的模式面积选择合盖主屏。
-- 两个文件均可缺失；缺少文件、缺少单项或空值时静默保留对应内置默认值。非法值、未知区段
-  或未知键会向标准错误写一条简短诊断，并只让对应项保留内置默认值，不阻塞启动。
-- 解析在正常命令分派后执行，因此 `xdisplay help` 不加载配置，也不产生文件或日志副作用。`xdisplay status`
-  增加一行 `config: timeout=... kill-after=... position=... limit=... retry=... probe=...
-  pending=... log=... log_max=...` 摘要。配置仍在 `XDISPLAY_USE_ADAPTER=0` 时加载，但不会启用适配器。
-
-#### 自定义布局
-
-用户可用独立的 `displayselect` 命令保存当前布局：
-
-```text
-displayselect save [NAME]
-displayselect list
-displayselect delete NAME
+```sh
+chmod 700 ~/.config/x11/xdisplay-device.local
+XDISPLAY_USE_ADAPTER=1 xdisplay status
+XDISPLAY_USE_ADAPTER=1 xdisplay apply
 ```
 
-配置保存在 `~/.config/x11/display-layouts/custom/NAME.conf`。保存使用当前活动输出的
-绝对 `x/y` 坐标、当前模式和刷新率，并记录 `[identity]` 的 `outputs`、`lid` 和
-`match_mode`；目录权限为 `0700`，文件权限为 `0600`，写入使用临时文件后原子替换。省略
-名称时生成 `auto-YYYY-MM-DD-HH-MM-SS`。
+持久启用方式属于平台本地部署，不写入共享配置。引擎显式向子进程传递当前 `DISPLAY`、
+`XAUTHORITY` 和 `PATH`；任一值缺失时记录 `missing_session_environment` 并跳过。适配器不得猜测
+授权文件、扫描其他用户进程或依赖 GDM 登录前、SSH 等没有有效 X11 会话的环境。
 
-引擎每次稳定快照读取后扫描该目录。`outputs` 比较不考虑顺序；`exact` 要求集合完全相同，
-`contains` 要求配置集合是当前集合的子集，当前多出的输出按 `external_position` 追加到链式布局。
-候选按 `lid` 精确匹配优先于 `any`，`exact` 优先于 `contains`，然后按配置输出数量较多、文件
-修改时间较新选择。文件缺失、为空或解析/字段校验失败时静默回退默认布局，并记录简短诊断。
-自定义布局生效时状态仍显示实际的 `DUAL_EXTEND`、`MULTI_EXTEND` 等状态，`xdisplay status` 另显示
-`layout=custom` 和 `custom=NAME`；不会使用保留的 `CUSTOM` 状态枚举。删除配置后下一次快照
-自动回到默认布局策略，保存命令不会停止 watcher。
+每次调用使用 `timeout_seconds` 和 `kill_after_seconds`，默认等价于
+`timeout --kill-after=1 2`。适配器必须是快速、确定、POSIX 兼容、无状态且可重复执行的程序；不得
+自行休眠、轮询、重试或启动后台进程。
 
-### 执行环境约定
+## 接口总览
 
-`xdisplay` 默认不接入 `xdisplay-device.local`。设置 `XDISPLAY_USE_ADAPTER=1` 后，
-引擎通过 `xdisplay_run_adapter()` 调用适配器；未启用或适配器不可执行时立即回到兼容路径。旧的
-`XDISPLAY_RESTORE_COMMAND` 仍由 `xdisplay_try_internal_restore()` 通过配置的
-`timeout "$ADAPTER_TIMEOUT" "$restore_command" "$output"` 启动（默认超时 2 秒），未构造独立的 `envp`，因此旧子进程继承 `xdisplay`
-的完整环境。
+| 子命令 | 必需性 | 标准输出 | 是否允许写入 |
+| --- | --- | --- | --- |
+| `internal-outputs` | 基础接口 | 空或一个 RandR 输出名 | 否，只读身份查询 |
+| `expected-mode OUTPUT` | 可选 | `WIDTHxHEIGHT` 或 `WIDTHxHEIGHT@RATE` | 否，只读目标查询 |
+| `restore-internal OUTPUT` | 与有效 expected mode 配套 | 无结构化输出 | 是，只允许一次幂等模式恢复 |
 
-在本机标准 X11 会话中，`xdisplay watch` 由 `.config/x11/xprofile` 后台启动：
-`DISPLAY` 和 `XAUTHORITY` 来自父级图形会话环境，xprofile 不为它们设置默认值；`PATH`
-则由 xprofile 显式确保包含 `$HOME/.local/bin` 后导出。灰度适配器路径通过 `env` 显式传递
-当前会话的 `DISPLAY`、`XAUTHORITY` 和 `PATH`，并在任一变量
-缺失时报告环境不可用而跳过适配器调用。适配器不得假定 SSH、GDM 登录前或 systemd
-冷启动会自动提供这些变量，也不得通过猜测显示器或授权文件路径来替代会话环境。
+诊断只能写标准错误。返回 0 表示子命令正常结束，不表示布局或模式已经收敛；最终成功始终由引擎
+重读 RandR 验证。
 
-因此，直接从无图形会话的 systemd/SSH 环境触发当前恢复命令可能得到
-`xrandr: Can't open display`；现行调用会丢弃恢复命令的标准错误并继续兼容探测，故可能
-表现为静默的恢复失败。灰度适配器路径会把该失败记录为 `missing_session_environment`；旧
-兼容路径仍保持历史的静默降级行为。由引擎传递会话环境可保持适配器 POSIX、无状态且与 X11
-会话边界一致。
-
-### 诊断与日志
-
-当前实现与目标适配器接口的诊断行为必须区分：
-
-- 当前 `xdisplay_try_internal_restore()`（`.local/lib/xdisplay/lib-adapter-restore.sh`）只执行
-  `XDISPLAY_RESTORE_COMMAND`，并将其标准输出和标准错误重定向到 `/dev/null`，同时忽略
-  `timeout` 的退出码。灰度适配器调用由 `xdisplay_run_adapter()` 捕获并记录；旧兼容命令仍保持历史
-  的丢弃行为。当前没有 `XDISPLAY_DEBUG`、`--verbose` 或 `--debug` 入口。
-- 当前 `xdisplay` 没有全局 `exec 2>>...` 重定向。`xdisplay status` 输出
-  RandR 快照、健康状态、锁路径、generation 和 legacy 配置可用性，但不包含适配器 stderr、
-  适配器退出码或恢复诊断；灰度开启时，输出的 `target_mode`/`target_rate` 会反映已验证的
-  `expected-mode`。
-
-灰度适配器路径中，统一由引擎捕获每个子进程的 stderr，并追加到用户私有日志：
-`~/.local/share/x11/xdisplay-adapter.log`（若设置了 `XDG_STATE_HOME`，实际路径为
-`$XDG_STATE_HOME/x11/xdisplay-adapter.log`）。每条记录至少包含 ISO-8601 时间戳、
-子命令名、输出名（如有）、退出码，以及 `timeout`/格式校验结果。建议级别为 `INFO`、`WARN`、
-`ERROR`；正常空 stderr 不产生额外噪声。日志写入失败不得阻塞布局流程，且不得改变子命令返回码。
-
-后续可提供受控调试开关（推荐 `XDISPLAY_DEBUG=1`，或等价的显式调试选项），仅在开启时
-记录调用参数、解析决策和 RandR 重读摘要；默认级别不记录高频轮询细节。日志必须设置用户私有
-权限（`umask 077`，文件不应可被其他用户读取），并采用有界大小和轮转/截断策略，避免 watcher
-长期运行导致无限增长。当前灰度路径使用 1 MiB 上限和 `.1` 单次轮转：每次向
-`xdisplay-adapter.log` 写入日志事件前，引擎检查当前文件大小；达到或超过 1 MiB 时，将现有文件
-重命名为 `xdisplay-adapter.log.1`（覆盖已存在的 `.1` 文件），然后创建新的空日志文件继续写入。
-同一次调用的 stderr 摘要与该事件一并写入。日志写入失败（例如磁盘已满）不得阻塞布局流程，
-也不得改变适配器子命令的返回码。
-
-适配器 stderr 只能包含非敏感、可操作的摘要，例如“`PANEL-1: expected mode 1920x1080 not
-present`”。禁止输出用户名、主机名、序列号、完整 EDID/`xrandr --prop` 原始内容、授权文件
-路径或环境变量值；需要诊断 EDID 时只输出经过验证的非敏感字段（如分辨率和刷新率）。引擎
-不应假定适配器已经脱敏，必要时应在写日志前进行长度限制和敏感字段过滤。
-
-`xdisplay_run_adapter()` 返回的退出码含义如下，引擎据此决定降级或重试：
-
-- `0`：适配器正常退出且返回 0，但不代表模式恢复成功；引擎仍须重读 RandR 验证。
-- `1`-`127`：适配器自身返回的错误码，由适配器定义，引擎仅记录并传递；但适配器自身返回
-  `127` 时，无法与下述包装器的 `127` 保留值区分。
-- `124`：`timeout` 超时，默认超时信号为 `SIGTERM`，进程未在时限内退出。
-- `137`：超过 `--kill-after` 宽限期后由 `SIGKILL` 强制终止。
-- `127`：适配器未启用（`XDISPLAY_USE_ADAPTER=0`）或文件不可执行；运行时工具、会话环境
-  缺失以及临时文件创建失败等调用基础设施错误在当前实现中也通常映射为 `127`，并另行记录
-  具体诊断。
-- 其他：调用基础设施错误或包装器返回的其他状态；引擎记录该状态并按失败处理。
-
-任何非零退出码均视为本次尝试未收敛，可触发状态级退避计数或降级；引擎不会因此永久禁用
-适配器，后续快照仍可能重新查询。
-
-目标契约包含 `internal-outputs`、`restore-internal` 两个基础子命令，以及可选的
-`expected-mode` 查询。适配器应使用 POSIX Shell，保持快速、确定且可重复执行。灰度开启后，
-`xdisplay` 会按以下规范调用并验证三个子命令。
-
-### `internal-outputs`
+## `internal-outputs`
 
 ```sh
 ~/.config/x11/xdisplay-device.local internal-outputs
 ```
 
-- 标准输出每行只能包含一个完整的 RandR 输出名；空行由引擎忽略。
-- 诊断信息只能写入标准错误，不能与输出名混在一起。
-- 引擎优先使用标准 `eDP-*`、`LVDS-*`、`DSI-*` 探测；只有标准候选为空时，才把适配器返回值作为
-  内屏候选回退，不替代已识别的标准候选。
-- 此命令只能报告身份，不能调用 `xrandr` 修改状态。
-- 没有额外候选时输出为空并返回 `0`；参数或适配器配置错误时返回非零。
+- 没有额外候选时输出为空并返回 0；有候选时只输出一个完整 RandR 名称和换行。
+- 输出不得含空白、控制字符、说明文字或 DRM 名称猜测；名称必须存在于本轮 connected 列表。
+- 标准候选已经存在时，引擎不会调用此查询；适配器不能覆盖标准识别结果。
+- 同名重复行会折叠；未连接、非法或多个不同候选视为 `INVALID`，随后降级到
+  `XDISPLAY_INTERNAL_OUTPUTS` 或无内屏回退。
+- 此子命令不得调用 `xrandr` 写操作。
 
-引擎把该子命令作为独立进程执行，使用配置的 `timeout_seconds` 和 `kill_after_seconds`（默认
-`timeout 2 --kill-after=1`）；不会 `source` 或 `eval`
-适配器。引擎拒绝包含空白或控制字符的值，只保留
-当前 RandR 快照中确实存在的单个输出名，并对重复候选去重。因此适配器不得依赖修改父进程变量或
-工作目录。
+身份查询的缓存键包含适配器 mtime 和 RandR 输出连接/模式签名；文件或拓扑变化后下一快照重查。
 
-输出名必须来自目标会话当前的 `xrandr --query`，大小写和连字符完全一致。不要因为 DRM connector 名
-相似就直接假定 RandR 名称相同。
-
-引擎优先使用当前快照中的标准内屏候选；只有标准候选为零时才采用适配器候选。任一层级同时匹配
-多个已连接候选都视为身份歧义，引擎不得按输出顺序任选一个，而应使用有盖设备的安全回退并在
-`xdisplay status` 中报告。若设备确有多个同时工作的内置面板，需要先扩展通用契约，不能在适配器中
-偷偷关闭其中一个。
-
-### `expected-mode OUTPUT`（可选）
+## `expected-mode OUTPUT`
 
 ```sh
 ~/.config/x11/xdisplay-device.local expected-mode OUTPUT
 ```
 
-- `OUTPUT` 必须是引擎已经确认的已连接内屏候选。该查询只声明设备预期模式，不得调用 `xrandr`
-  修改状态。
-- 成功时标准输出必须恰好包含一个非空行，格式只能是 `WIDTHxHEIGHT` 或
-  `WIDTHxHEIGHT@RATE`。宽高必须是非零十进制整数；刷新率必须是正十进制数，不带 `Hz`、空格、
-  注释或其他字段。例如 `1920x1080`、`1920x1080@60`、`1920x1080@59.94` 均合法。
-- 返回 `0` 表示已经输出格式有效的预期模式。没有设备特定预期、未实现此子命令或查询失败时返回
-  非零；适配器可将简短原因写入标准错误。返回 `0` 但输出为空、多行或格式非法视为适配器错误。
-- 引擎以有界 timeout 独立执行查询。适配器缺失、不支持该子命令、超时、返回非零或输出非法时，
-  引擎记录诊断并直接降级到现有 RandR preferred/模式表首项策略，不阻塞布局流程，也不关闭输出。
-- 如果预期模式已存在于当前模式表中，引擎把它作为该内屏的有效目标并直接按现有布局流程启用；
-  指定刷新率时还必须在该模式的刷新率列表中匹配。预期目标优先于错误的 RandR preferred。
-- 如果预期模式不存在，引擎最多调用一次 `restore-internal OUTPUT`，随后用 `--query` 重新读取 RandR。
-  恢复后模式存在时将其作为有效目标；仍不存在但模式表中有其他可用模式时，记录恢复未收敛并
-  降级到 RandR preferred/首项，以保留可见输出。若模式表仍为空，则保持内屏未激活，交给现有
-  pending 和有界重试流程处理。若 `restore-internal` 返回非零或超时，引擎记录诊断并降级到
-  兼容路径：尝试 `XDISPLAY_RESTORE_COMMAND`（若设置且可执行）。兼容路径也失败后，引擎使用
-  RandR preferred/模式表首项策略，优先保留可见输出。
+`OUTPUT` 是引擎已确认的 connected 内屏。成功时标准输出必须恰好一行：
 
-不实现该可选查询的适配器可以直接对 `expected-mode` 返回非零。引擎不得从面板物理尺寸推断像素
-分辨率，也不得把查询失败解释为应禁用该输出。
+```text
+1920x1080
+1920x1080@60
+1920x1080@59.94
+```
 
-### `restore-internal OUTPUT`
+宽高必须为非零十进制整数；刷新率为正数，不得带 `Hz`、空格、注释或额外字段。没有设备特定目标、
+未实现查询或查询失败时返回非零，引擎直接使用 RandR preferred/模式表首项。
+
+合法且已存在的 expected mode 会覆盖错误的 RandR preferred，并参与实际 `--mode/--rate` 参数和最终
+目标模式验证。合法但缺失的 expected mode 才允许触发一次 `restore-internal`。缓存键除适配器 mtime
+和拓扑外还包含内屏名及其 `mode_signature`，因此模式表变化会自动重查。
+
+引擎不会从面板物理尺寸推断像素分辨率，也不解析 EDID 来替代此契约。适配器不实现本查询时，
+即使 RandR 只暴露了较低模式，引擎也会把现有 preferred/首项视为可用目标，不擅自恢复。
+
+## `restore-internal OUTPUT`
 
 ```sh
 ~/.config/x11/xdisplay-device.local restore-internal OUTPUT
 ```
 
-- `OUTPUT` 是通用引擎已经判定为内屏候选的 RandR 输出名。
-- 兼容路径只在该输出为 `connected`、未激活且模式表为空（`mode_ready=0`）时执行
-  `timeout "$ADAPTER_TIMEOUT" "$restore_command" "$output"`（默认超时 2 秒）。GNU `timeout` 的默认超时信号为 `TERM`；兼容调用
-  没有 `--kill-after`，也没有显式的强制 `SIGKILL` 阶段，标准输出、标准错误和超时退出码仍会被
-  `xdisplay_try_internal_restore()` 丢弃/忽略。灰度适配器路径使用配置的 `timeout_seconds`/`kill_after_seconds`（默认 `2/1`），并在日志中
-  记录 stderr、退出码和超时。两条路径都不会为 disconnected 输出调用恢复。
-- 灰度启用且 `expected-mode` 返回有效值时，预期模式缺失是第二个恢复触发条件，即使模式表非空
-  也最多调用一次 `restore-internal`；查询失败/未实现时清除 adapter target，降级到 RandR
-  preferred/首项策略。恢复成功后重新读取 RandR 并验证；仍缺失但存在其他模式时继续使用
-  preferred/首项。
-  灰度路径下，恢复决策顺序为：
-  1. 若适配器实现 `expected-mode` 且返回有效预期模式，但该模式在当前模式表中缺失，则调用一次
-     适配器的 `restore-internal`。
-  2. 若适配器未实现 `expected-mode` 或查询失败，则不调用适配器恢复，直接按兼容的 RandR
-     preferred/首项策略处理；若适配器 `restore-internal` 返回非零/超时，则立即降级到兼容路径，
-     尝试 `XDISPLAY_RESTORE_COMMAND`（若设置且可执行）。预期模式已存在时直接使用该已验证目标，
-     不执行恢复调用。
-  3. 兼容路径失败后，按现有 RandR preferred/模式表首项策略处理，优先保留可见输出。
-- 上述目标模式校验不等同于面板原生模式校验。灰度路径会读取适配器可选的
-  `expected-mode OUTPUT`；适配器不实现该查询、返回非零或输出非法时，当前引擎不解析
-  `xrandr --prop` 的 EDID，而是将 RandR preferred/首项作为兼容目标。如果驱动只暴露了错误的
-  低分辨率/低刷新率，或把它标成 preferred，且适配器没有声明 expected mode，引擎会将其视为
-  可用目标，不会调用恢复。不得仅凭物理尺寸推断像素分辨率。
-- 该命令最多做一次有界恢复，例如为这个输出执行必要的 `xrandr --newmode`、`--addmode`，
-  或调用一次驱动提供的恢复命令。恢复操作必须幂等：相同的
-  `restore-internal OUTPUT` 重复执行时，不得重复创建同名 Modeline、重复关联已有模式，
-  也不得改变已经收敛的输出布局。适配器在 `--newmode` 前必须检查全局模式表中是否已有
-  完全相同的模式名，在 `--addmode` 前必须检查该输出是否已经关联该模式；已存在时跳过
-  对应操作。检查和修改之间的竞态仍应把“已存在”视为成功，而不是把该结果当作恢复失败。
-- 适配器不得用 `|| :` 或 `|| true` 掩盖关键恢复失败。对“已存在”这类幂等结果可以显式
-  转换为成功；其他 `xrandr`/驱动错误应返回非零并写入简短诊断。引擎不会替适配器删除
-  未使用的 Modeline，也不记录这些 Modeline 的所有权，因此模式生命周期由适配器负责。
-- 目标适配器命令不得自行休眠、轮询或重试。当前兼容恢复命令在共享布局锁内使用配置的
-  `timeout_seconds`（默认 `timeout 2`）；灰度适配器调用使用配置的 `timeout_seconds` 和
-  `kill_after_seconds`（默认 `timeout 2 --kill-after=1`），并在重新读取 RandR 后由 watcher 调度重试。
-- 返回 `0` 仅表示本次尝试已正常结束，不表示模式一定恢复；最终成功只能由引擎重新探测和验证。
-- 不适用于该 `OUTPUT` 时应直接返回 `0`；执行失败时返回非零并将简短原因写入标准错误。
+该命令只在有效 expected mode 尚未出现在目标内屏模式表时调用，每次布局事务最多一次，并在
+`apply.lock` 内执行。允许的动作仅限为这个输出恢复模式，例如一次已验证的驱动命令，或幂等的
+`xrandr --newmode`/`--addmode`：
 
-适配器不能执行布局操作。尤其不得在这里设置 `--primary`、`--off`、`--right-of`、`--left-of`、
-`--same-as` 或 `--fb`。模式恢复之后的启用、定位和 framebuffer 收敛仍由通用引擎完成。
+- 创建前检查全局模式是否已存在，关联前检查输出是否已经拥有该模式；
+- 重复调用不能创建重复 Modeline、改变 primary、位置、缩放或其他输出；
+- 关键写入失败必须返回非零，不能用 `|| true` 掩盖；“已存在”竞态可显式视为成功；
+- 不得使用 `--primary`、`--off`、相对位置、`--same-as` 或 `--fb`；
+- 不适用于该输出时返回 0，实际失败时返回非零并写简短诊断。
 
-实现 `expected-mode` 不能只扩大 `xdisplay_try_internal_restore()` 的调用条件。引擎还必须让目标模式选择、
-`xrandr --mode/--rate` 参数构造和 `xdisplay_output_at_target_mode()` 最终验证共同使用同一个有效预期目标；
-否则恢复脚本即使成功添加模式，现有 preferred/首项逻辑仍可能再次选择错误模式。不要改变
-`internal-outputs` 的逐行输出名格式。直接解析 EDID 可作为后续通用能力，但 EDID 瞬态失败正是本
-故障的一种来源，不能作为唯一依据。
+返回后引擎重新读取 RandR。预期模式出现时继续默认/自定义布局；仍缺失时先尝试可用的
+`XDISPLAY_RESTORE_COMMAND`，然后在已有其他模式时降级到 preferred/首项。模式表仍为空则保持安全
+活屏并交给 pending 与 watcher 有界重试。
 
-### 当前 watcher 的超时、重试与退避
+legacy `XDISPLAY_RESTORE_COMMAND` 仍是兼容层：使用 `timeout_seconds`，丢弃输出且没有显式
+kill-after。新适配器不得依赖该差异，也不得为新设备扩展 legacy 变量。
 
-以下是现行 `xdisplay watch` 的实际参数，不是适配器目标接口的示例值：
+## 缓存、重试与安全
 
-| 项目 | 当前实现 | 作用 |
+只读查询在同一稳定快照内缓存，避免 watcher 重复启动适配器：
+
+| 变化 | `internal-outputs` | `expected-mode` |
 | --- | --- | --- |
-| 兼容恢复单次超时 | `timeout_seconds`（默认 2 秒） | `XDISPLAY_RESTORE_COMMAND` 单次调用；默认发送 `TERM` |
-| 适配器 `--kill-after` | `kill_after_seconds`（默认 1 秒） | 适配器超时后进入显式强制阶段 |
-| 同一状态失败上限 | `apply_failure_limit`（默认 3） | 对未变化的 topology + lid + health 状态最多连续 3 次布局写入 |
-| 失败冷却 | `apply_retry_ticks`（默认 10）× 0.5 秒，约 5 秒 | 每次失败后等待；不是指数退避 |
-| 达到失败上限后 | 普通布局尝试暂停 | 拓扑、模式能力、lid 或 health 变化会重置计数并立即允许新尝试 |
-| 低频主动探测 | `hardware_probe_ticks`（默认 120）× 0.5 秒，约 60 秒 | 状态不变时以 `xrandr --query` 重新探测；查询轮次允许再次尝试 |
-| pending 能力探测 | `pending_probe_ticks`（默认 10）× 0.5 秒，约 5 秒 | 仅已有成功布局且保留 pending 输出时触发主动查询 |
-| RandR 快照失败上限 | `SNAPSHOT_FAILURE_LIMIT=6` | 连续 6 次快照失败后 watcher 退出，不是适配器重试次数 |
+| 适配器 mtime | 失效 | 失效 |
+| RandR topology | 失效 | 失效 |
+| 任一输出 mode signature | 失效 | 目标内屏变化时失效 |
 
-watcher 主循环每 0.5 秒运行，稳定时约每 1 秒读取 `--current`；事件或能力变化会进入快速查询窗口。
-恢复命令在 `apply.lock` 内执行；只读的 `internal-outputs` 和 `expected-mode` 在快照读取阶段执行，
-不修改布局。灰度路径对稳定快照缓存适配器查询，拓扑、模式签名或适配器文件变化时重新查询；单次
-查询使用配置的 `timeout_seconds`/`kill_after_seconds`（默认 `2/1`）且适配器不得自行重试。`restore-internal` 只在布局锁内执行，
-其重试继续由同一状态级 watcher 调度，而不是在适配器内部等待。
+适配器不拥有重试循环。失败由引擎的状态级计数、冷却、pending 探测和低频硬件探测统一调度。
+合盖路径在关闭内屏前先保证外屏可用；适配器失败不能主动关闭已有输出，也不能造成所有输出同时
+关闭。查询或恢复非零不会永久禁用适配器，后续缓存失效或新快照仍可重试。
 
-灰度路径在同一个稳定快照周期内缓存查询结果，避免同一状态反复调用适配器。`internal-outputs` 使用
-适配器文件 mtime 和 RandR 连接拓扑作为缓存键；`expected-mode` 额外包含目标内屏名称和该输出的
-`mode_signature`。因此模式签名变化会重新查询 `expected-mode`，而标准内屏身份已经确定时不会单独
-重复查询 `internal-outputs`。
+## 日志与退出码
 
-缓存失效条件按查询类型如下：
+诊断默认写 `~/.local/share/x11/xdisplay-adapter.log`，可由引擎配置改写。目录和文件按私有 umask
+创建，日志权限为 `0600`；达到 `log_max_bytes` 后覆盖轮转为 `.1`。日志创建或轮转失败不得阻塞布局。
 
-- 适配器文件 `~/.config/x11/xdisplay-device.local` 的 mtime 发生变化：两类查询均失效；
-- RandR topology（输出连接/断开）发生变化：两类查询均失效；
-- 目标内屏的模式签名（`mode_signature`）发生变化：仅 `expected-mode` 失效，
-  `internal-outputs` 不重复执行。
+每条事件包含时间戳、`subcommand`、`output`、PID、退出码和 `status`；stderr 最多保留 4096 字节并
+过滤绝对 home、XAUTHORITY、EDID、序列号和主机名。适配器自身也必须避免输出用户名、主机名、
+序列号、原始 EDID、授权路径、环境值或凭据。
 
-缓存失效后，下一次快照将重新查询适配器；失效前即使适配器内容被修改，也不会重新执行查询。
+| 退出码 | 引擎解释 |
+| --- | --- |
+| `0` | 子命令正常结束，随后仍需格式或 RandR 验证 |
+| `1`–`123`、`125`–`136`、`138`–`255` | 适配器或调用失败，记录并降级 |
+| `124` | timeout 到期 |
+| `137` | kill-after 后被强制终止 |
+| `127` | 未启用、文件不可执行或调用环境/工具不可用；具体原因看日志 |
 
-恢复失败期间，引擎不会主动关闭已有外屏。合盖路径先激活并验证外屏，再关闭内屏；开盖扩展路径
-若内屏恢复/布局失败，会在失败返回前保留已有输出状态。达到失败上限后，内屏保持当前未激活或
-驱动已有状态，watcher 等待状态变化或低频主动探测，不会提交破坏性布局。
+适配器自身应避免返回 127，以免与包装器保留语义混淆。
 
-## 新设备探测步骤
+## 新设备接入步骤
 
-1. 不创建适配器，先验证通用引擎的零配置路径。标准内屏名称且模式可用时，到此结束。
-2. 在开盖、合盖和插拔外屏后分别运行 `xrandr --query`，记录输出名、连接状态、可用模式和当前几何。
-3. 读取 `/proc/acpi/button/lid/*/state`，确认设备是否有可用的盖子状态；桌面设备没有该路径是正常情况。
-4. 查看 `/sys/class/drm/card*-*/status`，用连接变化辅助识别物理 connector，但仍以 RandR 输出名作为
-   适配器接口值。必要时结合 Xorg 日志确认 DRM 与 RandR 的映射。
-5. 如果内屏只是名称不符合标准前缀，仅实现 `internal-outputs`；不要添加模式恢复逻辑。
-6. 只有开盖后内屏为 `connected` 却长期没有可用模式，且一次明确的驱动或 RandR 操作能够恢复时，
-   才实现 `restore-internal`。若设备还会暴露错误的非原生模式，应同时实现 `expected-mode`，不要把
-   设备分辨率硬编码进通用引擎。
-7. 使用 `cvt` 或驱动资料生成 modeline 时，必须核对面板原生分辨率、刷新率和像素时钟；不得从另一台
-   设备复制数值。先在当前 X11 会话中手动验证，再写入适配器。
+1. 不创建适配器，先验证标准内屏、默认模式、开合盖和插拔路径。
+2. 在正确 X11 会话记录非敏感的 `xdisplay status` 与 `xrandr --query` 摘要，以 RandR 名称为接口值。
+3. 若只是名称不符合标准前缀，只实现 `internal-outputs`。
+4. 只有设备有明确、已验证的预期模式时实现 `expected-mode`；不要从另一设备复制参数。
+5. 只有 expected mode 缺失且一次可重复操作确实能恢复时实现 `restore-internal`。
+6. 先逐个调用三个接口，再用 `XDISPLAY_USE_ADAPTER=1 xdisplay status/apply` 验证日志与降级。
+7. 运行[显示管理测试](display-testing.md)，再按平台档案完成实际开盖、合盖、插拔和失败恢复。
 
-探测记录不得包含用户名、主机名、序列号、EDID 原始数据或其他个人信息。共享项目文档只记录
-通用行为；必要的非敏感设备边界写入对应平台档案。
+探测记录不得包含用户名、主机名、序列号、MAC/IP、UUID、完整 EDID 或授权文件路径。
 
 ## 适配器示例
 
-以下示例使用虚构输出名 `PANEL-1`。它只展示接口结构；模式恢复部分默认无操作，
-必须先按上一节取得并验证目标设备参数后才能补充。
+以下只演示结构，`PANEL-1` 是虚构名称，恢复动作必须换成目标设备已验证且幂等的实现：
 
 ```sh
 #!/bin/sh
@@ -424,11 +174,9 @@ internal_outputs() {
 }
 
 expected_mode() {
-	output=$1
-
-	case "$output" in
+	case $1 in
 		PANEL-1)
-			# 取得并验证真实设备参数后才输出，例如：
+			# 验证真实设备参数后才输出，例如：
 			# printf '%s\n' '1920x1080@60'
 			return 1
 			;;
@@ -437,29 +185,13 @@ expected_mode() {
 }
 
 restore_internal() {
-	output=$1
-
-	case "$output" in
+	case $1 in
 		PANEL-1)
-			# 仅在确有需要时执行一次已验证的模式恢复操作。每个修改动作
-			# 先查询当前状态，使重复调用不会创建或关联重复模式。
-			mode='PANEL-NATIVE'
-			if ! xrandr 2>/dev/null | awk -v mode="$mode" \
-				'$1 == mode { found = 1 } END { exit !found }'; then
-				xrandr --newmode "$mode" ... || return 1
-			fi
-			if ! xrandr --query 2>/dev/null | awk -v output="$output" -v mode="$mode" '
-				/^[^[:space:]]/ {
-					in_output = ($1 == output && $2 ~ /^(connected|disconnected)$/)
-					next
-				}
-				in_output && $1 == mode { found = 1 }
-				END { exit !found }
-			'; then
-				xrandr --addmode "$output" "$mode" || return 1
-			fi
+			# 只执行一次已验证、可重复的模式恢复；不做布局。
+			return 1
 			;;
 	esac
+	return 0
 }
 
 case ${1-} in
@@ -476,13 +208,13 @@ case ${1-} in
 		restore_internal "$2"
 		;;
 	*)
-		printf '用法: %s {internal-outputs|expected-mode OUTPUT|restore-internal OUTPUT}\n' "$0" >&2
+		printf 'usage: %s {internal-outputs|expected-mode OUTPUT|restore-internal OUTPUT}\n' "$0" >&2
 		exit 64
 		;;
 esac
 ```
 
-安装并做接口级检查：
+接口级检查：
 
 ```sh
 chmod 700 ~/.config/x11/xdisplay-device.local
@@ -491,96 +223,30 @@ chmod 700 ~/.config/x11/xdisplay-device.local
 ~/.config/x11/xdisplay-device.local restore-internal PANEL-1
 ```
 
-不要把示例中的 `PANEL-1` 当作真实默认值。外屏始终由运行时连接状态发现，不应出现在候选列表或
-`restore_internal` 分支中。
-
-## logind 与合盖边界
-
-适配器只影响 X11 RandR，不控制挂起。若 logind 先让系统挂起，用户会话中的 watcher 和适配器都
-没有机会完成外屏切换。
-
-本机平台采用 Debian `systemd-logind` 的标准优先级和以下目标配置：
-
-```ini
-HandleLidSwitch=suspend
-HandleLidSwitchExternalPower=ignore
-HandleLidSwitchDocked=ignore
-```
-
-预期行为是：无外屏且使用电池合盖时挂起；外屏已接入时即使使用电池也继续运行；接入外部电源
-时无论是否有外屏都继续运行。外屏在电池合盖期间拔出后，系统必须重新评估已闭合的 lid，若已无
-外屏则挂起。xdisplay 只负责 RandR 布局，不能实现或替代这些电源动作。
-
-本机 Innogpu 的历史 DRM connector 事实、`DP-1` 假外屏根因和 `patch-009` 修复以
-`innogpu-fh2m-debian-trixie/docs/project/display-management.md` 及其阶段补丁文档为权威；本文件
-不复制显卡补丁实现。patched-21 运行基线曾将内屏暴露为 DRM `DP-1`，而 RandR 名称显示为 `eDP-1`；
-patched-22 重启后已观察到 DRM `eDP-1`，这属于驱动层修复结果，不应在适配器中用输出名规则掩盖。
-完整电源/合盖/拔屏验收仍以 Innogpu 阶段补丁文档为准。
-
-标准 logind 会在合盖动作时计算 `Docked`。外屏断开是否会主动触发已闭合 lid 的重新评估，必须在
-目标设备上实测并记录 `Docked`、`OnExternalPower`、`LidClosed` 和 DRM hotplug 日志。若平台不触发，
-应由平台项目另行设计窄范围的热插拔接入；通用 xdisplay 不得加入第二套合盖处理器。
-
-接电合盖后继续使用外屏的设备，仍需在平台档案记录原始 logind 配置和恢复方式。通用引擎不得为了
-显示布局自动改写电源配置，设备适配器也不得调用服务管理器或模拟盖子事件。
+不要把示例输出名、模式或恢复返回值当成真实默认值。
 
 ## 禁止事项
 
-- 不得硬编码任何外接输出名、固定外屏数量或固定左右位置。
-- 不得启动后台进程、另起 watcher、创建 udev 热插拔链路或 systemd user service。
-- 不得使用长期 `sleep`、内部重试循环或等待 connector 出现；这些都由通用引擎限频调度。
-- 不得绕过共享布局锁直接形成第二条布局写入链路。
-- 不得依赖被通用引擎 `source`、`eval`，也不得通过标准输出传递输出名以外的数据。
-- 不得关闭未知输出、修改全局 framebuffer、重启 DWM 或杀死其他显示管理进程。
-- 不得把凭据、设备序列号、用户名或只对当前安装有效的临时路径写入仓库文档。
+- 不在适配器里计算状态、选择主屏、排列外屏、关闭输出或收敛 framebuffer。
+- 不另起 watcher、常驻守护、递归调用 `xdisplay` 或绕过共享锁。
+- 不写系统配置、加载内核模块、控制服务、改写 logind 或模拟 lid 事件。
+- 不把一台设备的输出名、modeline、驱动命令或恢复时序复制进通用代码和文档。
+- 不吞掉关键失败，不把返回 0 当作最终成功，不在适配器内部无限重试。
+- 不提交本地适配器；只有接口规范和虚构示例属于共享仓库。
 
-## 验证矩阵
+## 验证与故障回退
 
-适配器和通用引擎完成迁移后，至少逐项验证以下场景。单次成功不能替代完整矩阵。
-每个场景的可执行步骤和 mock 替代方案见 [`display-testing.md`](display-testing.md)。
+显示 fixture 的适配器部分覆盖：默认关闭、文件缺失、候选校验、expected mode、恢复成功/失败、
+legacy 降级、超时、日志轮转和环境传递。权威命令与当前数量见
+[显示管理测试](display-testing.md)，本文不重复固定测试数字。
 
-| 场景 | 验收结果 |
-| --- | --- |
-| 无适配器、标准内屏 | 登录、开合盖和外屏插拔均走零配置路径 |
-| 适配器缺失、不可执行、超时或返回非零 | 引擎降级到标准探测，X11 会话不被阻塞 |
-| 开盖，仅内屏 | 内屏启用为主屏，布局不重复 modeset |
-| 开盖，外屏在登录前或登录后出现 | 可用输出自动扩展，外屏名称无需配置 |
-| 合盖且接电，外屏已就绪 | logind 忽略合盖；xdisplay 先让外屏成为安全活屏，再关闭内屏 |
-| 合盖时外屏模式延迟出现 | 保留安全活屏，由引擎有界重试，不由适配器等待 |
-| 合盖后拔出外屏 | 不执行会导致所有输出关闭的破坏性布局；平台应重新评估 lid/电源并在无外屏电池状态挂起 |
-| 再次开盖 | 内屏身份和模式均可恢复，适配器单次调用可重复 |
-| 多个外屏 | 动态扩展或通用回退，不依赖固定接口名和数量 |
-| 拔出任一外屏 | 已断开输出不再保留活动几何；其他输出仍可用 |
-| `displayselect` 手动布局 | 与 watcher 共用锁，手动操作期间没有竞争写入 |
-| 无盖子的桌面设备 | 不要求适配器或 lid 路径，多屏仍按通用策略工作 |
-| 使用电池合盖且无外屏 | logind 挂起；文档不把挂起误判为布局失败 |
-| 使用电池合盖且有外屏 | logind 忽略合盖，外屏保持可用 |
-| 电池合盖后拔出最后一块外屏 | `Docked` 变为 false 后平台挂起；若未触发，保留日志并按平台接入流程处理 |
-| 接入电源后合盖 | 无论外屏是否连接，logind 忽略合盖 |
-| 自定义配置精确匹配（`exact`） | 应用自定义布局，状态仍为实际的 `DUAL_EXTEND`/`MULTI_EXTEND` 等 |
-| 自定义配置包含匹配（`contains`） | 应用自定义布局，多出的输出按默认策略追加且保持可见 |
-| 多个自定义配置同时匹配 | 按 lid 精确、`exact`、输出数量、mtime 的顺序选择优先级最高者 |
-| 保存自定义配置后删除 | 下一次稳定快照回到默认布局 |
-| 配置文件损坏/格式错误 | 静默回退默认布局，同时记录 `custom-layout` 诊断 |
-| 3 块及以上外屏自定义布局 | 按配置顺序排列所有输出，多出的输出继续追加 |
-| 配置 `external_position=above` | 扩展方向使用 `--above` 关系 |
-| 配置 `external_primary=largest` | 合盖时选择当前模式面积最大的外屏为主屏 |
+运行时按以下顺序回退：
 
-新设备至少完成一次冷启动、一次登录后热插拔、一次开合盖和一次故障降级测试。驱动枚举较慢的设备
-还应分别测试外屏在启动前已连接和登录后延迟出现的情况。
+1. `XDISPLAY_USE_ADAPTER=0` 或文件不可执行：标准探测；
+2. `internal-outputs` 失败：legacy 内屏候选或无内屏回退；
+3. `expected-mode` 失败：RandR preferred/首项；
+4. expected mode 缺失且适配器恢复失败：legacy 恢复，再回到 RandR 目标；
+5. 布局验证失败：保留安全活屏，由 watcher 有界重试。
 
-## 故障回退
-
-1. 先将 `xdisplay-device.local` 改为不可执行或临时改名，使下一次启动回到标准零配置探测。
-2. 在仍有可见输出时使用 `displayselect` 或经过确认的 `xrandr` 命令恢复可用布局，再重启 watcher
-   或重新进入 X11 会话。
-3. 若问题只在加入模式恢复后出现，保留 `internal-outputs`，移除 `restore-internal` 中的设备操作，
-   分开验证“身份识别”和“模式恢复”。
-4. 若合盖直接挂起，检查 logind 和供电状态；不要通过延长适配器运行时间规避系统电源策略。
-5. 目标引擎提供状态诊断后，应保存不含个人信息的状态摘要和标准错误，再按引擎验证结果定位问题；
-   适配器返回 `0` 不能作为恢复成功的唯一证据。
-6. 在迁移验证完成前保留平台旧恢复脚本和过渡文件的隔离备份。需要整体回退时，按对应平台档案
-   记录的基线、原路径、权限和恢复步骤执行，不要同时启用新旧 watcher。
-
-只有验证矩阵持续通过，旧恢复钩子才可以进入待清理隔离目录；平台档案记录其最终删除条件，
-不能由适配器安装过程自动完成。
+若适配器导致异常，先设 `XDISPLAY_USE_ADAPTER=0` 回到零配置路径并保存脱敏日志，不删除现场或继续
+增加设备特例。系统层问题按对应平台档案恢复，不能用延长适配器超时掩盖。

@@ -55,7 +55,7 @@ innogpu 设备或其他 Debian 版本。同一设备升级到新的发行版主�
 | `.config/x11/xinitrc` | `sh`、`ssh-agent`、`dwm`、`.config/x11/xprofile` | 必需（`startx` 会话） | 已安装；`openssh-client` 提供 `ssh-agent`，规范 xprofile 文件存在 | X11 桌面与输入 | 待核对 | 已验证，`sh -n` 通过 |
 | `.config/x11/xprofile` | `dbus-update-activation-environment`、`dbus-launch` | 必需（完整 X11 D-Bus 会话） | 已安装；`dbus-launch` 由 Debian 软件包 `dbus-x11` 提供 | X11 桌面与输入 | 待核对 | 已验证；现有条件判断保留为兼容保护 |
 | `.config/x11/xprofile` | `flock`、`xss-lock`、`slock`、systemd-logind 或 elogind | login1 锁屏/睡眠事件到 X11 locker 的单实例桥接 | 已安装；Debian 包 `util-linux` 提供 `flock`，`xss-lock` 为 `0.3.0+git20230128.0c562b-1+b2`，`suckless-tools` 提供 `slock 1.5`，当前 login manager 为 systemd-logind | X11 桌面与输入；显示、网络、挂载与系统控制 | 不存在 | 参数解析及 `flock` 互斥回归通过；重启 X11 后确认一个运行锁和一个 xss-lock 实例，真实挂起/恢复后实例继续存活且临时 slock 已退出；不使用 `--transfer-sleep-lock` |
-| `.config/x11/xprofile` | `fcitx5`、`xrandr`、`flock`、`xrdb`、`xset`、`picom`、`mpd`、`dunst`、`unclutter`、本地 `setbg`/`remaps`/`xdisplay.sh` | 已启用 X11 会话功能 | 已安装；`fcitx`、`ibus`、`xcompmgr` 缺失但均为有条件回退路径 | X11 桌面与输入；外观、字体与壁纸；音频、音乐、录制与视频 | 待核对 | 已验证，`sh -n` 通过；`xprofile` 是仓库跟踪的显示 watcher 入口，单实例锁防止重复 watcher；未跟踪的 innogpu 恢复命令仅由可选本机钩子调用，不属于通用依赖；PipeWire 用户服务运行状态需在正常用户会话复查 |
+| `.config/x11/xprofile` | `fcitx5`、`xrandr`、`flock`、`xrdb`、`xset`、`picom`、`mpd`、`dunst`、`unclutter`、本地 `setbg`/`remaps`/`xdisplay` | 已启用 X11 会话功能 | 已安装；`fcitx`、`ibus`、`xcompmgr` 缺失但均为有条件回退路径 | X11 桌面与输入；外观、字体与壁纸；音频、音乐、录制与视频 | 待核对 | 已验证，`sh -n` 通过；`xprofile` 以 `xdisplay watch` 启动仓库跟踪的显示 watcher，单实例锁防止重复 watcher；未跟踪的 innogpu 恢复命令仅由可选本机钩子调用，不属于通用依赖；PipeWire 用户服务运行状态需在正常用户会话复查 |
 | `~/src/{dwm,dwmblocks,dmenu,st}` | C 编译器、`make`、`pkg-config`、`tic` 及 X11/Xft/Xrender/Xinerama/Fontconfig/FreeType/HarfBuzz/X11-XCB/XCB/XCB Res 开发库 | 构建 X11 桌面四个独立源码仓库 | 均已安装；Debian 映射见下方关键映射 | X11 桌面与输入 | 不适用（独立源码仓库） | 四个 origin 均为 `https://github.com/darkroam/<repo>`；当前审计 HEAD 依次为 DWM `bb19a76`、DWMBlocks `be39197`、dmenu `9d6f1c4`、st `1f10742`。2026-07-18 在当时基线的隔离副本中逐一 `make clean && make`，四个可执行文件均构建成功；2026-07-19 又从干净状态构建当前 DWMBlocks、st 及功能提交 `38f3041` 的 DWM，三者均成功；2026-07-20 在帮助提交 `bb19a76` 上再次干净构建 DWM 成功，并由用户安装和 renew。源码构建产物与 `/usr/local/bin/dwm` 的 SHA256 一致；st 和 DWM 的本轮实机流程均已完成 |
 | `~/src/dwm/{config.h,larbs.mom}` | `groff`、`fonts-urw-base35`、`zathura`、Zathura PDF 后端 | `Mod+F1` 动态帮助 | 已安装；当前 PDF 后端由 Debian `zathura-pdf-poppler` 提供 | X11 桌面与输入；编译、排版与数据辅助 | 不适用（独立源码仓库） | 源码与 `/usr/local/share/dwm/larbs.mom` 安装副本一致；安装副本生成 7 页非空 PDF，文本包含全屏截图和六项菜单，`NimbusSans-Regular` 为 `emb=yes`，第 5 页渲染无重叠或裁切；用户通过实际 `Mod+F1` 确认页数和第 5 页显示正常 |
 | `~/src/dwm/config.h` | `abook`、`profanity`、`wpctl`、本地 `passmenu` | 通讯录、XMPP、麦克风静音和密码菜单的 DWM 绑定 | `abook`、`profanity` 已安装；`wpctl` 已由 Debian `wireplumber` 包提供；`passmenu` 已跟踪于 `~/.local/bin` | 文件、文档、密码与桌面处理；状态栏、通信与网络服务；音频、音乐、录制与视频 | 不适用（独立源码仓库） | DWM 保留已验证的应用键，已删除 `XF86XK_Sleep`；安装副本只保留 `sysact` 字符串而无 `zzz`，硬件睡眠键交由 logind 唯一处理 |
@@ -116,7 +116,7 @@ innogpu 设备或其他 Debian 版本。同一设备升级到新的发行版主�
 | `.local/bin/dmenumountcifs` | `avahi-browse`、Avahi 守护进程、`smbclient`、`mount.cifs`、`findmnt`、`flock`、`dmenu`、`sudo`、可选 `notify-send` | 局域网匿名 SMB 发现和 CIFS 挂载 | 均已安装；Debian 包为 `avahi-utils`、`avahi-daemon`、`smbclient`、`cifs-utils`、`util-linux`、`sudo`、`libnotify-bin`，`dmenu` 由本机源码构建 | 显示、网络、挂载与系统控制 | 挂起（无测试服务） | `dash -n`、`sh -n` 和隔离 mock `22/22` 通过；只支持 Avahi guest 共享，不跟踪凭据；本轮因无 SMB 测试服务跳过真实 LAN 验证 |
 | `.local/bin/displayselect` | `xrandr`、`arandr`、`flock`、`bc`、`dmenu` | 显示布局选择、手动布局入口、共享布局锁和镜像缩放 | 均已安装；前四项由 Debian 包 `x11-xserver-utils`、`arandr`、`util-linux`、`bc` 依次提供，`dmenu` 为本机单独构建 | 显示、网络、挂载与系统控制 | 已完成 | 已在真实多显示器 X11 会话验证精确输出筛选、主屏设置和与 watcher 的串行布局；Arandr 分支只释放锁，内置布局路径才执行后处理 |
 | `.local/bin/sysact` | `dmenu`、systemd `systemctl` 或 elogind `loginctl`、`slock`、`wpctl`、`mpc`、本地 `pauseallmpv`、`pstree`、`xset`、`notify-send` | 交互式及显式的锁屏、会话、电源和显示操作 | 均已安装或为已跟踪本地命令；Debian 包 `systemd` 提供 `systemctl`，`psmisc` 提供 `pstree`，`suckless-tools` 提供 `slock`，其余提供者已在所属批次审计 | 显示、网络、挂载与系统控制；音频、音乐、录制与视频 | 不存在 | `dash -n` 及无破坏 stub 回归通过；无参数菜单与单参数动作共用分派且不使用 `-i`；`sysact suspend` 的真实挂起、恢复和 slock 解锁已验证，休眠未执行 |
-| `.local/bin/remaps`、`.local/bin/setbg`、`.local/bin/xdisplay.sh` | `xrandr`、`flock`、`xset`、`xdotool`、`dunst`、`bc`、`xcape`、`xwallpaper`、`wal` | 显示管理、键盘重映射、壁纸与可选配色 | 均已安装；`wal` 为本地可执行文件 | 显示、网络、挂载与系统控制；外观、字体与壁纸 | 主要流程已完成 | Shell 语法检查通过；本机已验证 `xdisplay.sh` 的开合盖、热插入、拔出、动态轮询、合盖快速路径和单实例/布局锁。原审计发现的 innogpu 拔屏后 disconnected geometry/framebuffer 残留，后续已通过显式关闭、重读验证和完整实机链路修复；依赖集合未变化。壁纸仍按图形会话路径维护 |
+| `.local/bin/remaps`、`.local/bin/setbg`、`.local/bin/xdisplay`、`.local/bin/xdisplay.sh` | `xrandr`、`flock`、`xset`、`xdotool`、`dunst`、`bc`、`xcape`、`xwallpaper`、`wal` | 显示管理、兼容入口、键盘重映射、壁纸与可选配色 | 均已安装；`wal` 为本地可执行文件 | 显示、网络、挂载与系统控制；外观、字体与壁纸 | 主要流程已完成 | Shell 语法检查通过；本机已验证显示引擎的开合盖、热插入、拔出、动态轮询、合盖快速路径和单实例/布局锁；`xdisplay.sh` 仅保留为转发包装。原审计发现的 innogpu 拔屏后 disconnected geometry/framebuffer 残留，后续已通过显式关闭、重读验证和完整实机链路修复；依赖集合未变化。壁纸仍按图形会话路径维护 |
 | `.local/bin/dmenuunicode`、`.local/bin/getkeys`、`.local/bin/shortcuts`、`.local/bin/showclip`、`.local/bin/samedir`、`.local/bin/unix`、`.local/bin/weath` | `dmenu`、`xclip`、`xdotool`、`xprop`、`dunst`、`curl`、`less`、`pstree` | Unicode 输入、快捷键、剪贴板、同目录终端和天气辅助功能 | 均已安装 | Shell、源代码管理与开发；状态栏、通信与网络服务 | 待核对 | 全部 Shell 语法检查通过；需要 X11 或网络的实际交互按会话和网络条件复查 |
 | `.local/bin/peertubetorrent`、`.local/bin/rssadd`、`.local/bin/rssget` | `curl`、`python3`、`dmenu`、本地 `transadd`、本地 `rssadd` | PeerTube 种子转交与 RSS 订阅发现/添加 | 均已安装或为已跟踪本地脚本 | 下载、种子与文本浏览；状态栏、通信与网络服务 | 待核对 | Shell 语法检查通过；RSS/PeerTube 网络请求不在本轮执行 |
 | `.local/bin/xlight`、`.local/bin/cron/checkup`、`.local/bin/cron/crontog`、`.local/bin/ifinstalled` | `xbacklight`、APT、`sudo`、`crontab`、`notify-send` | 背光、包更新检查、cron 切换和依赖检查 | 均已安装；`cron` 包提供服务与 `crontab`，不提供同名命令 | 显示、网络、挂载与系统控制；Shell、源代码管理与开发 | 待核对 | Shell 语法检查通过；计划任务与 sudo 的实际交互需在正常用户会话复查 |
@@ -263,14 +263,15 @@ GPU 的 DRM connector `card0-DP-1`、`card0-HDMI-A-1`、`card0-HDMI-A-2` 在 Xor
 `/sys/class/power_supply/ADP1/online`。显示链路为：
 
 ```text
-innogpu -> Xorg/RandR -> xprofile -> xdisplay.sh --watch -> DWM/Xinerama
+innogpu -> Xorg/RandR -> xprofile -> xdisplay watch -> DWM/Xinerama
 systemd-logind ----------------------^ 合盖与会话授权
 Mod+F3 -> displayselect -> 共享 RandR apply lock
 ```
 
 未跟踪的 `.local/bin/innogpu-restore-dp1-mode-x11` 是当前可选恢复钩子，固定处理 `DP-1`/`eDP-1`
 和 `1920x1200R` modeline。它通过 `XDISPLAY_RESTORE_COMMAND` 接入，只在内屏缺少模式时运行；
-由于包含硬件假设，不得纳入通用配置。目标设备适配器完成实测前保留现有接口。
+由于包含硬件假设，不得纳入通用配置。通用设备适配器运行接口已经实现并默认关闭；本平台在完成
+等价适配器实测前继续保留现有 legacy 接口。
 
 ### 图形用户态特例：Picom GLX 能力探测
 
@@ -402,8 +403,8 @@ sudo /root/networkmanager-transition-20260719/networkmanager-transition.sh rollb
   布局后，实际恢复并再次隔离一个无运行影响的文件，核对路径、所有者、mode 和校验和，再讨论删除。
 - [ ] 用户明确恢复跨设备显示工作后，分别复测不同外屏直连、不同扩展坞、登录前预接、
   EDID/preferred 正常/延迟/缺失和多个外屏。
-- [ ] 通用设备适配器运行接口实现并获准进入平台验证后，在不创建适配器、适配器失败和内屏确需
-  模式恢复三条路径上验证降级行为，再迁移当前 `XDISPLAY_INTERNAL_OUTPUTS` 与恢复钩子。
+- [ ] 用户明确恢复平台适配器迁移后，在不创建适配器、适配器失败和内屏确需模式恢复三条路径上
+  验证已实现的灰度接口与降级行为，再迁移当前 `XDISPLAY_INTERNAL_OUTPUTS` 与恢复钩子。
 - [ ] 用户明确恢复系统级合盖策略审查后，单独评估是否把当前
   `HandleLidSwitchExternalPower=ignore` 迁入
   `/etc/systemd/logind.conf.d/60-xdisplay.conf`；如实施，先用

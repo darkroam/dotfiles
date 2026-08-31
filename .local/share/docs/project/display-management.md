@@ -1,296 +1,299 @@
 # X11 显示管理设计
 
-## 目的与边界
+本文面向维护者，是共享 X11 显示引擎的唯一权威设计文档，负责命令结构、状态、配置、默认布局、
+自定义布局、锁、重试和当前/目标边界。非标准硬件扩展接口见
+[设备适配器指引](display-device-adapter.md)，操作与回归步骤见[显示管理测试](display-testing.md)。
+设备输出名、驱动、系统服务、模式和实测结果只写入[平台档案](../platforms/index.md)。
 
-本文面向维护者，说明共享 X11 显示引擎的所有权、状态模型、布局策略、诊断和扩展边界。
-具体设备的输出名、驱动、系统服务、模式、实测结果和恢复路径不在本文维护；从
-[平台档案索引](../platforms/index.md)进入对应记录。用户操作见
-[桌面使用指南](../user/desktop-guide-zh.md)，非标准硬件扩展见
-[设备适配器指引](display-device-adapter.md)。
+## 当前实现与未完成边界
 
-## 当前实现与目标状态
+当前 `xdisplay 2.0.0` 已实现：
 
-当前共享实现已经具备：单份 RandR 快照解析、`--status`/`--apply`/`--watch`、按 X server
-隔离的运行目录和锁、watcher generation、stale/pending 基础 health、current/preferred/target
-模式、模式能力签名、短时 settling、有界失败退避，以及关闭 `disconnected + geometry` 输出后的
-重读验证。单屏、开盖扩展、合盖外屏和现有镜像回退均显式使用 target 模式，不依赖 `--auto`。
+- 单份 RandR 快照解析和只读枚举状态；
+- 单屏、开盖扩展、合盖外屏和无法识别内屏时的镜像回退；
+- 任意数量外屏按 RandR 接口顺序形成 `right|left|above|below` 链；
+- 可选引擎参数与默认布局配置，非法项逐项诊断并回退；
+- 自定义布局的保存、精确/包含匹配、恢复和删除；
+- 默认关闭的设备适配器运行接口及 legacy 环境变量降级；
+- 按 X server 隔离的 apply/watch 锁、watcher generation、stale/pending 清理、有界重试和日志；
+- 每次 RandR 写入后的活动输出、主屏、目标模式、方向和自定义位置重读验证。
 
-以下仍是目标状态，不得按已实现行为描述：由一个规划器生成完整 `desired_outputs`/`off_outputs`、
-最高共同模式镜像、有盖/无盖设备的不同多屏回退、设备适配器运行接口、`--manual-run` 与有效
-manual marker、完整自动布局 health，以及可选的显式 `--fb` 收敛路径。本文在相应章节分别标明
-当前边界和目标约束。
+尚未实现的目标不能写成现状：统一 `desired_outputs`/`off_outputs` 规划器、最高共同模式镜像、无 lid
+设备的独立多屏扩展回退、有效 manual marker 与完整自动布局 health，以及可选显式 `--fb` 收敛。
+保留的 `MIRROR`、`CUSTOM` 状态常量不是当前对外状态；镜像是回退布局，自定义配置命中后仍保留
+物理/lid 状态名。
 
-## 所有权与运行链
+## 核心设计原则
 
-共享显示管理只允许两类 RandR 写入口：
+以下原则是后续修改的阅读导引，具体契约以括号所列章节为准：
+
+1. **引擎管策略，适配器管设备差异。** 通用引擎统一负责状态、布局、锁、验证和重试；适配器只
+   报告非标准内屏身份、预期模式或执行一次设备恢复。（“内屏、lid 与设备适配器”）
+2. **用户命令只分派，共享实现统一进入库。** `xdisplay` 和 `displayselect` 保持窄入口，复用
+   `.local/lib/xdisplay/` 中带 `xdisplay_` 前缀的函数，避免入口间复制策略。（“命令、库与所有权”）
+3. **状态来自只读快照计算，不靠副作用猜测。** lid、内屏和外屏列表只产生明确枚举，状态计算本身
+   不修改 RandR，自定义布局也不覆盖物理状态名。（“快照与状态模型”）
+4. **多外屏是列表问题，不是固定接口或固定数量问题。** 输出由运行时快照发现并按接口顺序形成
+   扩展链，不硬编码输出名和屏幕数量。（“默认布局与安全活屏”）
+5. **配置覆盖策略，内置值只提供可靠默认。** 可选配置优先；文件或单项缺失、值非法时只回退对应
+   默认值，不能阻止 watcher 启动。（“配置系统”）
+6. **匹配的自定义布局优先于默认布局。** 引擎按 lid、匹配模式、输出数量和 mtime 选择最佳快照；
+   没有有效候选时使用默认策略。（“自定义布局”）
+7. **始终优先保留安全活屏。** 合盖时先激活并验证外屏再关闭内屏；恢复、pending 或 stale 处理
+   不得制造所有输出同时关闭的瞬间。（“默认布局与安全活屏”）
+8. **所有写操作都必须串行、有界并经重读验证。** 自动、手动、自定义和设备恢复共用写锁，命令
+   返回 0 也不能替代 RandR 收敛验证。（“命令、库与所有权”、“Watcher、健康与手动布局”）
+9. **可观测性不能成为新的故障源。** `xdisplay status` 保持只读，日志有界且脱敏；日志失败不得
+   改变布局结果。（“状态、日志与故障排查”）
+10. **测试矩阵是设计契约的一部分。** 状态、布局、配置、自定义匹配、适配器和降级均需 fixture
+    或真实硬件验收，测试数字由显示测试文档维护。（“验证矩阵”）
+11. **新能力默认灰度启用，旧路径始终可退。** 设备适配器默认关闭，未启用或失败时保留标准探测和
+    legacy 兼容行为。（“内屏、lid 与设备适配器”）
+12. **失败应降级而不是阻塞显示流程。** 配置损坏、适配器失败和自定义布局失效进入对应默认或有界
+    重试路径，优先维持 X11 会话和已有可见输出。（“默认布局与安全活屏”、“自定义布局”）
+
+## 命令、库与所有权
+
+正常运行链只有一条自动 RandR 写入口：
 
 ```text
-X11 会话 -> xprofile -> xdisplay.sh --watch -> 自动布局
-Mod+F3 ----------------> displayselect ---------> 手动布局
-                                      \----------> Arandr（可选）
+X11 会话 -> xprofile -> xdisplay watch -> 状态计算 -> 默认或自定义布局
+Mod+F3 ----------------> displayselect -> 交互布局或 Arandr
 ```
 
-`xdisplay.sh --watch` 由 X11 会话启动，以继承正确的 `DISPLAY`、`XAUTHORITY` 和用户 D-Bus
-环境。不得同时启用 udev 直接 `xrandr`、第二个 watcher 或缺少图形会话环境的服务。目标平台
-若必须使用系统服务修复驱动/设备节点，该服务只能准备 Xorg 前置条件，不能取得布局所有权。
-
-自动与手动入口共用 `apply.lock`；每个规范化 X server 只有一个 `watch.lock`。锁前缀包含 UID
-和 X server，`:0` 与 `:0.0` 共享锁，不同 X server 互不干扰。旧 watcher 必须有界退出，新
-watcher 必须有界等待，不得永久阻塞登录。
-
-锁、generation 和 marker 优先放在有效的 `XDG_RUNTIME_DIR`。该目录必须存在、可写可搜索、
-不是符号链接、归当前 UID 所有且权限严格为 `0700`。无法使用时，只接受绝对 `TMPDIR`，否则
-回退 `/tmp`，并在其下创建归当前 UID 所有、非符号链接且权限为 `0700` 的私有目录；任一所有权
-或权限检查失败都必须拒绝运行，不能退回共享可写的固定锁文件。
-
-当前 watcher 为 `HUP`、`INT`、`TERM` 和正常退出设置清理，只删除与本代 generation 匹配的
-运行状态。连续 6 次 RandR 快照失败时把 X server 视为已经消失并退出；单次探测失败只进入重试，
-不能中断会话。新 watcher 最多等待 watch lock 8 秒，该窗口长于旧 watcher 的连续失败退出时间，
-避免重新登录同一 `DISPLAY` 时因旧进程尚在清理而丢失 watcher。
-
-## 状态模型
-
-每轮从一份 RandR 原始快照解析固定状态，不能在同一轮混用多次读取结果。screen 状态保留
-minimum/current/maximum framebuffer；全局盖子状态和每个 `connected` 或 `disconnected` 输出
-至少记录：
-
-| 字段 | 定义与用途 |
+| 路径 | 职责 |
 | --- | --- |
-| `lid_present` | 是否存在 lid 状态接口，不以本轮读取成功为前提；用于区分无盖设备和暂时读取失败 |
-| `lid_state` | 有 lid 时为 `open`、`closed` 或 `unknown`；没有 lid 时为 `absent` |
-| `connection`、`primary` | RandR 的连接和主屏事实 |
-| `geometry`、宽高、x/y | CRTC 占用的区域；必须支持负坐标 |
-| `active` | 存在 geometry，不要求输出仍为 `connected` |
-| `mode_ready` | 已连接且至少有一个可用模式 |
-| `stale` | 已断开但仍有 geometry，必须进入待关闭集合 |
-| `pending` | 已连接、未激活且模式尚未就绪，必须保留安全活屏并重试 |
-| `current_mode/current_rate` | 带 current `*` 的实际模式与刷新率 |
-| `preferred_mode/preferred_rate` | 首个带 preferred `+` 的模式与刷新率 |
-| `target_mode/target_rate` | preferred，缺失时回退到模式表首项及其首个刷新率 |
-| `mode_count/mode_signature` | 全部模式、刷新率和 preferred 标记组成的能力摘要 |
+| `.local/bin/xdisplay` | `apply`、`watch`、`status`、`version`、`help` 的用户入口 |
+| `.local/bin/xdisplay.sh` | 旧参数兼容包装，原样转发到 `xdisplay` |
+| `.local/bin/displayselect` | 交互选屏及 `save`、`list`、`delete` 自定义布局命令 |
+| `.local/lib/xdisplay/` | 状态、配置、布局、适配器、自定义布局、日志和 watcher 的共享实现 |
+| `.config/x11/xprofile` | 在正确的 X11 会话环境中启动唯一 `xdisplay watch` |
 
-模式能力签名保留模式、刷新率和 preferred `+`，忽略 current `*`，因此驱动稍后补充模式或更改
-preferred 会触发重新规划，而一次正常 modeset 不会制造签名循环。物理拓扑签名包含 lid 是否存在
-及其状态，以及每个输出的连接状态、首个模式和完整模式能力签名；不包含 current `*`、primary、
-坐标或缩放。拓扑签名能发现连接与能力变化，但不能单独证明布局已经收敛，也不能保护手动布局。
+所有共享库函数使用 `xdisplay_` 前缀。自动和手动入口共用 `apply.lock`；每个规范化 X server 只有
+一个 `watch.lock`。不得同时增加 udev 直接 `xrandr`、第二个 watcher 或缺少图形会话环境的布局服务。
 
-基础 health 与拓扑独立，只报告 stale、pending、无连接输出或 ready。完整自动布局 health 还应
-验证期望输出的 active/off、primary、geometry、target 模式和 framebuffer；它必须与 manual
-marker 同步实现，否则可能把合法的手动负坐标、缩放或排列误判为故障。
+锁和 generation 优先放在有效 `XDG_RUNTIME_DIR`。该目录必须归当前 UID 所有、权限 `0700`、
+可写可搜索且不是符号链接；否则只接受绝对 `TMPDIR`，最终回退到 `/tmp` 下同样受检查的用户私有
+目录。任一所有权或权限检查失败都拒绝运行，不得使用共享可写固定锁。
 
-`xdisplay.sh --status` 只读取并解释状态，不执行恢复或布局。输出应包含 lid、各输出模式与几何、
-stale/pending、策略、锁、watcher generation、manual marker 和当前设备注入，便于保存可复现
-诊断。
+## 快照与状态模型
 
-`XDISPLAY_TEST_MODE=1` 只允许测试通过绝对 `XDISPLAY_TEST_ROOT` 把 `/proc` 和 `/sys` 观测根
-指向 fixture；正常模式始终使用真实系统路径。测试模式不得改写默认观测根，也不得绕过 RandR
-状态解析、锁或输出校验。
+每轮只从一份 RandR 原始快照计算状态，不能混用多次读取结果。screen 保存 minimum/current/maximum
+framebuffer；每个已知输出至少保存：
 
-## 内屏与盖子识别
+| 字段 | 含义 |
+| --- | --- |
+| `connection`、`primary` | RandR 连接与主屏事实 |
+| `geometry`、宽高、x/y | 当前 CRTC 区域，支持负坐标 |
+| `active` | 存在 geometry，即使输出刚变为 disconnected |
+| `mode_ready` | connected 且至少存在一个模式 |
+| `stale` | disconnected 但仍占有 geometry，必须安全关闭 |
+| `pending` | connected、未激活且模式尚未就绪，需要保留活屏并重试 |
+| `current_mode/current_rate` | 当前 `*` 模式和刷新率 |
+| `preferred_mode/preferred_rate` | 首个 `+` 模式和刷新率 |
+| `target_mode/target_rate` | 适配器有效目标，否则 preferred，再否则模式表首项 |
+| `mode_count/mode_signature` | 模式、刷新率与 preferred 标记组成的能力摘要 |
 
-通用内屏候选来自标准 RandR 前缀 `eDP-*`、`LVDS-*`、`DSI-*`。标准候选不足时，当前兼容接口
-允许 `XDISPLAY_INTERNAL_OUTPUTS` 补充候选；模式异常时可通过
-`XDISPLAY_RESTORE_COMMAND` 调用一次有界恢复。二者只能描述内屏身份/模式恢复，不能决定布局。
+模式签名忽略 current `*`，保留刷新率和 preferred `+`，因此正常 modeset 不制造循环，而驱动稍后
+补充模式会触发重算。拓扑签名包含 lid 状态、输出连接、首项模式、能力签名和自定义布局名称/mtime。
 
-目标接口是单个未跟踪设备适配器 `.config/x11/xdisplay-device.local`。适配器必须受 timeout 和
-kill-after 限制，输出经过当前 RandR 快照校验；迁移完成前不能把目标接口写成已生效行为。
+状态由 lid、有效内屏数量和外屏数量直接计算：
 
-盖子状态从可用系统接口读取。没有 lid 接口的设备按桌面设备处理；接口存在但不可读时按有盖
-设备安全降级，不能因为读取失败关闭最后一个可见输出。合盖是否挂起由平台电源策略决定，显示
-引擎不得自动改写 logind 或其他电源管理配置。本机目标策略是：电池且无外屏合盖挂起，电池且有
-外屏合盖继续运行，接入外部电源时无论外屏状态都继续运行。外屏在电池合盖期间拔出后，平台必须
-重新评估已闭合 lid；这不是通用布局引擎的职责。
-
-## 通用布局策略
-
-目标状态要求每次规划同时生成完整 `desired_outputs` 和 `off_outputs`，后者是所有已知输出减去
-期望输出，并包含 `disconnected + geometry` 的 stale 输出。两组动作必须由同一规划器产生，串行
-应用并重读验证；不能只配置期望输出后提前返回。当前实现已经有独立 stale 清理和各布局分支，
-但尚未完成统一 desired/off 规划器，因此不能宣称所有非期望输出都由同一计划显式关闭。
-
-| 场景 | 目标行为 | 安全条件 |
+| 状态 | 条件 | 默认布局 |
 | --- | --- | --- |
-| 只有一个可用输出 | 设为 primary、定位 `0x0`，其他已知输出进入 off 集合 | 合盖且只剩内屏时不强制重新 modeset，但仍清理 stale |
-| 开盖或 lid 状态未知且识别内屏 | 内屏为 primary，外屏按稳定顺序向右扩展 | 内屏无模式时只做一次有界恢复，再由 watcher 重试 |
-| 合盖且外屏可用 | 先激活外屏并设为 primary，再关闭内屏 | 外屏验证 active 前不得关闭最后一个安全活屏 |
-| 合盖且外屏尚未就绪 | 保留当前安全活屏并标记 pending | 不提交成功状态，只做有限频率主动探测 |
-| 有盖但无法识别内屏，多输出 | 选择最高共同模式后镜像 | 未找到共同模式时保留一个已验证活屏，不提交部分布局 |
-| 无 lid 设备，多输出 | 选择已有 primary 或首个输出并稳定向右扩展 | 不因缺少“内屏”概念退化为笔记本镜像回退 |
-| 没有 connected 活屏 | 不执行破坏性布局 | 优先激活并验证安全候选，失败后保留旧状态等待重试 |
+| `NONE` | 没有有效输出 | 不执行破坏性写入 |
+| `INTERNAL_ONLY` | 非合盖且只有内屏 | 内屏 primary@`0x0` |
+| `EXTERNAL_ONLY` | 无有效内屏且一块外屏 | 外屏 primary@`0x0` |
+| `DUAL_EXTEND` | 非合盖、内屏加一块外屏 | 内屏为主屏，外屏按配置方向扩展 |
+| `MULTI_EXTEND` | 非合盖、内屏加多块外屏 | 内屏为锚点，所有外屏形成链 |
+| `MULTI_EXTERNAL` | 无有效内屏且多块外屏 | 合盖路径形成外屏链；无 lid/未识别内屏路径当前镜像回退 |
 
-当前尚未实现“最高共同模式镜像”和有 lid/无 lid 的独立多屏回退；表中相应行是验收目标。
-扩展前还必须计算计划包围盒并与 RandR maximum framebuffer 比较。超限时采用已验证的安全镜像
-或只保留一个安全活屏，不得执行会留下半完成布局的命令序列。
+合盖时内屏仍保留在诊断列表，但不计入有效状态。自定义布局命中时 `layout=custom`、`custom=NAME`，
+状态名仍是上表的实际状态。
 
-### 平台 connector 与 logind 边界
+`XDISPLAY_TEST_MODE=1` 只允许测试用绝对 `XDISPLAY_TEST_ROOT` 重定向 `/proc` 和 `/sys` 观测根；正常
+模式始终读取真实系统路径，也不会因测试模式绕过 RandR 解析、锁或输出校验。
 
-本项目不定义显卡 connector 类型。Innogpu 项目是本机 DRM connector、ACPI/DPU 映射和阶段补丁的
-权威来源；dotconfig 只使用其提供的 X11 输出候选和恢复钩子。p21 的历史运行事实是 DRM `DP-1`
-对应 RandR `eDP-1`，这会令 logind 产生假 `Docked`；Innogpu 的 patched-22/`patch-009` 已在当前
-设备安装并重启，实测 DRM 内置面板为 `eDP-1`、`Docked=false`，connector 语义修复生效。
-电池合盖、外屏热插拔和外部电源矩阵仍以 Innogpu 验收记录为准，尚未全部完成。
-候选包的版本、SHA-256、补丁实现和实机验收记录只维护在 Innogpu 项目的阶段补丁文档中；本文件
-不复制显卡实现或发布结论。
+## 内屏、lid 与设备适配器
 
-logind 配置保持 `HandleLidSwitch=suspend`、`HandleLidSwitchExternalPower=ignore` 和
-`HandleLidSwitchDocked=ignore`。外屏接入时电池合盖继续运行；无外屏时电池合盖挂起；接电时合盖
-忽略。外屏断开后是否自动重新评估已闭合 lid，必须由平台验收，不得在共享 xdisplay 中另起电源
-或热插拔处理链。
+标准内屏候选依次来自 `eDP-*`、`LVDS-*`、`DSI-*`。没有标准候选时，启用的设备适配器可以提供
+一个经当前 RandR 快照验证的候选；再失败才读取兼容变量 `XDISPLAY_INTERNAL_OUTPUTS`。模式恢复优先
+使用启用且给出有效 expected mode 的适配器，之后可降级到 `XDISPLAY_RESTORE_COMMAND`。
 
-目标模式优先使用 preferred；没有 preferred 时使用模式表首项及其首个刷新率。不得从 EDID
-猜测驱动未暴露的模式，不得复用另一 connector 的能力，也不得把 `--auto` 当作确定策略。
-镜像只有在所有输出的模式和缩放都已确定时才执行；RandR 没有事务回滚，失败路径必须重读实际
-状态并继续有界恢复。
+设备适配器位于 `.config/x11/xdisplay-device.local`，默认 `XDISPLAY_USE_ADAPTER=0`；启用条件、三个
+子命令、缓存和失败语义只在[适配器指引](display-device-adapter.md)维护。通用引擎不包含设备输出名、
+固定分辨率、modeline、PCI 地址、驱动命令或系统服务路径。
 
-自动布局最终把 framebuffer 收敛到有效输出包围盒。长期保留旧 framebuffer 会产生不可见区域、
-鼠标越界和整屏截图尺寸错误，不能作为通用性能优化。
+lid 为 `open`、`closed`、`unknown` 或无接口时的 `absent`。接口存在但读取失败按有 lid 设备安全
+降级，不能关闭最后一个活屏。合盖是否挂起由 login manager 和平台电源策略决定；显示引擎只在仍
+运行的 X11 会话中排列输出，不改写 logind 配置，也不模拟 lid 事件。
 
-## 事件、能力迟到与退避
+## 配置系统
 
-盖子和 DRM sysfs 状态每 0.5 秒读取；RandR 稳定时约每 1 秒读取一次 `--current`。盖子、connector、
-拓扑或 health 变化后进入约 5 秒快速窗口，布局成功也不提前结束；窗口内约每 1 秒执行一次
-`--query`，捕捉扩展坞或驱动晚于连接事件提供的模式、刷新率和 preferred。稳定期保留约 60 秒的
-主动 `--query` 兜底，其余观测使用 `--current`，避免持续 EDID 探测给驱动施压。
+两个 INI 风格文件均可选；缺失时静默使用内置默认值，未知区段、未知键、空值或非法值只记录诊断，
+不阻止 watcher 启动。
 
-相同拓扑与基础 health 下的失败布局最多连续写入 3 次，间隔约 5 秒；达到上限后只在低频主动
-探测时恢复尝试。lid、连接、首个模式、完整 mode signature 或 health 变化会形成新状态并重置退避。
-模式能力变化即使 connector 仍为 connected 也必须触发重新规划；不能只比较输出数量或连接位。
+引擎参数：`~/.config/x11/display-engine.conf`
 
-布局成功不应仅依据命令退出码。至少重读并验证 active/off、primary、geometry、target 模式、
-扩展/镜像关系、stale-free 状态和 framebuffer。新一代 watcher 只清理自己可证明过期的 marker，
-不能继承无法验证的手动所有权。
+```ini
+[engine]
+timeout_seconds = 2
+kill_after_seconds = 1
+apply_failure_limit = 3
+apply_retry_ticks = 10
+hardware_probe_ticks = 120
+pending_probe_ticks = 10
+log_max_bytes = 1048576
+log_path = ~/.local/share/x11/xdisplay-adapter.log
+```
 
-## 手动布局与 DWM
+默认布局：`~/.config/x11/display-layouts/default.conf`
 
-`displayselect` 取得同一 `apply.lock`，支持单屏、扩展、镜像和可选 Arandr。内置布局成功后可刷新
-壁纸、键盘映射和通知；Arandr 分支只负责释放锁，不得假定用户保存了某种布局。
+```ini
+[defaults]
+external_position = right
+external_primary = first
+mirror_on_duplicate = false
+```
 
-共享锁只能防止并发写，不能阻止 watcher 在手动命令释放锁后继续应用较早的自动计划。目标接口
-因此增加 `xdisplay.sh --manual-run`：`displayselect` 的外部入口立即委托它，由引擎取得 apply lock，
-再调用 `displayselect --unlocked` 的内部 UI，避免递归和双重加锁。只有确认布局实际变化且命令成功
-时，才在仍持锁的状态下写入绑定当前物理拓扑和 watcher generation 的 manual marker；dmenu
-取消、命令失败或 Arandr 前后布局相同都不得写 marker。
+`external_position` 支持 `right|left|above|below`。合盖外屏主屏支持 `first|largest|manual`；`first`
+按 RandR 接口顺序，`largest` 按当前快照中活动 geometry 的宽高面积选择（未激活输出面积视为 0，
+同面积保持接口顺序），`manual` 当前作为占位并按 first 处理。
+`mirror_on_duplicate` 当前只解析和显示，不改变布局。
 
-每个 watcher 启动时生成新 generation，并清理无法证明属于当前 X 会话的旧 marker。marker 有效时，
-自动路径只观察物理拓扑并确认至少一个活屏，不覆盖 primary、geometry、缩放、合法负坐标或
-framebuffer；输出连接、首个模式、mode signature 或 lid 状态变化后 marker 立即失效，恢复自动
-收敛。旧自动计划在释放锁后不得覆盖较新的手动结果。
+配置在 `XDISPLAY_USE_ADAPTER=0` 时仍加载。`xdisplay status` 输出实际值：
 
-当前实现只有 generation、marker 路径和 `--status` 报告，尚未提供 `--manual-run`，也不会写有效
-marker；现有 `displayselect` 串行行为不能等同于完整的手动所有权保护。
+```text
+config: timeout=... kill-after=... position=... limit=... retry=... probe=... pending=... log=... log_max=...
+```
 
-DWM 在根窗口尺寸变化时通过 ConfigureNotify/Xinerama 重新读取几何、更新状态栏并排列窗口。
-正常 RandR 布局变化不需要重启 DWM。
+示例文件为 `.config/x11/display-engine.conf.example` 和
+`.config/x11/display-layouts/default.conf.example`；不会因示例存在而自动启用配置。
 
-## 依赖与缺失行为
+## 默认布局与安全活屏
 
-自动 watcher 的基础能力是 `xrandr` 和 `flock`；手动入口还使用 `dmenu`，镜像缩放使用 `bc`，
-Arandr 是可选界面。缺少基础依赖时必须明确拒绝运行；缺少可选界面、通知或壁纸工具时只影响
-相应分支，不能阻塞 X11 登录。
+`xdisplay_sort_external_outputs()` 按 `xrandr --query` 的接口顺序排序。
+`xdisplay_apply_extend_layout()` 将主屏置于 `0x0`，每块后续输出相对前一块使用配置方向；它复用目标
+模式和刷新率辅助函数，不重新实现模式选择。
 
-发行版软件包映射和设备安装状态见[平台档案索引](../platforms/index.md)。
+| 场景 | 当前行为 | 安全条件 |
+| --- | --- | --- |
+| 单个可用输出 | primary@`0x0`，使用 target mode | 已收敛时不重复写入 |
+| 开盖且识别内屏 | 内屏为主屏，所有外屏按接口顺序链式扩展 | 内屏模式缺失时只做有界恢复 |
+| 合盖且外屏可用 | 选定第一/最大外屏为主屏，形成外屏链并关闭内屏 | 必要时先激活并验证外屏，不能瞬间关闭全部输出 |
+| 合盖且外屏模式迟到 | 保留已有安全活屏，标记 pending 后重试 | 不提交部分成功 |
+| 无法识别内屏且多输出 | 当前将可用输出置于同一原点做镜像回退 | 还没有最高共同模式规划器 |
+| stale 输出 | 若没有其他活屏先启用替代输出，再关闭 stale CRTC | 关闭后重读确认 stale 消失 |
+
+每次写入后都重读 RandR，验证 active、primary、原点、目标模式和链式方向；自定义布局还验证保存的
+坐标、模式和主屏。任何验证失败由 watcher 的同一状态退避重试，不能把命令返回 0 当作收敛证明。
+
+## 自定义布局
+
+用户通过独立命令管理快照：
+
+```sh
+displayselect save [NAME]
+displayselect list
+displayselect delete NAME
+```
+
+无名称时生成 `auto-YYYY-MM-DD-HH-MM-SS`。目录
+`~/.config/x11/display-layouts/custom/` 权限为 `700`，文件权限为 `600`。快照保存活动输出、绝对坐标、
+当前模式与刷新率、主屏和 lid；绝对坐标能稳定还原非链式、负坐标和不规则排列。
+
+配置的 `[identity]` 使用无序输出集合、`lid=open|closed|any` 和 `match_mode=exact|contains`。候选优先级：
+
+1. lid 精确匹配高于 `any`；
+2. `exact` 高于 `contains`；
+3. 配置输出数量更多者优先；
+4. mtime 更新者优先。
+
+命中后按 `[layout]` 的顺序、坐标、模式和主屏恢复。`contains` 允许的额外输出按
+`external_position` 接在最后一个已配置输出之后。解析或字段校验失败时记录 `custom-layout`
+诊断、跳过该候选并使用默认布局；RandR 应用或收敛验证失败时返回 watcher 的有界重试路径，多输出
+路径在应用成功但重读未收敛时还会清除本次命中并尝试默认布局。任何一种失败都不能阻塞 watcher
+主循环。
+
+`displayselect` 的 `switch`、`reset` 目前没有实现，不能写入命令参考或脚本调用。
+
+## Watcher、健康与手动布局
+
+watcher 主循环每 0.5 秒运行，稳定时约每秒读取 `--current`；事件或能力变化进入快速查询窗口。
+同一状态布局失败默认最多连续 3 次，失败后等待 10 tick；稳定硬件默认每 120 tick 主动查询，pending
+默认每 10 tick 探测。连续 6 次 RandR 快照失败时认为 X server 已消失并退出；新 watcher 最多等待
+旧 watch lock 8 秒。
+
+基础 health 为 `ready|stale|pending|no-connected-output`。它能驱动清理和重试，但尚未形成包含所有
+期望 active/off、primary、geometry、target mode 和 framebuffer 的完整自动布局 health。
+
+`displayselect` 取得同一 apply lock，支持单屏、双屏选择、有限三屏交互和可选 Arandr；自定义布局
+管理也复用共享库。generation、manual marker 路径及只读状态已经存在，但当前没有 `--manual-run`，
+也不会写有效 marker，所以 watcher 尚不能长期保留一个拓扑未变的任意手动布局。DWM 会在根窗口
+尺寸变化后通过 ConfigureNotify/Xinerama 重新读取几何，正常 RandR 切换不要求重启 DWM。
+
+## 状态、日志与故障排查
+
+`xdisplay status` 只读，不恢复模式或写布局。它输出 lid、物理状态枚举、当前布局函数、自定义配置、
+配置摘要、framebuffer、每个输出的模式/几何/stale/pending、policy、health、拓扑签名、锁、generation、
+manual marker 和 legacy 配置可用性。
+
+适配器和自定义布局诊断默认写入 `~/.local/share/x11/xdisplay-adapter.log`，或写入配置的 `log_path`。
+文件以 `0600` 创建，达到 `log_max_bytes` 后覆盖轮转为 `.1`；日志失败不改变布局返回值。详细字段和
+脱敏边界见[适配器指引](display-device-adapter.md#日志与退出码)。
+
+排查顺序：
+
+1. 保存 `xdisplay status` 和 `xrandr --current`，不要先用新写入覆盖现场；
+2. 确认只有一个 watcher，且命令继承正确的 `DISPLAY`、`XAUTHORITY` 和 `PATH`；
+3. 检查 stale/pending、target mode、自定义命中和配置摘要；
+4. 暂时设置 `XDISPLAY_USE_ADAPTER=0` 区分通用路径与设备扩展；
+5. 仍有可见输出时再运行一次 `xdisplay apply`；全黑时从 TTY 停止 watcher 并按平台档案恢复。
+
+## Framebuffer 边界
+
+共享目标是 framebuffer 与自动布局的有效输出包围盒一致。普通 `--output ... --off` 能让 Xorg 自动
+收敛时不得增加显式 `--fb`。只有统一 desired/off 规划已完成且布局重读正确、framebuffer 仍稳定
+残留时，才能另行设计可关闭的显式路径。
+
+实现前必须校验 RandR minimum/maximum、计划包围盒、坐标和 panning；不得改写合法的手动负坐标、
+缩放或排列。诊断 A/B 只允许在 apply lock 内动态取得输出、模式和旧 framebuffer，设置总超时与
+恢复 trap，测试后恢复标准布局。设备实测耗时和结果只写平台档案。
 
 ## 验证矩阵
 
-修改共享显示逻辑后至少检查：
+共享实现的权威可操作步骤和当前 fixture 数量见[显示管理测试](display-testing.md)。设计验收至少包括：
 
 | 场景 | 验收结果 |
 | --- | --- |
-| 开盖冷启动、无外屏 | 内屏 primary@`0x0`，没有 stale 输出 |
-| 登录前/后接入外屏 | 输出自动扩展，模式迟到后仍能收敛 |
-| 热拔任一外屏 | 断开输出不再占用 geometry，framebuffer 收敛 |
-| 同一外屏切换 connector 或扩展坞 | 关闭旧 connector，只采用新路径实际暴露的模式和 preferred |
-| 合盖且外屏就绪 | 外屏先成为安全活屏，再关闭内屏 |
-| 合盖冷启动且外屏延迟 | 不关闭最后一个安全输出，能力就绪后重试 |
-| 再次开盖 | 内屏恢复为 primary，其余输出重新扩展 |
-| 多外屏 | 稳定排序；拔出任一输出后重新规划 |
-| 手动布局与热插竞争 | 共享锁串行，旧自动计划不覆盖新手动结果 |
-| 手动布局后拓扑未变 | marker 保留手动 primary、位置、缩放和负坐标 |
-| 无适配器的标准笔记本 | 零配置完成启动、开合盖和插拔 |
-| 适配器缺失/失败/超时 | 会话可用并降级到标准探测 |
-| 适配器忽略 TERM 或返回非法输出 | kill-after 终止进程并拒绝候选，watcher 继续运行 |
-| 内屏连接但没有模式 | 单次恢复有界，失败由 watcher 限频重试 |
-| 无盖桌面设备 | 不误用 lid 策略，多屏仍可扩展 |
-| lid 存在但不可读 | 安全降级，不关闭最后一个活屏 |
-| 计划包围盒超过 RandR maximum | 不提交部分扩展，保留安全活屏或采用已验证镜像 |
-| 退出并重新登录 X11 | 旧 watcher 有界退出，新 watcher 取得锁 |
-| 缺少依赖 | 基础依赖明确报错，可选依赖只禁用相应功能 |
-
-静态 fixture 应覆盖单屏、扩展、镜像、负坐标、stale、pending、模式迟到、preferred/刷新率变化、
-锁竞争和 watcher 换代。实机验证必须保存不含个人信息的 `--status`、`xrandr --current`、盖子
-状态和必要日志；单块外屏成功不能替代其他 connector/扩展坞分支。
-
-## 显式 framebuffer 边界
-
-共享目标仍是让 framebuffer 与自动布局的有效输出包围盒一致。普通 `--output ... --off` 能让
-Xorg 自行收敛时，不得增加显式 `--fb`。只有统一 desired/off 规划已经完成、布局重读验证无误，
-但 framebuffer 仍持续残留时，才可以设计可诊断、可关闭的 `--fb <宽>x<高>` 路径。
-
-调用前必须同时校验 RandR minimum/maximum、自动布局包围盒、所有输出坐标非负且没有 panning；
-目标尺寸必须容纳完整包围盒并处于 RandR 范围内。该路径只处理自动布局，不得改写 manual marker
-保护的手动负坐标、缩放或排列。校验或应用失败时保留至少一个已验证活屏，不提交部分成功状态，
-并让 watcher 通过同一布局锁有界重试。实现、fixture 和实机会话验证必须作为独立变更完成。
-
-## framebuffer 延迟诊断
-
-只有布局已经正确、health ready、无 stale/pending，且同一方向的肉眼黑屏连续两次超过 5 秒，
-才进入 framebuffer A/B；布局错误或软件收敛超过 3 秒仍按 watcher/RandR 故障处理。
-
-1. A 组只被动计时：不停止 watcher、不取锁、不执行额外 RandR 写入。固定显示器、线缆、模式和
-   切换方向，保存切换前后的 `xdisplay.sh --status`、`xrandr --current` 和 lid 状态；使用单调时钟
-   记录物理事件 `T0`、期望 active/off 与 framebuffer 生效 `T1`、肉眼稳定 `T2`。
-2. 仅当 `T1-T0 <= 2s` 且 `T2-T0 > 5s` 时做 B 组；2 至 3 秒之间重复 A 组，超过 3 秒先查锁、
-   退避、pending 和 modeset，不用 framebuffer A/B 掩盖软件故障。
-3. B 组从稳定快照动态取得输出、模式、位置、标准目标、恢复命令和切换前 framebuffer；独占
-   apply lock 后执行相同目标布局，只改变是否暂时保留旧 framebuffer。不得硬编码输出名或
-   分辨率，不得在锁内再次调用会取锁的 `xdisplay.sh --apply`；旧 framebuffer 无法容纳目标包围盒
-   时立即中止。
-4. 诊断进程必须设置 30 秒总超时、`TERM`/`INT`/`HUP` trap 和有界 kill-after。测试完成后仍在
-   持锁状态恢复标准布局，确认至少一个输出可见且 framebuffer 已收敛，再释放锁。恢复失败时先
-   保留已验证活屏并释放锁，再让 watcher 或一次 `--apply` 通过同一把锁重试；全黑时转入 TTY
-   回退，不继续试验。
-5. 同条件至少各做两次。只有 A 持续超过 5 秒、B 不超过 2 秒且改善至少 3 秒，才支持 framebuffer
-   重建触发驱动/链路重同步的判断；差值小于 1 秒不支持该结论，其余结果记为不确定并复测。
-
-A/B 只是定位方法，不能把旧 framebuffer 规避写入共享引擎或设备适配器。平台实测数据只写入
-对应档案。
-
-## 通用回退顺序
-
-1. 仍有可见输出时，先保存 `xdisplay.sh --status`、`xrandr --current` 和必要错误日志，不用新的
-   RandR 写入覆盖现场。
-2. 停止本次变更新启动的 watcher，确认没有第二条自动布局链；不要同时运行新旧 watcher、udev
-   helper 或图形会话外的布局服务。
-3. 优先回退最近一个可独立验证的提交，只恢复该阶段改动的 `.local/bin/xdisplay.sh`、
-   `.local/bin/displayselect`、`.config/x11/xprofile` 或设备适配接口，避免覆盖无关配置。适配器导致
-   故障时先将其禁用，使下次启动回到标准探测，再决定是否移除恢复子命令。
-4. 在正确的 `DISPLAY`、`XAUTHORITY` 和用户 D-Bus 环境中重新启动唯一 watcher；先确认至少一个
-   输出可见，再恢复自动布局和手动入口。
-5. 系统层驱动、Xorg、电源策略、udev 或服务变更按对应平台档案逐项恢复原路径、所有者、权限和
-   校验和。需要 reload 或重启才能生效的对象在档案中单独说明，不能用用户会话脚本猜测。
-6. 全黑时从可用 TTY 停止 watcher 并恢复文件，不继续试验 RandR。恢复资料和原始诊断在完整验证
-   通过前不得删除或覆盖。
+| 开盖，0/1/2/3 块外屏 | 状态正确；内屏为主屏，全部外屏按配置方向成链 |
+| 合盖，1/2/3 块外屏 | 外屏先可见再关内屏；主屏规则和链方向正确 |
+| 任一外屏热拔 | stale geometry 清除，剩余活屏保留 |
+| `external_position=above` | 所有相邻关系使用 `--above` |
+| `external_primary=largest` | 合盖时选择当前快照活动 geometry 面积最大的外屏 |
+| exact/contains 自定义配置 | 恢复快照；contains 的多出输出按默认链追加 |
+| 配置解析损坏 | 记录诊断、跳过候选并回退默认布局 |
+| 自定义布局应用或验证失败 | 返回非零并进入 watcher 有界重试；不得停止主循环或关闭全部输出 |
+| 适配器缺失、非法、失败或超时 | 不阻塞会话，回到标准/legacy 路径 |
+| 无 lid 或无法识别内屏 | 当前镜像回退，不误报为链式扩展已完成 |
+| watcher 退出并重登 | 旧 generation 有界清理，新 watcher 取得锁 |
 
 ## 未完成的通用工作
 
-- 由同一规划器生成完整 `desired_outputs`/`off_outputs`，所有非期望和 stale 输出都进入明确动作，
-  并在执行前校验 RandR maximum framebuffer；
-- 完成最高共同模式镜像以及有 lid/无 lid 设备的不同多屏回退；
-- 实现设备适配器运行接口、timeout/kill-after、候选校验和全部失败降级，再移除旧兼容注入；
-- 实现 `--manual-run`、绑定 topology/generation 的 marker，以及尊重 marker 的完整布局 health；
-- 只有自动布局仍留下 framebuffer 残留时才实现可关闭的显式 `--fb`，并补齐 min/max、坐标、
-  panning、失败恢复和手动布局隔离测试；
-- 补齐多外屏、无 lid 桌面、不同 connector/扩展坞、登录前预接、模式迟到、适配器异常、手动布局
-  与 watcher 竞争、退出后重新登录等矩阵；
-- 按平台档案记录各系统的 lid/电源边界，不把一种服务管理或挂起策略写入共享引擎。
+- 由一个规划器生成完整 `desired_outputs`/`off_outputs`，在写入前检查 maximum framebuffer；
+- 为无 lid/未识别内屏多输出实现独立策略，并在扩展失败时选择最高共同模式安全镜像；
+- 实现 `--manual-run`、绑定 topology/generation 的有效 marker，以及尊重 marker 的完整 health；
+- 仅在标准自动收敛仍留下 framebuffer 残留时，设计可关闭的显式 `--fb` 路径；
+- 扩展 `displayselect` 的任意数量交互布局；当前任意数量能力属于自动链和自定义布局；
+- 按平台档案完成不同 connector/扩展坞、无 lid、登录前预接和模式迟到的真实硬件矩阵。
 
-恢复条件和项目状态见[挂起项](../planning/suspended.md)，平台进度见
-[平台档案索引](../platforms/index.md)。
+这些项目处于明确挂起状态，见[挂起项](../planning/suspended.md)，不得因文档列出目标就假定实现存在。
 
 ## 维护约束
 
-- 不在共享代码或本文硬编码设备输出名、固定分辨率、modeline、PCI 地址或服务路径。
-- 自动布局、手动布局和设备适配器必须遵守同一布局锁和状态验证。
-- 系统服务只能准备设备，不能形成第二条布局写链。
-- 新平台先验证零配置路径，再添加最小设备适配；个性化事实只写平台档案。
-- 修改后同步检查架构、依赖、用户指南、平台索引和相应平台档案。
+- 状态由只读快照计算，布局函数不能反向修改状态事实。
+- 自动、手动、自定义和适配器恢复共享同一写锁；适配器不得取得布局所有权。
+- 先保留一个已验证活屏，再关闭其他输出；任何路径不得制造“所有输出都关闭”的瞬间。
+- 配置缺失或损坏、适配器失败、自定义布局失效时必须降级，不阻塞 X11 会话。
+- 通用代码和文档不保存设备输出名、固定模式、驱动命令或平台验证结论。
+- 修改后运行显示专项 fixture，不因显示改动反复运行 installation 测试。

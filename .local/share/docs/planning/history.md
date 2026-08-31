@@ -316,3 +316,16 @@
 - [x] 使壁纸/pywal 行为可选，同时保留静态默认值。
 - [x] 保持 PipeWire 用户服务所有权，并移除重复 X 会话启动。
 - [x] 通过 `setbg` 统一 URL 壁纸选择；成功下载刷新可选 wal 颜色，失败下载保留桌面状态。
+
+## 2026-08-31 协作机制与项目跟踪整理
+
+- [x] 测试脚本环境隔离加固：已从 Gen 1 shell 脚本迁移到 Bats 框架，测试目录迁移到
+  `.local/share/test/installation/`。所有测试在 `/tmp/dotfiles-test-*` 隔离环境中运行，
+  `teardown` 有双重安全检查（拒绝删除 `$REAL_HOME`，只删除 `/tmp/` 下路径）。72 个测试全部通过。
+- [x] R01 建立用户、dsh、codex 三角色协作规约和本机私有 `.local/share/collab/` 轮次档案，明确
+  提示词边界、审查标准、状态责任、提交纪律与定期文档梳理机制。
+- [x] R02 在 `.local/lib/project-tools/validate-collab` 落地 POSIX Shell 机械校验，并以 35 个隔离
+  Bats fixture 覆盖目录结构、INDEX 双向精确对应、状态、符号链接和隐私边界。
+- [x] 本机 k10temp 设备识别与驱动补丁工作已移至
+  [平台档案的活动待办](../platforms/kaitian-x7h-g1e-debian-13.md#平台活动待办)，通用 planning 文档
+  不再重复保存设备型号、PCI ID 或发行版专属事实。

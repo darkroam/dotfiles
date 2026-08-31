@@ -21,7 +21,8 @@
 ### Bats 环境
 
 - **Bats 版本**：>= 1.11.0
-- **运行命令**：`bats -r .local/share/test/`（全部）或 `bats .local/share/test/installation/`（单个专题）
+- **安装子系统**：`bats .local/share/test/installation/`（本文的权威测试范围）
+- **全仓 Bats**：`bats -r .local/share/test/`（installation 与 collab；不包含 shell 形式的显示 fixture）
 - **过滤运行**：`bats --filter "TC-11" .local/share/test/installation/`
 - **TAP 输出**：`bats -r .local/share/test/ --tap`（CI 适用）
 
@@ -383,7 +384,10 @@ Fresh 选择集；TC-E07 验证配置缺失时 Linux 与 macOS 规则的默认�
 ### 本地运行
 
 ```bash
-# 运行全部测试（递归扫描子目录）
+# 运行安装子系统全部测试
+bats .local/share/test/installation/
+
+# 运行全仓 Bats（installation + collab，不包含显示 shell fixture）
 bats -r .local/share/test/
 
 # 只运行仓库跟踪的安装系统测试（不受本机未跟踪夹具影响）
@@ -400,16 +404,22 @@ bats --filter "TC-36" .local/share/test/installation/
 bats -r .local/share/test/ --tap
 ```
 
-### 当前测试结果
+### 当前安装测试结果
 
-**验证环境**：2026-08-12 在[平台档案索引](../platforms/index.md)所列当前 Debian 平台执行；
-Bats 满足本文 `>= 1.11.0` 的前置要求。
+**验证环境**：2026-08-12 在[平台档案索引](../platforms/index.md)所列 Debian 平台完整执行；
+Bats 满足本文 `>= 1.11.0` 的前置要求。2026-08-31 用 `bats --count
+.local/share/test/installation` 复核当前清单仍为 272；该枚举不冒充一次新的完整执行。
 
 ```
 Total:  272
 Passed: 272
 Failed: 0
 ```
+
+协作子系统由[协作规约](collaboration.md)维护自己的 Bats 基线；显示子系统由
+[显示管理测试](display-testing.md)维护独立 shell fixture 基线。只有同时写明组成与递归命令时，
+才把 installation 与 collab 合称全仓 Bats。2026-08-31 使用 `bats --count` 分别枚举为 272 和
+35，因此 `bats -r .local/share/test/` 当前覆盖 307 个 Bats；该数字不包含显示 fixture。
 
 ---
 
@@ -430,5 +440,5 @@ Failed: 0
 
 ---
 
-**最后更新**: 2026-08-12
+**最后更新**: 2026-08-31
 **版本**: 5.5 — 272 个受管测试 + 配置驱动边界 + full/min/macos 切换专题

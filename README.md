@@ -4,7 +4,7 @@ Personal Linux configuration managed as a bare Git repository. Tracked files
 are intended to work from `$HOME`; untracked files are deliberately outside the
 repository.
 
-Last reviewed: 2026-08-11.
+Last reviewed: 2026-08-31.
 
 ## Repository Usage
 
@@ -116,19 +116,23 @@ The tracked root entry points are links:
 Maintenance documentation lives in `.local/share/docs/`; retained LARBS
 runtime resources remain in `.local/share/larbs/`:
 
+- [Complete documentation index](.local/share/docs/README.md): navigation for
+  user guides, maintainer references, platform records, tests, and project
+  history.
 - [Architecture and design](.local/share/docs/project/architecture.md): directory
   map, load order, optional-feature model, and ownership boundaries.
 - [Display management design](.local/share/docs/project/display-management.md):
   shared X11 ownership, state model, layout policy, validation, and diagnostics.
 - [Display device adapter guide](.local/share/docs/project/display-device-adapter.md):
-  the planned single-file extension contract for nonstandard hardware.
+  the implemented, default-disabled extension contract for nonstandard hardware.
 - [Installation system](.local/share/docs/project/installation-system.md):
-  three-state idempotent installation architecture, unified CLI, and shared
-  validation library.
+  node- and category-based idempotent installation architecture, unified CLI,
+  backup model, and shared validation library.
 - [Installation testing](.local/share/docs/project/installation-testing.md):
-  state machine test framework and 9-transition verification.
+  authoritative commands, isolation rules, and current installation-suite
+  baseline.
 - [Installation known issues](.local/share/docs/planning/installation-fixes.md):
-  B1-B7 defect records and fix proposals.
+  historical B1-B8 defect records, fixes, and dated verification evidence.
 - [Dependencies](.local/share/docs/project/dependencies.md): complete
   command-oriented, distribution-neutral capability inventory.
 - [Platform profiles](.local/share/docs/platforms/index.md): per-device and

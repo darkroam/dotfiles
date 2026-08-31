@@ -52,8 +52,9 @@ Fresh 是恢复锚点，不是另一个 category。新设备由 bootstrap 按混
 | 用户辅助命令 | `.local/bin/` | 被 shell、DWM、MIME、状态栏和 cron 调用的命令 |
 | 项目内部工具 | `.local/lib/project-tools/` | 多 Agent 协作与开发过程自用的内部校验工具；以路径调用，不进入用户 PATH |
 | 运行数据 | `.local/share/larbs/` | 键盘映射、Unicode 数据和兼容帮助文本 |
-| 项目文档 | `.local/share/docs/{project,user,planning}/` | 通用设计、使用、计划与历史 |
+| 项目文档 | `.local/share/docs/{project,user,planning,audits}/` | 通用设计、使用、计划、历史与完结审计 |
 | 平台档案 | `.local/share/docs/platforms/` | 设备类别与发行版组合的包映射、系统事实、验证和恢复记录 |
+| 私有协作档案 | `.local/share/collab/` | 本机保存的轮次要求、汇报和审查；由 Git 忽略，不属于公开文档树 |
 | 系统示例 | `.local/share/sys-etc/` | 必须显式复制并调整的未激活模板 |
 
 ### dotcfg 入口与命令层
@@ -204,9 +205,9 @@ D-Bus 认证后端不属于冲突。
 显示状态模型、锁、布局、设备适配器边界、验证矩阵和 framebuffer 诊断统一由
 [X11 显示管理设计](display-management.md)定义；本节不复制算法或平台实测。
 
-`xdisplay.sh` 无参数或 `--apply` 时立即对齐，`--watch` 监测，`--status` 只读取；
-`displayselect` 是交互式入口，两者必须共用布局锁。共享实现不得新增硬编码设备输出、模式或服务；
-现有兼容注入是平台档案已登记、按显示管理未完成工作迁移的过渡例外，不得扩展为新设备方案。
+`xdisplay apply`（默认）、`xdisplay watch` 和 `xdisplay status` 分别负责立即对齐、持续监测和只读
+诊断；`xdisplay.sh` 仅转发旧参数。`displayselect` 是交互选屏和自定义布局管理入口，两者必须共用
+布局锁。共享实现不得新增硬编码设备输出、模式或服务；非标准差异只通过默认关闭的设备适配器接入。
 
 `dmenumount` 和 `dmenuumount` 只处理 `lsblk` 可见的普通块设备，CIFS 使用独立命令；不得在普通
 块设备入口混入协议专用分支。`dmenumountcifs` 仅解析 Avahi 的 SMB hostname/port，接受候选列表中的

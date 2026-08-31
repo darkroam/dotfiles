@@ -1094,7 +1094,7 @@ uninstall 都不会删除；完全清除时只输出手动删除提示。
 
 文件分类由 `utils/categories.sh` 和声明式配置文件管理。
 
-#### 配置文件版本化
+### 配置文件版本化
 
 配置文件支持多版本共存，节点创建时绑定使用的配置文件版本，恢复时使用对应版本。
 
@@ -1223,7 +1223,7 @@ $DOTFILES_LIB_DIR/
 
 4. **原因**：不同版本的配置文件可能包含不同的文件列表。使用错误的版本恢复可能导致文件被错误删除或遗漏。系统默认拒绝恢复，除非用户明确使用 `--force` 承担风险。
 
-#### categories.conf 语法规则
+### categories.conf 语法规则
 
 **文件位置**：`$DOTFILES_LIB_DIR/categories-{VERSION}.conf`（版本化配置文件，推荐使用）或 `$DOTFILES_LIB_DIR/categories.conf`（无版本时的回退）。两者均不存在时使用内置默认值。
 
@@ -1282,7 +1282,7 @@ include = macos    # ← 被忽略：include 不是第一行
 - .bashrc          # ← 被忽略：- 出现在 + 之后又遇到 +（section 已切回 add 不生效）
 ```
 
-#### 内置默认类别
+### 内置默认类别
 
 当版本文件和 `categories.conf` 均不存在或无法提供有效 category 时，系统使用与正式版本职责
 一致的兼容回退。它只用于配置缺失或损坏时维持可用性，不是正常配置的数据源；正式定义始终以
@@ -1293,7 +1293,7 @@ include = macos    # ← 被忽略：include 不是第一行
 - **`min`**：继承 `macos`，增加 LF、Wget、Emacs 和 Fbterm 配置；不包含 MPD、Ncmpcpp 或 Newsboat。
 - **`full`**：特殊 category，动态返回 HEAD 的全部跟踪文件。
 
-#### 内置特殊类别
+### 内置特殊类别
 
 系统只有一个内部特殊 category，无需在 `categories.conf` 中定义：
 
@@ -1315,7 +1315,7 @@ category = empty
 - `full` 不能作为 `CATEGORY_ALIASES` 的别名源；其他名称可以显式映射到 `full`
 - `min`、`macos`、`desktop`、`server`、`empty` 及其他名称都没有代码特权，可按普通 category 定义
 
-#### 配置驱动与硬编码边界
+### 配置驱动与硬编码边界
 
 运行时把配置文件作为策略权威来源，代码中的同值数据仅承担配置缺失时的兼容回退。新增策略
 应先修改配置文件；不得只修改代码回退后让正常配置与故障行为分叉。
@@ -1339,7 +1339,7 @@ category = empty
 部署，不需要修改 Shell 代码。`desktop`、`server` 和 `empty` 可按此方式重新使用。只有修改保留的
 `full` 语义、Fresh 节点协议，或调整 bootstrap 默认推荐目标时，才需要修改代码、测试和本文档。
 
-#### exclude.conf 排除规则
+### exclude.conf 排除规则
 
 **文件位置**：`$DOTFILES_LIB_DIR/exclude.conf`。正式库随配置跟踪该文件；文件缺失时仍使用内置
 兼容回退，不改变既有 Fresh 行为。
@@ -1378,7 +1378,7 @@ macOS 的 `Applications/`、`Library/`、`Movies/`、`Public/`、`Sites/`、`.Tr
 .config/cache/*
 ```
 
-#### 例外保护（硬编码，始终生效）
+### 例外保护（硬编码，始终生效）
 
 以下路径在代码中硬编码排除，无需在 `exclude.conf` 中重复配置：
 
@@ -1395,7 +1395,7 @@ macOS 的 `Applications/`、`Library/`、`Movies/`、`Public/`、`Sites/`、`.Tr
 浏览器、NVM、Linux/macOS 用户数据目录、缓存、历史记录和临时文件等策略性规则不再硬编码在
 运行逻辑中，统一位于 `exclude.conf` 的兼容区段；配置缺失时由内置回退提供同样的保护。
 
-#### 状态检测
+### 状态检测
 
 `cfg_detect_state()` 先检查 `.cfg`，不存在时返回 `fresh`。仓库存在且节点元数据有效时，读取 HEAD
 节点的 `type`。只有当前 category 版本显式声明 `CATEGORY_ALIASES` 时才规范化名称；缺少该元数据时
@@ -1406,7 +1406,7 @@ macOS 的 `Applications/`、`Library/`、`Movies/`、`Public/`、`Sites/`、`.Tr
 `min`。空的 `.config/x11/` 目录不构成指标。独立调用未加载 category 库的 `cfg-validate.sh` 时
 仍使用同一组兼容指标。
 
-#### dotcfg list 的 TYPE 来源
+### dotcfg list 的 TYPE 来源
 
 `dotcfg list` 输出的 TYPE 列来自节点创建时记录的 `type` 字段（存储在 `index.json`）。正式新节点
 通常使用正式配置中的 `full`、`min` 或 `macos`，根节点固定为 `fresh`。迁移旧会话时保留原始

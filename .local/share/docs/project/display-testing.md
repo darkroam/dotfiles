@@ -2,7 +2,8 @@
 
 本文是显示管理系统的可操作验收方案，覆盖 `.local/bin/xdisplay`、兼容包装
 `.local/bin/xdisplay.sh`、`.local/bin/displayselect`、`.local/lib/xdisplay/`、可选设备适配器以及
-两个可选配置文件。适配器调用契约和状态定义见
+两个可选配置文件。状态、配置和布局的权威定义见
+[`display-management.md`](display-management.md)，设备扩展调用契约见
 [`display-device-adapter.md`](display-device-adapter.md)。
 
 ## 1. 测试范围与环境
@@ -30,6 +31,10 @@ sh .local/share/test/display/xdisplay-adapter.sh
 
 当前基线输出末行为 `PASS: 36 adapter fixture tests`。显示管理开发期间只运行该脚本；安装系统测试
 不属于本方案，也不需要随显示改动反复执行。
+
+套件启动时还会机械检查仓库 `.gitignore` 是否存在精确行
+`.config/x11/xdisplay-device.local`。该检查是现有套件的前置门禁，不增加用例计数；禁止用宽泛
+`*.local` 代替，因为仓库中存在合法跟踪的 `.local` 文件。
 
 语法检查：
 
@@ -124,7 +129,8 @@ mirror_on_duplicate = true
 ```
 
 验收：`xdisplay status` 的 `config:` 摘要反映这些值；`XDISPLAY_LAYOUT_TEST=1` 显示 `direction=above`，
-应用规划器记录 `--above` 关系；合盖时 `external_primary=largest` 选择模式面积最大的外屏。
+应用规划器记录 `--above` 关系；合盖时 `external_primary=largest` 选择当前快照活动 geometry 面积
+最大的外屏。
 
 ### C-03 非法配置容错
 
@@ -186,7 +192,7 @@ exact、配置输出数量更多、mtime 更新较近。结果只选择一个配
 | 编号 | 步骤 | 预期结果 |
 | --- | --- | --- |
 | A-01 | 适配器返回一个有效 `internal-outputs` 候选 | 非标准内屏被识别；标准候选优先。 |
-| A-02 | 返回空、重复、未连接或含空白的候选 | 记录格式诊断并回退 `XDISPLAY_INTERNAL_OUTPUTS`/标准探测。 |
+| A-02 | 分别返回空、同名重复、未连接、含空白或多个不同候选 | 空结果安静回退，同名重复折叠；其余非法结果记录诊断并回退 `XDISPLAY_INTERNAL_OUTPUTS`/无内屏路径。 |
 | A-03 | `expected-mode` 返回 `1920x1080@60` | 目标模式和刷新率优先于 RandR preferred。 |
 | A-04 | 预期模式缺失，`restore-internal` 返回 0 | 恢复调用最多一次，重新读取 RandR 并验证。 |
 | A-05 | 恢复返回非零或超时 | 记录 stderr、退出码和超时，随后尝试 `XDISPLAY_RESTORE_COMMAND`，最终回退 preferred/首项。 |

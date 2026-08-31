@@ -75,12 +75,12 @@
     ↓
 docs/README.md (中文，文档索引)
     ├── 用户指南 (desktop-guide-zh.md, keybindings-zh.md)
-    ├── 维护者文档 (architecture.md, dependencies.md, maintenance-policy.md, docs-standard.md)
+    ├── 维护者文档 (architecture.md, dependencies.md, maintenance-policy.md, docs-standard.md, collaboration.md)
     ├── 显示管理 (display-management.md, display-device-adapter.md, display-testing.md)
     ├── 安装系统 (project/installation-system.md, project/installation-testing.md)
     ├── 平台部署 (platforms/index.md → 各平台档案)
     ├── 审计记录 (audits/ — 按日期归档的审计发现和执行记录)
-    └── 项目跟踪 (todo.md, suspended.md, history.md, dependency-audit.md, installation-fixes.md)
+    └── 项目跟踪 (todo.md, suspended.md, history.md, dependency-audit.md, installation-fixes.md, dotcfg-refactor.md)
 ```
 
 轮次协作档案（要求/汇报/审查）不在 docs 树内，保存在本机私有目录 `.local/share/collab/`（不入库），

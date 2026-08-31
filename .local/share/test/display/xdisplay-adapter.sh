@@ -15,6 +15,10 @@ fail() {
     exit 1
 }
 
+ignore_file=${XDISPLAY_GITIGNORE_UNDER_TEST:-$HOME/.gitignore}
+grep -qxF '.config/x11/xdisplay-device.local' "$ignore_file" ||
+    fail 'device-local adapter is not precisely ignored'
+
 pass() {
     tests=$((tests + 1))
     printf 'ok %02d - %s\n' "$tests" "$1"

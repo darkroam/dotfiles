@@ -17,10 +17,4 @@
   标准用户目录和 `.config-backup.bak` 的排除原则已经确认，但完整模式清单尚未逐项确认。
 - [ ] 审查无节点元数据时的状态兼容默认：`STATE_DEFAULT=min`，以及 `.xinitrc`、`.xprofile`、
   `.config/x11/xinitrc` 存在时判断为 `full`；这些值来自历史检测逻辑，尚未逐项确认。
-- [ ] 本机 k10temp 设备识别与驱动补丁工作已移至[平台档案的活动待办](../platforms/kaitian-x7h-g1e-debian-13.md#平台活动待办)，
-  通用 planning 文档不再保存设备型号、PCI ID 或发行版专属事实。
-- [x] 测试脚本环境隔离加固：已从 Gen 1 shell 脚本迁移到 Bats 框架，测试目录迁移到
-  `.local/share/test/installation/`。所有测试在 `/tmp/dotfiles-test-*` 隔离环境中运行，
-  `teardown` 有双重安全检查（拒绝删除 `$REAL_HOME`，只删除 `/tmp/` 下路径）。72 个测试全部通过。
-
 有意挂起的工作见[挂起项](suspended.md)，已完成项目记录在[待办历史](history.md)。

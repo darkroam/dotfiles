@@ -47,7 +47,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | X11-XCB、XCB、XCB Res 开发头文件和库 | 当前 DWM 补丁使用的进程/窗口资源能力 |
 | `tic` | 安装 st 的 terminfo 条目 |
 | kbd（`loadkeys`） | 按需手动加载已跟踪的 TTY 键盘映射；登录 Shell 不执行提权命令 |
-| `fbterm` | 使用已跟踪 `.fbtermrc` 时的可选 framebuffer 终端；当前 Innogpu 设备的 redraw 兼容二进制由对应驱动项目维护，系统包保留为回退 |
+| `fbterm` | 使用已跟踪 `.fbtermrc` 时的可选 framebuffer 终端；平台需要的 redraw 兼容二进制由对应驱动项目维护，系统包可作为回退 |
 | `slock` | 系统安装的 X11 锁屏程序；不属于仓库约定的四个 `~/src/` 源码目录 |
 | `dunst`, `picom`, `unclutter`, `xwallpaper` | 通知、合成器、鼠标隐藏和壁纸 |
 | `xrdb`, `xrandr`, `xset`, `xdotool`, `xdpyinfo`, `xclip`, `xprop`, `setxkbmap` | Xresources、显示、输入、剪贴板和辅助脚本 |
@@ -115,7 +115,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 
 | 软件或命令 | 用途 |
 | --- | --- |
-| `xrandr`, `flock` | `xdisplay.sh` 与 `displayselect` 的基础显示布局和互斥；缺少任一命令时拒绝运行 |
+| `xrandr`, `flock` | `xdisplay` 与 `displayselect` 的基础显示布局和互斥；`xdisplay.sh` 是兼容包装；缺少任一命令时拒绝运行 |
 | `dmenu`, `bc` | `displayselect` 的选择界面和双屏镜像缩放计算 |
 | `arandr` | `displayselect` 的可选手动布局界面；选中该路径但缺少命令时提示安装 |
 | `dunst`, `xwallpaper` | 手动布局后的可选通知与壁纸刷新；不属于自动 watcher 的基础依赖 |

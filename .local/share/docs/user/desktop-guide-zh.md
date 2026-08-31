@@ -198,27 +198,33 @@ Shell profile 设为 XDG 数据目录下的密码库，变量缺失时回退到�
 `Mod+F3` 打开显示选择器；多屏、镜像和手动布局按当前显示器连接状态选择。亮度滚轮和
 `xlight` 依赖硬件支持，无法调节时先检查显卡/背光接口。
 
-登录 X11 时，`xdisplay.sh --watch` 会同时监测笔记本盖子和已连接显示器：合盖且有外接显示器时关闭内屏并
-将外屏设为主屏；切换时会先准备外屏再关闭内屏。开盖时恢复内屏为主屏并把外屏置于右侧。启动时若暂时只发现一个输出，会直接将其启用为主屏；
+登录 X11 时，`xdisplay watch` 会同时监测笔记本盖子和已连接显示器：合盖且有外接显示器时关闭内屏并
+将外屏设为主屏；切换时会先准备外屏再关闭内屏。开盖时恢复内屏为主屏，并按布局配置排列所有
+外屏。启动时若暂时只发现一个输出，会直接将其启用为主屏；
 之后检测到新输出会再次收敛布局。无法识别内屏的多屏情况会尝试镜像，失败后 watcher 会继续重试，
 但 XRandR 不保证自动回滚已经部分应用的布局。
 
-`xdisplay.sh` 失败时会输出错误，并在 `notify-send` 可用时通知；`displayselect` 的所有失败路径
-不保证通知。需要立即修正布局时执行 `xdisplay.sh` 或 `xdisplay.sh --apply`。
+`xdisplay` 失败时会输出错误，并在 `notify-send` 可用时通知；`displayselect` 的所有失败路径
+不保证通知。需要立即修正布局时执行 `xdisplay apply`；旧 `xdisplay.sh --apply` 只作为兼容入口保留。
 
-只排查、不修改布局时执行 `xdisplay.sh --status`，它会显示 lid、各输出的连接与 geometry、
+只排查、不修改布局时执行 `xdisplay status`，它会显示 lid、各输出的连接与 geometry、
 current/preferred/target 模式及刷新率、模式数量和能力签名、stale/pending、当前策略、锁路径、
-watcher generation 和 manual marker 状态。标准内屏名称无需设置。
+watcher generation、manual marker、配置摘要和命中的自定义布局。标准内屏名称无需设置。
 
-当前非标准硬件仍使用平台档案登记的 legacy 环境变量注入；尚未实施的目标迁移按
-[设备适配器指引](../project/display-device-adapter.md)处理，不把新设备参数继续写进通用配置。
+非标准硬件可以使用已经实现但默认关闭的本地
+[设备适配器](../project/display-device-adapter.md)；适配器失败会回到标准探测和平台已登记的 legacy
+兼容路径，不把新设备参数写进通用配置。
 事件后 watcher 会短时提高探测频率以等待迟到模式；手动显示选择期间
 自动布局等待共享锁。缺少基础命令时脚本会明确提示，缺少 Arandr 只影响可选手动界面。
 
-切换不正常时，先保存 `xdisplay.sh --status` 和 `xrandr --current`，检查 stale/pending、primary、
-geometry、target 模式和 framebuffer，再执行一次 `xdisplay.sh --apply`。不要手工套用另一台设备
+调整好布局后可执行 `displayselect save [名称]` 保存；`displayselect list` 列出快照，
+`displayselect delete 名称` 删除。保存的布局在输出集合和 lid 匹配时优先于默认扩展方向；损坏或
+不再可用的快照会自动回退默认策略。
+
+切换不正常时，先保存 `xdisplay status` 和 `xrandr --current`，检查 stale/pending、primary、
+geometry、target 模式和 framebuffer，再执行一次 `xdisplay apply`。不要手工套用另一台设备
 或另一 connector 的分辨率。布局已经正确但物理出图仍慢时，按
-[显示管理设计](../project/display-management.md#framebuffer-延迟诊断)区分软件收敛与驱动/链路延迟；
+[显示管理设计](../project/display-management.md#framebuffer-边界)区分软件收敛与驱动/链路延迟；
 设备已知现象和已验证恢复路径只从[平台档案索引](../platforms/index.md)查看。
 
 NetworkManager 负责保存连接并自动联网。按 `Mod+Shift+w` 打开 `nmtui`，也可左键点击状态栏网络
@@ -300,8 +306,9 @@ TeX 项目时，在各子文件前 20 行内指向根文件：
 ## 个性化与故障处理
 
 共享设置只修改已跟踪文件；单机运行覆盖只使用文档明确指定且被 Git 忽略的扩展点，例如
-`profile.local` 和 `aliasrc.local`。目标显示设备适配器只有在接口实施并加入精确 ignore 规则后
-才属于扩展点。文件名以 `.local` 结尾并不自动表示私有，已跟踪的 `tmux.conf.local` 仍是共享配置。
+`profile.local` 和 `aliasrc.local`。显示设备适配器
+`.config/x11/xdisplay-device.local` 是已实现且被精确忽略的扩展点。文件名以 `.local` 结尾并不自动
+表示私有，已跟踪的 `tmux.conf.local` 仍是共享配置。
 设备/发行版事实写入一个平台档案，其他文档只经平台索引引用。修改后以 `c diff` 审查，确认功能
 正常再提交。常见问题的排查顺序
 是：确认所需程序已安装，确认相关服务或会话已启动，重新登录 X11，然后检查对应布局（layout）

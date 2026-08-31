@@ -98,7 +98,7 @@ exclude 或 fresh 业务库；bootstrap 路径保持原有自举逻辑。
 - 兼容区段规则仍显示为 `hardcoded rule`，普通用户规则显示为 `exclude.conf`
 - 验收：249/249 测试通过；阶段 2 已提交 `6fbb369`
 
-### 阶段 3：动态 category 与状态检测
+### 阶段 3：动态 category 与状态检测（已完成）
 
 - switch 目标校验从当前 category 配置读取
 - 状态检测优先使用节点元数据，其次使用 category 元数据，最后使用现有三个指标回退
@@ -119,7 +119,7 @@ exclude 或 fresh 业务库；bootstrap 路径保持原有自举逻辑。
   `status`、`list`、`history`、`categories` 与重构前输出逐字一致；阶段 4 已提交
   `8352c95`、`a34dea8`、`cc86f93`
 
-### 阶段 5：可读性和静态检查
+### 阶段 5：可读性和静态检查（已完成）
 
 （已完成）
 
@@ -131,7 +131,7 @@ exclude 或 fresh 业务库；bootstrap 路径保持原有自举逻辑。
   `warning/error` 为 0（保留 59 条动态 source 信息和 12 条 style 提示）；Bash 语法、
   diff 检查和全量测试 `251/251` 通过。阶段 5 已提交 `91ac775`、`c7e0a50`
 
-### 阶段 6：文档和最终复查
+### 阶段 6：文档和最终复查（已完成）
 
 （已完成）
 
