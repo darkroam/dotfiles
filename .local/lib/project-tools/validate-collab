@@ -1,0 +1,477 @@
+#!/bin/sh
+# Validate the machine-local collab archive structure and privacy boundary.
+
+PROGRAM=${0##*/}
+
+usage() {
+	printf 'Usage: %s [COLLAB_DIR]\n' "$PROGRAM" >&2
+}
+
+if [ "$#" -gt 1 ]; then
+	usage
+	exit 2
+fi
+
+if [ "$#" -eq 1 ]; then
+	COLLAB_DIR=$1
+	if [ -z "$COLLAB_DIR" ]; then
+		usage
+		exit 2
+	fi
+else
+	if [ -z "${HOME:-}" ]; then
+		usage
+		exit 2
+	fi
+	COLLAB_DIR=$HOME/.local/share/collab
+fi
+
+while [ "$COLLAB_DIR" != "/" ] && [ "${COLLAB_DIR%/}" != "$COLLAB_DIR" ]; do
+	COLLAB_DIR=${COLLAB_DIR%/}
+done
+
+if [ -L "$COLLAB_DIR" ]; then
+	printf '%s: collab root must not be a symbolic link\n' "$PROGRAM" >&2
+	exit 1
+fi
+
+if [ ! -e "$COLLAB_DIR" ]; then
+	exit 0
+fi
+
+if [ ! -d "$COLLAB_DIR" ]; then
+	printf '%s: collab path exists but is not a directory\n' "$PROGRAM" >&2
+	exit 1
+fi
+
+TMP_ROOT=${TMPDIR:-/tmp}
+WORK_DIR=$(mktemp -d "$TMP_ROOT/validate-collab.XXXXXX") || {
+	printf '%s: cannot create temporary workspace\n' "$PROGRAM" >&2
+	exit 1
+}
+trap 'rm -rf "$WORK_DIR"' 0
+trap 'exit 1' HUP INT TERM
+
+ERRORS=$WORK_DIR/errors
+DIR_ROWS=$WORK_DIR/directory-rows
+INDEX_ROWS=$WORK_DIR/index-rows
+INDEX_UNIQUE=$WORK_DIR/index-unique
+ROOT_ENTRIES=$WORK_DIR/root-entries
+PRIVACY_FILES=$WORK_DIR/privacy-files
+: > "$ERRORS"
+: > "$DIR_ROWS"
+: > "$INDEX_ROWS"
+
+report() {
+	printf '%s: %s\n' "$PROGRAM" "$1" >> "$ERRORS"
+}
+
+relative_path() {
+	case $1 in
+		"$COLLAB_DIR") printf 'collab' ;;
+		"$COLLAB_DIR"/*) printf 'collab/%s' "${1#"$COLLAB_DIR"/}" ;;
+		*) printf '%s' "$1" ;;
+	esac
+}
+
+valid_date() {
+	date_value=$1
+	date_year=${date_value%%-*}
+	date_rest=${date_value#*-}
+	date_month=${date_rest%%-*}
+	date_day=${date_rest#*-}
+
+	[ "${#date_year}" -eq 4 ] &&
+		[ "${#date_month}" -eq 2 ] &&
+		[ "${#date_day}" -eq 2 ] || return 1
+	case $date_year$date_month$date_day in
+		*[!0-9]*) return 1 ;;
+	esac
+
+	date_month_number=${date_month#0}
+	date_day_number=${date_day#0}
+	[ -n "$date_month_number" ] || date_month_number=0
+	[ -n "$date_day_number" ] || date_day_number=0
+	date_year_number=$date_year
+	while [ "${date_year_number#0}" != "$date_year_number" ]; do
+		date_year_number=${date_year_number#0}
+	done
+	[ -n "$date_year_number" ] || date_year_number=0
+	[ "$date_year_number" -ge 1 ] || return 1
+
+	case $date_month_number in
+		1|3|5|7|8|10|12) date_max_day=31 ;;
+		4|6|9|11) date_max_day=30 ;;
+		2)
+			if [ $((date_year_number % 400)) -eq 0 ] ||
+				{ [ $((date_year_number % 4)) -eq 0 ] && [ $((date_year_number % 100)) -ne 0 ]; }; then
+				date_max_day=29
+			else
+				date_max_day=28
+			fi
+			;;
+		*) return 1 ;;
+	esac
+	[ "$date_day_number" -ge 1 ] && [ "$date_day_number" -le "$date_max_day" ]
+}
+
+scan_round() {
+	round_path=$1
+	round_rel=$(relative_path "$round_path")
+	round_entries=$WORK_DIR/round-entries.$$
+	if ! find "$round_path" -mindepth 1 -maxdepth 1 -print > "$round_entries" 2>/dev/null; then
+		report "cannot enumerate $round_rel"
+		return
+	fi
+
+	while IFS= read -r child; do
+		child_rel=$(relative_path "$child")
+		if [ -L "$child" ]; then
+			continue
+		fi
+		if [ -d "$child" ]; then
+			report "round directories must not contain nested directories: $child_rel"
+			continue
+		fi
+		case ${child##*/} in
+			*.md)
+				[ -f "$child" ] || report "round entries must be regular Markdown files: $child_rel"
+				;;
+			*) report "round directories may contain only Markdown files: $child_rel" ;;
+		esac
+	done < "$round_entries"
+	rm -f "$round_entries"
+
+	if [ ! -f "$round_path/要求.md" ] || [ -L "$round_path/要求.md" ]; then
+		report "round is missing ordinary file 要求.md: $round_rel"
+	fi
+	if [ ! -f "$round_path/汇报.md" ] || [ -L "$round_path/汇报.md" ]; then
+		report "round is missing ordinary file 汇报.md: $round_rel"
+	fi
+}
+
+scan_templates() {
+	templates_path=$COLLAB_DIR/templates
+	if [ ! -d "$templates_path" ] || [ -L "$templates_path" ]; then
+		report "collab/templates must be an ordinary directory"
+		return
+	fi
+
+	template_entries=$WORK_DIR/template-entries
+	if ! find "$templates_path" -mindepth 1 -maxdepth 1 -print > "$template_entries" 2>/dev/null; then
+		report "cannot enumerate collab/templates"
+		return
+	fi
+	while IFS= read -r child; do
+		child_rel=$(relative_path "$child")
+		case ${child##*/} in
+			要求.md|汇报.md)
+				if [ ! -f "$child" ] || [ -L "$child" ]; then
+					report "template must be an ordinary Markdown file: $child_rel"
+				fi
+				;;
+			*) report "collab/templates may contain only 要求.md and 汇报.md: $child_rel" ;;
+		esac
+	done < "$template_entries"
+
+	if [ ! -f "$templates_path/要求.md" ] || [ -L "$templates_path/要求.md" ]; then
+		report "collab/templates is missing ordinary file 要求.md"
+	fi
+	if [ ! -f "$templates_path/汇报.md" ] || [ -L "$templates_path/汇报.md" ]; then
+		report "collab/templates is missing ordinary file 汇报.md"
+	fi
+}
+
+scan_symlinks() {
+	symlinks=$WORK_DIR/symlinks
+	if ! find "$COLLAB_DIR" -type l -print > "$symlinks" 2>/dev/null; then
+		report "cannot scan collab for symbolic links"
+		return
+	fi
+	while IFS= read -r link; do
+		report "symbolic links are not allowed anywhere in collab: $(relative_path "$link")"
+	done < "$symlinks"
+}
+
+scan_root() {
+	if ! find "$COLLAB_DIR" -mindepth 1 -maxdepth 1 -print > "$ROOT_ENTRIES" 2>/dev/null; then
+		report "cannot enumerate collab root"
+		return
+	fi
+
+	while IFS= read -r entry; do
+		entry_name=${entry##*/}
+		entry_rel=$(relative_path "$entry")
+		case $entry_name in
+			INDEX.md|templates) continue ;;
+		esac
+
+		if [ -L "$entry" ]; then
+			continue
+		fi
+		if [ ! -d "$entry" ]; then
+			report "collab root allows only INDEX.md, templates, and round directories: $entry_rel"
+			continue
+		fi
+
+		round_id=${entry_name%%-*}
+		round_rest=${entry_name#*-}
+		round_year=${round_rest%%-*}
+		round_rest=${round_rest#*-}
+		round_month=${round_rest%%-*}
+		round_rest=${round_rest#*-}
+		round_day=${round_rest%%-*}
+		round_topic=${round_rest#*-}
+		round_number=${round_id#R}
+		round_date=$round_year-$round_month-$round_day
+
+		case $round_id in
+			R*) ;;
+			*) round_number= ;;
+		esac
+		case $round_number in
+			''|*[!0-9]*) round_number= ;;
+		esac
+		if [ -z "$round_number" ] || [ -z "$round_topic" ] ||
+			[ "$round_topic" = "$round_rest" ] || ! valid_date "$round_date"; then
+			report "invalid round directory name (expected R{digits}-{YYYY-MM-DD}-{topic}): $entry_rel"
+			continue
+		fi
+
+		if awk -F '\t' -v id="$round_id" '$1 == id { found = 1 } END { exit found ? 0 : 1 }' "$DIR_ROWS"; then
+			report "duplicate round directory id: $round_id"
+		else
+			printf '%s\t%s\t%s\n' "$round_id" "$round_date" "$round_topic" >> "$DIR_ROWS"
+		fi
+		scan_round "$entry"
+	done < "$ROOT_ENTRIES"
+}
+
+parse_index() {
+	index_path=$COLLAB_DIR/INDEX.md
+	if [ ! -f "$index_path" ] || [ -L "$index_path" ]; then
+		report "collab/INDEX.md is missing or is not an ordinary file"
+		return
+	fi
+
+	if ! awk -v rows_file="$INDEX_ROWS" -v errors_file="$ERRORS" -v program="$PROGRAM" '
+		function trim(value) {
+			sub(/^[[:space:]]+/, "", value)
+			sub(/[[:space:]]+$/, "", value)
+			return value
+		}
+		function cells(line, output,    inner, count, i) {
+			for (i in output) delete output[i]
+			inner = trim(line)
+			if (substr(inner, 1, 1) != "|") return 0
+			inner = substr(inner, 2)
+			if (substr(inner, length(inner), 1) == "|") {
+				inner = substr(inner, 1, length(inner) - 1)
+			}
+			count = split(inner, output, /\|/)
+			for (i = 1; i <= count; i++) output[i] = trim(output[i])
+			return count
+		}
+		function separator_cell(value,    copy) {
+			if (value !~ /^:?-+:?$/) return 0
+			copy = value
+			gsub(/:/, "", copy)
+			return length(copy) >= 3
+		}
+		function valid_date(value,    part, year, month, day, max_day) {
+			if (value !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/) return 0
+			split(value, part, "-")
+			year = part[1] + 0
+			month = part[2] + 0
+			day = part[3] + 0
+			if (year < 1 || month < 1 || month > 12 || day < 1) return 0
+			if (month == 2) {
+				max_day = (year % 400 == 0 || (year % 4 == 0 && year % 100 != 0)) ? 29 : 28
+			} else if (month == 4 || month == 6 || month == 9 || month == 11) {
+				max_day = 30
+			} else {
+				max_day = 31
+			}
+			return day <= max_day
+		}
+		function valid_status(value) {
+			return value == "待开发" || value == "开发中" || value == "待审查" ||
+				value == "通过" || value == "返工"
+		}
+		function problem(message) {
+			print program ": " message >> errors_file
+		}
+		{
+			stripped = trim($0)
+			if (!header_seen) {
+				if (substr(stripped, 1, 1) != "|") next
+				count = cells(stripped, field)
+				if (count == 4 && field[1] == "轮次" && field[2] == "日期" &&
+					field[3] == "主题" && field[4] == "状态") {
+					header_seen = 1
+					waiting_separator = 1
+					next
+				}
+				problem("collab/INDEX.md table header must be | 轮次 | 日期 | 主题 | 状态 |")
+				header_rejected = 1
+				next
+			}
+			if (waiting_separator) {
+				if (stripped == "") next
+				count = cells(stripped, field)
+				if (count == 4 && separator_cell(field[1]) && separator_cell(field[2]) &&
+					separator_cell(field[3]) && separator_cell(field[4])) {
+					separator_seen = 1
+					waiting_separator = 0
+					in_table = 1
+					next
+				}
+				problem("collab/INDEX.md table header is not followed by a valid separator row")
+				separator_error = 1
+				waiting_separator = 0
+				in_table = 0
+				next
+			}
+			if (!in_table) next
+			if (substr(stripped, 1, 1) != "|") {
+				in_table = 0
+				next
+			}
+			count = cells(stripped, field)
+			if (count != 4) {
+				problem("collab/INDEX.md line " NR " must contain exactly four cells")
+				next
+			}
+			row_count++
+			id = field[1]
+			date_value = field[2]
+			topic = field[3]
+			status = field[4]
+			id_valid = id ~ /^R[0-9][0-9]*$/
+			if (!id_valid) problem("collab/INDEX.md line " NR " has an invalid round id")
+			if (!valid_date(date_value)) problem("collab/INDEX.md line " NR " has an invalid date")
+			if (topic == "") problem("collab/INDEX.md line " NR " has an empty topic")
+			if (!valid_status(status)) problem("collab/INDEX.md line " NR " has a status outside the whitelist")
+			if (id_valid) printf "%s\t%s\t%s\t%s\t%d\n", id, date_value, topic, status, NR >> rows_file
+		}
+		END {
+			if (!header_seen && !header_rejected) problem("collab/INDEX.md is missing the round table header")
+			if (header_seen && !separator_seen && !separator_error) problem("collab/INDEX.md is missing the separator row")
+			if (separator_seen && row_count == 0) problem("collab/INDEX.md round table has no data rows")
+		}
+	' "$index_path"; then
+		report "cannot parse collab/INDEX.md"
+	fi
+}
+
+compare_index_and_directories() {
+	if [ -s "$INDEX_ROWS" ]; then
+		cut -f1 "$INDEX_ROWS" | sort | uniq -d | while IFS= read -r duplicate_id; do
+			[ -n "$duplicate_id" ] && report "collab/INDEX.md contains duplicate round id: $duplicate_id"
+		done
+		awk -F '\t' '!seen[$1]++' "$INDEX_ROWS" > "$INDEX_UNIQUE"
+	else
+		: > "$INDEX_UNIQUE"
+	fi
+
+	tab=$(printf '\t')
+	while IFS="$tab" read -r row_id row_date row_topic _; do
+		[ -n "$row_id" ] || continue
+		directory_row=$(awk -F '\t' -v id="$row_id" '$1 == id { print; exit }' "$DIR_ROWS")
+		if [ -z "$directory_row" ]; then
+			report "collab/INDEX.md registers a round without a directory: $row_id"
+			continue
+		fi
+		IFS="$tab" read -r directory_id directory_date directory_topic <<-EOF
+		$directory_row
+		EOF
+		if [ "$row_date" != "$directory_date" ]; then
+			report "$row_id date differs between directory and INDEX (directory $directory_date / INDEX $row_date)"
+		fi
+		if [ "$row_topic" != "$directory_topic" ]; then
+			report "$row_id topic differs between directory and INDEX"
+		fi
+	done < "$INDEX_UNIQUE"
+
+	while IFS="$tab" read -r directory_id directory_date directory_topic; do
+		[ -n "$directory_id" ] || continue
+		if ! awk -F '\t' -v id="$directory_id" '$1 == id { found = 1 } END { exit found ? 0 : 1 }' "$INDEX_UNIQUE"; then
+			report "round directory is not registered in collab/INDEX.md: $directory_id"
+		fi
+	done < "$DIR_ROWS"
+}
+
+scan_privacy() {
+	if ! runtime_user=$(id -un 2>/dev/null) || [ -z "$runtime_user" ]; then
+		report "cannot obtain runtime username for privacy scanning"
+		runtime_user=
+	fi
+	if ! runtime_host=$(hostname 2>/dev/null) || [ -z "$runtime_host" ]; then
+		report "cannot obtain runtime hostname for privacy scanning"
+		runtime_host=
+	fi
+	if ! find "$COLLAB_DIR" -type f -name '*.md' -print > "$PRIVACY_FILES" 2>/dev/null; then
+		report "cannot enumerate Markdown files for privacy scanning"
+		return
+	fi
+
+	while IFS= read -r markdown; do
+		markdown_rel=$(relative_path "$markdown")
+		awk -v rel="$markdown_rel" -v user="$runtime_user" -v host="$runtime_host" \
+			-v errors_file="$ERRORS" -v program="$PROGRAM" '
+			function problem(kind) {
+				print program ": sensitive data (" kind ") at " rel ":" NR >> errors_file
+			}
+			function identity_present(text, identity,    normalized, count, item, i) {
+				if (identity == "") return 0
+				normalized = tolower(text)
+				identity = tolower(identity)
+				gsub(/[^[:alnum:]_.-]+/, " ", normalized)
+				count = split(normalized, item, /[[:space:]]+/)
+				for (i = 1; i <= count; i++) if (item[i] == identity) return 1
+				return 0
+			}
+			{
+				lower = tolower($0)
+				credential_line = lower
+				gsub(/["[:space:]]/, "", credential_line)
+				gsub(sprintf("%c", 39), "", credential_line)
+				if (credential_line ~ /(api[_-]?key|token|passw(ord|d)?|secret)[:=][a-z0-9]/)
+					problem("credential assignment")
+				if (lower ~ /-----begin ([a-z0-9]+ )*private key-----/ ||
+					lower ~ /ssh-(rsa|ed25519)[[:space:]]+aaaa[a-z0-9+\/=]{16,}/)
+					problem("private or authentication key")
+				if (lower ~ /(ghp_|github_pat_)[a-z0-9_]{20,}/ ||
+					lower ~ /sk-(proj-)?[a-z0-9_-]{20,}/ ||
+					$0 ~ /AKIA[0-9A-Z]{16}/ ||
+					lower ~ /bearer[[:space:]]+[a-z0-9._~+\/=:-]{16,}/)
+					problem("service credential")
+				if (lower ~ /(^|[^0-9])10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)/ ||
+					lower ~ /(^|[^0-9])172\.(1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)/ ||
+					lower ~ /(^|[^0-9])192\.168\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)/)
+					problem("private IPv4 address")
+				if (lower ~ /(^|[^0-9a-f])([0-9a-f]{2}:){5}[0-9a-f]{2}([^0-9a-f]|$)/)
+					problem("MAC address")
+				if (lower ~ /(^|[^0-9a-f])[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}([^0-9a-f]|$)/)
+					problem("UUID")
+				if (lower ~ /\/home\/[a-z_][a-z0-9_.-]*(\/|$)/)
+					problem("absolute home path")
+				if (identity_present($0, user)) problem("runtime username")
+				if (identity_present($0, host)) problem("runtime hostname")
+			}
+		' "$markdown" || report "cannot scan Markdown privacy: $markdown_rel"
+	done < "$PRIVACY_FILES"
+}
+
+scan_symlinks
+scan_templates
+scan_root
+parse_index
+compare_index_and_directories
+scan_privacy
+
+if [ -s "$ERRORS" ]; then
+	cat "$ERRORS" >&2
+	exit 1
+fi
+exit 0

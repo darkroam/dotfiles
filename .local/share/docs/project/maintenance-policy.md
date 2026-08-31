@@ -59,6 +59,9 @@
 ## 已接受的决定
 
 - `c` 保持为核心 bare 仓库命令。
+- 项目内部开发工具（多 Agent 协作与开发过程自用）统一放在 `.local/lib/project-tools/`，以路径调用，
+  不进入用户 PATH；`.local/bin/` 只存放被 shell、DWM、MIME、状态栏或 cron 调用的用户服务命令。
+  该目录职责由用户于 2026-08-31 确认。
 - dotcfg 只有 `full` 是代码保留 category；正式 `1.0.0` 配置另行定义普通的 `min` 和 `macos`。
   `desktop`、`server` 和 `empty` 当前未定义且没有特殊地位，以后可作为普通 category 恢复。
   历史节点 type 原样保留，旧直接脚本包装不建立同名 category 映射。当前 `min` 和 `macos`

@@ -50,6 +50,7 @@ Fresh 是恢复锚点，不是另一个 category。新设备由 bootstrap 按混
 | X11 会话 | `.config/x11/`、根 profile 链接 | 会话环境、输入法、Xresources 和会话自启动 |
 | 桌面程序 | `~/src/{dwm,dwmblocks,dmenu,st}` | 单独维护、编译和安装的桌面程序 |
 | 用户辅助命令 | `.local/bin/` | 被 shell、DWM、MIME、状态栏和 cron 调用的命令 |
+| 项目内部工具 | `.local/lib/project-tools/` | 多 Agent 协作与开发过程自用的内部校验工具；以路径调用，不进入用户 PATH |
 | 运行数据 | `.local/share/larbs/` | 键盘映射、Unicode 数据和兼容帮助文本 |
 | 项目文档 | `.local/share/docs/{project,user,planning}/` | 通用设计、使用、计划与历史 |
 | 平台档案 | `.local/share/docs/platforms/` | 设备类别与发行版组合的包映射、系统事实、验证和恢复记录 |

@@ -3,7 +3,7 @@
 本文面向 Agent 和维护者，用于全新安装和依赖核查。
 
 这是面向全新 Linux 安装的完整命令清单。安装适用组可启用全部已跟踪功能；发行版包名不同，
-命令名是稳定参考。基础环境还假定具备 GNU/Linux `sh`、`bash`、GNU coreutils、findutils、
+命令名是稳定参考。基础环境还假定具备 GNU/Linux `sh`、`bash`、GNU coreutils、findutils、`hostname`、
 grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、procps（`pgrep`、`pkill`、`ps`）、
 `pidof`、psmisc（`killall`）、`file` 和 `sudo`。
 
@@ -31,6 +31,8 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | `unzip`, `unrar` | 使用相应归档类型时的归档预览辅助工具 |
 | `w3m` | `fzf_preview` 的可选 HTML 预览；缺失时仍可进行纯文本预览 |
 | ShellCheck (`shellcheck`) | 可选的 POSIX Shell 维护审计；不属于运行时依赖 |
+| Bats (`bats`) | `.local/share/test/collab/validate-collab.bats` 等隔离 Shell fixture 的测试运行器；不属于用户运行时依赖 |
+| `validate-collab`（项目内部工具） | `.local/lib/project-tools/validate-collab` 机械校验本机协作档案；依赖基础环境中的 POSIX Shell、coreutils、findutils、awk 与 `hostname`，不进入用户 PATH |
 | Oh My Zsh、zplug、`thefuck`；`zsh-autosuggestions`、`zsh-syntax-highlighting`、`zsh-history-substring-search`、`zsh-completions`、`fzf-tab` | 已配置的 Zsh 框架、插件管理器、命令修正工具和插件；zplug 缺失时首次 Zsh 会话会尝试联网安装，`fzf-tab` 仅在存在 `fzf` 时加载 |
 | Bash 补全包和 Git 补全脚本 | `c` 与 Git 的 Bash 完整补全；Zsh 使用其内建 Git 补全 |
 
