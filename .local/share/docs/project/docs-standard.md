@@ -34,8 +34,10 @@ docs/
 
 ### 命名规则
 
-- 文件名使用 kebab-case（如 `desktop-guide-zh.md`）
-- 中文文档以 `-zh` 后缀，英文文档以 `-en` 后缀（当前仅根 README.md 为英文）
+- 被跟踪文件的文件名保持英文 kebab-case（不使用中文文件名）
+- 语言标记：面向最终用户的中文指南以 `-zh` 后缀标记（如 `desktop-guide-zh.md`）；维护者文档
+  （`project/`、`planning/`、`platforms/`、`audits/`）内容为中文但文件名不带语言后缀；英文文档
+  当前仅有根 `README.md`
 - 审计记录按 `YYYY-MM-DD-{scope}.md` 格式
 
 ### 文件归属

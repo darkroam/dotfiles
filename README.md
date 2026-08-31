@@ -137,6 +137,10 @@ runtime resources remain in `.local/share/larbs/`:
   code, dependency, runtime, documentation, and platform-boundary checks.
 - [Maintenance policy](.local/share/docs/project/maintenance-policy.md): project
   constraints plus accepted and rejected design directions.
+- [Collaboration charter](.local/share/docs/project/collaboration.md): the
+  user × dsh × codex three-role development workflow, review standards, and
+  commit discipline; round archives live in the machine-local
+  `.local/share/collab/` directory.
 - [Current TODO](.local/share/docs/planning/todo.md): active work only.
 - [Suspended items](.local/share/docs/planning/suspended.md): deferred work and the
   conditions required to resume it.

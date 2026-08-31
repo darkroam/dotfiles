@@ -24,6 +24,7 @@
 - [显示管理设计](project/display-management.md) — X11 显示引擎的状态模型、布局策略和验证矩阵
 - [显示设备适配器指引](project/display-device-adapter.md) — 非标准硬件扩展接口规范
 - [显示管理测试](project/display-testing.md) — 状态、布局、配置和适配器的测试方案与验收步骤
+- [协作规约](project/collaboration.md) — 用户 × dsh × codex 三角色协作流程、审查标准与提交纪律；轮次档案保存在本机私有目录 `.local/share/collab/`
 
 ## 平台部署（面向运维）
 
@@ -81,5 +82,8 @@ docs/README.md (中文，文档索引)
     ├── 审计记录 (audits/ — 按日期归档的审计发现和执行记录)
     └── 项目跟踪 (todo.md, suspended.md, history.md, dependency-audit.md, installation-fixes.md)
 ```
+
+轮次协作档案（要求/汇报/审查）不在 docs 树内，保存在本机私有目录 `.local/share/collab/`（不入库），
+结构见[协作规约](project/collaboration.md) §五。
 
 修改任何文档后，必须执行维护策略规定的全库一致性检查：术语统一、内部链接有效、文档关系成立、无平台泄漏。

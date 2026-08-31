@@ -132,3 +132,6 @@ mbox
 # ── Desktop Files ────────────────────────────────────────────
 wps-office-prometheus.desktop
 .local/share/applications/clash-verge-handler.desktop
+
+# ── 多 Agent 协作档案（本机私有，不入库）────────────
+.local/share/collab/
