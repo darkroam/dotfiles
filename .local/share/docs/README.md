@@ -93,9 +93,10 @@
 - [当前待办](planning/todo.md) — 进行中的工作
 - [挂起项目](planning/suspended.md) — 暂缓的工作和恢复条件
 - [变更历史](planning/history.md) — 已完成的工作记录
+- [问题与排查记录](planning/problems.md) — 跨设备复用的脱敏问题、证据、排查结论和权威来源索引
 - [跨发行版审计流程](planning/dependency-audit.md) — 可复用的审计流程和基线
 - [dotcfg 内部重构计划](planning/dotcfg-refactor.md) — 已确认的分阶段重构方案、基线和验收门槛
-- [全量审查问题清单](audits/2026-07-31-full-review.md) — 2026-07-31 审计发现的 112 项问题（已全部修复）
+- [全量审查问题清单](audits/2026-07-31-full-review.md) — 2026-07-31 的 112 项审计发现（均已裁决/关闭）
 - [配置全量审计修改](audits/2026-08-04-full-review.md) — 2026-08-04 审计修改计划 64 项（已全部完成）
 
 ## 文档体系说明
@@ -128,7 +129,7 @@ docs/README.md (中文，文档索引)
     ├── 安装系统 (project/installation-system.md, project/installation-testing.md)
     ├── 平台部署 (platforms/index.md → 各平台档案)
     ├── 审计记录 (audits/ — 按日期归档的审计发现和执行记录)
-    └── 项目跟踪 (todo.md, suspended.md, history.md, dependency-audit.md, installation-fixes.md, dotcfg-refactor.md)
+    └── 项目跟踪 (todo.md, suspended.md, history.md, problems.md, dependency-audit.md, installation-fixes.md, dotcfg-refactor.md)
 ```
 
 轮次协作档案（要求/汇报/审查）不在 docs 树内，保存在本机私有目录 `.local/share/collab/`（不入库），
