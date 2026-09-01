@@ -1,6 +1,9 @@
 # 文档中心索引
 
 本配置库的文档体系按读者类型和主题组织。根目录 `README.md` 提供安装入口，本文档提供完整导航。
+根 README 与 `user/` 构成面向最终用户的交付层；其余文档构成面向开发、验证和维护的开发文档层。
+两层各自保持自洽并独立维护，通过本索引互相导航，不要求任一类读者先理解另一层，也不把用户指南
+迁入上游 LARBS 保留区。
 
 ## 快速开始
 
@@ -18,13 +21,56 @@
 项目架构、依赖、设计决策和维护边界：
 
 - [架构与设计](project/architecture.md) — 目录结构、运行关系、所有权和维护边界
-- [依赖清单](project/dependencies.md) — 完整命令和能力清单，按布局（layout）组织
+- [架构域归属表](project/domain-map.md) — 跟踪路径到唯一主域和可选关联域的权威登记
+- [依赖清单](project/dependencies.md) — 十个用户能力域到通用命令、库和服务的映射
 - [维护策略](project/maintenance-policy.md) — 项目约束、工作流规则、已接受决定和明确不采用项
 - [文档质量规范](project/docs-standard.md) — 文件级写作标准、完整性自检、Agent 维护规范
-- [显示管理设计](project/display-management.md) — X11 显示引擎的状态模型、布局策略和验证矩阵
+- [显示管理设计](project/display-management.md) — X11 显示引擎的状态模型、显示布局策略和验证矩阵
 - [显示设备适配器指引](project/display-device-adapter.md) — 非标准硬件扩展接口规范
-- [显示管理测试](project/display-testing.md) — 状态、布局、配置和适配器的测试方案与验收步骤
+- [显示管理测试](project/display-testing.md) — 状态、显示布局、配置和适配器的测试方案与验收步骤
 - [协作规约](project/collaboration.md) — 用户 × dsh × codex 三角色协作流程、审查标准与提交纪律；轮次档案保存在本机私有目录 `.local/share/collab/`
+
+### 约束速查
+
+本表只提供约束入口和适用边界；具体规则、例外和变更记录以所链接的权威正文为准。
+
+| 约束类别 | 权威文档 | 不可越过的边界摘要 |
+| --- | --- | --- |
+| 架构所有权与域归属 | [架构与设计](project/architecture.md) · [架构域归属表](project/domain-map.md) | 先确定唯一主域；路径归属只在域表登记。 |
+| 项目维护与平台事实 | [维护策略](project/maintenance-policy.md) | 共享行为与设备事实分开维护；行为变更先审查再执行。 |
+| 文档质量与术语 | [文档质量规范](project/docs-standard.md) | 文档必须面向单一读者，并与实现、链接和权威术语同步。 |
+| 多 Agent 协作与提交 | [协作规约](project/collaboration.md) | 用户决策、dsh 审查、codex 实现的职责和文件边界不得越权。 |
+| 安装系统外部契约 | [安装系统](project/installation-system.md#核心开发契约与不可变规则) | 用户接口、数据保护、幂等性和配置驱动契约不可由内部重构改变。 |
+| 验证基线 | [安装测试](project/installation-testing.md) · [显示测试](project/display-testing.md) · [协作规约](project/collaboration.md) | 行为变更必须同步相应测试基线，失败不得绕过。 |
+
+## 按能力域导航
+
+架构域定义见[架构与设计](project/architecture.md#架构域模型)，路径归属只查
+[架构域归属表](project/domain-map.md)。下表用于从用户能力进入命令、配置和权威文档，不复制依赖或
+设计结论。
+
+| 域 | 主要命令/配置位置 | 文档入口 |
+| --- | --- | --- |
+| U01 Shell、源代码管理与开发 | `.config/{shell,zsh,tmux,powershell}/`、Shell/开发辅助命令 | [架构](project/architecture.md) · [依赖](project/dependencies.md) |
+| U02 X11 桌面与输入 | `.config/x11/`、`.fbtermrc`、会话/输入命令 | [架构](project/architecture.md) · [快捷键](user/keybindings-zh.md) |
+| U03 外观、字体与壁纸 | `.config/{fontconfig,gtk-2.0,gtk-3.0,dunst,wal}/`、`setbg` | [架构](project/architecture.md) · [桌面指南](user/desktop-guide-zh.md) |
+| U04 音频、音乐、录制与视频 | `.config/{alsa,mpd,mpv,ncmpcpp}/`、媒体辅助命令 | [架构](project/architecture.md) · [依赖](project/dependencies.md) |
+| U05 文件、文档、密码与桌面处理 | `.config/{lf,nsxiv,zathura}/`、MIME/密码命令、桌面入口 | [架构](project/architecture.md) · [桌面指南](user/desktop-guide-zh.md) |
+| U06 显示、网络、挂载与系统控制 | `xdisplay`、`displayselect`、`.local/lib/xdisplay/`、系统辅助命令 | [架构](project/architecture.md) · [显示设计](project/display-management.md) |
+| U07 状态栏、通信与网络服务 | `.local/bin/statusbar/`、`weath` | [架构](project/architecture.md) · [依赖](project/dependencies.md) |
+| U08 下载、种子与文本浏览 | `.config/newsboat/`、下载/RSS/种子辅助命令 | [架构](project/architecture.md) · [依赖](project/dependencies.md) |
+| U09 编译、排版与数据辅助 | `compiler`、`getbib`、`texroot`、`opout`、`texclear` | [架构](project/architecture.md) · [依赖](project/dependencies.md) |
+| U10 系统模板与计划任务 | `.local/share/sys-etc/`、`.local/bin/cron/` | [架构](project/architecture.md) · [依赖](project/dependencies.md) |
+
+### 项目支撑域导航
+
+| 域 | 主要位置 | 文档入口 |
+| --- | --- | --- |
+| S01 安装与交付 | `.local/bin/{dotcfg,install.sh}`、`.local/lib/dotfiles/` | [安装系统](project/installation-system.md) |
+| S02 验证 | `.local/share/test/` | [安装测试](project/installation-testing.md) · [显示测试](project/display-testing.md) · [协作规约](project/collaboration.md) |
+| S03 文档与治理 | `README.md`、`.local/share/docs/` | [文档质量规范](project/docs-standard.md) · [维护策略](project/maintenance-policy.md) |
+| S04 内部工程工具 | `.local/lib/project-tools/` | [协作规约](project/collaboration.md) |
+| S05 元数据与来源 | `.gitignore`、LARBS 许可证/迁移来源 | [架构域归属表](project/domain-map.md) · [维护策略](project/maintenance-policy.md) |
 
 ## 平台部署（面向运维）
 
@@ -63,6 +109,8 @@
 ### 术语规则
 
 除根 `README.md` 外，所有 `.local/share/docs/` 下文档使用中文标题和内容。命令名、路径、代码标识、字面输出、许可证和必要上游引用保持原样。
+架构分类使用“用户能力域/项目支撑域”；显示、键盘和 GLSL 语境分别使用“显示布局”“键盘布局”
+和“GLSL `layout` 限定符”。完整规则见[文档质量规范](project/docs-standard.md#术语写作规则)。
 
 ### 内容重叠说明
 
@@ -75,7 +123,7 @@
     ↓
 docs/README.md (中文，文档索引)
     ├── 用户指南 (desktop-guide-zh.md, keybindings-zh.md)
-    ├── 维护者文档 (architecture.md, dependencies.md, maintenance-policy.md, docs-standard.md, collaboration.md)
+    ├── 维护者文档 (architecture.md, domain-map.md, dependencies.md, maintenance-policy.md, docs-standard.md, collaboration.md)
     ├── 显示管理 (display-management.md, display-device-adapter.md, display-testing.md)
     ├── 安装系统 (project/installation-system.md, project/installation-testing.md)
     ├── 平台部署 (platforms/index.md → 各平台档案)

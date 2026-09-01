@@ -329,3 +329,10 @@
 - [x] 本机 k10temp 设备识别与驱动补丁工作已移至
   [平台档案的活动待办](../platforms/kaitian-x7h-g1e-debian-13.md#平台活动待办)，通用 planning 文档
   不再重复保存设备型号、PCI ID 或发行版专属事实。
+
+## 2026-09-01 架构域模型
+
+- [x] R05 将原架构 layout 术语收敛为十个用户能力域（U01-U10）和五个项目支撑子域（S01-S05）；
+  `architecture.md` 定义域模型，新增 `domain-map.md` 唯一登记路径主域/关联域，`dependencies.md`
+  只维护通用依赖映射。D9 同步裁定 `getbib`、`.fbtermrc` 和 `install.sh` 的主域，迁移后 277 个 HEAD
+  路径为 181 个用户能力域产物和 96 个项目支撑域产物；计入新登记表的提交预期为 278 个路径。

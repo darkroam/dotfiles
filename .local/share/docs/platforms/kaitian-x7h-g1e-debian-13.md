@@ -43,7 +43,7 @@ innogpu 设备或其他 Debian 版本。同一设备升级到新的发行版主�
 下表的 `progs.csv` 列是首轮迁移快照；其中“待核对”只表示当时尚未完成来源行迁移，不代表当前
 任务或依赖状态。当前状态以本文“平台活动待办”和“平台挂起项目”为准。
 
-| 来源文件 | 依赖 | 要求级别 | 安装状态 | 依赖布局（layout） | `progs.csv` 首轮快照 | 处理结果 |
+| 来源文件 | 依赖 | 要求级别 | 安装状态 | 主能力域 / 关联能力域 | `progs.csv` 首轮快照 | 处理结果 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `.profile`、`.zprofile`、`.xinitrc`、`.xprofile`、`.asoundrc`、`.gtkrc-2.0` | 无；均为指向规范配置的兼容链接 | 不适用 | 不适用 | 不适用 | 不适用 | 通过；目标文件将在所属批次审计 |
 | `.gitignore` | 无 | 不适用 | 不适用 | 不适用 | 不适用 | 通过 |
@@ -75,8 +75,8 @@ innogpu 设备或其他 Debian 版本。同一设备升级到新的发行版主�
 | `.config/shell/aliasrc` | `lazygit` | 可选 Git TUI 别名 | 已安装，Debian 软件包 `lazygit` | Shell、源代码管理与开发 | 不存在 | 已验证；已补入 `dependencies.md` |
 | `.config/shell/aliasrc` | 本地 `cc-switch` 包装 | 可选自定义别名 | 已安装于 `~/.local/bin/cc-switch` | Shell、源代码管理与开发 | 不存在 | 已验证；非外部软件包 |
 | `.config/shell/aliasrc` | APT 分支 | 当前 Debian 包管理 | 已安装 | Shell、源代码管理与开发 | 待核对 | 已验证，`sh -n` 通过；pacman、XBPS、Portage 分支留作语法检查 |
-| `.fbtermrc` | `fbterm` | 必需（使用 FbTerm 时） | Debian `/usr/bin/fbterm` 保留为回退；当前命令优先使用 `~/.local/bin/fbterm`，其补丁与构建入口由 Innogpu 项目维护 | 外观、字体与壁纸 | 不存在 | 真实 VT 已验证 `font-size=16` 与 `scrolling=redraw`；长输出、`clear` 和退出后重入均正常，避免当前 fbdev YPan 显示错位 |
-| `.fbtermrc` | Hack、Fira Code、JetBrains Mono、Noto Sans Mono CJK SC、Sarasa Mono SC、Noto Sans CJK SC | 回退字体链 | 已安装并可被 Fontconfig 解析；Noto Sans Mono CJK SC 由 Debian `fonts-noto-cjk` 提供 | 外观、字体与壁纸 | 待核对 | 已验证；以仓库既有等宽中文字体替换缺失的 Maple Mono CN |
+| `.fbtermrc` | `fbterm` | 必需（使用 FbTerm 时） | Debian `/usr/bin/fbterm` 保留为回退；当前命令优先使用 `~/.local/bin/fbterm`，其补丁与构建入口由 Innogpu 项目维护 | 主 U02 X11 桌面与输入；关联 U03 外观、字体与壁纸 | 不存在 | 真实 VT 已验证 `font-size=16` 与 `scrolling=redraw`；长输出、`clear` 和退出后重入均正常，避免当前 fbdev YPan 显示错位 |
+| `.fbtermrc` | Hack、Fira Code、JetBrains Mono、Noto Sans Mono CJK SC、Sarasa Mono SC、Noto Sans CJK SC | 回退字体链 | 已安装并可被 Fontconfig 解析；Noto Sans Mono CJK SC 由 Debian `fonts-noto-cjk` 提供 | 主 U02 X11 桌面与输入；关联 U03 外观、字体与壁纸 | 待核对 | 已验证；以仓库既有等宽中文字体替换缺失的 Maple Mono CN |
 | `.config/tmux/tmux.conf`、`.config/tmux/tmux.conf.local` | `tmux`、Perl | 必需（使用完整 Tmux 配置时） | 已安装，Debian 软件包为 `tmux`、`perl`；配置使用的核心 Perl 模块可加载 | Shell、源代码管理与开发 | 待核对 | 命令已验证；配置已迁移至 Tmux 支持的 XDG 路径，当前沙箱禁止 Tmux Unix 套接字操作，运行加载需在正常用户会话复查 |
 | `.config/tmux/tmux.conf` | `urlview` | 可选 URL 选择绑定 | 已安装，Debian 软件包 `urlview` | 下载、种子与文本浏览 | 待核对 | 已验证 |
 | `.config/tmux/tmux.conf` | Facebook PathPicker `fpp` | 最低优先级可选路径选择绑定 | 不检查安装状态 | 下载、种子与文本浏览 | 待核对 | 代码完备性已验证：绑定调用 `_fpp`，helper 会容忍 `fpp` 非零退出；本轮不安装或运行验证 |
@@ -127,9 +127,9 @@ innogpu 设备或其他 Debian 版本。同一设备升级到新的发行版主�
 | `.config/zsh/.zshrc` | `zsh`、Oh My Zsh、zplug、`thefuck`、`fzf`、`fzf-tab`、NVM、Bun | Zsh 框架、插件与条件加载的开发环境 | `fzf` 已安装；`fzf-tab` 由 zplug 在存在 `fzf` 时按需安装和加载；NVM/Bun 由其本地初始化文件提供 | Shell、源代码管理与开发 | 待核对 | `zsh -n` 通过；本轮不触发 zplug 的联网安装或更新；缺少 `fzf` 时保持原生 Tab 补全 |
 | `.config/zsh/.zshrc` | `fd` 或 `fdfind`、`jq`、Docker (`docker`) | FZF 文件搜索、`json()` 剪贴板格式化、Docker 插件与 `attach()` | 已安装；Debian 包为 `fd-find`、`jq`、`docker.io` | Shell、源代码管理与开发 | 不存在 | Zsh 已修正为支持 Debian 的 `fdfind`，并实际选中该命令；Docker 守护进程运行状态需在正常用户会话复查 |
 | `.config/shell/inputrc`、`.config/user-dirs.dirs` | `/etc/inputrc`、`xdg-user-dirs-update` | Readline vi 模式及 XDG 用户目录定义 | 均已安装且可读 | Shell、源代码管理与开发；文件、文档、密码与桌面处理 | 待核对 | 配置为声明式内容；`/etc/inputrc` include 和 XDG 更新工具均可解析 |
-| `.local/bin/install.sh` | `git`、OpenSSH 客户端、Bash、GNU 文件工具 | 通过 SSH 远程仓库部署 bare dotfiles | 均已安装 | Shell、源代码管理与开发 | 待核对 | `bash -n` 通过；临时 bare 仓库回归覆盖嵌套/空格路径、祖先文件与符号链接、私有备份、冲突拒绝、checkout 和隐藏未跟踪文件。新机器仍需配置 GitHub SSH 凭据，审计不读取或记录账户密钥 |
+| `.local/bin/install.sh` | `git`、OpenSSH 客户端、Bash、GNU 文件工具 | 通过 SSH 远程仓库部署 bare dotfiles | 均已安装 | 主 S01 安装与交付；关联 U01 Shell、源代码管理与开发 | 待核对 | `bash -n` 通过；临时 bare 仓库回归覆盖嵌套/空格路径、祖先文件与符号链接、私有备份、冲突拒绝、checkout 和隐藏未跟踪文件。新机器仍需配置 GitHub SSH 凭据，审计不读取或记录账户密钥 |
 | `.local/bin/install-ohmyz.sh` | `zsh`、`git`、`chsh`、网络 | Oh My Zsh 安装器 | 均已安装 | Shell、源代码管理与开发 | 待核对 | `sh -n` 通过；脚本会联网克隆上游仓库，安装行为本轮不执行 |
-| `.local/bin/getbib` | `pdfinfo`、`pdftotext`、`curl` | 从 PDF/DOI 获取 Crossref BibTeX 条目 | 均已安装 | 文件、文档、密码与桌面处理 | 待核对 | `sh -n` 通过；实际 Crossref 网络请求不在本轮执行 |
+| `.local/bin/getbib` | `pdfinfo`、`pdftotext`、`curl` | 从 PDF/DOI 获取 Crossref BibTeX 条目 | 均已安装 | 主 U09 编译、排版与数据辅助；关联 U05 文件、文档、密码与桌面处理 | 待核对 | `sh -n` 通过；实际 Crossref 网络请求不在本轮执行 |
 | `.local/bin/compiler` 的 Python 分支 | `python3`；兼容回退为 `python` | 执行 Python 源文件 | `python3` 已安装，未提供 `python` 命令 | Shell、源代码管理与开发；编译、排版与数据辅助 | 不存在 | 已改为优先 `python3`、回退 `python`；最小 Python 文件执行回归通过 |
 | `.local/bin/compiler`、`.local/bin/texroot`、`.local/bin/opout`、`.local/bin/texclear` | GNU coreutils（`readlink`、`head`、`tr`、`rm`）、`awk`、`grep`、`setsid`、`xdg-open`、`latexmk`、`pdflatex`、`xelatex`、`lualatex`、`biber` 及按文档使用的中日文宏包 | 根文件解析、依赖驱动编译、根 PDF 打开和精确清理；TeX 之外的格式仍按需安装 | Debian 13 已安装 `latexmk`、`texlive-latex-base`、`texlive-xetex`、`texlive-luatex`、`biber`、`texlive-bibtex-extra`、`texlive-lang-chinese`、`texlive-lang-japanese`；日文包是按文档需要的可选能力 | 编译、排版与数据辅助 | 不适用（后续审计） | `dash -n`、`sh -n` 通过；本次 `77/77` CLI 回归覆盖多级/冲突/循环根文件、特殊路径、三引擎、交叉引用、XeLaTeX 中文、LuaLaTeX 日文字体、Biber、项目输出/辅助目录覆盖、无图形精确打开、非 TeX 打开回归和不越界清理；PDF 均位于根文件同目录 |
 | `.config/lf/icons`、`.config/newsboat/urls`、`.config/shell/bm-dirs`、`.config/shell/bm-files`、`.config/wal/templates/*`、`.local/patch/*`、`.local/share/larbs/{LICENSE,chars/,getkeys/,ttymaps.kmap}` | 无新增运行依赖 | 图标、书签、模板、补丁、帮助与数据资源 | 不适用 | 对应功能所属布局（layout） | 待核对或历史来源 | 通过；运行入口和外部命令已在所属配置或脚本批次审计 |

@@ -1,8 +1,10 @@
 # X11 显示管理测试方案
 
+> 服务域：S02 验证；关联 U06 显示、网络、挂载与系统控制、U02 X11 桌面与输入
+
 本文是显示管理系统的可操作验收方案，覆盖 `.local/bin/xdisplay`、兼容包装
 `.local/bin/xdisplay.sh`、`.local/bin/displayselect`、`.local/lib/xdisplay/`、可选设备适配器以及
-两个可选配置文件。状态、配置和布局的权威定义见
+两个可选配置文件。状态、配置和显示布局的权威定义见
 [`display-management.md`](display-management.md)，设备扩展调用契约见
 [`display-device-adapter.md`](display-device-adapter.md)。
 
@@ -12,7 +14,7 @@
 
 - POSIX `sh`、`awk`、`sed`、`grep`、`stat`、`mktemp`、`date`、`flock`、GNU `timeout` 和 `xrandr`。
 - 已登录的 X11 会话，且 `DISPLAY`、`XAUTHORITY`、`PATH` 可用。真实硬件测试应在 watcher 使用的同一用户会话中执行。
-- 测试前确认没有第二个 watcher 持有布局锁：`~/.local/bin/xdisplay status`。
+- 测试前确认没有第二个 watcher 持有显示布局锁：`~/.local/bin/xdisplay status`。
 - 真实多屏验收按需准备 1、2 或 3 块外屏；没有硬件时使用 1.2 节的 mock 方式。
 
 ### 1.2 Mock 测试方式
@@ -49,7 +51,7 @@ sh -n .local/share/test/display/xdisplay-adapter.sh
 
 ## 2. 单元与规划器测试
 
-这些用例不执行布局写入，优先用于每次代码修改后的快速回归。
+这些用例不执行显示布局写入，优先用于每次代码修改后的快速回归。
 
 | 编号 | 场景与步骤 | 预期结果与验收标准 |
 | --- | --- | --- |
@@ -60,7 +62,7 @@ sh -n .local/share/test/display/xdisplay-adapter.sh
 | U-05 | 以 `closed`、2 个或 3 个外屏调用状态入口 | 输出 `MULTI_EXTERNAL`。 |
 | U-06 | 内屏和外屏均为空 | 输出 `NONE`。 |
 | U-07 | `XDISPLAY_LAYOUT_TEST=1` 传入 2 个外屏 | 按 RandR 接口顺序排序，第二块使用前一块作为锚点。 |
-| U-08 | layout planner 的方向参数分别设为 `right`、`left`、`above`、`below` | 关系参数分别为 `--right-of`、`--left-of`、`--above`、`--below`。 |
+| U-08 | 显示布局规划器（layout planner）的方向参数分别设为 `right`、`left`、`above`、`below` | 关系参数分别为 `--right-of`、`--left-of`、`--above`、`--below`。 |
 | U-09 | 运行 `xdisplay help`、`xdisplay version` 和 `xdisplay.sh --help` | 新入口输出命令接口和版本，旧包装器转发到相同帮助。 |
 | U-10 | 运行 `displayselect help`，再用临时目录执行 `save`、`list`、`delete` | 新参数可用，旧 `--save`、`--list`、`--delete` 仍兼容。 |
 
@@ -92,7 +94,7 @@ sh -n .local/share/test/display/xdisplay-adapter.sh
 2. 再插回该屏，随后开盖。
 3. 临时将适配器改名或去掉执行权限，重复一次插拔。
 
-验收：断开的输出不再出现在活动布局；剩余输出继续可用；适配器缺失时静默回到标准探测和
+验收：断开的输出不再出现在活动显示布局；剩余输出继续可用；适配器缺失时静默回到标准探测和
 RandR preferred/首项策略。
 
 ## 4. 配置系统测试
@@ -137,9 +139,9 @@ mirror_on_duplicate = true
 将 `timeout_seconds` 设为 `2s`、`log_max_bytes` 设为 `nope`，将 `external_position` 设为
 `diagonal`。
 
-验收：引擎继续启动；标准错误有简短 `invalid value` 诊断；对应字段回退默认值，布局不被阻塞。
+验收：引擎继续启动；标准错误有简短 `invalid value` 诊断；对应字段回退默认值，显示布局不被阻塞。
 
-## 5. 自定义布局端到端测试
+## 5. 自定义显示布局端到端测试
 
 ### E-01 保存、列表与删除
 
@@ -153,7 +155,7 @@ lid；列表包含名称，删除后文件消失。`displayselect save` 不停�
 
 ### E-02 exact 匹配与恢复
 
-1. 保存一个 `lid=open`、`match_mode=exact` 的布局。
+1. 保存一个 `lid=open`、`match_mode=exact` 的自定义显示布局。
 2. 改变输出位置或模式，触发一次 topology 快照。
 3. 运行 `xdisplay status` 并观察画面。
 
@@ -174,12 +176,12 @@ exact、配置输出数量更多、mtime 更新较近。结果只选择一个配
 1. 删除当前命中的配置，触发下一次快照。
 2. 将另一个配置的坐标、模式或区段改为非法值，重新触发快照。
 
-验收：删除后回到默认扩展链；损坏配置不会阻塞 watcher，默认布局生效，日志记录
+验收：删除后回到默认扩展链；损坏配置不会阻塞 watcher，默认显示布局生效，日志记录
 `custom-layout` 的 `parse_failed` 诊断。
 
 ### E-05 三块以上外屏
 
-使用三块外屏保存自定义布局，再插拔其中一块并触发匹配。
+使用三块外屏保存自定义显示布局，再插拔其中一块并触发匹配。
 
 验收：配置中的所有输出按保存的绝对位置应用；contains 多出的输出仍全部保留并按链式策略追加，
 不能只启用前两块。
@@ -196,8 +198,8 @@ exact、配置输出数量更多、mtime 更新较近。结果只选择一个配
 | A-03 | `expected-mode` 返回 `1920x1080@60` | 目标模式和刷新率优先于 RandR preferred。 |
 | A-04 | 预期模式缺失，`restore-internal` 返回 0 | 恢复调用最多一次，重新读取 RandR 并验证。 |
 | A-05 | 恢复返回非零或超时 | 记录 stderr、退出码和超时，随后尝试 `XDISPLAY_RESTORE_COMMAND`，最终回退 preferred/首项。 |
-| A-06 | 适配器文件缺失、不可执行或会话环境缺失 | 快速降级，不阻塞布局；日志包含 `UNAVAILABLE` 诊断。 |
-| A-07 | 日志超过 1 MiB | 写入前将旧日志覆盖轮转为 `.1`，新日志继续写入；日志失败不改变布局结果。 |
+| A-06 | 适配器文件缺失、不可执行或会话环境缺失 | 快速降级，不阻塞显示布局；日志包含 `UNAVAILABLE` 诊断。 |
+| A-07 | 日志超过 1 MiB | 写入前将旧日志覆盖轮转为 `.1`，新日志继续写入；日志失败不改变显示布局结果。 |
 | A-08 | 修改适配器 mtime、RandR topology 或 mode signature | 下一快照重新查询；同一稳定快照内不重复查询。 |
 
 验证日志：
@@ -223,7 +225,7 @@ printf 'DISPLAY=%s\nXAUTHORITY=%s\nPATH=%s\n' "$DISPLAY" "$XAUTHORITY" "$PATH"
 GDM 登录前、systemd 冷启动或 SSH 环境通常没有有效 X11 会话。适配器灰度路径会记录
 `missing_session_environment`；不要在适配器中猜测授权文件路径。
 
-### 自定义布局未命中
+### 自定义显示布局未命中
 
 检查 `[identity] outputs` 是否与当前连接输出一致，`lid` 和 `match_mode` 是否正确，配置文件是否
 可读且权限为 `600`：
@@ -248,5 +250,5 @@ stat -c '%a %n' ~/.config/x11/display-layouts/custom/*.conf
 ## 8. 验收记录
 
 建议每次发布将以下信息附在变更记录中：fixture 测试末行、全部库及入口语法检查结果、真实硬件场景（如有）、
-配置和自定义布局文件摘要，以及适配器日志中是否出现非预期错误。共享文档不得记录用户名、主机名、
+配置和自定义显示布局文件摘要，以及适配器日志中是否出现非预期错误。共享文档不得记录用户名、主机名、
 序列号、完整 EDID 或授权文件路径。

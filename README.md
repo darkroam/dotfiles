@@ -116,13 +116,21 @@ The tracked root entry points are links:
 Maintenance documentation lives in `.local/share/docs/`; retained LARBS
 runtime resources remain in `.local/share/larbs/`:
 
+The repository architecture uses ten user-facing capability domains and five
+project-support subdomains. Definitions live in the architecture document;
+the domain map is the single path-to-domain registry:
+
+- [Architecture domains](.local/share/docs/project/architecture.md#架构域模型)
+- [Domain map](.local/share/docs/project/domain-map.md)
+
 - [Complete documentation index](.local/share/docs/README.md): navigation for
   user guides, maintainer references, platform records, tests, and project
   history.
 - [Architecture and design](.local/share/docs/project/architecture.md): directory
   map, load order, optional-feature model, and ownership boundaries.
 - [Display management design](.local/share/docs/project/display-management.md):
-  shared X11 ownership, state model, layout policy, validation, and diagnostics.
+  shared X11 ownership, state model, display-layout policy, validation, and
+  diagnostics.
 - [Display device adapter guide](.local/share/docs/project/display-device-adapter.md):
   the implemented, default-disabled extension contract for nonstandard hardware.
 - [Installation system](.local/share/docs/project/installation-system.md):

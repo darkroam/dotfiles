@@ -1,5 +1,7 @@
 # 依赖清单
 
+> 服务域：U01-U10 用户能力域；S01 安装与交付；S04 内部工程工具（通用依赖映射）
+
 本文面向 Agent 和维护者，用于全新安装和依赖核查。
 
 这是面向全新 Linux 安装的完整命令清单。安装适用组可启用全部已跟踪功能；发行版包名不同，
@@ -10,7 +12,11 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 发行版包名、安装状态和设备验证不在本文维护；从[平台档案索引](../platforms/index.md)进入对应
 设备与发行版档案。
 
-## Shell、源代码管理与开发
+架构域的定义、稳定 ID 和关系由[架构与设计](architecture.md#架构域模型)维护，跟踪路径归属由
+[架构域归属表](domain-map.md)唯一登记。本文只维护十个用户能力域到通用命令、库、服务和工具链的
+映射；发行版包名仍只写平台档案。
+
+## U01 · Shell、源代码管理与开发
 
 | 软件或命令 | 用途 |
 | --- | --- |
@@ -36,7 +42,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | Oh My Zsh、zplug、`thefuck`；`zsh-autosuggestions`、`zsh-syntax-highlighting`、`zsh-history-substring-search`、`zsh-completions`、`fzf-tab` | 已配置的 Zsh 框架、插件管理器、命令修正工具和插件；zplug 缺失时首次 Zsh 会话会尝试联网安装，`fzf-tab` 仅在存在 `fzf` 时加载 |
 | Bash 补全包和 Git 补全脚本 | `c` 与 Git 的 Bash 完整补全；Zsh 使用其内建 Git 补全 |
 
-## X11 桌面与输入
+## U02 · X11 桌面与输入
 
 | 软件或命令 | 用途 |
 | --- | --- |
@@ -57,7 +63,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | `xcape` | 启用时将 Caps 作为 Escape/修饰键重映射 |
 | `microsoft-edge` | 当前 `BROWSER` 的值 |
 
-## 外观、字体与壁纸
+## U03 · 外观、字体与壁纸
 
 | 软件或命令 | 用途 |
 | --- | --- |
@@ -69,7 +75,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | `wal` (pywal) | `setbg` 生成的可选颜色；缺失时静态颜色仍可用 |
 | `lxappearance` | 可选交互式 GTK 设置编辑器 |
 
-## 音频、音乐、录制与视频
+## U04 · 音频、音乐、录制与视频
 
 | 软件或命令 | 用途 |
 | --- | --- |
@@ -86,7 +92,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | ImageMagick（`magick`） | `slider` 和图像转换 |
 | `vorbiscomment`, `opustags`, `eyeD3`, `metaflac` | `tag` 元数据辅助工具 |
 
-## 文件、文档、密码与桌面处理
+## U05 · 文件、文档、密码与桌面处理
 
 | 软件或命令 | 用途 |
 | --- | --- |
@@ -111,14 +117,14 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 `dmenuumount`、`dmenurecord`、`maimpick`、`mailsync`、`td-toggle`、`torrent`、
 `tutorialvids` 和 `remaps`。其外部要求列于上方相关章节。
 
-## 显示、网络、挂载与系统控制
+## U06 · 显示、网络、挂载与系统控制
 
 | 软件或命令 | 用途 |
 | --- | --- |
 | `xrandr`, `flock` | `xdisplay` 与 `displayselect` 的基础显示布局和互斥；`xdisplay.sh` 是兼容包装；缺少任一命令时拒绝运行 |
 | `dmenu`, `bc` | `displayselect` 的选择界面和双屏镜像缩放计算 |
-| `arandr` | `displayselect` 的可选手动布局界面；选中该路径但缺少命令时提示安装 |
-| `dunst`, `xwallpaper` | 手动布局后的可选通知与壁纸刷新；不属于自动 watcher 的基础依赖 |
+| `arandr` | `displayselect` 的可选手动显示布局界面；选中该路径但缺少命令时提示安装 |
+| `dunst`, `xwallpaper` | 手动显示布局后的可选通知与壁纸刷新；不属于自动 watcher 的基础依赖 |
 | `cvt` | 仅在非标准面板确需自定义 modeline 时使用的可选设备适配开发工具 |
 | `systemd-analyze`, `udevadm` | 可选的 logind 合并配置检查和显示迁移规则维护工具；不属于 watcher 运行依赖 |
 | NetworkManager 守护进程、`nmtui`、`nmcli` | 网络连接、自动连接、地址/路由/DNS 所有权、交互式设置和诊断；选择该栈时，同一接口不能再由其他网络管理器接管 |
@@ -138,7 +144,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 `/mnt/cifs-<UID>/` 下；它不读取、保存或提示输入认证共享的凭据。认证共享和专用 CIFS 卸载入口
 暂不属于当前配置能力，见挂起项。
 
-## 状态栏、通信与网络服务
+## U07 · 状态栏、通信与网络服务
 
 | 软件或命令 | 用途 |
 | --- | --- |
@@ -154,7 +160,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 
 包状态模块需要 APT、pacman、XBPS 或 Portage 之一。APT 检查脚本还使用 `sudo`。
 
-## 下载、种子与文本浏览
+## U08 · 下载、种子与文本浏览
 
 | 软件或命令 | 用途 |
 | --- | --- |
@@ -165,7 +171,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | Facebook PathPicker (`fpp`) | 最低优先级可选 tmux 路径选择绑定；正常部署不需要 |
 | `tremc` | 最低优先级可选 Transmission 终端界面。没有它时 `torrent` 启动守护进程并引导用户使用 Web 界面或 `transmission-remote` |
 
-## 编译、排版与数据辅助
+## U09 · 编译、排版与数据辅助
 
 | 源格式或辅助工具 | 命令 |
 | --- | --- |
@@ -173,6 +179,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | TeX 引擎 | `pdflatex`、`xelatex`、`lualatex`；LuaLaTeX 还需要完整字体和宏包能力 |
 | TeX 参考文献 | `biber` 和 BibLaTeX 宏包 |
 | TeX 中日文排版 | 中文文档需要 `ctex`/`xeCJK` 与相应字体，日文文档按需提供 LuaTeX-ja 等语言能力 |
+| 引用数据获取 | `getbib` 使用 `pdfinfo`、`pdftotext` 和 `curl` 从 PDF/DOI 获取 Crossref BibTeX；主域为 U09，文档消费关联 U05 |
 | Groff、mom 和 ms | `preconv`、`refer`、`groff`；DWM `Mod+F1` 帮助还需要可供 Groff 嵌入 PDF 的 Nimbus Sans Type 1 字体 |
 | Markdown | `lowdown` 或 `groffdown`，否则 `pandoc` |
 | Org mode | 带 Org 和 LaTeX 导出支持的 `emacs` |
@@ -182,7 +189,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | 其他构建和 TeX 精确清理 | `make`、GNU `rm`；TeX 通用清理由 `latexmk` 完成，不再依赖目录正则搜索 |
 | 有声书分割 | `ffmpeg`、`iconv` |
 
-## 模板与计划工作
+## U10 · 系统模板与计划任务
 
 系统示例不会自动安装。仅在安装相应栈后复制并调整：
 
@@ -218,19 +225,19 @@ cron 辅助命令需要 `cron`、`crontab`、`notify-send`、`xdotool`、`newsbo
 
 | 来源记录 | 原始用途 | 当前处置 |
 | --- | --- | --- |
-| `xorg-server`, `xorg-xinit`, `xorg-minimal` | Graphical server and startup | 当前活跃要求，在 X11 布局（layout）中以 Xorg/Xinit 表示；来源名称是发行版专属的。 |
+| `xorg-server`, `xorg-xinit`, `xorg-minimal` | Graphical server and startup | 当前活跃要求，在 U02 X11 桌面与输入域中以 Xorg/Xinit 表示；来源名称是发行版专属的。 |
 | `xorg-xwininfo` | Query window information | 历史来源条目；已跟踪辅助命令改用活跃的 `xprop`。 |
 | `libxft-bgra` | Color emoji rendering in suckless software | 历史源码构建依赖；仅当单独构建的 DWM/ST 源码需要该补丁时保留。 |
 | `xorg-fonts`, `ttf-inconsolata`, `nerd-fonts-inconsolata`, `ttf-linux-libertine` | LARBS fonts and symbols | 已被跟踪的 Fontconfig/GTK 字体选择替代：Linux Libertine、Noto CJK、Noto Color Emoji 和 FontAwesome。 |
 | `libX11-devel`, `libXft-devel`, `gcr-devel`, `fontconfig-devel` | Build dependencies | 历史 Arch/Void 包名不是当前通用名称；X11/Xft/Fontconfig 开发能力仍是四个独立桌面源码的活跃构建要求，`gcr-devel` 当前无源码引用。 |
 | `ranger-git` | Earlier terminal file manager | 历史项；LF 是已配置文件管理器。Ranger 帮助数据仅作参考。 |
-| `arandr` | Screen-layout UI | 活跃 `displayselect` 手动布局依赖。 |
+| `arandr` | Screen-layout UI | 活跃 `displayselect` 手动显示布局依赖。 |
 | `bc` | Calculator and arithmetic | 活跃计算器别名和显示布局算术辅助。 |
 | `calcurse` | Terminal calendar | 活跃别名和状态栏日历辅助。 |
 | `xcompmgr` | Transparency/compositing | `xprofile` 中的可选回退路径；Picom 是活跃合成器。 |
 | `xorg-xprop`, `xprop` | Window property query | 活跃 `samedir` 辅助依赖。 |
 | `dosfstools`, `exfat-utils` | DOS/FAT filesystem management | 历史包条目；当前挂载辅助使用系统 `mount`/`lsblk`，不格式化文件系统。 |
-| `libnotify` | Desktop notifications | 活跃 `notify-send` 提供者，在 X11 布局（layout）中表示。 |
+| `libnotify` | Desktop notifications | 活跃 `notify-send` 提供者，在 U02 X11 桌面与输入域中表示。 |
 | `dbus` | Inter-process communication | 活跃 X11 会话要求，以 `dbus-launch` 和 D-Bus 激活工具表示。 |
 | `dunst` | Notification daemon | 活跃通知服务。 |
 | `sxiv` | Image viewing | 已在全部跟踪配置中被 `nsxiv` 替代。 |
@@ -243,7 +250,7 @@ cron 辅助命令需要 `cron`、`crontab`、`notify-send`、`xdotool`、`newsbo
 | 来源记录 | 原始用途 | 当前处置 |
 | --- | --- | --- |
 | `gtk-theme-arc-gruvbox-git` | Dark GTK theme | 历史 Arch 包名；已跟踪外观选择 Arc 主题。 |
-| `neovim` | Improved Vim editor | 活跃编辑器，在 Shell 布局（layout）中以 `vim`/`nvim` 表示。 |
+| `neovim` | Improved Vim editor | 活跃编辑器，在 U01 Shell、源代码管理与开发域中以 `vim`/`nvim` 表示。 |
 | `i3blocks` | Earlier status bar | 历史项；当前状态栏是 DWMBlocks。 |
 | `mpd`, `mpc`, `mpv`, `ncmpcpp` | Music daemon, control, playback, and terminal UI | 活跃音频和音乐依赖。 |
 | `newsboat` | Terminal RSS client | 活跃 RSS 客户端和状态栏集成。 |
@@ -253,7 +260,7 @@ cron 辅助命令需要 `cron`、`crontab`、`notify-send`、`xdotool`、`newsbo
 | `ntfs-3g` | NTFS access | 可选文件系统支持；无已跟踪辅助命令直接调用，部分内核也可能提供 NTFS3。 |
 | `alsa-utils` | ALSA interface tools | 可选工具包；保留 ALSA 配置和捕获路径需要 ALSA 栈，而非特定 `alsa-utils` 命令。 |
 | `sc-im` | Terminal spreadsheet manager | 历史可选应用；`localc`/WPS MIME 处理器是当前电子表格路径。 |
-| `maim`, `socat`, `tmux`, `unclutter` | Screenshots, MPV IPC, terminal multiplexing, pointer hiding | 各自布局（layout）中的活跃依赖。 |
+| `maim`, `socat`, `tmux`, `unclutter` | Screenshots, MPV IPC, terminal multiplexing, pointer hiding | 各自用户能力域中的活跃依赖。 |
 | `unclutter-xfixes` | Pointer hiding | 历史替代；当前命令是 `unclutter`。 |
 | `unrar`, `unzip` | Archive extraction | 活跃 LF/FZF 归档预览和提取辅助。 |
 | `lynx` | Text browser | 活跃 dmenu、LF 和 Newsboat 文本浏览器选项。 |
@@ -268,5 +275,5 @@ cron 辅助命令需要 `cron`、`crontab`、`notify-send`、`xdotool`、`newsbo
 | `task-spooler`, `ts` | Background command queue | 活跃 `tsp` 队列依赖；`ts` 是历史命令/包拼写。 |
 | `setxkbmap`, `xset` | Keyboard layout and X repeat settings | 活跃 X11 输入辅助。 |
 | `xmodmap`, `xsetroot` | Earlier keyboard/status-root handling | 历史项；重映射使用 `setxkbmap`，状态输出由 DWMBlocks 管理。 |
-| Luke Smith `dwmblocks`, `dmenu`, `st`, `dwm` Git URLs | Status bar, launcher, terminal, window manager | 历史上游源码引用。当前单独构建源码位于 `~/src/`；活跃运行命令在 X11 布局（layout）中记录。 |
+| Luke Smith `dwmblocks`, `dmenu`, `st`, `dwm` Git URLs | Status bar, launcher, terminal, window manager | 历史上游源码引用。当前单独构建源码位于 `~/src/`；活跃运行命令在 U02 X11 桌面与输入域中记录。 |
 | `slock` | Screen lock | 活跃 `sysact` 锁屏依赖。 |

@@ -1,7 +1,9 @@
 # 显示设备适配器开发指引
 
+> 服务域：U06 显示、网络、挂载与系统控制；关联 U02 X11 桌面与输入、S02 验证
+
 本文面向非标准 X11 显示硬件的适配器开发者，只定义扩展 API、输入输出校验、超时、缓存、日志、
-降级和验证。状态、默认布局、配置、自定义布局、锁和 watcher 统一由
+降级和验证。状态、默认显示布局、配置、自定义显示布局、锁和 watcher 统一由
 [X11 显示管理设计](display-management.md)维护，本文不复制这些策略。
 
 > 适配器是已经实现但默认关闭的灰度路径。只有 `XDISPLAY_USE_ADAPTER=1` 且本地文件可执行时才调用；
@@ -21,7 +23,7 @@
 
 职责边界：
 
-- 引擎负责快照、状态、布局、primary、off、framebuffer、锁、重试和最终验证；
+- 引擎负责快照、状态、显示布局、primary、off、framebuffer、锁、重试和最终验证；
 - 适配器只报告一个额外内屏候选、声明预期模式，或为该内屏执行一次幂等模式恢复；
 - 驱动、Xorg、udev、login manager 和电源策略属于系统/平台层，不得放进适配器；
 - 设备事实和实机恢复证据只写[平台档案](../platforms/index.md)，通用文档不复制。
@@ -52,7 +54,7 @@ XDISPLAY_USE_ADAPTER=1 xdisplay apply
 | `expected-mode OUTPUT` | 可选 | `WIDTHxHEIGHT` 或 `WIDTHxHEIGHT@RATE` | 否，只读目标查询 |
 | `restore-internal OUTPUT` | 与有效 expected mode 配套 | 无结构化输出 | 是，只允许一次幂等模式恢复 |
 
-诊断只能写标准错误。返回 0 表示子命令正常结束，不表示布局或模式已经收敛；最终成功始终由引擎
+诊断只能写标准错误。返回 0 表示子命令正常结束，不表示显示布局或模式已经收敛；最终成功始终由引擎
 重读 RandR 验证。
 
 ## `internal-outputs`
@@ -100,7 +102,7 @@ XDISPLAY_USE_ADAPTER=1 xdisplay apply
 ~/.config/x11/xdisplay-device.local restore-internal OUTPUT
 ```
 
-该命令只在有效 expected mode 尚未出现在目标内屏模式表时调用，每次布局事务最多一次，并在
+该命令只在有效 expected mode 尚未出现在目标内屏模式表时调用，每次显示布局事务最多一次，并在
 `apply.lock` 内执行。允许的动作仅限为这个输出恢复模式，例如一次已验证的驱动命令，或幂等的
 `xrandr --newmode`/`--addmode`：
 
@@ -110,7 +112,7 @@ XDISPLAY_USE_ADAPTER=1 xdisplay apply
 - 不得使用 `--primary`、`--off`、相对位置、`--same-as` 或 `--fb`；
 - 不适用于该输出时返回 0，实际失败时返回非零并写简短诊断。
 
-返回后引擎重新读取 RandR。预期模式出现时继续默认/自定义布局；仍缺失时先尝试可用的
+返回后引擎重新读取 RandR。预期模式出现时继续默认/自定义显示布局；仍缺失时先尝试可用的
 `XDISPLAY_RESTORE_COMMAND`，然后在已有其他模式时降级到 preferred/首项。模式表仍为空则保持安全
 活屏并交给 pending 与 watcher 有界重试。
 
@@ -134,7 +136,8 @@ kill-after。新适配器不得依赖该差异，也不得为新设备扩展 leg
 ## 日志与退出码
 
 诊断默认写 `~/.local/share/x11/xdisplay-adapter.log`，可由引擎配置改写。目录和文件按私有 umask
-创建，日志权限为 `0600`；达到 `log_max_bytes` 后覆盖轮转为 `.1`。日志创建或轮转失败不得阻塞布局。
+创建，日志权限为 `0600`；达到 `log_max_bytes` 后覆盖轮转为 `.1`。日志创建或轮转失败不得阻塞
+显示布局。
 
 每条事件包含时间戳、`subcommand`、`output`、PID、退出码和 `status`；stderr 最多保留 4096 字节并
 过滤绝对 home、XAUTHORITY、EDID、序列号和主机名。适配器自身也必须避免输出用户名、主机名、
@@ -187,7 +190,7 @@ expected_mode() {
 restore_internal() {
 	case $1 in
 		PANEL-1)
-			# 只执行一次已验证、可重复的模式恢复；不做布局。
+			# 只执行一次已验证、可重复的模式恢复；不做显示布局。
 			return 1
 			;;
 	esac
@@ -246,7 +249,7 @@ legacy 降级、超时、日志轮转和环境传递。权威命令与当前数�
 2. `internal-outputs` 失败：legacy 内屏候选或无内屏回退；
 3. `expected-mode` 失败：RandR preferred/首项；
 4. expected mode 缺失且适配器恢复失败：legacy 恢复，再回到 RandR 目标；
-5. 布局验证失败：保留安全活屏，由 watcher 有界重试。
+5. 显示布局验证失败：保留安全活屏，由 watcher 有界重试。
 
 若适配器导致异常，先设 `XDISPLAY_USE_ADAPTER=0` 回到零配置路径并保存脱敏日志，不删除现场或继续
 增加设备特例。系统层问题按对应平台档案恢复，不能用延长适配器超时掩盖。

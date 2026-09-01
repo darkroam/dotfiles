@@ -12,7 +12,8 @@
 - [ ] 启用无人值守包检查前，复查 cron 调度和 sudo 策略。
 - [ ] 决定是否重写已发布 Git 历史，以移除历史作者/提交者邮箱元数据和旧跟踪
   `.gitconfig` 身份。此操作需要协调 force-push，不能轻率执行。
-- [ ] 已跟踪功能或所需命令变化时，更新 `dependencies.md`。
+- [ ] 新增、移动或删除跟踪路径时先更新 `domain-map.md`；用户能力或所需命令变化时再同步
+  `dependencies.md`。
 - [ ] 逐项审查 `exclude.conf` 兼容区段的 30 项 Fresh 策略排除；缓存、浏览器可变状态、macOS
   标准用户目录和 `.config-backup.bak` 的排除原则已经确认，但完整模式清单尚未逐项确认。
 - [ ] 审查无节点元数据时的状态兼容默认：`STATE_DEFAULT=min`，以及 `.xinitrc`、`.xprofile`、

@@ -1,7 +1,7 @@
 # 桌面使用指南
 
 本指南面向本配置的使用者，说明安装后如何启动、使用和个性化桌面。它按
-[依赖清单](../project/dependencies.md) 的十个布局（layout）组织。关于目录关系、启动链和
+[架构模型](../project/architecture.md#架构域模型)的十个用户能力域组织。关于目录关系、启动链和
 维护边界，请查阅[项目架构](../project/architecture.md)；发行版安装映射和设备已知问题见
 [平台档案索引](../platforms/index.md)。日常使用不需要先理解实现细节。
 
@@ -82,7 +82,7 @@ PowerShell 的 fzf 快捷键与 Linux Zsh 保持一致：
 | `Alt+I` | 选择当前项目并移动到下一项 |
 
 支持该选项的 PSFzf 版本还会将 `**` + `Tab` 用于模糊补全；旧版或不完整安装自动回退到
-PSReadLine 的 `MenuComplete`。profile 只补充缺失的 `--height 90%`、反向布局、边框和上述
+PSReadLine 的 `MenuComplete`。profile 只补充缺失的 `--height 90%`、反向列表布局、边框和上述
 导航绑定，不覆盖用户已有的 `FZF_DEFAULT_OPTS`；Linux 专用的 `fzf_preview` 不会复制到 Windows。
 
 两个安装脚本可重复执行：profile 安装器通过精确匹配 dot-source 行避免重复添加，模块安装器
@@ -195,35 +195,35 @@ Shell profile 设为 XDG 数据目录下的密码库，变量缺失时回退到�
 
 ## 显示、网络、挂载与系统控制
 
-`Mod+F3` 打开显示选择器；多屏、镜像和手动布局按当前显示器连接状态选择。亮度滚轮和
+`Mod+F3` 打开显示选择器；多屏、镜像和手动显示布局按当前显示器连接状态选择。亮度滚轮和
 `xlight` 依赖硬件支持，无法调节时先检查显卡/背光接口。
 
 登录 X11 时，`xdisplay watch` 会同时监测笔记本盖子和已连接显示器：合盖且有外接显示器时关闭内屏并
-将外屏设为主屏；切换时会先准备外屏再关闭内屏。开盖时恢复内屏为主屏，并按布局配置排列所有
+将外屏设为主屏；切换时会先准备外屏再关闭内屏。开盖时恢复内屏为主屏，并按显示布局配置排列所有
 外屏。启动时若暂时只发现一个输出，会直接将其启用为主屏；
-之后检测到新输出会再次收敛布局。无法识别内屏的多屏情况会尝试镜像，失败后 watcher 会继续重试，
-但 XRandR 不保证自动回滚已经部分应用的布局。
+之后检测到新输出会再次收敛显示布局。无法识别内屏的多屏情况会尝试镜像，失败后 watcher 会继续重试，
+但 XRandR 不保证自动回滚已经部分应用的显示布局。
 
 `xdisplay` 失败时会输出错误，并在 `notify-send` 可用时通知；`displayselect` 的所有失败路径
-不保证通知。需要立即修正布局时执行 `xdisplay apply`；旧 `xdisplay.sh --apply` 只作为兼容入口保留。
+不保证通知。需要立即修正显示布局时执行 `xdisplay apply`；旧 `xdisplay.sh --apply` 只作为兼容入口保留。
 
-只排查、不修改布局时执行 `xdisplay status`，它会显示 lid、各输出的连接与 geometry、
+只排查、不修改显示布局时执行 `xdisplay status`，它会显示 lid、各输出的连接与 geometry、
 current/preferred/target 模式及刷新率、模式数量和能力签名、stale/pending、当前策略、锁路径、
-watcher generation、manual marker、配置摘要和命中的自定义布局。标准内屏名称无需设置。
+watcher generation、manual marker、配置摘要和命中的自定义显示布局。标准内屏名称无需设置。
 
 非标准硬件可以使用已经实现但默认关闭的本地
 [设备适配器](../project/display-device-adapter.md)；适配器失败会回到标准探测和平台已登记的 legacy
 兼容路径，不把新设备参数写进通用配置。
 事件后 watcher 会短时提高探测频率以等待迟到模式；手动显示选择期间
-自动布局等待共享锁。缺少基础命令时脚本会明确提示，缺少 Arandr 只影响可选手动界面。
+自动显示布局等待共享锁。缺少基础命令时脚本会明确提示，缺少 Arandr 只影响可选手动界面。
 
-调整好布局后可执行 `displayselect save [名称]` 保存；`displayselect list` 列出快照，
-`displayselect delete 名称` 删除。保存的布局在输出集合和 lid 匹配时优先于默认扩展方向；损坏或
+调整好显示布局后可执行 `displayselect save [名称]` 保存；`displayselect list` 列出快照，
+`displayselect delete 名称` 删除。保存的显示布局在输出集合和 lid 匹配时优先于默认扩展方向；损坏或
 不再可用的快照会自动回退默认策略。
 
 切换不正常时，先保存 `xdisplay status` 和 `xrandr --current`，检查 stale/pending、primary、
 geometry、target 模式和 framebuffer，再执行一次 `xdisplay apply`。不要手工套用另一台设备
-或另一 connector 的分辨率。布局已经正确但物理出图仍慢时，按
+或另一 connector 的分辨率。显示布局已经正确但物理出图仍慢时，按
 [显示管理设计](../project/display-management.md#framebuffer-边界)区分软件收敛与驱动/链路延迟；
 设备已知现象和已验证恢复路径只从[平台档案索引](../platforms/index.md)查看。
 
@@ -297,7 +297,7 @@ TeX 项目时，在各子文件前 20 行内指向根文件：
 再按依赖清单确认 `latexmk`、所选引擎和参考文献工具已经安装。其他编程语言和排版格式仍按需
 安装各自工具链。
 
-## 模板与计划工作
+## 系统模板与计划任务
 
 `.local/share/sys-etc/` 中的网络和包管理文件是示例，不能直接视为当前系统设置。复制前先
 根据目标平台、网卡和安全要求调整，并把实际部署记录写入对应平台档案。cron 示例依赖图形
@@ -311,7 +311,7 @@ TeX 项目时，在各子文件前 20 行内指向根文件：
 表示私有，已跟踪的 `tmux.conf.local` 仍是共享配置。
 设备/发行版事实写入一个平台档案，其他文档只经平台索引引用。修改后以 `c diff` 审查，确认功能
 正常再提交。常见问题的排查顺序
-是：确认所需程序已安装，确认相关服务或会话已启动，重新登录 X11，然后检查对应布局（layout）
+是：确认所需程序已安装，确认相关服务或会话已启动，重新登录 X11，然后检查对应用户能力域
 的配置入口和平台档案。
 
 上游 LARBS 手册假定不同的浏览器、邮件工具、PulseAudio、源码路径和快捷键。遇到差异时，

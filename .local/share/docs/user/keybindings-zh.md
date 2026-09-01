@@ -21,7 +21,7 @@ DWM 部分以当前 `~/src/dwm/config.h` 为准，st 鼠标操作以当前 `~/sr
 `Mod` 是 Super/Windows 键；大写字母表示同时按 Shift。依赖缺失时，快捷键会启动失败而不会
 自动安装程序。
 
-## 窗口、布局与标签
+## 窗口、窗口布局与标签
 
 | 快捷键 | 动作 |
 | --- | --- |
@@ -37,10 +37,10 @@ DWM 部分以当前 `~/src/dwm/config.h` 为准，st 鼠标操作以当前 `~/sr
 | `Mod+a` / `Mod+Shift+a` | 切换间隙 / 恢复默认间隙 |
 | `Mod+s` | 切换窗口粘滞 |
 | `Mod+b` | 显示/隐藏状态栏 |
-| `Mod+f` / `Mod+Shift+f` | 切换全屏 / 浮动布局 |
-| `Mod+t` / `Mod+Shift+t` | 平铺 / 底部栈布局 |
-| `Mod+y` / `Mod+Shift+y` | 螺旋 / 递减布局 |
-| `Mod+u` / `Mod+Shift+u` | Deck / Monocle 布局 |
+| `Mod+f` / `Mod+Shift+f` | 切换全屏 / 浮动窗口布局 |
+| `Mod+t` / `Mod+Shift+t` | 平铺 / 底部栈窗口布局 |
+| `Mod+y` / `Mod+Shift+y` | 螺旋 / 递减窗口布局 |
+| `Mod+u` / `Mod+Shift+u` | Deck / Monocle 窗口布局 |
 | `Mod+i` / `Mod+Shift+i` | 居中主窗口 / 居中浮动主窗口布局 |
 | `Mod+o` / `Mod+Shift+o` | 增加 / 减少主窗口数 |
 | `Mod+g` / `Mod+;` | 前后切换标签 |
