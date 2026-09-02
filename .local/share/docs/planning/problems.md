@@ -39,13 +39,13 @@
 | 编号 | 问题 | 状态 |
 | --- | --- | --- |
 | P0 | 历史“能正常挂起”的条件不明 | 观察 |
-| P1 | 未插电合盖不挂起（电源状态判定待确认） | 排查中 |
+| P1 | 未插电合盖不挂起（电源状态判定待确认） | 已解决（澄清：历史观察为接电/外屏混淆） |
 | P2 | 不同 USB 设备条件下合盖后的网络/SSH 行为不一致 | 排查中 |
 | P3 | 挂起唤醒后屏幕不亮 | 待查 |
 
 ## P1：未插电合盖不挂起（电源状态判定待确认）
 
-- **状态**：排查中。
+- **状态**：已解决（澄清）。
 - **现象**：未插电、无外屏时长时间合盖仍未挂起，设备继续运行且电量明显下降；当次开机的累计
   挂起时长为 0。
 - **复现条件**：电池供电、只连接内屏、合盖；USB 接收器是否插入必须作为独立变量记录。
@@ -61,6 +61,13 @@
 - **排查过程**：R07 先确认当前合盖策略、无第二个睡眠动作所有者且系统从未实际挂起；R08 对齐
   Debian 精确源包，否定“HID 设备电池 `online=1` 被直接算作 AC”的早期假设，并把决定性取证改为
   同时采集主电源 online、主电池 status、全部 power_supply 和 login1 `OnExternalPower`。
+  R08 阶段二（2026-09-02）：拔电+接收器在的快照为 `BAT0=Discharging`、`systemd-ac-power=no`、
+  `OnExternalPower=false`——决策层电源判定正常；随后两次合盖实测（接收器在/拔）均在 4 分钟内
+  无任何挂起请求、风扇不停、累计挂起 0。两次测试时未确认 DRM 输出与 `Docked` 属性，头号嫌疑为
+  **外屏仍连接导致 `Docked=true` → `HandleLidSwitchDocked=ignore`**（新位置接有外屏）；待补
+  「拔电 + 拔外屏 + Docked=false 确认」的第三次决定性测试。
+  第三次测试（拔电 + 拔外屏 + 合盖 2 分钟）后开盖黑屏且系统无响应，只能强制重启——本次疑似
+  发生了真实挂起（P1 决策层可能已通过），唤醒失败转入 P3 主线；待上一 boot journal 确认。
 - **根因**：待确认。已确认的是 logind 当时选择了外部电源策略；该判定来自主电池遥测 fallback 仍是
   头号嫌疑，但尚缺拔电现场证据。
 - **解决**：待确认。优先级依次为修正 AC/主电池遥测源、在用户接受行为变化时把外部电源合盖策略
@@ -68,8 +75,11 @@
 - **验证与回滚**：验收必须同时看到主电源 offline、主电池 `Discharging`、
   `systemd-ac-power=no`、login1 `OnExternalPower=false`，以及 logind 请求、内核 suspend/resume 和累计
   挂起时长增加。当前尚未修改系统，无需回滚；后续修复必须记录原配置/内核并可精确恢复。
-- **下一步**：拔掉电源与所有外屏后，分别在接收器插入/拔出条件下采集同一组快照；再决定是否需要
-  一次合盖观察。
+- **下一步**：无（已澄清）；残留问题转 P2/P3。
+- **结论**：2026-09-02 实测「拔电+无外屏+合盖」成功 deep suspend 约 5.5 分钟并正常
+  返回（`PM: suspend entry/exit`、systemd-suspend 正常结束）；历史「合盖不睡」均为接电
+  （`HandleLidSwitchExternalPower=ignore`）或外屏连接（`HandleLidSwitchDocked=ignore`）状态，
+  属设计行为而非缺陷。
 - **关联轮次/权威来源**：R07、R08 本机私有协作档案；与运行版本一致的 Debian systemd source
   package；[维护策略的睡眠动作所有权](../project/maintenance-policy.md#已接受的决定)。
 
@@ -94,7 +104,9 @@
 - **解决**：待确认；在 P1 挂起决策稳定前不修改网络配置或 inhibitor。
 - **验证与回滚**：每次只改变一种设备类别，记录前后电源/输出快照和有界日志。实验不修改网络配置，
   开盖后取回 `/tmp` 日志即可；若没有系统变更则无需回滚。
-- **下一步**：先完成 P1；随后分别验证接收器、USB 存储和无设备三组，并确认用户原始观察对应哪一类。
+- **下一步**：P1 已澄清——真实挂起发生时 SSH 断属正常（睡眠期间网络关闭）；历史「有 USB 设备时
+  SSH 保持」= 当时未挂起（接电/外屏状态）。残留低优先级复测：无接收器时「SSH 断但未挂起」的
+  网络时序，待 P3 修复后顺带验证。
 - **关联轮次/权威来源**：R07、R08 本机私有协作档案；P1 的 systemd 源码与配置证据。
 
 ## P3：挂起唤醒后屏幕不亮
@@ -108,9 +120,18 @@
   - **源码/配置审查**：xdisplay 健康模型不含 DPMS、背光和物理出图；没有 resume 强制恢复事务；
     watcher 连续 6 次 RandR 快照失败会退出且没有 supervisor。
   - **合理假设**：候选包括 watcher 退出、DPMS/RandR 不一致、slock 黑屏，以及 innogpu/DRM resume。
-- **排查过程**：R07 已完成静态审查并设计现场取证；因 P1 尚未证明实际挂起，本轮不提前修改显示路径。
-- **根因**：待确认。
-- **解决**：待确认；必须由现场证据选择 xdisplay、locker 或 innogpu/DRM 所有者。
+- **排查过程**：R07 静态审查 + 现场取证设计；2026-09-02 实测复现（**实测**）：拔电+拔外屏+合盖，
+  deep suspend 约 5.5 分钟后开盖黑屏，SSH/TTY/盲输均无响应；journal 显示内核 `PM: suspend exit`
+  与 systemd-suspend 均正常完成，但 resume 瞬间出现
+  `PVR_K:(Error): PVRSRVEPowerLock() failed (PVRSRV_ERROR_SYSTEM_STATE_POWERED_OFF) in
+  PVRSRVDevicePreClockSpeedChange()`；其后 logind 仍正常（电源键触发干净关机），死的是
+  GPU/显示栈（fbcon 亦黑）。
+- **根因**：头号锁定——innogpu（PowerVR）驱动 resume 缺陷：设备电源状态仍为 POWERED_OFF 时执行
+  时钟切换导致锁失败，显示栈（DRM/fbcon）未能恢复；与 xdisplay/locker 无关。
+- **解决**：已转出（2026-09-02 用户拍板）——由 innogpu 驱动项目负责修复 resume 电源状态机；
+  dotfiles 侧无可修项。本机缓解备选（待 innogpu 修复前可试）：`mem_sleep` 改 `s2idle` 受控测试
+  （运行态可回退，验证是否绕开 PVR PrePowerState 路径）；systemd-sleep resume 钩子预期效果差、
+  不优先。
 - **验证与回滚**：成功标准是一次已确认 suspend/resume 后画面、输入和 watcher 正常，或在失败时用
   现场证据唯一收敛故障层。取证前禁止执行 `xrandr`、`xset dpms force` 或重启 watcher；使用 TTY/SSH
   作为恢复通道。
