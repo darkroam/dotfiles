@@ -1,0 +1,199 @@
+# 问题与排查记录（错题本）
+
+> 服务域：S03 文档与治理 · 读者：Agent/维护者
+> 用途：沉淀可跨设备复用的问题诊断过程。遇到同类问题时先查本文及其权威链接，再进行外部检索。
+> 边界：本文只保存脱敏摘要和索引；审计、历史、平台档案与本机私有协作档案仍是各自事实的权威来源。
+
+相关规则：[维护策略](../project/maintenance-policy.md)、[文档质量规范](../project/docs-standard.md)。
+
+## 记录规则
+
+每个活动问题固定包含 11 个字段：**状态、现象、复现条件、影响、证据/证据等级、排查过程、根因、
+解决、验证与回滚、下一步、关联轮次/权威来源**。未知内容明确写“待确认”，不得省略，也不得把
+合理假设写成根因。
+
+状态只使用以下 6 个值：
+
+| 状态 | 含义 |
+| --- | --- |
+| 观察 | 随相关问题收集线索，不单独投入排查 |
+| 待查 | 问题已登记，尚未开始决定性取证 |
+| 排查中 | 正在收集证据或收敛根因 |
+| 待验证 | 已实施候选解决方案，等待验收 |
+| 已解决 | 根因、解决、验证和回滚均已记录 |
+| 无法复现 | 在明确条件和次数下未复现，保留重新打开条件 |
+
+证据按以下 4 档标注；等级表达来源，不代替对证据内容的判断：
+
+| 证据等级 | 使用范围 |
+| --- | --- |
+| 实测 | 可重复命令输出、日志、硬件动作结果或前后状态快照 |
+| 源码/配置审查 | 与运行版本对齐的源码、有效配置或实现路径审查 |
+| 合理假设 | 能解释现象但尚缺决定性实验的推断 |
+| 用户回忆 | 用户观察或历史记忆，条件可能不完整 |
+
+## 活动问题索引
+
+实际推进顺序为 P1 → P2 → P3；P0 只作观察项。
+
+| 编号 | 问题 | 状态 |
+| --- | --- | --- |
+| P0 | 历史“能正常挂起”的条件不明 | 观察 |
+| P1 | 未插电合盖不挂起（电源状态判定待确认） | 已解决（澄清：历史观察为接电/外屏混淆） |
+| P2 | 不同 USB 设备条件下合盖后的网络/SSH 行为不一致 | 排查中 |
+| P3 | 挂起唤醒后屏幕不亮 | 待查 |
+
+## P1：未插电合盖不挂起（电源状态判定待确认）
+
+- **状态**：已解决（澄清）。
+- **现象**：未插电、无外屏时长时间合盖仍未挂起，设备继续运行且电量明显下降；当次开机的累计
+  挂起时长为 0。
+- **复现条件**：电池供电、只连接内屏、合盖；USB 接收器是否插入必须作为独立变量记录。
+- **影响**：用户误以为设备已睡眠时仍持续运行和耗电，并阻塞后续网络行为与唤醒显示问题的可靠复现。
+- **证据/证据等级**：
+  - **实测**：logind 收到 `Lid closed.`，但没有后续挂起请求；当时
+    `LidClosed=true`、`Docked=false`、`OnExternalPower=true`，同时主电源节点报告 offline。
+  - **实测**：接电采样中主电池状态为 `Not charging`；它不能证明拔电状态，仍需决定性对照。
+  - **源码/配置审查**：有效配置包含 `HandleLidSwitchExternalPower=ignore`。与已安装版本一致的 Debian
+    systemd source package 显示：`Battery` 不按 `online=1` 计为 AC，`scope=Device` 的设备
+    电池被忽略；没有在线非电池电源且没有电池报告 `Discharging` 时，systemd 保守判为 AC。
+  - **合理假设**：拔电后主电池状态可能仍不是 `Discharging`，触发上述 fallback。
+- **排查过程**：R07 先确认当前合盖策略、无第二个睡眠动作所有者且系统从未实际挂起；R08 对齐
+  Debian 精确源包，否定“HID 设备电池 `online=1` 被直接算作 AC”的早期假设，并把决定性取证改为
+  同时采集主电源 online、主电池 status、全部 power_supply 和 login1 `OnExternalPower`。
+  R08 阶段二（2026-09-02）：拔电+接收器在的快照为 `BAT0=Discharging`、`systemd-ac-power=no`、
+  `OnExternalPower=false`——决策层电源判定正常；随后两次合盖实测（接收器在/拔）均在 4 分钟内
+  无任何挂起请求、风扇不停、累计挂起 0。两次测试时未确认 DRM 输出与 `Docked` 属性，头号嫌疑为
+  **外屏仍连接导致 `Docked=true` → `HandleLidSwitchDocked=ignore`**（新位置接有外屏）；待补
+  「拔电 + 拔外屏 + Docked=false 确认」的第三次决定性测试。
+  第三次测试（拔电 + 拔外屏 + 合盖 2 分钟）后开盖黑屏且系统无响应，只能强制重启——本次疑似
+  发生了真实挂起（P1 决策层可能已通过），唤醒失败转入 P3 主线；待上一 boot journal 确认。
+- **根因**：待确认。已确认的是 logind 当时选择了外部电源策略；该判定来自主电池遥测 fallback 仍是
+  头号嫌疑，但尚缺拔电现场证据。
+- **解决**：待确认。优先级依次为修正 AC/主电池遥测源、在用户接受行为变化时把外部电源合盖策略
+  改为 suspend；本地 systemd 补丁仅作最后手段。不得实施没有源码作用点的 HID 电池 udev 排除规则。
+- **验证与回滚**：验收必须同时看到主电源 offline、主电池 `Discharging`、
+  `systemd-ac-power=no`、login1 `OnExternalPower=false`，以及 logind 请求、内核 suspend/resume 和累计
+  挂起时长增加。当前尚未修改系统，无需回滚；后续修复必须记录原配置/内核并可精确恢复。
+- **下一步**：无（已澄清）；残留问题转 P2/P3。
+- **结论**：2026-09-02 实测「拔电+无外屏+合盖」成功 deep suspend 约 5.5 分钟并正常
+  返回（`PM: suspend entry/exit`、systemd-suspend 正常结束）；历史「合盖不睡」均为接电
+  （`HandleLidSwitchExternalPower=ignore`）或外屏连接（`HandleLidSwitchDocked=ignore`）状态，
+  属设计行为而非缺陷。
+- **关联轮次/权威来源**：R07、R08 本机私有协作档案；与运行版本一致的 Debian systemd source
+  package；[维护策略的睡眠动作所有权](../project/maintenance-policy.md#已接受的决定)。
+
+## P2：不同 USB 设备条件下合盖后的网络/SSH 行为不一致
+
+- **状态**：排查中。
+- **现象**：用户观察到某一 USB 设备存在时合盖后 SSH 保持，移除后 SSH 断开，但两种条件下都没有
+  已确认的实际挂起。
+- **复现条件**：待确认。原始描述使用过“U 盘”和“接收器”，必须把无线接收器、USB 存储和无设备
+  分成独立实验组；电源、外屏、网络接口和合盖时长保持一致。
+- **影响**：SSH 断开可能被误判为已挂起；远程会话丢失也会中断故障现场取证。
+- **证据/证据等级**：
+  - **用户回忆**：有/无 USB 设备时 SSH 行为不同。
+  - **实测**：设备电池节点是否出现会随无线接收器及其配对设备状态变化；接收器存在本身不保证该
+    节点存在。
+  - **源码/配置审查**：该设备电池不会因 `online=1` 被 systemd 直接视为 AC。
+  - **合理假设**：SSH 断开可能来自真实挂起、失败挂起前的网络停用、物理链路变化或客户端超时；
+    当前证据不能选择其中任何一个。
+- **排查过程**：已将“USB 外设”拆为设备类别变量，并规定用 logind、systemd-suspend、内核 PM、
+  NetworkManager 和 SSH 客户端时间线区分四类原因；尚无合盖瞬间的完整日志。
+- **根因**：待确认。
+- **解决**：待确认；在 P1 挂起决策稳定前不修改网络配置或 inhibitor。
+- **验证与回滚**：每次只改变一种设备类别，记录前后电源/输出快照和有界日志。实验不修改网络配置，
+  开盖后取回 `/tmp` 日志即可；若没有系统变更则无需回滚。
+- **下一步**：P1 已澄清——真实挂起发生时 SSH 断属正常（睡眠期间网络关闭）；历史「有 USB 设备时
+  SSH 保持」= 当时未挂起（接电/外屏状态）。残留低优先级复测：无接收器时「SSH 断但未挂起」的
+  网络时序，待 P3 修复后顺带验证。
+- **关联轮次/权威来源**：R07、R08 本机私有协作档案；P1 的 systemd 源码与配置证据。
+
+## P3：挂起唤醒后屏幕不亮
+
+- **状态**：待查。
+- **现象**：一次被认为是合盖挂起的流程在开盖后没有恢复可见画面。
+- **复现条件**：待确认；必须先有 P1 证明的实际 suspend/resume 事务，再记录电源、外屏、USB 和锁屏条件。
+- **影响**：本地 X11 会话不可见，且可能需要 TTY/SSH 恢复；盲目显示恢复命令会破坏故障现场。
+- **证据/证据等级**：
+  - **用户回忆**：挂起唤醒后出现黑屏。
+  - **源码/配置审查**：xdisplay 健康模型不含 DPMS、背光和物理出图；没有 resume 强制恢复事务；
+    watcher 连续 6 次 RandR 快照失败会退出且没有 supervisor。
+  - **合理假设**：候选包括 watcher 退出、DPMS/RandR 不一致、slock 黑屏，以及 innogpu/DRM resume。
+- **排查过程**：R07 静态审查 + 现场取证设计；2026-09-02 实测复现（**实测**）：拔电+拔外屏+合盖，
+  deep suspend 约 5.5 分钟后开盖黑屏，SSH/TTY/盲输均无响应；journal 显示内核 `PM: suspend exit`
+  与 systemd-suspend 均正常完成，但 resume 瞬间出现
+  `PVR_K:(Error): PVRSRVEPowerLock() failed (PVRSRV_ERROR_SYSTEM_STATE_POWERED_OFF) in
+  PVRSRVDevicePreClockSpeedChange()`；其后 logind 仍正常（电源键触发干净关机），死的是
+  GPU/显示栈（fbcon 亦黑）。
+- **根因**：头号锁定——innogpu（PowerVR）驱动 resume 缺陷：设备电源状态仍为 POWERED_OFF 时执行
+  时钟切换导致锁失败，显示栈（DRM/fbcon）未能恢复；与 xdisplay/locker 无关。
+- **解决**：已转出（2026-09-02 用户拍板）——由 innogpu 驱动项目负责修复 resume 电源状态机；
+  dotfiles 侧无可修项。本机缓解备选（待 innogpu 修复前可试）：`mem_sleep` 改 `s2idle` 受控测试
+  （运行态可回退，验证是否绕开 PVR PrePowerState 路径）；systemd-sleep resume 钩子预期效果差、
+  不优先。
+- **验证与回滚**：成功标准是一次已确认 suspend/resume 后画面、输入和 watcher 正常，或在失败时用
+  现场证据唯一收敛故障层。取证前禁止执行 `xrandr`、`xset dpms force` 或重启 watcher；使用 TTY/SSH
+  作为恢复通道。
+- **下一步**：P1 验收后受控复现一次；先采集 watcher、RandR、DPMS、locker 和内核 DRM 状态，再恢复。
+- **关联轮次/权威来源**：R07、R08 本机私有协作档案；[显示管理设计](../project/display-management.md)、
+  [平台档案索引](../platforms/index.md)。
+
+## P0：历史“能正常挂起”的条件不明
+
+- **状态**：观察。
+- **现象**：用户记忆中本设备历史上曾正常挂起/唤醒，当前无法复原当时条件。
+- **复现条件**：待确认；可能涉及当时的电源、外屏、USB 设备、内核或配置组合。
+- **影响**：若直接把历史记忆当作当前基线，可能错误归因 P1/P3；作为旁证则可能帮助识别回归点。
+- **证据/证据等级**：**用户回忆**；历史日志可能已滚动，暂无同级实测或版本记录。
+- **排查过程**：不建立独立调查线，只在 P1/P2 过程中记录能解释历史行为的新证据。
+- **根因**：待确认。
+- **解决**：不适用；它是观察项，不是独立修复对象。
+- **验证与回滚**：若出现版本、配置或设备组合证据，必须能与 P1/P2 现象交叉验证；没有系统修改，
+  无需回滚。
+- **下一步**：随 P1/P2 更新；没有新证据时保持“观察”。
+- **关联轮次/权威来源**：R07、R08 本机私有协作档案。
+
+## 历史问题归档
+
+历史项只保留可复用的“问题 → 判断 → 最终结论 → 权威来源”，不复制过程原文。功能开发、普通重构
+和已接受约束不因出现在 history 或 collab 中就自动成为错题。
+
+| 编号 | 问题 | 结论/处置 | 权威来源 |
+| --- | --- | --- | --- |
+| A1 | SSH 客户端拒绝读取系统配置并报告 owner/permissions 错误 | 容器的单 UID 映射造成所有权视图差异，宿主配置正常；容器内按次绕过，宿主不修 | R04 本机私有协作档案 |
+| A2 | 设备适配器本地配置缺少精确 Git ignore 规则 | 已增加精确规则和机械门禁 | R03 本机私有协作档案 D4 |
+| A3 | 安装系统缺陷 B1–B8 | 已全部修复并保留历史方案与验证 | [安装系统修复记录](installation-fixes.md) |
+| A4 | 2026-07-31 的 112 项审计发现；2026-08-04 的 64 项修改计划 | 前者均已裁决/关闭，包含确认缺陷、设计判断和误报；后者全部完成 | [2026-07-31 审计](../audits/2026-07-31-full-review.md) · [2026-08-04 审计](../audits/2026-08-04-full-review.md) |
+| A5 | 断开的显示输出残留 geometry 并扩大 framebuffer | 共享显示引擎已加入 stale 清理、重读验证和 framebuffer 收敛，实机链路已验证 | [显示管理设计](../project/display-management.md) · [平台档案](../platforms/kaitian-x7h-g1e-debian-13.md) |
+
+## 排查工具速查（只读）
+
+```sh
+# logind 决策三要素
+busctl get-property org.freedesktop.login1 \
+  /org/freedesktop/login1 \
+  org.freedesktop.login1.Manager \
+  LidClosed Docked OnExternalPower
+
+# systemd 对当前电源的判定
+systemd-ac-power --verbose
+
+# 电源设备完整快照
+for d in /sys/class/power_supply/*; do
+    [ -r "$d/type" ] || continue
+    printf '%s type=%s' "${d##*/}" "$(cat "$d/type")"
+    [ -r "$d/online" ] && printf ' online=%s' "$(cat "$d/online")"
+    [ -r "$d/status" ] && printf ' status=%s' "$(cat "$d/status")"
+    [ -r "$d/scope" ] && printf ' scope=%s' "$(cat "$d/scope")"
+    printf '\n'
+done
+
+# DRM connector 状态
+for f in /sys/class/drm/card*-*/status; do
+    [ -r "$f" ] && printf '%s=%s\n' "${f%/status}" "$(cat "$f")"
+done
+
+# 从本次开机 wall time 与 uptime 的差值估算累计挂起时长
+python3 -c "import time; w=time.time(); u=float(open('/proc/uptime').read().split()[0]); b=int([x for x in open('/proc/stat') if x.startswith('btime')][0].split()[1]); print(f'{w-b-u:.0f}s')"
+```
