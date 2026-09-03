@@ -125,6 +125,16 @@
   - **源码/配置审查**：与运行版本对齐的 innogpu 侧源码将失败定位在设备仍为 `POWERED_OFF` 时执行
     时钟切换（`PVRSRVDevicePreClockSpeedChange`）；其余 watcher、DPMS、RandR 和 locker 候选已排除，
     不再作为本问题根因候选。
+  - **合理假设（第三方声明）**：innogpu 项目报告其交付包 `4.0.2-i3` 在 2026-09-03 完成
+    6/6 次 `deep` 矩阵并通过；判据为每次均有成对的 `PM: suspend entry/exit`，唤醒窗口无
+    `PVR_K 3900372`、PowerLock/`POWERED_OFF` 错误，且内外屏、键盘、鼠标和 TTY 均恢复。
+    这是第三方项目的实测声明，本仓库不将其过程当作本机实测。
+  - **实测（本机部分核实）**：已安装包为 `innogpu-fh2m-trixie 4.0.2-i3`；本机可取得的交付
+    `.deb` SHA-256 为
+    `177133eebda692092501a27d7d135662ddaedaf3634776b8aa1ea5153c9e1662`，与回传一致；
+    `/sys/power/mem_sleep` 为 `s2idle [deep]`，`innogpu` 模块已加载，内屏连接且 HDMI 输出未连接。
+    当前环境没有 `modinfo` 命令，模块 `.modinfo` 也没有 `version/srcversion` 字段；普通用户无权读取
+    本次启动的完整内核 journal，因此模块版本字段和最近 resume 的无错误结论均不可由本机独立核实。
 - **排查过程**：R07 完成静态审查与现场取证设计；R08 按该方案复核电源、外屏和挂起链路，并于
   2026-09-02 实测拔电、拔外屏、合盖，`deep` suspend 约 5.5 分钟后唤醒黑屏，SSH/TTY/盲输均无响应，
   但电源键仍可触发干净关机；R09 验证线暂停中，尚未执行。journal 显示 `PM: suspend entry/exit` 成对、
@@ -132,14 +142,20 @@
 - **根因**：已确认——innogpu（PowerVR）驱动 resume 缺陷：设备电源状态仍为 POWERED_OFF 时执行
   时钟切换导致锁失败，显示栈（DRM/fbcon）未能恢复；与 xdisplay/locker 无关。依据为本机 journal
   实测及 innogpu 侧源码定位（`PVRSRVDevicePreClockSpeedChange`、`PVR_K 3900372`）。
-- **解决**：区分规避与根治。规避：innogpu 修复前可将 `mem_sleep` 改为 `s2idle` 受控测试（运行态可
-  回退，用于验证是否绕开 PVR PrePowerState 路径），规避不等于解决，P3 不得据此关闭；根治：innogpu
-  侧候选修复（编号见私有档案），当前尚未验证。dotfiles 侧无可修项。
+- **解决**：区分规避与根治。规避：在本侧验收完成前将日常睡眠保持为 `s2idle` 并禁用 `deep`，
+  用于绕开已知的 GPU resume 路径；规避不等于解决，P3 不得据此关闭。根治候选为 innogpu
+  `4.0.2-i3`（交付 SHA-256 为
+  `177133eebda692092501a27d7d135662ddaedaf3634776b8aa1ea5153c9e1662`），innogpu 侧报告的
+  6/6 `deep` 矩阵均通过上述 suspend/resume、错误计数和输入输出恢复判据；本机目前只核实了包、
+  SHA、睡眠模式和模块加载，尚未独立重跑该矩阵。诚实边界：缺少厂商 `hwinfo_g0m.bin` 时亮度调节
+  不可用但点亮正常；红屏候选修复未包含且仍未验证；发布许可门禁仍为 `BLOCKED`；换用新设备后
+  必须重新执行图形基线和至少一次受控挂起验收。dotfiles 侧无可修项。
 - **验证与回滚**：成功标准是一次已确认 suspend/resume 后画面、输入和 watcher 正常，或在失败时用
   现场证据唯一收敛故障层。取证前禁止执行 `xrandr`、`xset dpms force` 或重启 watcher；使用 TTY/SSH
   作为恢复通道。
-- **下一步**：候选修复待验证；调查线暂停，恢复需重新授权。等待 innogpu 交付已验证修复 → 按 R09
-  验收测试方案执行 deep 验证 → 通过则关闭，未通过则回传证据。
+- **下一步**：按 R09 汇报中的验收测试方案执行本侧受控 `deep` 合盖实测（或由用户明确选择只读
+  复核）；记录前置电源/输出状态、`PM` entry/exit、唤醒后的画面/输入/TTY 与 PVR 错误。通过则
+  关闭 P3，未通过则保留「待验证」并回传完整证据；在用户授权前不执行挂起实验。
 - **关联轮次/权威来源**：R07、R08 本机私有协作档案；[显示管理设计](../project/display-management.md)、
   [平台档案索引](../platforms/index.md)。
 
