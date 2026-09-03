@@ -125,6 +125,10 @@
   - **源码/配置审查**：与运行版本对齐的 innogpu 侧源码将失败定位在设备仍为 `POWERED_OFF` 时执行
     时钟切换（`PVRSRVDevicePreClockSpeedChange`）；其余 watcher、DPMS、RandR 和 locker 候选已排除，
     不再作为本问题根因候选。
+- **排查过程**：R07 完成静态审查与现场取证设计；R08/R09 按该方案复核电源、外屏和挂起链路。
+  2026-09-02 实测拔电、拔外屏、合盖，`deep` suspend 约 5.5 分钟后唤醒黑屏，SSH/TTY/盲输均无响应，
+  但电源键仍可触发干净关机。journal 显示 `PM: suspend entry/exit` 成对、systemd-suspend 正常结束，
+  并记录 `PVR_K 3900372`；据此将故障层收敛到 GPU/显示栈。
 - **根因**：已确认——innogpu（PowerVR）驱动 resume 缺陷：设备电源状态仍为 POWERED_OFF 时执行
   时钟切换导致锁失败，显示栈（DRM/fbcon）未能恢复；与 xdisplay/locker 无关。依据为本机 journal
   实测及 innogpu 侧源码定位（`PVRSRVDevicePreClockSpeedChange`、`PVR_K 3900372`）。
