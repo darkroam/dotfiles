@@ -261,7 +261,7 @@ CPU 温度。即使后续驱动成功，Hygon/AMD 驱动通常提供 `Tctl`、`T
 | --- | --- |
 | deep 挂起 | 已由 innogpu 4.0.2-i3 修复并通过本侧验收，详见[问题与排查记录 P3](../planning/problems.md#p3挂起唤醒后屏幕不亮) |
 | 日常睡眠偏好 | `deep` 已恢复激活 |
-| 显示驱动来源 | innogpu 4.0.2-i3（实验交付，本地 deb） |
+| 显示驱动来源 | innogpu 4.0.2-i3（2026-09-03 交付；实验交付，本地 deb） |
 
 GPU 的 DRM connector `card0-DP-1`、`card0-HDMI-A-1`、`card0-HDMI-A-2` 在 Xorg 中通常映射为
 `eDP-1`、`HDMI-1`、`HDMI-2`。内屏曾出现 `DP-1` 别名，因此当前 Xprofile 使用
