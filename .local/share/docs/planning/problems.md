@@ -39,13 +39,14 @@
 | 编号 | 问题 | 状态 |
 | --- | --- | --- |
 | P0 | 历史“能正常挂起”的条件不明 | 观察 |
-| P1 | 未插电合盖不挂起（电源状态判定待确认） | 已解决（澄清：历史观察为接电/外屏混淆） |
+| P1 | 未插电合盖不挂起（已澄清为接电/外屏策略） | 已解决 |
 | P2 | 不同 USB 设备条件下合盖后的网络/SSH 行为不一致 | 排查中 |
-| P3 | 挂起唤醒后屏幕不亮 | 待查 |
+| P3 | 挂起唤醒后屏幕不亮 | 待验证 |
+| P4 | s2idle 外屏红屏（间歇竞态） | 无法复现 |
 
-## P1：未插电合盖不挂起（电源状态判定待确认）
+## P1：未插电合盖不挂起（已澄清）
 
-- **状态**：已解决（澄清）。
+- **状态**：已解决。
 - **现象**：未插电、无外屏时长时间合盖仍未挂起，设备继续运行且电量明显下降；当次开机的累计
   挂起时长为 0。
 - **复现条件**：电池供电、只连接内屏、合盖；USB 接收器是否插入必须作为独立变量记录。
@@ -76,10 +77,9 @@
   `systemd-ac-power=no`、login1 `OnExternalPower=false`，以及 logind 请求、内核 suspend/resume 和累计
   挂起时长增加。当前尚未修改系统，无需回滚；后续修复必须记录原配置/内核并可精确恢复。
 - **下一步**：无（已澄清）；残留问题转 P2/P3。
-- **结论**：2026-09-02 实测「拔电+无外屏+合盖」成功 deep suspend 约 5.5 分钟并正常
-  返回（`PM: suspend entry/exit`、systemd-suspend 正常结束）；历史「合盖不睡」均为接电
-  （`HandleLidSwitchExternalPower=ignore`）或外屏连接（`HandleLidSwitchDocked=ignore`）状态，
-  属设计行为而非缺陷。
+- **结论**：2026-09-02 实测「拔电+无外屏+合盖」deep 挂起事务正常进入与退出
+  （`PM: suspend entry/exit`、systemd-suspend 正常结束），P1 决策层通过；唤醒后显示栈未恢复，见 P3。
+  历史「合盖不睡」均为接电或外屏连接状态，属设计行为而非缺陷。
 - **关联轮次/权威来源**：R07、R08 本机私有协作档案；与运行版本一致的 Debian systemd source
   package；[维护策略的睡眠动作所有权](../project/maintenance-policy.md#已接受的决定)。
 
@@ -111,9 +111,9 @@
 
 ## P3：挂起唤醒后屏幕不亮
 
-- **状态**：待查。
+- **状态**：待验证。
 - **现象**：一次被认为是合盖挂起的流程在开盖后没有恢复可见画面。
-- **复现条件**：待确认；必须先有 P1 证明的实际 suspend/resume 事务，再记录电源、外屏、USB 和锁屏条件。
+- **复现条件**：拔电 + 无外屏 + 合盖，`mem_sleep=deep`；必须先确认实际 suspend/resume 事务，再记录 USB 和锁屏条件。
 - **影响**：本地 X11 会话不可见，且可能需要 TTY/SSH 恢复；盲目显示恢复命令会破坏故障现场。
 - **证据/证据等级**：
   - **用户回忆**：挂起唤醒后出现黑屏。
@@ -126,18 +126,36 @@
   `PVR_K:(Error): PVRSRVEPowerLock() failed (PVRSRV_ERROR_SYSTEM_STATE_POWERED_OFF) in
   PVRSRVDevicePreClockSpeedChange()`；其后 logind 仍正常（电源键触发干净关机），死的是
   GPU/显示栈（fbcon 亦黑）。
-- **根因**：头号锁定——innogpu（PowerVR）驱动 resume 缺陷：设备电源状态仍为 POWERED_OFF 时执行
-  时钟切换导致锁失败，显示栈（DRM/fbcon）未能恢复；与 xdisplay/locker 无关。
-- **解决**：已转出（2026-09-02 用户拍板）——由 innogpu 驱动项目负责修复 resume 电源状态机；
-  dotfiles 侧无可修项。本机缓解备选（待 innogpu 修复前可试）：`mem_sleep` 改 `s2idle` 受控测试
-  （运行态可回退，验证是否绕开 PVR PrePowerState 路径）；systemd-sleep resume 钩子预期效果差、
-  不优先。
+- **根因**：已确认——innogpu（PowerVR）驱动 resume 缺陷：设备电源状态仍为 POWERED_OFF 时执行
+  时钟切换导致锁失败，显示栈（DRM/fbcon）未能恢复；与 xdisplay/locker 无关。依据为本机 journal
+  实测及 innogpu 侧源码定位（`PVRSRVDevicePreClockSpeedChange`、`PVR_K 3900372`）。
+- **解决**：区分规避与根治。规避：innogpu 修复前可将 `mem_sleep` 改为 `s2idle` 受控测试（运行态可
+  回退，用于验证是否绕开 PVR PrePowerState 路径），规避不等于解决，P3 不得据此关闭；根治：innogpu
+  patch-024，当前尚未验证。dotfiles 侧无可修项。
 - **验证与回滚**：成功标准是一次已确认 suspend/resume 后画面、输入和 watcher 正常，或在失败时用
   现场证据唯一收敛故障层。取证前禁止执行 `xrandr`、`xset dpms force` 或重启 watcher；使用 TTY/SSH
   作为恢复通道。
-- **下一步**：P1 验收后受控复现一次；先采集 watcher、RandR、DPMS、locker 和内核 DRM 状态，再恢复。
+- **下一步**：候选修复待验证；调查线暂停，恢复需重新授权。等待 innogpu 交付已验证修复 → 按 R09
+  验收测试方案执行 deep 验证 → 通过则关闭，未通过则回传证据。
 - **关联轮次/权威来源**：R07、R08 本机私有协作档案；[显示管理设计](../project/display-management.md)、
   [平台档案索引](../platforms/index.md)。
+
+## P4：s2idle 外屏红屏（间歇竞态）
+
+- **状态**：无法复现。
+- **现象**：使用 `s2idle` 挂起并连接外屏时，曾出现间歇性红屏；具体外屏型号、触发时机和显示状态以
+  受控实验记录为准，不能将未复现的现象写成稳定回归。
+- **复现条件**：外屏连接、`mem_sleep=s2idle`，并记录合盖/唤醒时机；`cursor_enable=0` 分支不纳入该组。
+- **影响**：唤醒后外屏可能显示错误颜色，影响图形会话可用性与 P3 验证判断。
+- **证据/证据等级**：**用户回忆**；三次受控尝试为**实测**未复现，当前无可重复日志或截图证据。
+- **排查过程**：R06、R08、R09 分别按外屏连接与 s2idle 组合尝试三次，均未复现；后续应保留外屏型号、
+  connector 状态、唤醒时序和内核日志的同一份快照。
+- **根因**：待确认；候选为 innogpu patch-025 涉及的 resume 竞态，不能据此提前定案。
+- **解决**：暂无；不修改 dotfiles 显示逻辑，不以三次未复现替代根因修复。
+- **验证与回滚**：重新出现时保留现场日志和截图，先记录再恢复；若实施候选修复，必须以相同外屏与
+  时序重复验证，并可回退到修复前版本。
+- **下一步**：保持无法复现；满足相同条件再次出现、或 innogpu patch-025 有可验证变更时重新打开。
+- **关联轮次/权威来源**：R06、R08、R09 本机私有协作档案；innogpu patch-025 交付记录（待验证）。
 
 ## P0：历史“能正常挂起”的条件不明
 

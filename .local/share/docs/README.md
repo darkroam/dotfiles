@@ -28,7 +28,7 @@
 - [显示管理设计](project/display-management.md) — X11 显示引擎的状态模型、显示布局策略和验证矩阵
 - [显示设备适配器指引](project/display-device-adapter.md) — 非标准硬件扩展接口规范
 - [显示管理测试](project/display-testing.md) — 状态、显示布局、配置和适配器的测试方案与验收步骤
-- [协作规约](project/collaboration.md) — 用户 × dsh × codex 三角色协作流程、审查标准与提交纪律；轮次档案保存在本机私有目录 `.local/share/collab/`
+- [协作规约](project/collaboration.md) — 用户 × dsh × qoder × codex 四角色协作流程、两级审查标准与提交纪律；轮次档案保存在本机私有目录 `.local/share/collab/`
 
 ### 约束速查
 
@@ -39,7 +39,7 @@
 | 架构所有权与域归属 | [架构与设计](project/architecture.md) · [架构域归属表](project/domain-map.md) | 先确定唯一主域；路径归属只在域表登记。 |
 | 项目维护与平台事实 | [维护策略](project/maintenance-policy.md) | 共享行为与设备事实分开维护；行为变更先审查再执行。 |
 | 文档质量与术语 | [文档质量规范](project/docs-standard.md) | 文档必须面向单一读者，并与实现、链接和权威术语同步。 |
-| 多 Agent 协作与提交 | [协作规约](project/collaboration.md) | 用户决策、dsh 审查、codex 实现的职责和文件边界不得越权。 |
+| 多 Agent 协作与提交 | [协作规约](project/collaboration.md) | 用户决策、dsh 终审、qoder 初审与建议、codex 实现的职责和文件边界不得越权。 |
 | 安装系统外部契约 | [安装系统](project/installation-system.md#核心开发契约与不可变规则) | 用户接口、数据保护、幂等性和配置驱动契约不可由内部重构改变。 |
 | 验证基线 | [安装测试](project/installation-testing.md) · [显示测试](project/display-testing.md) · [协作规约](project/collaboration.md) | 行为变更必须同步相应测试基线，失败不得绕过。 |
 
