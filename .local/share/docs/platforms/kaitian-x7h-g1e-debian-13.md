@@ -255,6 +255,14 @@ CPU 温度。即使后续驱动成功，Hygon/AMD 驱动通常提供 `Tctl`、`T
 
 ## 显示硬件与本机钩子
 
+### 挂起与显示状态
+
+| 项目 | 当前事实 |
+| --- | --- |
+| deep 挂起 | 受 GPU 驱动 resume 缺陷阻塞，详见[问题与排查记录 P3](../planning/problems.md#p3挂起唤醒后屏幕不亮) |
+| 日常睡眠偏好 | 使用 `s2idle`；`mem_sleep=[s2idle] deep`，deep 日常禁用 |
+| 显示驱动来源 | innogpu 实验分支 |
+
 GPU 的 DRM connector `card0-DP-1`、`card0-HDMI-A-1`、`card0-HDMI-A-2` 在 Xorg 中通常映射为
 `eDP-1`、`HDMI-1`、`HDMI-2`。内屏曾出现 `DP-1` 别名，因此当前 Xprofile 使用
 `XDISPLAY_INTERNAL_OUTPUTS="eDP-1 DP-1"` 补充候选；外屏名称仍由运行时发现，不能写死。
