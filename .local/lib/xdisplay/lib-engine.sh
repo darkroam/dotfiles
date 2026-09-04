@@ -149,6 +149,12 @@ xdisplay_watch_displays() {
     pending_outputs=0
     probe_pending=0
     snapshot_failures=0
+    authoritative_parsed=
+    authoritative_connections=
+    startup_gate_key=
+    startup_gate_stable_ticks=0
+    startup_gate_ticks=0
+    startup_gate_open=0
 
     while :; do
         xdisplay_read_lid_state
@@ -195,6 +201,26 @@ xdisplay_watch_displays() {
             if xdisplay_read_snapshot "$snapshot_option"; then
                 snapshot_failures=0
                 [ "$snapshot_option" = --query ] && probe_pending=0
+                current_connections=$(xdisplay_connection_signature)
+                normalized_snapshot=1
+                if [ "$snapshot_option" = --query ]; then
+                    authoritative_parsed=$XRANDR_PARSED
+                    authoritative_connections=$current_connections
+                elif [ -n "$authoritative_parsed" ] &&
+                    [ "$current_connections" = "$authoritative_connections" ]; then
+                    XRANDR_PARSED=$authoritative_parsed
+                    xdisplay_refresh_display_state "$current_lid"
+                else
+                    # A cached snapshot may reveal a real hotplug, but its
+                    # capability list is not authoritative. Defer layout work
+                    # until the forced probe on the next watcher tick.
+                    authoritative_parsed=
+                    authoritative_connections=$current_connections
+                    probe_pending=1
+                    fast_checks=$FAST_WINDOW_CHECKS
+                    poll_ticks=0
+                    normalized_snapshot=0
+                fi
                 current_key=$LID_PRESENT:$current_lid\|$(xdisplay_topology_signature)
                 current_health=$(xdisplay_snapshot_health "$current_lid")
                 current_state=$current_key\|health:$current_health
@@ -216,15 +242,48 @@ xdisplay_watch_displays() {
                         apply_due=1
                     fi
                 fi
+                if [ "$startup_gate_open" -eq 0 ]; then
+                    startup_gate_ticks=$((startup_gate_ticks + 1))
+                    if [ "$normalized_snapshot" -eq 1 ] &&
+                        [ "$current_key" = "$startup_gate_key" ]; then
+                        startup_gate_stable_ticks=$((startup_gate_stable_ticks + 1))
+                    else
+                        startup_gate_key=$current_key
+                        startup_gate_stable_ticks=1
+                    fi
+                    if [ "$startup_gate_ticks" -ge "$STARTUP_GATE_MAX_TICKS" ] ||
+                        { [ "$normalized_snapshot" -eq 1 ] &&
+                            [ "$startup_gate_stable_ticks" -ge "$STARTUP_GATE_STABLE_TICKS" ] &&
+                            xdisplay_outputs_preferred_ready "$CURRENT_EXTERNAL_OUTPUTS"; }; then
+                        startup_gate_open=1
+                    else
+                        apply_due=0
+                    fi
+                elif [ "$normalized_snapshot" -eq 0 ]; then
+                    apply_due=0
+                fi
                 if { [ "$current_key" != "$applied_key" ] ||
                     [ "$current_health" != "$applied_health" ]; } &&
                     [ "$apply_due" -eq 1 ]; then
                     if xdisplay_apply_display_config "$current_lid"; then
-                        applied_key=$LID_PRESENT:$current_lid\|$(xdisplay_topology_signature)
+                        applied_connections=$(xdisplay_connection_signature)
+                        post_apply_key=$current_key
+                        if [ "$applied_connections" = "$current_connections" ]; then
+                            applied_key=$current_key
+                        else
+                            # Keep the pre-transaction key as the applied
+                            # generation, while observing the new projection.
+                            # The forced probe will then plan that generation.
+                            applied_key=$current_key
+                            post_apply_key=$LID_PRESENT:$current_lid\|$(xdisplay_topology_signature)
+                            authoritative_parsed=
+                            authoritative_connections=$applied_connections
+                            probe_pending=1
+                        fi
                         applied_health=$(xdisplay_snapshot_health "$current_lid")
-                        observed_key=$applied_key
+                        observed_key=$post_apply_key
                         observed_health=$applied_health
-                        apply_failure_state=$applied_key\|health:$applied_health
+                        apply_failure_state=$post_apply_key\|health:$applied_health
                         apply_failures=0
                         apply_retry_ticks=0
                         if xdisplay_snapshot_has_pending_outputs "$current_lid"; then

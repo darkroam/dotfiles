@@ -1,7 +1,8 @@
 # Per-output state and target-mode queries.
 # Functions: xdisplay_output_in_list, xdisplay_output_active,
 # xdisplay_output_primary, xdisplay_output_at_origin, xdisplay_output_ready,
-# xdisplay_output_target_*, xdisplay_output_at_target_mode.
+# xdisplay_outputs_preferred_ready, xdisplay_output_target_*,
+# xdisplay_output_at_target_mode.
 
 xdisplay_output_in_list() {
     printf '%s\n' "$1" |
@@ -39,6 +40,23 @@ xdisplay_output_ready() {
             $1 == "output" && $2 == output && $10 == 1 { found = 1 }
             END { exit !found }
         '
+}
+
+xdisplay_outputs_preferred_ready() {
+    old_ifs=$IFS
+    IFS='
+'
+    for output in $1; do
+        printf '%s\n' "$XRANDR_PARSED" |
+            awk -F '\t' -v output="$output" '
+                $1 == "output" && $2 == output && $17 != "-" { found = 1 }
+                END { exit !found }
+            ' || {
+                IFS=$old_ifs
+                return 1
+            }
+    done
+    IFS=$old_ifs
 }
 
 xdisplay_output_target_mode() {

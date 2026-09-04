@@ -1,5 +1,6 @@
 # Output classification, topology signatures, and primary selection.
-# Functions: xdisplay_verify_target_modes, xdisplay_topology_signature,
+# Functions: xdisplay_verify_target_modes, xdisplay_capability_signature,
+# xdisplay_connection_signature, xdisplay_topology_signature,
 # xdisplay_internal_output, xdisplay_external_outputs,
 # xdisplay_usable_outputs, xdisplay_choose_primary.
 
@@ -16,11 +17,22 @@ xdisplay_verify_target_modes() {
     IFS=$old_ifs
 }
 
-xdisplay_topology_signature() {
+xdisplay_capability_signature() {
     printf '%s\n' "$XRANDR_PARSED" |
         awk -F '\t' '
             $1 == "output" { printf "%s:%s:%s:%s,", $2, $3, $11, $22 }
         '
+}
+
+xdisplay_connection_signature() {
+    printf '%s\n' "$XRANDR_PARSED" |
+        awk -F '\t' '
+            $1 == "output" { printf "%s:%s,", $2, $3 }
+        '
+}
+
+xdisplay_topology_signature() {
+    xdisplay_capability_signature
     printf 'custom:%s:%s\n' "$CUSTOM_LAYOUT_NAME" "$CUSTOM_LAYOUT_MTIME"
 }
 
