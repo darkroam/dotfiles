@@ -603,4 +603,243 @@ assert_contains "$(cat "$log_path")" 'subcommand=expected-mode'
 [ "$(wc -c < "$old_log")" -ge 1048576 ] || fail 'rotated adapter log did not preserve old contents'
 pass 'adapter log rotates at the size limit without blocking'
 
+write_watch_sleep() {
+    mkdir -p "$case_dir/bin"
+    cat > "$case_dir/bin/sleep" <<'SLEEP_MOCK'
+#!/bin/sh
+count=0
+if [ -r "$WATCH_SLEEP_COUNT" ]; then
+    IFS= read -r count < "$WATCH_SLEEP_COUNT" || count=0
+fi
+count=$((count + 1))
+printf '%s\n' "$count" > "$WATCH_SLEEP_COUNT"
+mutation_count=$(wc -l < "$FAKE_XRANDR_MUTATIONS")
+printf '%s\t%s\n' "$count" "$mutation_count" >> "$WATCH_SLEEP_TRACE"
+if [ "$count" -ge "$WATCH_STOP_TICKS" ]; then
+    kill -TERM "$PPID"
+fi
+SLEEP_MOCK
+    chmod 700 "$case_dir/bin/sleep"
+}
+
+setup_watch_case() {
+    setup_case "$1"
+    scenario=$case_dir/scenario
+    state=$case_dir/sequence.state
+    sleep_count=$case_dir/sleep.count
+    sleep_trace=$case_dir/sleep.trace
+    watch_log=$case_dir/watch.log
+    mkdir -p "$scenario" "$case_dir/bin" \
+        "$case_dir/test-root/proc/acpi/button/lid/LID0"
+    printf 'state:      closed\n' > \
+        "$case_dir/test-root/proc/acpi/button/lid/LID0/state"
+    printf '0\n' > "$state"
+    : > "$sleep_count"
+    : > "$sleep_trace"
+    write_watch_sleep
+}
+
+run_watch_case() {
+    display=$1
+    ticks=$2
+    set +e
+    env HOME="$home" PATH="$fake_bin:$case_dir/bin:/usr/bin:/bin" \
+        DISPLAY="$display" XAUTHORITY="$case_dir/Xauthority" XDG_RUNTIME_DIR="$runtime" \
+        XDISPLAY_TEST_MODE=1 XDISPLAY_TEST_ROOT="$case_dir/test-root" \
+        XDISPLAY_USE_ADAPTER=0 FAKE_XRANDR_SEQUENCE_DIR="$scenario" \
+        FAKE_XRANDR_SEQUENCE_STATE="$state" FAKE_XRANDR_CALLS="$calls" \
+        FAKE_XRANDR_MUTATIONS="$mutations" FAKE_XRANDR_MUTATION_RESULT=0 \
+        WATCH_SLEEP_COUNT="$sleep_count" WATCH_SLEEP_TRACE="$sleep_trace" \
+        WATCH_STOP_TICKS="$ticks" "$xdisplay" --watch > "$watch_log" 2>&1
+    watch_result=$?
+    set -e
+    [ "$watch_result" -eq 143 ] ||
+        fail "watcher fixture returned unexpected status $watch_result"
+}
+
+first_mutation_tick() {
+    awk -F '\t' '$2 > 0 { print $1; exit }' "$sleep_trace"
+}
+
+write_initial_preferred() {
+    cat > "$1" <<'XRANDR'
+Screen 0: minimum 320 x 200, current 4480 x 1440, maximum 16384 x 16384
+eDP-1 connected primary 1920x1080+0+0 (normal left inverted right x axis y axis) 300mm x 190mm
+   1920x1080     60.00*+
+HDMI-1 connected 1920x1080+1920+0 (normal left inverted right x axis y axis) 600mm x 340mm
+   2560x1440     60.00+
+   1920x1080     60.00*
+XRANDR
+}
+
+write_initial_current_divergent() {
+    cat > "$1" <<'XRANDR'
+Screen 0: minimum 320 x 200, current 4480 x 1440, maximum 16384 x 16384
+eDP-1 connected primary 1920x1080+0+0 (normal left inverted right x axis y axis) 300mm x 190mm
+   1920x1080     60.00*+
+HDMI-1 connected 1920x1080+1920+0 (normal left inverted right x axis y axis) 600mm x 340mm
+   1920x1080     60.00*
+   2560x1440     60.00
+XRANDR
+}
+
+write_initial_unpreferred() {
+    cat > "$1" <<'XRANDR'
+Screen 0: minimum 320 x 200, current 3840 x 1080, maximum 16384 x 16384
+eDP-1 connected primary 1920x1080+0+0 (normal left inverted right x axis y axis) 300mm x 190mm
+   1920x1080     60.00*+
+HDMI-1 connected 1280x720+1920+0 (normal left inverted right x axis y axis) 600mm x 340mm
+   1920x1080     60.00
+   1280x720      60.00*
+XRANDR
+}
+
+write_converged_preferred() {
+    cat > "$1" <<'XRANDR'
+Screen 0: minimum 320 x 200, current 2560 x 1440, maximum 16384 x 16384
+eDP-1 connected (normal left inverted right x axis y axis) 300mm x 190mm
+   1920x1080     60.00+
+HDMI-1 connected primary 2560x1440+0+0 (normal left inverted right x axis y axis) 600mm x 340mm
+   2560x1440     60.00*+
+   1920x1080     60.00
+XRANDR
+}
+
+write_converged_current_divergent() {
+    cat > "$1" <<'XRANDR'
+Screen 0: minimum 320 x 200, current 2560 x 1440, maximum 16384 x 16384
+eDP-1 connected (normal left inverted right x axis y axis) 300mm x 190mm
+   1920x1080     60.00+
+HDMI-1 connected primary 2560x1440+0+0 (normal left inverted right x axis y axis) 600mm x 340mm
+   1920x1080     60.00
+   2560x1440     60.00*
+XRANDR
+}
+
+write_converged_unpreferred() {
+    cat > "$1" <<'XRANDR'
+Screen 0: minimum 320 x 200, current 1920 x 1080, maximum 16384 x 16384
+eDP-1 connected (normal left inverted right x axis y axis) 300mm x 190mm
+   1920x1080     60.00+
+HDMI-1 connected primary 1920x1080+0+0 (normal left inverted right x axis y axis) 600mm x 340mm
+   1920x1080     60.00*
+   1280x720      60.00
+XRANDR
+}
+
+write_extra_output_snapshot() {
+    position=$2
+    cat > "$1" <<XRANDR
+Screen 0: minimum 320 x 200, current 4480 x 1440, maximum 16384 x 16384
+eDP-1 connected (normal left inverted right x axis y axis) 300mm x 190mm
+   1920x1080     60.00+
+HDMI-1 connected primary 2560x1440+0+0 (normal left inverted right x axis y axis) 600mm x 340mm
+   2560x1440     60.00*+
+   1920x1080     60.00
+DP-1 connected 1920x1080+${position}+0 (normal left inverted right x axis y axis) 600mm x 340mm
+   1920x1080     60.00*+
+XRANDR
+}
+
+write_steady_divergence_scenario() {
+    write_initial_preferred "$scenario/0.xrandr"
+    write_initial_current_divergent "$scenario/1.xrandr"
+    write_converged_preferred "$scenario/2.xrandr"
+    write_converged_preferred "$scenario/4.xrandr"
+    write_converged_current_divergent "$scenario/5.xrandr"
+    cat > "$scenario/transitions.tsv" <<'TRANSITIONS'
+0	query	1
+1	current	0
+0	mutation	2
+2	current	4
+4	query	5
+5	current	4
+TRANSITIONS
+}
+
+setup_watch_case gate-normalized-key
+write_steady_divergence_scenario
+query_status=$(run_xdisplay "$scenario/0.xrandr" 0)
+current_status=$(run_xdisplay "$scenario/1.xrandr" 0)
+query_key=$(printf '%s\n' "$query_status" | sed -n 's/^topology_signature=//p')
+current_key=$(printf '%s\n' "$current_status" | sed -n 's/^topology_signature=//p')
+[ "$query_key" != "$current_key" ] || fail 'G-01 fixture did not reproduce raw key divergence'
+run_watch_case :90 4
+[ "$(first_mutation_tick)" = 2 ] || fail 'G-01 normalized gate did not converge at tick 2'
+pass 'G-01 authoritative query key normalizes alternating snapshot sources'
+
+setup_watch_case gate-ready
+write_steady_divergence_scenario
+run_watch_case :91 4
+[ "$(sed -n '1p' "$sleep_trace")" = "1	0" ] ||
+    fail 'G-02 startup gate applied on the first tick'
+[ "$(first_mutation_tick)" = 2 ] || fail 'G-02 startup gate did not open on tick 2'
+[ "$(wc -l < "$mutations")" -eq 1 ] || fail 'G-02 emitted more than one mutation'
+pass 'G-02 preferred-ready stable startup applies once on tick 2'
+
+setup_watch_case gate-preferred-delay
+write_initial_unpreferred "$scenario/0.xrandr"
+write_initial_current_divergent "$scenario/1.xrandr"
+write_initial_preferred "$scenario/2.xrandr"
+write_initial_current_divergent "$scenario/3.xrandr"
+write_converged_preferred "$scenario/4.xrandr"
+cat > "$scenario/transitions.tsv" <<'TRANSITIONS'
+0	query	1
+1	current	2
+2	query	3
+3	current	2
+2	mutation	4
+TRANSITIONS
+run_watch_case :92 6
+[ "$(first_mutation_tick)" = 4 ] || fail 'G-03 applied before delayed preferred stabilized'
+assert_contains "$(cat "$mutations")" '--mode 2560x1440'
+pass 'G-03 delayed preferred mode gates apply until a stable authoritative snapshot'
+
+setup_watch_case gate-timeout
+write_initial_unpreferred "$scenario/0.xrandr"
+write_initial_unpreferred "$scenario/1.xrandr"
+write_converged_unpreferred "$scenario/2.xrandr"
+cat > "$scenario/transitions.tsv" <<'TRANSITIONS'
+0	query	1
+1	current	0
+0	mutation	2
+TRANSITIONS
+run_watch_case :93 12
+[ "$(first_mutation_tick)" = 10 ] || fail 'G-04 timeout did not release on tick 10'
+assert_contains "$(cat "$mutations")" '--mode 1920x1080'
+pass 'G-04 missing preferred mode follows the bounded tick-10 fallback'
+
+setup_watch_case key-repeat
+write_steady_divergence_scenario
+run_watch_case :94 20
+[ "$(wc -l < "$mutations")" -eq 1 ] || fail 'G-05 alternating sources repeated apply'
+pass 'G-05 normalized key prevents repeated apply across 20 alternating ticks'
+
+setup_watch_case apply-hotplug
+write_initial_preferred "$scenario/0.xrandr"
+write_initial_current_divergent "$scenario/1.xrandr"
+write_extra_output_snapshot "$scenario/2.xrandr" 0
+write_extra_output_snapshot "$scenario/4.xrandr" 0
+write_converged_current_divergent "$scenario/5.xrandr"
+write_extra_output_snapshot "$scenario/6.xrandr" 2560
+cat >> "$scenario/5.xrandr" <<'XRANDR'
+DP-1 connected 1920x1080+0+0 (normal left inverted right x axis y axis) 600mm x 340mm
+   1920x1080     60.00*+
+XRANDR
+cat > "$scenario/transitions.tsv" <<'TRANSITIONS'
+0	query	1
+1	current	0
+0	mutation	2
+2	current	4
+4	query	5
+5	mutation	6
+TRANSITIONS
+run_watch_case :95 5
+[ "$(sed -n '2p' "$sleep_trace")" = "2	1" ] ||
+    fail 'G-06 first transaction did not observe the hotplug'
+[ "$(sed -n '3p' "$sleep_trace")" = "3	2" ] ||
+    fail 'G-06 hotplug was not replanned on the next tick'
+assert_contains "$(sed -n '2p' "$mutations")" '--right-of HDMI-1'
+pass 'G-06 connection projection change forces next-tick replan'
+
 printf 'PASS: %s adapter fixture tests\n' "$tests"

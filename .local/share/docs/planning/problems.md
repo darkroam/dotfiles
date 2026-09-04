@@ -43,7 +43,7 @@
 | P2 | 不同 USB 设备条件下合盖后的网络/SSH 行为不一致 | 排查中 |
 | P3 | 挂起唤醒后屏幕不亮 | 已解决 |
 | P4 | s2idle 外屏红屏（间歇竞态） | 无法复现 |
-| P5 | 冷启动合盖仅外屏：startx 后外屏瞬时黑屏/分辨率错误 | 排查中 |
+| P5 | 冷启动合盖仅外屏：startx 后外屏瞬时黑屏/分辨率错误 | 待验证 |
 
 ## P1：未插电合盖不挂起（已澄清为接电/外屏策略）
 
@@ -183,7 +183,7 @@
 
 ## P5：冷启动合盖仅外屏：startx 后外屏瞬时黑屏/分辨率错误
 
-- **状态**：排查中。
+- **状态**：待验证。
 - **现象**：冷启动时合上笔记本盖、仅连接外部显示器，登录界面外屏正常；输入密码执行
   `startx` 后，外屏短暂正常，随后黑屏，等待 watcher 轮询后可能恢复。另一种表现是轮询恢复后
   分辨率明显过大，必须开盖再合盖触发重新布局才恢复正常。
@@ -195,13 +195,10 @@
 - **证据/证据等级**：
   - **用户回忆**：登录界面外屏正常，`startx` 后出现“正常一瞬→黑屏→轮询恢复”或“恢复但分辨率过大”；
     开盖再合盖可以触发恢复。
-  - **源码/配置审查**：`.config/x11/xprofile:68-74` 异步启动唯一 watcher，未设置 X/RandR
-    稳定等待；`.local/lib/xdisplay/lib-engine.sh:153-222` 在首轮观测键和已应用键为空时，将第一个
-    可解析快照直接送入 apply。首轮必然使用 `--query`：`lib-runtime.sh:159-170` 在 DRM status
-    全部不可读时输出字面量 `unavailable`（:169），返回值恒非空，与初始 `observed_drm=`
-    （lib-engine.sh:138）必不相等，:166 恒置 `force_probe=1`；冷启动 `observed_lid=` 不等于
-    `open`，:160 为假使 `lid_closing` 保持 0，:184 的探测抑制守卫不触发。首轮不存在退回
-    `--current` 的分支，稳定性门禁同样缺失。
+  - **源码/配置审查**：R11 确认首轮必然使用 `--query`；R12 在
+    `.local/lib/xdisplay/lib-engine.sh:201-223` 落地 A′：保存最近一次 `--query` 的权威能力快照，
+    `--current` 连接投影未变时沿用该快照，投影变化时挂起 apply 并强制下一 tick probe。
+    `.local/lib/xdisplay/lib-topology.sh:20-36` 将能力签名、连接投影和完整拓扑签名分开计算。
   - **源码/配置审查**：`.local/lib/xdisplay/lib-snapshot.sh:165-184` 仅以“connected 且有首个模式”
     判定 mode_ready，目标模式按 preferred、否则 first mode 选择；适配器有效 expected mode 由
     `.local/lib/xdisplay/lib-adapter-query.sh:124-184` 覆盖目标。preferred 标记或完整模式表迟到时，
@@ -210,27 +207,31 @@
     和 `.local/lib/xdisplay/lib-layout.sh:95-136` 会设置外屏 primary、目标模式、位置，并在合盖路径
     对内屏执行 `--off`；这些是潜在的 Xorg/驱动 modeset 黑屏窗口。xdisplay 库没有 DPMS、背光或物理
     出图调用，当前 health 只反映 RandR 的 stale/pending/no-connected-output。
-  - **源码/配置审查**：`.local/lib/xdisplay/lib-topology.sh:19-24` 的拓扑键包含连接、首项模式和
-    mode_signature，但不包含当前几何/当前模式；`.local/lib/xdisplay/lib-engine.sh:219-228` 应用成功
-    后立即缓存新键。因此 active 输出实际仍处于错误模式、但能力签名未变或物理画面已黑时，watcher
-    不会因“当前画面不对”自行重排；lid 变化会改变键并强制快速查询/应用。
-- **排查过程**：R11 沿 `xinitrc → xprofile → xdisplay watch` 启动链静态审查；核对首轮 lid/DRM
-  观测、`--query`/`--current` 选择、首轮 apply 条件、模式目标回退、合盖布局写入和 apply 后缓存。
-  已形成情况 1/2 的可证伪时序假说与用户侧只读取证步骤，尚未执行真实启动复现或修改实现。
+  - **源码/配置审查**：`.local/lib/xdisplay/lib-topology.sh:20-36` 的拓扑键包含连接、首项模式和
+    mode_signature，但不包含当前几何/当前模式；R12 在 `.local/lib/xdisplay/lib-engine.sh:245-294`
+    增加 preferred-ready + N=2 + 10 tick 首轮门禁，并在 apply 成功后使用归一 key。apply 期间连接
+    投影变化时保留新观测、安排强制 probe，使下一 tick 重新规划；现有布局后重读验证未改变。
+  - **实测**：`.local/share/test/display/xdisplay-adapter.sh` 的 G-01 至 G-06 使用现有 RandR 状态机
+    fixture 复现异源 key 分歧并验证 A′；覆盖 tick 2 正常放行、preferred 延迟、tick 10 超时回退、
+    20 tick 无重复 apply 和 apply 期间热插拔重规划。完整显示 fixture 为 42/42 通过。
+- **排查过程**：R11 沿 `xinitrc → xprofile → xdisplay watch` 启动链静态审查；R12 先用异源 fixture
+  复现 `--query`/`--current` raw key 分歧，再按 A′ 统一 watcher 的权威能力源，随后加入首轮门禁并以
+  G-01 至 G-06 覆盖正常、延迟、超时、重复 apply 与热插拔路径。尚未执行真实冷启动验证。
 - **根因**：待确认。当前最强解释是 X 启动后首轮快照尚未稳定即触发合盖外屏布局写入，且模式能力/当前
   模式变化未必进入重规划键；黑屏的具体责任边界仍需区分 RandR modeset、Xorg/innogpu 驱动和外屏
   链路训练。不能仅凭源码审查把任一项定为已确认根因。
-- **解决**：暂无。本轮不实施修复；候选包括首轮快照稳定/模式就绪门禁、合盖外屏已收敛时跳过首轮
-  重排、扩展健康观测并在应用后强制确认当前模式。候选需用户拍板后另轮授权。
-- **验证与回滚**：当前无代码或配置变更，无需回滚。后续实验必须在同一冷启动、同一外屏和同一
-  `startx` 链路下保存启动前后 `xrandr --current/--query`、`xdisplay status`、Xorg 日志、watcher
-  日志及用户会话 journal；任何候选修复都须能恢复到本轮基线并比较首轮写入次数、黑屏时段和最终模式。
-- **下一步**：用户侧执行一次受控只读复现：启动前确认合盖+仅外屏，进入 X 后在首轮异常发生前后分别抓取
-  `date +%s.%N`、`xrandr --current`、`xdisplay status`、`journalctl --user -b --no-pager`、
-  `~/.local/share/x11/xdisplay-adapter.log`（若存在）和 Xorg.0.log；同时记录黑屏起止、轮询恢复时间、
-  最终分辨率及开合盖是否改变结果。依据取证结果在稳定门禁、跳过无变化首轮 apply、增强 health 三类
-  候选中择一实施。
-- **关联轮次/权威来源**：R11 本机私有协作档案；[显示管理设计](../project/display-management.md)、
+- **解决**：R12 实现提交 `17cdea7` 已实施候选 ④①。④ 按 A′ 以最近一次 `--query` 为权威能力快照，
+  用 `--current` 连接投影作为热插拔安全网；① 要求外屏 preferred 就绪且归一 key 连续 N=2，最迟
+  第 10 tick 回退。该组合直击情况 2，并覆盖情况 1 的写入侧分支 1b；首轮 `--query` 探测侧分支 1a
+  未修改，若黑屏仍存在则留待 D5 后续轮次。
+- **验证与回滚**：显示 fixture 42/42 通过，其中 G-01 至 G-06 覆盖本轮机制；协作 Bats 35/35 通过。
+  真实冷启动结果待用户日常验证。实现可回退 `17cdea7`，恢复 R12 基线 `8165170` 的 watcher
+  行为；回退后重跑显示 fixture 并确认基线计数与文档一致。
+- **下一步**：用户日常验证同一外屏下的冷启动、合盖、仅外屏、`startx` 场景，分别记录
+  （1）是否仍出现瞬时黑屏及起止时间；（2）最终分辨率是否仍过大、是否仍需开盖再合盖。
+  若分辨率正确但黑屏仍在，优先按 R11 取证设计核查首轮 `--query` 与 modeset 的重叠，再决定是否
+  另轮实施 D5；两类现象都消失后再将 P5 推进为已解决。
+- **关联轮次/权威来源**：R11 研究、R12 实施的本机私有协作档案；[显示管理设计](../project/display-management.md)、
   [显示管理测试](../project/display-testing.md)；本条为 dotfiles 侧研究记录，innogpu 驱动事实仍以
   innogpu 项目文档为准。
 
