@@ -31,7 +31,7 @@
 sh .local/share/test/display/xdisplay-adapter.sh
 ```
 
-当前基线输出末行为 `PASS: 36 adapter fixture tests`。显示管理开发期间只运行该脚本；安装系统测试
+当前基线输出末行为 `PASS: 42 adapter fixture tests`。显示管理开发期间只运行该脚本；安装系统测试
 不属于本方案，也不需要随显示改动反复执行。
 
 套件启动时还会机械检查仓库 `.gitignore` 是否存在精确行
