@@ -195,10 +195,13 @@
 - **证据/证据等级**：
   - **用户回忆**：登录界面外屏正常，`startx` 后出现“正常一瞬→黑屏→轮询恢复”或“恢复但分辨率过大”；
     开盖再合盖可以触发恢复。
-  - **源码/配置审查**：`.config/x11/xprofile:68-74` 异步启动唯一 watcher，未设置 X/RandR 稳定等待；
-    `.local/lib/xdisplay/lib-engine.sh:153-222` 在首轮观测键和已应用键为空时，将第一个可解析快照直接
-    送入 apply。初始 DRM 签名存在时首轮使用 `--query`，签名不可用时退回 `--current`，两条路径都没有
-    稳定性门禁。
+  - **源码/配置审查**：`.config/x11/xprofile:68-74` 异步启动唯一 watcher，未设置 X/RandR
+    稳定等待；`.local/lib/xdisplay/lib-engine.sh:153-222` 在首轮观测键和已应用键为空时，将第一个
+    可解析快照直接送入 apply。首轮必然使用 `--query`：`lib-runtime.sh:159-170` 在 DRM status
+    全部不可读时输出字面量 `unavailable`（:169），返回值恒非空，与初始 `observed_drm=`
+    （lib-engine.sh:138）必不相等，:166 恒置 `force_probe=1`；冷启动 `observed_lid=` 不等于
+    `open`，:160 为假使 `lid_closing` 保持 0，:184 的探测抑制守卫不触发。首轮不存在退回
+    `--current` 的分支，稳定性门禁同样缺失。
   - **源码/配置审查**：`.local/lib/xdisplay/lib-snapshot.sh:165-184` 仅以“connected 且有首个模式”
     判定 mode_ready，目标模式按 preferred、否则 first mode 选择；适配器有效 expected mode 由
     `.local/lib/xdisplay/lib-adapter-query.sh:124-184` 覆盖目标。preferred 标记或完整模式表迟到时，
