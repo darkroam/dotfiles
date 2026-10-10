@@ -10,6 +10,7 @@
 | 平台 | 基本信息 | 依赖审计 | 系统差异 | 显示与恢复 | 验证 | 平台工作 |
 | --- | --- | --- | --- | --- | --- | --- |
 | KaiTian X7h G1e + Debian 13 | [设备信息](kaitian-x7h-g1e-debian-13.md#设备基本信息) | [Debian 13 审计](kaitian-x7h-g1e-debian-13.md#debian-13-依赖审计) | [服务与会话](kaitian-x7h-g1e-debian-13.md#系统与会话差异) | [显示硬件](kaitian-x7h-g1e-debian-13.md#显示硬件与本机钩子) / [恢复](kaitian-x7h-g1e-debian-13.md#临时隔离与恢复) | [显示验证](kaitian-x7h-g1e-debian-13.md#显示验证与已知行为) | [活动待办](kaitian-x7h-g1e-debian-13.md#平台活动待办) / [挂起项目](kaitian-x7h-g1e-debian-13.md#平台挂起项目) |
+| KaiTian X7h G1e + Gentoo | [设备信息](kaitian-x7h-g1e-gentoo.md#设备基本信息) | [Gentoo 审计](kaitian-x7h-g1e-gentoo.md#gentoo-依赖审计) | [服务与会话](kaitian-x7h-g1e-gentoo.md#系统与会话差异) | [显示硬件](kaitian-x7h-g1e-gentoo.md#显示硬件与本机钩子) / [恢复](kaitian-x7h-g1e-gentoo.md#临时隔离与恢复) | [显示验证](kaitian-x7h-g1e-gentoo.md#显示验证与已知行为) | [活动待办](kaitian-x7h-g1e-gentoo.md#平台活动待办) / [挂起项目](kaitian-x7h-g1e-gentoo.md#平台挂起项目) |
 
 ## 查询约定
 
