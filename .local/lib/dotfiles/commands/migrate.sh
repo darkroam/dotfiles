@@ -116,7 +116,7 @@ for i in "${sorted_indices[@]}"; do
 			dst="$node_dir/backup/$rel_path"
 			if [ -e "$src" ]; then
 				mkdir -p "$(dirname "$dst")"
-				cp -a -- "$src" "$dst"
+				cfg_portable_copy "$src" "$dst"
 			fi
 		done < "$manifest"
 	fi

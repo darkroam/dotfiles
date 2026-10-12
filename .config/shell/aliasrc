@@ -295,6 +295,15 @@ elif command -v emerge >/dev/null 2>&1; then
 	alias pmp='emerge -pv'
 	alias pml='find /var/db/pkg -mindepth 2 -maxdepth 2 -type d -printf "%P\n"'
 	alias pmc='sudo emerge --depclean'
+elif command -v brew >/dev/null 2>&1; then
+	alias pm='brew'
+	alias pmu='brew update && brew upgrade'
+	alias pmi='brew install'
+	alias pmr='brew uninstall'
+	alias pms='brew search'
+	alias pmp='brew info'
+	alias pml='brew list'
+	alias pmc='brew cleanup'
 fi
 
 # ============================================================================

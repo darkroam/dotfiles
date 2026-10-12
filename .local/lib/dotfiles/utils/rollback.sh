@@ -137,7 +137,7 @@ cfg_remove_deployed_files() {
 			rm -f -- "$target"
 			((removed++)) || true
 		fi
-	done < <(find "$files_dir" \( -type f -o -type l \) -printf '%P\n' 2>/dev/null)
+	done < <(cfg_portable_find_rel "$files_dir")
 
 	printf '%d' "$removed"
 }

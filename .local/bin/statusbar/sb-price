@@ -14,6 +14,16 @@ dir="${XDG_DATA_HOME:-$HOME/.local/share}/crypto-prices"
 pricefile="$dir/$1-$currency"
 chartfile="$dir/$1-$currency-chart"
 
+
+access_epoch() {
+	stat -c %X "$1" 2>/dev/null || stat -f %a "$1" 2>/dev/null
+}
+
+access_day() {
+	epoch=$(access_epoch "$1") || return 1
+	date -d "@$epoch" '+%Y-%m-%d' 2>/dev/null || date -r "$epoch" '+%Y-%m-%d' 2>/dev/null
+}
+
 updateprice() { temp="$(mktemp)"
 	curl -s "$currency.rate.sx/1$1" > "$temp" &&
 		mv -f "$temp" "$pricefile" &&
@@ -22,7 +32,7 @@ updateprice() { temp="$(mktemp)"
 
 [ -d "$dir" ] || mkdir -p "$dir"
 
-[ "$(stat -c %x "$pricefile" 2>/dev/null | cut -d' ' -f1)" != "$(date '+%Y-%m-%d')" ] &&
+[ "$(access_day "$pricefile")" != "$(date '+%Y-%m-%d')" ] &&
 	updateprice "$1"
 
 case $BLOCK_BUTTON in
@@ -30,7 +40,7 @@ case $BLOCK_BUTTON in
 	2) notify-send -u low "$3 Updating..." "Updating $2 price..."
 		updateprice "$1" && notify-send "$3 Update complete." "$2 price is now
 \$$(cat "$pricefile")" ;;
-	3) uptime="$(date -d "$(stat -c %x "$pricefile")" '+%D at %T' | sed "s|$(date '+%D')|Today|")"
+	3) uptime="$(date -d "@$(access_epoch "$pricefile")" '+%D at %T' 2>/dev/null || date -r "$(access_epoch "$pricefile")" '+%D at %T')"; uptime="$(printf '%s\n' "$uptime" | sed "s|$(date '+%D')|Today|")"
 		notify-send "$3 $2 module" "\- <b>Exact price: \$$(cat "$pricefile")</b>
 - Left click for chart of changes.
 - Middle click to update.

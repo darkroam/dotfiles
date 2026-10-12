@@ -353,7 +353,7 @@ if [ ${#checkout_list[@]} -gt 0 ]; then
 	if cfg_should_rollback "$skipped_checkout" "$total"; then
 		cfg_print_rollback_reason "$skipped_checkout" "$total"
 		if [ -n "$backup_dir" ] && [ -d "$backup_dir" ]; then
-			mapfile -t backup_paths < <(find "$backup_dir" \( -type f -o -type l \) -printf '%P\n' 2>/dev/null)
+			mapfile -t backup_paths < <(cfg_portable_find_rel "$backup_dir")
 			if ((${#backup_paths[@]} > 0)); then
 				cfg_rollback_from_backup "$backup_dir" "${backup_paths[@]}"
 			fi
@@ -384,7 +384,7 @@ for path in "${target_tracked[@]}"; do
 	cfg_is_installation_path "$path" && continue
 	if [ -e "$HOME/$path" ] || [ -L "$HOME/$path" ]; then
 		mkdir -p "$node_files_dir/$(dirname "$path")"
-		cp -a "$HOME/$path" "$node_files_dir/$path" 2>/dev/null || true
+		cfg_portable_copy "$HOME/$path" "$node_files_dir/$path" 2>/dev/null || true
 	fi
 done
 
