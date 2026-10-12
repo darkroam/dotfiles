@@ -256,6 +256,18 @@ case ":$PATH:" in
 	*) export PATH="$BUN_INSTALL/bin:$PATH" ;;
 esac
 
-# fzf fuzzy finder keybindings and completions
-[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ] && source /usr/share/doc/fzf/examples/key-bindings.zsh
-[ -f /usr/share/doc/fzf/examples/completion.zsh ] && source /usr/share/doc/fzf/examples/completion.zsh
+# fzf fuzzy finder keybindings and completions.
+# Debian keeps these under /usr/share/doc/fzf/examples; Gentoo uses /usr/share/fzf and site-functions.
+# Source the first file that exists so one side never depends on the other's path.
+for __fzf_bindings in /usr/share/fzf/key-bindings.zsh /usr/share/doc/fzf/examples/key-bindings.zsh; do
+	[ -f "$__fzf_bindings" ] || continue
+	source "$__fzf_bindings"
+	break
+done
+unset __fzf_bindings
+for __fzf_completion in /usr/share/doc/fzf/examples/completion.zsh /usr/share/fzf/completion.zsh /usr/share/zsh/site-functions/_fzf; do
+	[ -f "$__fzf_completion" ] || continue
+	source "$__fzf_completion"
+	break
+done
+unset __fzf_completion
