@@ -73,7 +73,7 @@ Debian 13 档案。没有在本系统重新核对的项目保持待填，不用 
 | U02 | 上一节列出的 `xrandr`、`setxkbmap`、`xdpyinfo`、`xdotool`、`xclip`、`libnotify`、`dunst`、`slock`、`xss-lock`、`xwallpaper` 已装并在 `@world`。dwm、dwmblocks、st、dmenu、picom 仍是本地编译。`xset`、`xprop` 因本机脚本在用而进入 `@world` |
 | U03 | `libertine`、`fontawesome`、`arc-theme` 已装 |
 | U04 | `pipewire`、`wireplumber`、`mpv`、`ffmpeg`、`mpd` 已装。没有核对 user 服务是否已启用 |
-| U05 | `zathura`、`poppler`、`isync`、`neomutt`、`mutt-wizard`、`newsboat`、`maim`、`ueberzug` 已装。办公用 `app-office/wps-office`（`et`、`wps`、`wpp`），没有 LibreOffice。`lf` 在 `~/.local/bin/lf`，`nsxiv` 在 `/usr/local/bin/nsxiv`，都不是 Portage 包。`opustags` 仍无官方 ebuild |
+| U05 | `zathura`、`poppler`、`isync`、`neomutt`、`mutt-wizard`、`newsboat`、`maim`、`ueberzug` 已装。办公用手动安装的 WPS 12.1.2（deb，`/opt/kingsoft/wps-office`，2026-10-12，捆绑库）。已卸 Portage 旧版 `app-office/wps-office` 及其 19 个孤儿依赖。命令仍是 `et`、`wps`、`wpp`。没有 LibreOffice。`lf` 在 `~/.local/bin/lf`，`nsxiv` 在 `/usr/local/bin/nsxiv`，都不是 Portage 包。`opustags` 仍无官方 ebuild |
 | U06 | `xbacklight`、`avahi`、`cifs-utils`、`lm-sensors`、`arandr` 已装。`bluez` 保留并在 `@world` |
 | U07–U09 | `htop`、`calcurse` 已装。`urlscan` 仍无官方 ebuild。`go` 已装；`pandoc`、`emacs` 未装。`rust-bin` 仍在，`go-bootstrap` 已不在 |
 | U10 | `crontab` 仍没有。不要启用 APT 版 `checkup` |
@@ -203,6 +203,7 @@ Debian 时期为 APT 加过 `checkup` 定时任务。这里不记录它是否还
 - `@world` 不逐条抄录。不是主动安装的库见「2026-10-12 安装落地」。
 - 显示：2026-10-12 已回写外屏快照。画面问题留到 R18。
 - Edge 启动与 `fcitx-gtk` 已在 2026-10-11 解决。类名仍可用 `xprop` 再对一次，不挡其他工作。
+- WPS 12 统一类名，三应用共入标签 6（xprop 实测 2026-10-12）。
 - 状态栏：2026-10-12 阶段五已逐个实跑仍开启的模块，结论见「阶段五」。注释掉的模块没有再跑。
 - PipeWire 与 mpd：包已装。2026-10-12 阶段五的运行态见「阶段五」，这里不重复。
 - 2026-10-12：`cronie` 为 `enabled`，用户 crontab 里已有每天 9:00 的 `checkup` 和每 6 小时的 `sb-forecast2 --refresh`。命令细节见会话核对。本会话 `crontab -l` 被 pam 拒绝，没有重读。
