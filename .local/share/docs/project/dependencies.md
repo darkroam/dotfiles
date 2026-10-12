@@ -98,7 +98,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | --- | --- |
 | `lf`, `ueberzug`, `atool`, `mimeopen`, `vidir` | 文件管理、预览、归档/MIME 工作流 |
 | `nsxiv`, `zathura`, `mpv`, `gimp` | 图像、PDF、视频和图形处理器 |
-| `localc`（LibreOffice Calc） | LF 中配置的电子表格处理器 |
+| `et`、`wps`、`wpp`（WPS） | LF 打开表格、文档和演示文稿 |
 | ImageMagick（`display`、`magick`）、`mediainfo`、`ffmpegthumbnailer` | LF 图像/视频预览 |
 | `pdftoppm`, `pdftotext`, `pdfinfo`, `pdffonts`, `odt2txt` | 文档预览、PDF 渲染/字体检查和 `getbib` |
 | `gpg`, `man`, `col`, `xdg-open` | 加密、手册、格式化文本和桌面打开 |
@@ -259,7 +259,7 @@ cron 辅助命令需要 `cron`、`crontab`、`notify-send`、`xdotool`、`newsbo
 | `font-symbola` | Unicode and emoji symbols | 历史字体替代；FontAwesome 和 Noto Color Emoji 是当前已配置图标字体。 |
 | `ntfs-3g` | NTFS access | 可选文件系统支持；无已跟踪辅助命令直接调用，部分内核也可能提供 NTFS3。 |
 | `alsa-utils` | ALSA interface tools | 可选工具包；保留 ALSA 配置和捕获路径需要 ALSA 栈，而非特定 `alsa-utils` 命令。 |
-| `sc-im` | Terminal spreadsheet manager | 历史可选应用；`localc`/WPS MIME 处理器是当前电子表格路径。 |
+| `sc-im` | Terminal spreadsheet manager | 历史可选应用；当前电子表格路径是 WPS 的 `et`。 |
 | `maim`, `socat`, `tmux`, `unclutter` | Screenshots, MPV IPC, terminal multiplexing, pointer hiding | 各自用户能力域中的活跃依赖。 |
 | `unclutter-xfixes` | Pointer hiding | 历史替代；当前命令是 `unclutter`。 |
 | `unrar`, `unzip` | Archive extraction | 活跃 LF/FZF 归档预览和提取辅助。 |

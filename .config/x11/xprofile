@@ -120,7 +120,7 @@ elif command -v xcompmgr >/dev/null 2>&1; then
 fi
 
 # Autostart
-autostart="mpd dunst unclutter"
+autostart="mpd dunst unclutter /opt/Synergy/synergy-service"
 for program in $autostart; do
 	pidof -s "$program" || "$program" &
 done >/dev/null 2>&1
