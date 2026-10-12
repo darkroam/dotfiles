@@ -128,5 +128,5 @@ DWM 部分以当前 `~/src/dwm/config.h` 为准，st 鼠标操作以当前 `~/sr
 | 邮件键 | 打开 Neomutt |
 | 我的电脑键 | 用 LF 打开根目录 |
 | 亮度键 | `xbacklight` 增减 15；需安装且硬件支持 |
-| `Mod+Ctrl+t` | 切换触控板。`xinput` 按设备名查找后翻转开关；`Mod+t` 仍是平铺布局 |
+| `Mod+Ctrl+t` | 切换触控板。`xinput` 按设备名查找，翻转 `libinput Send Events Mode Enabled`。不用 `synclient`。`Mod+t` 仍是平铺布局 |
 | 触摸板切换键、关闭键、开启键 | 与上一行相同的 `xinput` 动作。部分机器没有这三颗硬件键 |

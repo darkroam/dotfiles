@@ -137,7 +137,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | `mount.cifs`、`findmnt`、`flock`、`sudo` | `dmenumountcifs` 的匿名 CIFS 挂载、精确状态核对、单实例锁和提权入口 |
 | systemd-logind（`systemctl`）或 elogind（`loginctl`）、`flock`、`xss-lock`、`slock`、`pstree` | 硬件睡眠键、挂起前锁屏以及 `sysact` 电源/会话控制；`flock` 按登录会话和 X server 保证单实例，`xss-lock` 只桥接 login1 事件，不接管 XScreenSaver 空闲超时 |
 | `geoiplookup` | 可选 IP 地理位置状态模块 |
-| `synclient` 和 X11 Synaptics 触摸板驱动 | 为单独构建 DWM 触摸板切换代码保留的可选依赖；无已跟踪 dotfiles 运行调用 |
+| `xinput` | DWM 触控板开关（`Mod+Ctrl+t` 和触摸板硬件键）。按设备名查找后设置 `libinput Send Events Mode Enabled`。不再使用 `synclient` 或 Synaptics 驱动 |
 | `screenkey` | 为单独构建 DWM 绑定保留的可选按键覆盖层；无已跟踪 dotfiles 运行调用 |
 
 `.local/bin/dmenumountcifs` 只处理 Avahi 发布且允许 guest 访问的匿名共享，挂载目标限制在
