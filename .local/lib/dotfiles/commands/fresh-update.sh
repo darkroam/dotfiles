@@ -57,7 +57,7 @@ node_dir="$CFG_NODES_DIR/$root_code"
 if ! $NO_BACKUP; then
 	bak_dir="$CFG_NODES_DIR/${root_code}.bak"
 	rm -rf -- "$bak_dir"
-	cp -a -- "$node_dir" "$bak_dir"
+	cfg_portable_copy "$node_dir" "$bak_dir"
 	printf 'Old fresh node saved to: %s\n' "$bak_dir"
 fi
 

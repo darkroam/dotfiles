@@ -129,3 +129,33 @@ cfg_get_files_to_remove() {
 		fi
 	done <<< "$current_files"
 }
+
+# cfg_portable_find_rel <root>
+# Prints file and symlink paths relative to root.
+# GNU find keeps -printf; BSD find prints absolute paths and the prefix is removed.
+cfg_portable_find_rel() {
+	local root="$1"
+	local path rel
+	if find / -maxdepth 0 -printf x >/dev/null 2>&1; then
+		find "$root" \( -type f -o -type l \) -printf '%P\n' 2>/dev/null
+		return 0
+	fi
+	while IFS= read -r path; do
+		[ -n "$path" ] || continue
+		rel=${path#"$root"/}
+		[ "$rel" = "$path" ] && continue
+		printf '%s\n' "$rel"
+	done < <(find "$root" \( -type f -o -type l \) -print 2>/dev/null)
+}
+
+# cfg_portable_copy <source> <dest>
+# Archive copy. GNU cp accepts -a --; BSD cp uses -pR.
+cfg_portable_copy() {
+	local src="$1"
+	local dst="$2"
+	if cp --version >/dev/null 2>&1; then
+		cp -a -- "$src" "$dst"
+	else
+		cp -pR "$src" "$dst"
+	fi
+}

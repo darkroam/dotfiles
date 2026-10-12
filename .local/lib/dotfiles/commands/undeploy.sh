@@ -63,7 +63,7 @@ if [ -d "$node_files_dir" ]; then
 	while IFS= read -r path; do
 		[ -z "$path" ] && continue
 		files_to_remove+=("$path")
-	done < <(find "$node_files_dir" \( -type f -o -type l \) -printf '%P\n' 2>/dev/null)
+	done < <(cfg_portable_find_rel "$node_files_dir")
 fi
 
 if [ -f "$HOME/.cfg-checkout-state" ]; then

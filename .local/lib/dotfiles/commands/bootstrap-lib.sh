@@ -72,7 +72,7 @@ bootstrap_finish_install() {
 		md5_local=$(cfg_path_md5 "$HOME/$f" 2>/dev/null) || md5_local=""
 		if [ -n "$md5_repo" ] && [ "$md5_repo" != "$md5_local" ]; then
 			mkdir -p -- "$conflict_dir/$(dirname "$f")"
-			cp -a -- "$HOME/$f" "$conflict_dir/$f"
+			cfg_portable_copy "$HOME/$f" "$conflict_dir/$f"
 			conflict_count=$((conflict_count + 1))
 		fi
 	done

@@ -10,6 +10,8 @@ elif command -v xbps-install >/dev/null 2>&1; then
 	do_upgrade() { sudo xbps-install -Syu; }
 elif command -v emerge >/dev/null 2>&1; then
 	do_upgrade() { sudo emerge-webrsync && sudo emerge --ask -uDN @world; }
+elif command -v brew >/dev/null 2>&1; then
+	do_upgrade() { brew update && brew upgrade; }
 else
 	printf "No supported package manager found.\\n"
 	printf "\\nPress <Enter> to exit window.\\n\\n"

@@ -144,9 +144,9 @@ if [ -d "$backup_root" ]; then
 				ts=$(grep '^# Created:' "$node_dir/manifest.txt" 2>/dev/null | head -1 | sed 's/.*: //')
 				if [ -z "$ts" ]; then
 					ts=$(stat -c '%Y' "$node_dir" 2>/dev/null || stat -f '%m' "$node_dir" 2>/dev/null)
-					ts=$(date -d "@$ts" '+%Y%m%dT%H%M%S' 2>/dev/null || echo "00000000T000000")
+					ts=$(date -d "@$ts" '+%Y%m%dT%H%M%S' 2>/dev/null || date -r "$ts" '+%Y%m%dT%H%M%S' 2>/dev/null || echo "00000000T000000")
 				else
-					ts=$(date -d "$ts" '+%Y%m%dT%H%M%S' 2>/dev/null || echo "00000000T000000")
+					ts=$(date -d "$ts" '+%Y%m%dT%H%M%S' 2>/dev/null || date -r "$ts" '+%Y%m%dT%H%M%S' 2>/dev/null || echo "00000000T000000")
 				fi
 				printf '%s\t%s\n' "$ts" "$node_dir"
 			done
@@ -323,7 +323,7 @@ if ((restorable_count > 0)); then
 
 		if [ -n "$backup_file" ]; then
 			mkdir -p "$(dirname "$target")"
-			if cp -a -- "$backup_file" "$target"; then
+			if cfg_portable_copy "$backup_file" "$target"; then
 				printf 'Restored: %s (from %s)\n' "$path" "$(basename "$session_dir")"
 				((restored++)) || true
 			else

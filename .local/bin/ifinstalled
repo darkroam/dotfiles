@@ -11,6 +11,8 @@ package_installed() {
 		xbps-query -p pkgver "$1" >/dev/null 2>&1
 	elif command -v emerge >/dev/null 2>&1; then
 		find /var/db/pkg -mindepth 2 -maxdepth 2 -type d -name "$1-*" -print -quit 2>/dev/null | grep -q .
+	elif command -v brew >/dev/null 2>&1; then
+		brew list "$1" >/dev/null 2>&1
 	elif command -v rpm >/dev/null 2>&1; then
 		rpm -q "$1" >/dev/null 2>&1
 	elif command -v apk >/dev/null 2>&1; then
