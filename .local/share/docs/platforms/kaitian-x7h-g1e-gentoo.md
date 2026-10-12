@@ -2,7 +2,9 @@
 
 本文面向 Agent 和维护者。
 
-状态：新建档案（2026-10-11）。同一台 KaiTian X7h G1e 从 Debian 13 换成 Gentoo 后单独建档。
+状态：安装落地（2026-10-12）。档案于 2026-10-11 新建。同一台 KaiTian X7h G1e 从 Debian 13 换成 Gentoo 后单独建档。
+2026-10-11 的依赖表是安装前快照；当前结果见「2026-10-12 安装落地」。
+显示、电池、外屏、桌面启动链和状态栏模块仍待填。
 Debian 的实测、包映射和待办仍只在 [Debian 13 档案](kaitian-x7h-g1e-debian-13.md)，不是本平台事实。
 
 ## 设备基本信息
@@ -11,11 +13,11 @@ Debian 的实测、包映射和待办仍只在 [Debian 13 档案](kaitian-x7h-g1
 | --- | --- |
 | 档案身份 | KaiTian X7h G1e 笔记本 + Gentoo |
 | 厂商与型号 | KaiTian X7h G1e。主板、处理器、内存、显卡与驱动未在本系统复核，待填 |
-| 发行版 | Gentoo。Profile、stage 与 `@world` 待填 |
+| 发行版 | Gentoo。2026-10-12：profile 为 `default/linux/amd64/23.0/systemd`。`@world` 有 106 条，本文不逐条抄录 |
 | 包管理 | Portage（`emerge`）。不是 APT，不沿用 Debian 的 APT 结论 |
 | 配置仓库 | bare 仓库 `$HOME/.cfg`，work-tree `$HOME` |
-| 内核 | 待填 |
-| init 与服务管理 | 待填 |
+| 内核 | 2026-10-12 正在运行 `6.12.111-gentoo-x86_64`。`@world` 含 `sys-kernel/gentoo-sources` 与 `sys-kernel/gentoo-sources:6.12.111`。`6.18.54` 的源码和模块也在，未核对其能否启动 |
+| init 与服务管理 | profile 选择 systemd。宿主机 pid 1 与桌面启动链未复核 |
 | 图形会话与桌面启动链 | 待填 |
 | 使用人 | 本机日常账户。公开档案不记录用户名 |
 
@@ -39,7 +41,7 @@ Debian 13 档案。没有在本系统重新核对的项目保持待填，不用 
 
 ## Gentoo 依赖审计
 
-状态：已核对（2026-10-11）。只读，没有 emerge，也没有改 `/etc/portage`。
+状态：2026-10-11 安装前快照，保留。当时只读，没有 emerge，也没有改 `/etc/portage`。不要用下表判断现在缺什么。
 证据是当时 PATH 上的 `command -v`（不含代理工具自己的目录）和 `qlist -I`。
 可执行的安装命令在本轮私有汇报，不写进本档案。
 
@@ -59,6 +61,34 @@ Debian 13 档案。没有在本系统重新核对的项目保持待填，不用 
 
 优先级和分批命令见私有汇报。没有官方 ebuild 的命令本轮不编造包名。
 
+
+## 2026-10-12 安装落地
+
+对照上一节的缺口做了安装，并用 `qlist` 目录与 `command -v` 复核。没有重跑整份依赖审计。
+服务有没有启动、状态栏模块能不能用，本轮没有测。
+
+| 域 | 2026-10-12 结论 |
+| --- | --- |
+| U01 | `vim`、`neovim`、`tmux`、`fzf`、`ripgrep` 已由 Portage 安装。`/usr/bin/rg` 在；当前 shell 的 `rg` 仍可能先命中别的目录。`lazygit` 仍无官方 ebuild。node/npm 仍来自本机版本管理器 |
+| U02 | 上一节列出的 `xrandr`、`setxkbmap`、`xdpyinfo`、`xdotool`、`xclip`、`libnotify`、`dunst`、`slock`、`xss-lock`、`xwallpaper` 已装并在 `@world`。dwm、dwmblocks、st、dmenu、picom 仍是本地编译。`xset`、`xprop` 因本机脚本在用而进入 `@world` |
+| U03 | `libertine`、`fontawesome`、`arc-theme` 已装 |
+| U04 | `pipewire`、`wireplumber`、`mpv`、`ffmpeg`、`mpd` 已装。没有核对 user 服务是否已启用 |
+| U05 | `zathura`、`poppler`、`isync`、`neomutt`、`mutt-wizard`、`newsboat`、`maim`、`ueberzug` 已装。办公用 `app-office/wps-office`（`et`、`wps`、`wpp`），没有 LibreOffice。`lf` 在 `~/.local/bin/lf`，`nsxiv` 在 `/usr/local/bin/nsxiv`，都不是 Portage 包。`opustags` 仍无官方 ebuild |
+| U06 | `xbacklight`、`avahi`、`cifs-utils`、`lm-sensors`、`arandr` 已装。`bluez` 保留并在 `@world` |
+| U07–U09 | `htop`、`calcurse` 已装。`urlscan` 仍无官方 ebuild。`go` 已装；`pandoc`、`emacs` 未装。`rust-bin` 仍在，`go-bootstrap` 已不在 |
+| U10 | `crontab` 仍没有。不要启用 APT 版 `checkup` |
+| 清理 | 2026-10-12 已看不到 `ruby`、`nano`、`libayatana-appindicator`、`libsdl2`、`wayland`、`go-bootstrap`、`brotli`、`libjxl`。没有重跑 `--depclean --pretend`，不能把这当作完整清理清单 |
+
+不是主动选来用的库，已 `--noreplace` 进 `@world`，备注写在 `package.use`，避免和真正要装的软件混在一起：
+
+| 谁在用 | 包 | 备注文件 |
+| --- | --- | --- |
+| 本地 picom | `dev-libs/libconfig`、`x11-libs/xcb-util-renderutil` | `package.use/picom`（只有备注） |
+| 本地 nsxiv | `media-libs/imlib2`、`media-libs/libexif` | `package.use/nsxiv`（只有备注） |
+| `/opt/Synergy` | `dev-qt/qtbase`、`dev-libs/libei` | `package.use/synergy` 末尾备注。Synergy 本身不是 Portage 包 |
+
+`package.use/synergy` 里原有的 `libdbusmenu gtk3` 不是这张表的保留项。`libayatana-appindicator` 已不在系统里。
+
 ## Gentoo 关键映射
 
 只记通用依赖在本平台的映射。未验证的命令不算已安装。
@@ -71,29 +101,23 @@ Debian 13 档案。没有在本系统重新核对的项目保持待填，不用 
 
 ## 编译参数与 USE
 
-现状（2026-10-11，只读）：
+现状（2026-10-11，已写入；`--newuse --deep @world` 已跑完）：
 
-- Profile：`default/linux/amd64/23.0/desktop/systemd`。全局 USE 已含 `X` 和 `alsa`。
-- `/etc/portage/make.conf`：`COMMON_FLAGS="-march=native -O2 -pipe"`，四个语言标志引用它；`MAKEOPTS="-j16"`；`LC_MESSAGES=C.UTF-8`；镜像是清华和中科大；`USE="-qt5 -qt6 -gtk2 -gtk4"`。
-- `nproc` 为 16，和 `-j16` 一致。
-- 仓库模板 `make.conf.template` 是 `-j5`、`USE="-kde alsa X"`、另有 163 镜像、`LC_MESSAGES=C`。不要用它覆盖本机。
-- `package.use` 现有 fcitx 的瘦 Qt、fh2m 的 xorg/mesa，以及 autounmask 带入的包级 USE。`package.accept_keywords` 只有 xorg-server 的 `~amd64`。`package.license` 有 Edge 和 linux-firmware。
-- 没有发现用 CFLAGS 或环境变量代替 USE 的条目。
+- Profile：`default/linux/amd64/23.0/systemd`，不是 desktop。全局没有 `X`、`alsa`、`wayland`、`cairo`。不要改回 desktop profile。
+- `/etc/portage/make.conf`：`COMMON_FLAGS="-march=native -O2 -pipe"`，四个语言标志引用它；`MAKEOPTS="-j16"`（`nproc` 为 16）；`LC_MESSAGES=C.UTF-8`；镜像是清华和中科大；`USE="-qt5 -qt6 -gtk4"`。没有 `-gtk2`。
+- `CPU_FLAGS_X86` 来自 `cpuid2cpuflags`：`aes avx avx2 bmi1 bmi2 f16c fma3 mmx mmxext pclmul popcnt rdrand sha sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3`。`-march=native` 不代替这一行。
+- `package.use` 现有 `fcitx`、`fh2m-xorg`、`x11`、`local`、`mail`、`pinentry`、`synergy`、`picom`、`nsxiv`。autounmask 文件已删。`X`、PipeWire、`poppler cairo`、`mpv -vulkan` 都在包级，不进 `make.conf`。`picom` 与 `nsxiv` 只有备注。
+- 仓库模板 `make.conf.template` 是 `-j5`、`USE="-kde alsa X"`。不要用它覆盖本机。
+- 没有用 CFLAGS 或环境变量代替 USE。
 
-建议（不写入系统）：
+留着、不改：
 
-- 保留 `-march=native -O2 -pipe`。这是一台机器，不是给别的机器做二进制包。要可移植的 binpkg 再去掉 `native` 并重编。
-- 保留 `-j16`。模板的 `-j5` 对不上这台机器。
-- 全局那四项负 USE 已经在 USE 里，不要删，也不要再加模板里的 `-kde`。桌面 profile 已有 `X` 和 `alsa`。
-- 不要把 fcitx 那份 qtbase 的 `-X -gui` 提升成全局 USE，否则会拆掉正在用的 X。
-- 以后若安装音频和录制，只加包级条目，不进全局：
+- `-march=native -O2 -pipe` 和 `-j16`。这是一台机器，不做可移植 binpkg。
+- `USE="-qt5 -qt6 -gtk4"`。不要把 `qtbase` 的 `-X -gui` 升到全局，否则会拆掉正在用的 X。
+- 显卡负 USE 留在 `fh2m-xorg`。不要在 `make.conf` 里再设 `VIDEO_CARDS`。arch profile 仍全局带有 amdgpu、intel、nouveau 等，只有 mesa 和 xorg-drivers 被包级关掉。
+- 不做 LTO、ccache、`-O3`，也不给 `-j16` 加 `-l`。
 
-```
-media-video/pipewire sound-server pulseaudio pipewire-alsa systemd
-media-video/ffmpeg X alsa v4l x264 gpl
-```
-
-回滚：还没安装就删掉这两行。已经安装则改回后执行 `emerge --ask --newuse media-video/pipewire media-video/ffmpeg`。
+`media-libs/libsdl2` 在 2026-10-12 已不在系统里。以后需要 SDL 窗口时再安装，并加 `media-libs/libsdl2 X`，然后 `emerge --ask --newuse media-libs/libsdl2`。
 
 ## 系统与会话差异
 
@@ -132,12 +156,13 @@ Debian 时期为 APT 加过 `checkup` 定时任务。这里不记录它是否还
 
 ### 平台活动待办
 
-- 填写内核、init 和桌面启动链。
-- 填写 Portage profile 与 `@world`。
+- 运行中的内核版本已记。init 的 pid 1 和桌面启动链仍待填。
+- `@world` 不逐条抄录。不是主动安装的库见「2026-10-12 安装落地」。
 - 在本系统重新核对显示、电池和外屏。
 - Edge 启动与 `fcitx-gtk` 已在 2026-10-11 解决。类名仍可用 `xprop` 再对一次，不挡其他工作。
 - 列出已在 Gentoo 上验证通过的状态栏模块；没跑过的保持待填。
-- `checkup` 有经本平台验证的 Portage 路径之前，不要启用 APT 版 `checkup`。
+- PipeWire 与 mpd 的包已装，服务是否启动未复核。
+- `crontab` 仍未装。`checkup` 有经本平台验证的 Portage 路径之前，不要启用 APT 版 `checkup`。
 
 ### 平台挂起项目
 
