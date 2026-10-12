@@ -4,7 +4,7 @@
 
 状态：安装落地（2026-10-12）。档案于 2026-10-11 新建。同一台 KaiTian X7h G1e 从 Debian 13 换成 Gentoo 后单独建档。
 2026-10-11 的依赖表是安装前快照；当前结果见「2026-10-12 安装落地」。
-显示、电池、外屏、桌面启动链和状态栏模块仍待填。
+显示、电池、外屏仍待用户回传。桌面启动链和状态栏模块的 2026-10-12 阶段五结论见下文。
 Debian 的实测、包映射和待办仍只在 [Debian 13 档案](kaitian-x7h-g1e-debian-13.md)，不是本平台事实。
 
 ## 设备基本信息
@@ -17,8 +17,8 @@ Debian 的实测、包映射和待办仍只在 [Debian 13 档案](kaitian-x7h-g1
 | 包管理 | Portage（`emerge`）。不是 APT，不沿用 Debian 的 APT 结论 |
 | 配置仓库 | bare 仓库 `$HOME/.cfg`，work-tree `$HOME` |
 | 内核 | 2026-10-12 正在运行 `6.12.111-gentoo-x86_64`。`@world` 含 `sys-kernel/gentoo-sources` 与 `sys-kernel/gentoo-sources:6.12.111`。`6.18.54` 的源码和模块也在，未核对其能否启动 |
-| init 与服务管理 | profile 选择 systemd。宿主机 pid 1 与桌面启动链未复核 |
-| 图形会话与桌面启动链 | 待填 |
+| init 与服务管理 | profile 选择 systemd。2026-10-12 阶段五没有直接读到宿主机 pid 1 |
+| 图形会话与桌面启动链 | 2026-10-12：`.zprofile` 只在本地第一控制台、没有 SSH、没有 `DISPLAY`、有显卡设备、且没有已在跑的 Xorg 时设置 `XINITRC` 并 `exec startx`。`~/.xinitrc` 指向 `.config/x11/xinitrc`，先 source `xprofile`，再 `ssh-agent dwm`。`xprofile` 拉起壁纸、xrdb、输入法、`xss-lock`、picom，以及 `mpd`、`dunst`、`unclutter`、`/opt/Synergy/synergy-service`。dwm 的 `runAutostart()` 执行 `killall -q dwmblocks; dwmblocks &` |
 | 使用人 | 本机日常账户。公开档案不记录用户名 |
 
 ## 适用范围与隐私边界
@@ -89,6 +89,8 @@ Debian 13 档案。没有在本系统重新核对的项目保持待填，不用 
 
 `package.use/synergy` 里原有的 `libdbusmenu gtk3` 不是这张表的保留项。`libayatana-appindicator` 已不在系统里。
 
+2026-10-12 阶段五补记，不改上面两张快照表：核对时 PipeWire 用户服务已在运行；U10「`crontab` 仍没有」已过时，见会话核对。
+
 ## Gentoo 关键映射
 
 只记通用依赖在本平台的映射。未验证的命令不算已安装。
@@ -147,10 +149,30 @@ Debian 时期为 APT 加过 `checkup` 定时任务。这里不记录它是否还
 这次核对的是正在跑的 Gentoo 会话。X 日志时间是 16:27（内核命令行含分区标识，按公开档案规则不记录）。
 
 - 字体：2026-10-12 用户确认状态栏 14 像素可以。`/usr/local/bin/dwm` 与 `~/src/dwm/dwm` 的 SHA256 都是 `ba195c5c1054684a45dcccd0866b9deb0fdca0a1e6597bd5ec7c531773b72be9`。二进制里是 `monospace:pixelsize=14:antialias=true:autohint=true` 和 `NotoColorEmoji:pixelsize=14`。`monospace:size=16` 只在计算器弹出窗口。`st` 与 `dmenu` 仍是 12。`~/.local/bin/dwm` 不存在。`~/.config/x11/xinitrc` 第 17 行是 `ssh-agent dwm`。
-- dwmblocks：源码用 `setroot()` 把文字交给 dwm 画，自己没有字体。已安装的 `/usr/local/bin/dwmblocks` 含 `setroot`，命令列表与 `~/src/dwmblocks/config.h` 一致，包括 `sb-pacpackages`。两份二进制 SHA 不同：安装的是 10 月 10 日，源码树是 10 月 12 日。
+- dwmblocks：源码用 `setroot()` 把文字交给 dwm 画，自己没有字体。2026-10-12 阶段五：`/usr/local/bin/dwmblocks` 与 `~/src/dwmblocks/dwmblocks` 的 SHA256 都是 `abd356cbefc3a2edcdb03c6b7c1af72445ad2f7bfedaf70eb166aad38eaed81f`。命令列表与当时的 `config.h` 一致，含 `sb-pacpackages` 和 `sb-forecast2`，不含已注释的录音图标、`sb-tasks`、`sb-torrent`、`sb-doppler`。
 - 触控板：依赖是 `xinput`，不是 `synclient`。设备名 `HTIX5288:00 36B6:C002 Touchpad`。`/usr/bin/xinput` 在；`/usr/bin/synclient` 和 `synaptics_drv.so` 不在。`qlist` 有 `x11-apps/xinput` 和 `x11-drivers/xf86-input-libinput`，没有 `xf86-input-synaptics`。dwm 用 `xinput` 改 `libinput Send Events Mode Enabled`（`0, 0` 开，`1, 0` 关）。2026-10-12 17:20 的 X 日志里，触控板已是 `Using input driver 'libinput'`。日志还有一条内核提示：clickpad 宣称了右键。
 - 定时：2026-10-12 用户回传。`systemctl is-enabled cronie` 为 `enabled`。用户 crontab 两条：每天 9:00 跑 checkup、每 6 小时跑 sb-forecast2 --refresh（cron 行带会话 DBUS/DISPLAY 前缀与家目录路径，按公开档案规则不记录细节）。
 
+
+
+## 2026-10-12 阶段五
+
+只读。没有改服务，没有装包。
+
+- PipeWire：用户会话的运行目录里有 `pipewire.service`、`pipewire-pulse.service`、`wireplumber.service` 的 invocation，并且有 `pipewire-0` 套接字。`default.target.wants` 启用了前两个，`pipewire.service.wants` 拉着 wireplumber。本会话的 `systemctl --user` 连不上用户总线，所以上面不是 `is-active` 的输出。
+- mpd：没有用户服务 invocation，也没有运行目录里的套接字。本会话执行 `mpc status` 得到 Operation not permitted，不能判断进程是否在跑。`xprofile` 进桌面时仍会 `pidof mpd || mpd &`。
+- 状态栏实跑（2026-10-12 18:04 前后，未设置 `BLOCK_BUTTON`）：
+  - `sb-clock`：退出 0，打出日期和时间。
+  - `sb-battery`：退出 0，`✅99%`。
+  - `sb-nettraf`：退出 0，打出收发字节。
+  - `sb-internet`：退出 0，`📡 ❎ 🌐`。无线未连接；两块有线网卡一个 down、一个 up。
+  - `sb-forecast2`：退出 0，打出当天雾霾、温度和明/后提示。
+  - `sb-pacpackages`：退出 0，无输出。脚本只在数量大于 0 时显示；解析失败才会显示 `📦?`。这次按 0 条更新处理。
+  - `sb-news`：无输出，退出 1。`newsboat` 报告 0 篇未读，所以不显示；退出码来自缺少的 `.update` 文件，不是没装 `newsboat`。
+  - `sb-mailbox`：退出 0，无输出。没有邮件目录和账户配置。
+  - `sb-help-icon`：退出 0，`❓`。
+  - `sb-volume`：无输出，退出 2。本会话问不到用户会话里的 PipeWire，音量没有核实。
+- 显示、电池、外屏的操作核对等用户回传。上面的电池行只是模块实跑，不是外屏或合盖结论。
 
 ## 显示硬件与本机钩子
 
@@ -168,15 +190,15 @@ Debian 时期为 APT 加过 `checkup` 定时任务。这里不记录它是否还
 
 ### 平台活动待办
 
-- 运行中的内核版本已记。init 的 pid 1 和桌面启动链仍待填。
+- 运行中的内核版本已记。2026-10-12 阶段五：桌面启动链已从文件核对，见基本信息。宿主机 pid 1 仍未直接读到。
 - `@world` 不逐条抄录。不是主动安装的库见「2026-10-12 安装落地」。
-- 在本系统重新核对显示、电池和外屏。
+- 显示、电池、外屏：2026-10-12 阶段五只列出核对步骤，等用户回传后再写。这里不填结果。
 - Edge 启动与 `fcitx-gtk` 已在 2026-10-11 解决。类名仍可用 `xprop` 再对一次，不挡其他工作。
-- 列出已在 Gentoo 上验证通过的状态栏模块；没跑过的保持待填。
-- PipeWire 与 mpd 的包已装，服务是否启动未复核。
-- 2026-10-12：`sys-process/cronie` 已装，`/usr/bin/crontab` 是 cronie 1.7.2。`cronie.service` 没有 `multi-user.target` 的 wants 链接，服务未启用。`checkup` 还没有写入用户 crontab。
+- 状态栏：2026-10-12 阶段五已逐个实跑仍开启的模块，结论见「阶段五」。注释掉的模块没有再跑。
+- PipeWire 与 mpd：包已装。2026-10-12 阶段五的运行态见「阶段五」，这里不重复。
+- 2026-10-12：`cronie` 为 `enabled`，用户 crontab 里已有每天 9:00 的 `checkup` 和每 6 小时的 `sb-forecast2 --refresh`。命令细节见会话核对。本会话 `crontab -l` 被 pam 拒绝，没有重读。
 - fantgpu overlay 在 `/var/db/repos/fantgpu`，`repos.conf` 指向这里。家目录保持 `700`。`profiles/thirdpartymirrors` 仍然没有，Portage 把它当空表。
 
 ### 平台挂起项目
 
-当前没有挂起项。
+- macOS 与 Arch 的真机效果对等验证留到以后有对应机器时再做，不在本轮。
