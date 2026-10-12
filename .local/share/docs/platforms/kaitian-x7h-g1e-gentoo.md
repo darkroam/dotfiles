@@ -162,7 +162,8 @@ Debian 时期为 APT 加过 `checkup` 定时任务。这里不记录它是否还
 - Edge 启动与 `fcitx-gtk` 已在 2026-10-11 解决。类名仍可用 `xprop` 再对一次，不挡其他工作。
 - 列出已在 Gentoo 上验证通过的状态栏模块；没跑过的保持待填。
 - PipeWire 与 mpd 的包已装，服务是否启动未复核。
-- `crontab` 仍未装。`checkup` 有经本平台验证的 Portage 路径之前，不要启用 APT 版 `checkup`。
+- 2026-10-12：`sys-process/cronie` 已装，`/usr/bin/crontab` 是 cronie 1.7.2。`cronie.service` 没有 `multi-user.target` 的 wants 链接，服务未启用。`checkup` 还没有写入用户 crontab。
+- fantgpu overlay 在 `/var/db/repos/fantgpu`，`repos.conf` 指向这里。家目录保持 `700`。`profiles/thirdpartymirrors` 仍然没有，Portage 把它当空表。
 
 ### 平台挂起项目
 
