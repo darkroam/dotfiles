@@ -139,7 +139,7 @@ innogpu 设备或其他 Debian 版本。同一设备升级到新的发行版主�
 | `.local/share/sys-etc/wpa_supplicant/wpa_supplicant.conf.template` | `wpa_supplicant` | 与 systemd-networkd 配套的接口级 Wi-Fi 认证模板 | `wpasupplicant` 已安装并作为 NetworkManager 的全局 D-Bus 后端；接口模板未部署 | 模板与计划工作 | 历史或仅模板 | 通过；全局后端与接口级模板用途已区分，后者不得用于 NetworkManager 已管理的接口 |
 | `README.md`、`.local/share/docs/**`、`.local/share/larbs/progs.csv`、`.local/bin/cron/README.md` | 无直接运行时依赖；内容包含项目依赖说明 | 项目说明、计划与历史数据 | 不适用 | 不适用（项目文档） | 已完成 | 首轮已完成 `progs.csv` 迁移、依赖清单完整性和用户/架构文档对齐；后续仅按新的审计流程维护 |
 | `dependencies.md` 第三阶段反向检索 | `pamixer` | 旧依赖清单条目 | 无当前配置或独立 DWM 源码引用 | 音频、音乐、录制与视频 | 不适用 | 已从活跃依赖移除；当前交互式混音器为 `pulsemixer` |
-| `dependencies.md` 第三阶段反向检索 | `w3m`、`xkblayout-state`、`geoiplookup`、`synclient`、`screenkey` | 条件回退、可隐藏模块或外部 DWM 参考 | 不要求安装 | 对应布局（layout） | 不适用 | 已明确标注条件行为或仅外部源码用途；不阻塞 Debian 部署审计 |
+| `dependencies.md` 第三阶段反向检索 | `w3m`、`xkblayout-state`、`geoiplookup`、`synclient`、`screenkey` | 条件回退、可隐藏模块或外部 DWM 参考 | 不要求安装 | 对应布局（layout） | 不适用 | 这是当时的登记。`synclient` 已在 2026-10-12 从依赖清单移除；触控板开关改为 `xinput`，见下方关键映射 |
 | `desktop-guide-zh.md`、`architecture.md` 第四阶段对齐 | `dependencies.md` 的十个布局（layout） | 用户与维护文档结构 | 不适用 | 不适用（项目文档） | 不适用 | 已为每个布局（layout）增加独立章节；保留原有启动流程、上游差异、工作流与维护边界 |
 
 ## Debian 13 关键映射
@@ -166,6 +166,7 @@ innogpu 设备或其他 Debian 版本。同一设备升级到新的发行版主�
 | PipeWire | `pipewire`、`pipewire-pulse`、`wireplumber` 由 systemd 用户服务管理，X11 启动脚本不重复拉起 |
 | NetworkManager 与 Wi-Fi 认证 | `network-manager` 提供 NetworkManager、`nmtui` 和 `nmcli`，`wpasupplicant` 提供全局 D-Bus 认证后端；旧 ifupdown 路径保持禁用，不与同一接口并用 |
 | 最低优先级可选项 | `fpp`、`youtube-viewer`、`tremc` 不阻塞部署；缺失行为已在通用依赖清单中定义 |
+| 触控板开关 | 2026-10-12：当前依赖是 `xinput`，不是 `synclient`。上面审计表里的 `synclient` 只是当时的登记 |
 
 ## 系统与会话差异
 
