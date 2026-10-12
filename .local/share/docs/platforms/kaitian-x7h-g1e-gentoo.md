@@ -95,8 +95,8 @@ Debian 13 档案。没有在本系统重新核对的项目保持待填，不用 
 
 | 通用能力 | Gentoo 映射或本平台结论 |
 | --- | --- |
-| 包管理 | Portage / `emerge`。`checkup` 仍只跑 `apt update` 和 `apt list --upgradable`，不能在本平台启用。2026-10-11：`command -v apt` 为空，`aliasrc` 的探测会落到 emerge 分支（`emerge-webrsync` 后 `emerge --ask -uDN @world`）。该分支没有实际执行 |
-| 状态栏可更新包计数 | `sb-pacpackages` 在没有 apt/pacman/xbps 时进入 emerge 分支，把更新列表留空，并把 `updates_supported` 设为 false。2026-10-11 本机会走到这个分支。这是空实现，不是已核对的“没有更新” |
+| 包管理 | Portage / `emerge`。2026-10-12：`checkup` 已支持 apt、pacman、xbps、emerge 探测链。Gentoo 用 `sudo -n emerge-webrsync` 刷新，再用 `emerge --color n --pretend --verbose --update @world` 的 `Total` 判断有没有更新；刷新或解析失败会通知并退出，不执行升级。`aliasrc` 的 `pmu` 仍是 `emerge-webrsync` 后 `emerge --ask -uDN @world` |
+| 状态栏可更新包计数 | 2026-10-12：`sb-pacpackages` 已实现 emerge 计数，解析上面同一条预览的 `Total`。有更新显示数量，0 不显示；没有 `Total` 时标明不可用，不再把空列表当成没有更新。计数是 `-u`，不含 `pmu` 的 `-uDN` |
 
 
 ## 编译参数与 USE
@@ -162,7 +162,8 @@ Debian 时期为 APT 加过 `checkup` 定时任务。这里不记录它是否还
 - Edge 启动与 `fcitx-gtk` 已在 2026-10-11 解决。类名仍可用 `xprop` 再对一次，不挡其他工作。
 - 列出已在 Gentoo 上验证通过的状态栏模块；没跑过的保持待填。
 - PipeWire 与 mpd 的包已装，服务是否启动未复核。
-- `crontab` 仍未装。`checkup` 有经本平台验证的 Portage 路径之前，不要启用 APT 版 `checkup`。
+- 2026-10-12：`sys-process/cronie` 已装，`/usr/bin/crontab` 是 cronie 1.7.2。`cronie.service` 没有 `multi-user.target` 的 wants 链接，服务未启用。`checkup` 还没有写入用户 crontab。
+- fantgpu overlay 在 `/var/db/repos/fantgpu`，`repos.conf` 指向这里。家目录保持 `700`。`profiles/thirdpartymirrors` 仍然没有，Portage 把它当空表。
 
 ### 平台挂起项目
 

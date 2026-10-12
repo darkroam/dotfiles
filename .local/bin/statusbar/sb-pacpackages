@@ -3,6 +3,7 @@
 # Displays the number of available package updates.
 
 updates_supported=true
+portage_total=
 
 if command -v apt >/dev/null 2>&1; then
 	updates="$(apt list --upgradable 2>/dev/null | sed 1d)"
@@ -14,10 +15,12 @@ elif command -v xbps-install >/dev/null 2>&1; then
 	updates="$(xbps-install -un 2>/dev/null || true)"
 	update_manager="XBPS"
 elif command -v emerge >/dev/null 2>&1; then
-	# A Portage preview resolves dependencies and is too expensive for a block.
-	updates=""
+	# --verbose: Portage prints "Total:" only at verbosity 3. --color n keeps the line plain.
+	# shortcut: counts -u only, not -uDN; switch if the badge must match pmu.
+	updates="$(emerge --color n --pretend --verbose --update @world 2>/dev/null | sed -n '/^Total: [0-9][0-9]* package/p' | head -n 1)"
 	update_manager="Portage"
-	updates_supported=false
+	portage_total="$(printf '%s\n' "$updates" | sed -n 's/^Total: \([0-9][0-9]*\) package.*/\1/p')"
+	[ -n "$portage_total" ] || updates_supported=false
 else
 	updates=""
 	update_manager="package manager"
@@ -27,7 +30,7 @@ fi
 case $BLOCK_BUTTON in
 	1) setsid -f "$TERMINAL" -e sb-popupgrade ;;
 	2) if [ "$updates_supported" = false ]; then
-		notify-send "📦 Package Check" "Run pu to check updates with $update_manager."
+		notify-send "📦 Package Check" "Update count unavailable for $update_manager. Run pu to check."
 	elif [ -n "$updates" ]; then
 		notify-send "$updates"
 	else
@@ -39,5 +42,16 @@ case $BLOCK_BUTTON in
 	6) "$TERMINAL" -e "$EDITOR" "$0" ;;
 esac
 
-count="$(printf '%s\n' "$updates" | sed '/^$/d' | wc -l)"
-[ "$count" -gt 0 ] && printf ' 📦%s\n' "$count"
+if [ "$updates_supported" = false ]; then
+	printf ' 📦?\n'
+	exit 0
+fi
+
+if [ -n "$portage_total" ]; then
+	count="$portage_total"
+else
+	count="$(printf '%s\n' "$updates" | sed '/^$/d' | wc -l)"
+fi
+if [ "$count" -gt 0 ]; then
+	printf ' 📦%s\n' "$count"
+fi

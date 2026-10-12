@@ -1,21 +1,69 @@
 #!/bin/sh
 
-# Refreshes the APT package index and reports available updates.
+# Refreshes the package index and reports available updates.
 
 notify-send "📦 Package Check" "Checking for package updates..."
 
-if ! sudo -n apt update; then
-	notify-send "📦 Package Check" "Unable to refresh APT package lists.
+refresh_failed() {
+	notify-send "📦 Package Check" "$1"
+	exit 1
+}
+
+if command -v apt >/dev/null 2>&1; then
+	if ! sudo -n apt update; then
+		refresh_failed "Unable to refresh APT package lists.
 
 Check your internet connection, sudo access, or run pu manually to see errors."
-	exit 1
-fi
+	fi
+	pkill -RTMIN+8 "${STATUSBAR:-dwmblocks}"
+	if apt list --upgradable 2>/dev/null | sed 1d | grep -q .
+	then
+		notify-send "🎁 Package Check" "Updates available. Run pu to upgrade."
+	else
+		notify-send "📦 Package Check" "Package lists are current."
+	fi
+elif command -v pacman >/dev/null 2>&1; then
+	if ! sudo -n pacman -Sy; then
+		refresh_failed "Unable to refresh pacman databases.
 
-pkill -RTMIN+8 "${STATUSBAR:-dwmblocks}"
+Check your internet connection, sudo access, or run pu manually to see errors."
+	fi
+	pkill -RTMIN+8 "${STATUSBAR:-dwmblocks}"
+	if pacman -Qu 2>/dev/null | grep -q .
+	then
+		notify-send "🎁 Package Check" "Updates available. Run pu to upgrade."
+	else
+		notify-send "📦 Package Check" "Package lists are current."
+	fi
+elif command -v xbps-install >/dev/null 2>&1; then
+	if ! sudo -n xbps-install -S; then
+		refresh_failed "Unable to refresh XBPS repositories.
 
-if apt list --upgradable 2>/dev/null | sed 1d | grep -q .
-then
-	notify-send "🎁 Package Check" "Updates available. Run pu to upgrade."
+Check your internet connection, sudo access, or run pu manually to see errors."
+	fi
+	pkill -RTMIN+8 "${STATUSBAR:-dwmblocks}"
+	if xbps-install -un 2>/dev/null | grep -q .
+	then
+		notify-send "🎁 Package Check" "Updates available. Run pu to upgrade."
+	else
+		notify-send "📦 Package Check" "Package lists are current."
+	fi
+elif command -v emerge >/dev/null 2>&1; then
+	if ! sudo -n emerge-webrsync; then
+		refresh_failed "Unable to refresh the Gentoo repository.
+
+Check your internet connection, sudo access, or run pu manually to see errors."
+	fi
+	# shortcut: counts -u only, not -uDN; switch if the badge must match pmu.
+	count="$(emerge --color n --pretend --verbose --update @world 2>/dev/null | sed -n 's/^Total: \([0-9][0-9]*\) package.*/\1/p' | head -n 1)"
+	pkill -RTMIN+8 "${STATUSBAR:-dwmblocks}"
+	if [ -z "$count" ]; then
+		refresh_failed "Portage update count unavailable. Run pu to check."
+	elif [ "$count" -gt 0 ]; then
+		notify-send "🎁 Package Check" "Updates available. Run pu to upgrade."
+	else
+		notify-send "📦 Package Check" "Package lists are current."
+	fi
 else
-	notify-send "📦 Package Check" "Package lists are current."
+	refresh_failed "No supported package manager found."
 fi
