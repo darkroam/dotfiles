@@ -148,7 +148,7 @@ Debian 时期为 APT 加过 `checkup` 定时任务。这里不记录它是否还
 - 字体：`/usr/local/bin/dwm` 与 `~/src/dwm/dwm` 的 SHA256 都是 `9a4b239e279c462f77ce3e4f1d3e43ce02f0f9f5e3df7bc726e873dcb4d3d48c`，写入时间 16:27，与这次 X 启动相同。二进制里有 `monospace:pixelsize=12` 和 `NotoColorEmoji:pixelsize=12`。`monospace:size=16` 只在计算器弹出窗口。`~/.local/bin/dwm` 不存在。`~/.config/x11/xinitrc` 第 17 行是 `ssh-agent dwm`，按 PATH 会用 `/usr/local/bin/dwm`。本会话看不到宿主进程，没有读到正在运行的 exe。
 - dwmblocks：源码用 `setroot()` 把文字交给 dwm 画，自己没有字体。已安装的 `/usr/local/bin/dwmblocks` 含 `setroot`，命令列表与 `~/src/dwmblocks/config.h` 一致，包括 `sb-pacpackages`。两份二进制 SHA 不同：安装的是 10 月 10 日，源码树是 10 月 12 日。
 - 触控板：设备名 `HTIX5288:00 36B6:C002 Touchpad`，与 Debian 相同。这次 X 使用 synaptics：日志写着 `Using input driver 'synaptics'`，并加载了 `synaptics_drv.so`。`x11-apps/xinput` 和 `x11-drivers/xf86-input-libinput` 已安装。核对时磁盘上已经没有 `synaptics_drv.so`，`qlist` 也没有 `xf86-input-synaptics`。`Mod+Ctrl+t` 仍按 libinput 的 `Send Events Mode Enabled` 翻转（`0, 0` 与 `1, 0`）。这次 X 还绑着 synaptics，重启 X 之后才会改走 libinput。没有执行删除命令。
-- 定时：本会话连不上 system bus，`crontab` 也被 pam 拒绝，所以没有 `cronie` 启用状态，也没有用户 crontab 的实际内容。
+- 定时：2026-10-12 用户回传。`systemctl is-enabled cronie` 为 `enabled`。用户 crontab 两条：每天 9:00 跑 checkup、每 6 小时跑 sb-forecast2 --refresh（cron 行带会话 DBUS/DISPLAY 前缀与家目录路径，按公开档案规则不记录细节）。
 
 ## 显示硬件与本机钩子
 
