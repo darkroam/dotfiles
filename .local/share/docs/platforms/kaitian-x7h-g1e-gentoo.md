@@ -17,7 +17,7 @@ Debian 的实测、包映射和待办仍只在 [Debian 13 档案](kaitian-x7h-g1
 | 包管理 | Portage（`emerge`）。不是 APT，不沿用 Debian 的 APT 结论 |
 | 配置仓库 | bare 仓库 `$HOME/.cfg`，work-tree `$HOME` |
 | 内核 | 2026-10-12 正在运行 `6.12.111-gentoo-x86_64`。`@world` 含 `sys-kernel/gentoo-sources` 与 `sys-kernel/gentoo-sources:6.12.111`。`6.18.54` 的源码和模块也在，未核对其能否启动 |
-| init 与服务管理 | profile 选择 systemd。2026-10-12 阶段五没有直接读到宿主机 pid 1 |
+| init 与服务管理 | profile 选择 systemd。2026-10-12 用户回传 `ps -p 1` 的命令名是 systemd。不记录主机其他信息 |
 | 图形会话与桌面启动链 | 2026-10-12：`.zprofile` 只在本地第一控制台、没有 SSH、没有 `DISPLAY`、有显卡设备、且没有已在跑的 Xorg 时设置 `XINITRC` 并 `exec startx`。`~/.xinitrc` 指向 `.config/x11/xinitrc`，先 source `xprofile`，再 `ssh-agent dwm`。`xprofile` 拉起壁纸、xrdb、输入法、`xss-lock`、picom，以及 `mpd`、`dunst`、`unclutter`、`/opt/Synergy/synergy-service`。dwm 的 `runAutostart()` 执行 `killall -q dwmblocks; dwmblocks &` |
 | 使用人 | 本机日常账户。公开档案不记录用户名 |
 
@@ -171,8 +171,9 @@ Debian 时期为 APT 加过 `checkup` 定时任务。这里不记录它是否还
   - `sb-news`：无输出，退出 1。`newsboat` 报告 0 篇未读，所以不显示；退出码来自缺少的 `.update` 文件，不是没装 `newsboat`。
   - `sb-mailbox`：退出 0，无输出。没有邮件目录和账户配置。
   - `sb-help-icon`：退出 0，`❓`。
-  - `sb-volume`：无输出，退出 2。本会话问不到用户会话里的 PipeWire，音量没有核实。
+  - `sb-volume`：阶段五在会话外实跑退出 2，是权限限制，不是模块故障。2026-10-12 用户在图形会话复验，输出 `🔉56%`。
 - 显示回传见「显示硬件」。用户确认能用外屏，显示问题留到 R18。
+- 2026-10-12 阶段六：`sb-internet` 把多块网卡拼成一行，避免 `🌐` 落在 dwmblocks 读不到的第二行。本机当时无线 down、一块有线 down、一块有线 up，实跑是一行，同时有 `❎` 和 `🌐`。
 
 ## 显示硬件与本机钩子
 
@@ -199,13 +200,13 @@ Debian 时期为 APT 加过 `checkup` 定时任务。这里不记录它是否还
 
 ### 平台活动待办
 
-- 运行中的内核版本已记。2026-10-12 阶段五：桌面启动链已从文件核对，见基本信息。宿主机 pid 1 仍未直接读到。
+- 运行中的内核版本已记。2026-10-12 阶段五：桌面启动链已从文件核对，见基本信息。同日用户回传 pid 1 的命令名是 systemd。
 - `@world` 不逐条抄录。不是主动安装的库见「2026-10-12 安装落地」。
 - 显示：2026-10-12 已回写外屏快照。画面问题留到 R18。
 - Edge 启动与 `fcitx-gtk` 已在 2026-10-11 解决。类名仍可用 `xprop` 再对一次，不挡其他工作。
 - WPS 12 统一类名，三应用共入标签 6（xprop 实测 2026-10-12）。
-- 状态栏：2026-10-12 阶段五已逐个实跑仍开启的模块，结论见「阶段五」。注释掉的模块没有再跑。
-- PipeWire 与 mpd：包已装。2026-10-12 阶段五的运行态见「阶段五」，这里不重复。
+- 状态栏：2026-10-12 阶段五实跑见该节。同日 `sb-volume` 已复验；`sb-internet` 多网卡改为单行。
+- PipeWire：2026-10-12 阶段五，用户服务在跑（invocation 与套接字）。mpd 没有这些痕迹，进程未证实。正文同此，不另写一套结论。
 - 2026-10-12：`cronie` 为 `enabled`，用户 crontab 里已有每天 9:00 的 `checkup` 和每 6 小时的 `sb-forecast2 --refresh`。命令细节见会话核对。本会话 `crontab -l` 被 pam 拒绝，没有重读。
 - fantgpu overlay 在 `/var/db/repos/fantgpu`，`repos.conf` 指向这里。家目录保持 `700`。`profiles/thirdpartymirrors` 仍然没有，Portage 把它当空表。
 
