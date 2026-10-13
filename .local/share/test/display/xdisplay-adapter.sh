@@ -648,7 +648,7 @@ run_watch_case() {
         XDISPLAY_TEST_MODE=1 XDISPLAY_TEST_ROOT="$case_dir/test-root" \
         XDISPLAY_USE_ADAPTER=0 FAKE_XRANDR_SEQUENCE_DIR="$scenario" \
         FAKE_XRANDR_SEQUENCE_STATE="$state" FAKE_XRANDR_CALLS="$calls" \
-        FAKE_XRANDR_MUTATIONS="$mutations" FAKE_XRANDR_MUTATION_RESULT=0 \
+        FAKE_XRANDR_MUTATIONS="$mutations" FAKE_XRANDR_MUTATION_RESULT="${WATCH_MUTATION_RESULT:-0}" \
         WATCH_SLEEP_COUNT="$sleep_count" WATCH_SLEEP_TRACE="$sleep_trace" \
         WATCH_STOP_TICKS="$ticks" "$xdisplay" --watch > "$watch_log" 2>&1
     watch_result=$?
@@ -841,5 +841,92 @@ run_watch_case :95 5
     fail 'G-06 hotplug was not replanned on the next tick'
 assert_contains "$(sed -n '2p' "$mutations")" '--right-of HDMI-1'
 pass 'G-06 connection projection change forces next-tick replan'
+
+count_xrandr_event() {
+    awk -F '\t' -v event="$1" '$2 == event { count++ } END { print count + 0 }' "$calls"
+}
+
+setup_watch_case probe-unchanged
+cat > "$home/.config/x11/display-engine.conf" <<'CONF'
+[engine]
+hardware_probe_ticks = 2
+CONF
+write_converged_preferred "$scenario/0.xrandr"
+cp "$scenario/0.xrandr" "$scenario/1.xrandr"
+cat > "$scenario/transitions.tsv" <<'TRANSITIONS'
+0	query	1
+1	current	1
+1	query	1
+TRANSITIONS
+run_watch_case :96 11
+events=$(awk -F '\t' '$2 == "--query" || $2 == "--current" { printf "%s ", $2 }' "$calls")
+# Ticks 1/3/5/7/9 are the startup probe plus the fast window. Tick 11 is the
+# first periodic probe after that window; an unchanged signature stays --current.
+[ "$(count_xrandr_event --query)" -eq 5 ] ||
+    fail "unchanged periodic probe still used --query: $events"
+[ "$(count_xrandr_event --current)" -ge 1 ] ||
+    fail "unchanged periodic probe did not fall back to --current: $events"
+last_event=$(printf '%s\n' "$events" | awk '{ print $NF }')
+[ "$last_event" = --current ] ||
+    fail "last periodic probe was not --current: $events"
+pass 'periodic probe keeps --current while the target signature is unchanged'
+
+setup_case mode-order-key
+cat > "$case_dir/order-a.xrandr" <<'XRANDR'
+Screen 0: minimum 320 x 200, current 1920 x 1080, maximum 16384 x 16384
+HDMI-1 connected primary 1920x1080+0+0 (normal left inverted right x axis y axis) 600mm x 340mm
+   1920x1080     60.00*+
+   1280x720      50.00
+   2560x1440     30.00
+XRANDR
+cat > "$case_dir/order-b.xrandr" <<'XRANDR'
+Screen 0: minimum 320 x 200, current 1920 x 1080, maximum 16384 x 16384
+HDMI-1 connected primary 1920x1080+0+0 (normal left inverted right x axis y axis) 600mm x 340mm
+   1280x720      50.00
+   2560x1440     30.00
+   1920x1080     60.00*+
+XRANDR
+cat > "$case_dir/target-b.xrandr" <<'XRANDR'
+Screen 0: minimum 320 x 200, current 1920 x 1080, maximum 16384 x 16384
+HDMI-1 connected primary 1920x1080+0+0 (normal left inverted right x axis y axis) 600mm x 340mm
+   1280x720      60.00*+
+   1920x1080     60.00
+   2560x1440     30.00
+XRANDR
+status_a=$(run_xdisplay "$case_dir/order-a.xrandr" 0)
+status_b=$(run_xdisplay "$case_dir/order-b.xrandr" 0)
+status_c=$(run_xdisplay "$case_dir/target-b.xrandr" 0)
+key_a=$(printf '%s\n' "$status_a" | sed -n 's/^topology_signature=//p')
+key_b=$(printf '%s\n' "$status_b" | sed -n 's/^topology_signature=//p')
+key_c=$(printf '%s\n' "$status_c" | sed -n 's/^topology_signature=//p')
+sig_a=$(printf '%s\n' "$status_a" | sed -n 's/.*mode_signature://p')
+sig_b=$(printf '%s\n' "$status_b" | sed -n 's/.*mode_signature://p')
+[ -n "$key_a" ] || fail 'mode-order fixture produced no topology signature'
+[ "$sig_a" != "$sig_b" ] || fail 'mode-order fixture did not change the mode list'
+[ "$key_a" = "$key_b" ] || fail 'mode-list order changed the apply key'
+[ "$key_a" != "$key_c" ] || fail 'target mode change left the apply key unchanged'
+pass 'apply key uses the target mode and ignores mode-list order'
+
+setup_watch_case probe-failure-cap
+cat > "$home/.config/x11/display-engine.conf" <<'CONF'
+[engine]
+hardware_probe_ticks = 1
+apply_failure_limit = 1
+apply_retry_ticks = 0
+CONF
+write_initial_preferred "$scenario/0.xrandr"
+cp "$scenario/0.xrandr" "$scenario/1.xrandr"
+cat > "$scenario/transitions.tsv" <<'TRANSITIONS'
+0	query	1
+1	current	1
+1	query	1
+TRANSITIONS
+# Same snapshot on the later --query, so a new topology cannot reset the cap.
+WATCH_MUTATION_RESULT=1 run_watch_case :98 3
+[ "$(wc -l < "$mutations")" -eq 1 ] ||
+    fail "capped watcher applied again on --query: $(wc -l < "$mutations") queries=$(count_xrandr_event --query)"
+[ "$(count_xrandr_event --query)" -eq 2 ] ||
+    fail "failure-cap fixture did not reach a second --query: $(count_xrandr_event --query)"
+pass 'a later --query does not bypass the apply failure cap'
 
 printf 'PASS: %s adapter fixture tests\n' "$tests"
