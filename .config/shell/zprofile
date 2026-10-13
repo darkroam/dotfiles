@@ -6,10 +6,64 @@
 unsetopt PROMPT_SP
 
 # Start the graphical session only from the local first console.
+# /etc/X11/xorg.conf.d must be created once by root and owned by this user:
+#   sudo install -d -o "$USER" /etc/X11/xorg.conf.d
+# After that, deleting and writing 90-lid-external.conf needs no root.
+# This file never calls sudo. If the directory is missing or not writable,
+# skip the file and start X as usual.
+# Lid: /proc/acpi/button/lid/LID/state (closed/open). This machine uses LID0,
+# so the check reads /proc/acpi/button/lid/LID*/state.
+# External: /sys/class/drm/card*-*/status is exactly "connected" and the
+# connector name does not contain eDP.
 if [[ $(tty) == /dev/tty1 ]] && [ -z "$SSH_CONNECTION" ] && [ -z "$DISPLAY" ]; then
     graphics_devices=(/dev/dri/card<->(N) /dev/fb<->(N))
     if (( ${#graphics_devices} )) && ! pgrep -x Xorg >/dev/null 2>&1; then
         export XINITRC="${XDG_CONFIG_HOME:-$HOME/.config}/x11/xinitrc"
+        xorg_conf_dir=/etc/X11/xorg.conf.d
+        if [ -d "$xorg_conf_dir" ] && [ -w "$xorg_conf_dir" ]; then
+            sh <<'EOF'
+conf=/etc/X11/xorg.conf.d/90-lid-external.conf
+rm -f "$conf" || exit 0
+[ -e "$conf" ] && exit 0
+
+# Lid: /proc/acpi/button/lid/LID/state. LID0 on this machine is the same check.
+lid_closed=0
+for state in /proc/acpi/button/lid/LID*/state; do
+    [ -r "$state" ] || continue
+    grep -q closed "$state" && lid_closed=1
+done
+[ "$lid_closed" -eq 1 ] || exit 0
+
+# External: /sys/class/drm/card*-*/status connected, connector not eDP.
+external=0
+for status in /sys/class/drm/card*-*/status; do
+    [ -r "$status" ] || continue
+    connector=${status%/status}
+    connector=${connector##*/}
+    case "$connector" in
+        *eDP*) continue ;;
+    esac
+    grep -qx connected "$status" && external=1
+done
+[ "$external" -eq 1 ] || exit 0
+
+umask 022
+cat > "$conf" <<'CONF'
+Section "OutputClass"
+    Identifier "lid-external-edp"
+    MatchDriver "fh2m"
+    Option "Monitor-eDP-1" "lid-edp-off"
+EndSection
+
+Section "Monitor"
+    Identifier "lid-edp-off"
+    Option "Enable" "false"
+EndSection
+CONF
+chmod 644 "$conf" || rm -f "$conf"
+EOF
+        fi
+        unset xorg_conf_dir
         exec startx
     fi
     unset graphics_devices
