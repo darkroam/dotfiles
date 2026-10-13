@@ -151,6 +151,7 @@ xdisplay_watch_displays() {
     snapshot_failures=0
     authoritative_parsed=
     authoritative_connections=
+    last_probe_signature=
     startup_gate_key=
     startup_gate_stable_ticks=0
     startup_gate_ticks=0
@@ -187,18 +188,45 @@ xdisplay_watch_displays() {
                 [ "$apply_failures" -lt "$APPLY_FAILURE_LIMIT" ]; then
                 pending_layout=1
             fi
+            probe_gate=0
             if [ "$lid_closing" -eq 0 ]; then
+                periodic_due=0
+                if [ "$hardware_probe_ticks" -ge "$HARDWARE_PROBE_TICKS" ]; then
+                    periodic_due=1
+                fi
                 if [ "$force_probe" -eq 1 ] ||
-                    [ "$hardware_probe_ticks" -ge "$HARDWARE_PROBE_TICKS" ] ||
                     { [ "$pending_layout" -eq 1 ] &&
                         [ "$hardware_probe_ticks" -ge "$PENDING_PROBE_TICKS" ]; } ||
                     { [ "$fast_checks" -gt 0 ] &&
-                        [ $((fast_checks % FAST_QUERY_INTERVAL)) -eq 0 ]; }; then
+                        [ $((fast_checks % FAST_QUERY_INTERVAL)) -eq 0 ]; } ||
+                    { [ "$periodic_due" -eq 1 ] &&
+                        [ -z "$last_probe_signature" ]; }; then
                     snapshot_option=--query
                     hardware_probe_ticks=0
+                elif [ "$periodic_due" -eq 1 ]; then
+                    # Unchanged topology keeps the cheap snapshot; a move upgrades.
+                    snapshot_option=--current
+                    hardware_probe_ticks=0
+                    probe_gate=1
                 fi
             fi
+            snapshot_ok=0
             if xdisplay_read_snapshot "$snapshot_option"; then
+                snapshot_ok=1
+                if [ "$probe_gate" -eq 1 ] &&
+                    [ "$(xdisplay_capability_signature)" != "$last_probe_signature" ]; then
+                    snapshot_option=--query
+                    if xdisplay_read_snapshot --query; then
+                        snapshot_ok=1
+                    else
+                        snapshot_ok=0
+                    fi
+                fi
+            fi
+            if [ "$snapshot_ok" -eq 1 ]; then
+                if [ "$snapshot_option" = --query ]; then
+                    last_probe_signature=$(xdisplay_capability_signature)
+                fi
                 snapshot_failures=0
                 [ "$snapshot_option" = --query ] && probe_pending=0
                 current_connections=$(xdisplay_connection_signature)
@@ -236,11 +264,9 @@ xdisplay_watch_displays() {
                     apply_retry_ticks=0
                 fi
                 apply_due=0
-                if [ "$apply_retry_ticks" -le 0 ]; then
-                    if [ "$apply_failures" -lt "$APPLY_FAILURE_LIMIT" ] ||
-                        [ "$snapshot_option" = --query ]; then
-                        apply_due=1
-                    fi
+                if [ "$apply_retry_ticks" -le 0 ] &&
+                    [ "$apply_failures" -lt "$APPLY_FAILURE_LIMIT" ]; then
+                    apply_due=1
                 fi
                 if [ "$startup_gate_open" -eq 0 ]; then
                     startup_gate_ticks=$((startup_gate_ticks + 1))

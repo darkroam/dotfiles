@@ -18,9 +18,14 @@ xdisplay_verify_target_modes() {
 }
 
 xdisplay_capability_signature() {
+    # Name, connection, and the target mode/rate that apply actually uses.
     printf '%s\n' "$XRANDR_PARSED" |
         awk -F '\t' '
-            $1 == "output" { printf "%s:%s:%s:%s,", $2, $3, $11, $22 }
+            $1 == "output" {
+                mode = ($23 != "-" ? $23 : $19)
+                rate = ($24 != "-" ? $24 : $20)
+                printf "%s:%s:%s:%s,", $2, $3, mode, rate
+            }
         '
 }
 
