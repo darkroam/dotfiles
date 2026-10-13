@@ -48,6 +48,7 @@ done
 [ "$external" -eq 1 ] || exit 0
 
 umask 022
+# Disable=true 为 xorg-server 21.1 强制关闭语义；Enable=false 对已连接输出不生效（2026-10-13 fh2m 项目回传）
 cat > "$conf" <<'CONF'
 Section "OutputClass"
     Identifier "lid-external-edp"
@@ -57,7 +58,7 @@ EndSection
 
 Section "Monitor"
     Identifier "lid-edp-off"
-    Option "Enable" "false"
+    Option "Disable" "true"
 EndSection
 CONF
 chmod 644 "$conf" || rm -f "$conf"
