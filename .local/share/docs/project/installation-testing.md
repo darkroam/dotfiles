@@ -420,6 +420,8 @@ bats -r .local/share/test/ --tap
 
 ### 当前安装测试结果
 
+下面的通过数是 2026-08-12 的完整执行，不是后来的重跑。2026-08-31 只复核了条数。
+
 **验证环境**：2026-08-12 在[平台档案索引](../platforms/index.md)所列 Debian 平台完整执行；
 Bats 满足本文 `>= 1.11.0` 的前置要求。2026-08-31 用 `bats --count
 .local/share/test/installation` 复核当前清单仍为 272；该枚举不冒充一次新的完整执行。
@@ -448,7 +450,7 @@ Failed: 0
 
 ## 相关文档
 
-- [安装系统](installation-system.md) — 安装系统设计文档（v3.0 节点系统）
+- [安装系统](installation-system.md) — 安装系统设计文档
 - [安装系统修复记录](../planning/installation-fixes.md) — 已知问题和修复方案
 - [依赖清单](dependencies.md) — 项目依赖的软件包
 

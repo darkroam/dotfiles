@@ -151,7 +151,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | `htop`, `bmon`, `cal`, `calcurse`, `sensors` | 系统、网络、日历和温度模块 |
 | `curl`, `nmtui`, `newsboat`, `neomutt`, `mbsync`, Mutt Wizard (`mw`) | 网络、RSS 和邮件模块；Mutt Wizard 提供邮箱模块使用的本地 `mw` 账户/同步包装器 |
 | `profanity` | 独立 DWM 源码中 `Mod+c` 调用的可选终端 XMPP 客户端 |
-| `tsp`, `transmission-remote`, `wpctl`, `pulsemixer` | 任务队列、种子和音频模块 |
+| `tsp`, `transmission-remote`, `wpctl`, `pulsemixer` | 任务队列、种子和音频。任务与种子状态栏未启用时不是日常依赖 |
 | `dwmblocks` | 渲染状态模块并接收其实时信号 |
 | 到 `wttr.in` 的出站 HTTPS 访问 | 天气预报和月相模块 |
 | 出站 HTTPS 数据源 | 启用时的 Doppler 和价格模块 |

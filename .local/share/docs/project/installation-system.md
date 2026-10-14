@@ -13,7 +13,7 @@
 1. **幂等性**：同一操作可重复执行，结果一致，不产生多余副作用
 2. **节点追溯**：每次状态转换创建新节点，形成完整的状态树
 3. **智能备份**：只备份真正需要保护的文件，通过 MD5 内容对比跳过未修改文件
-4. **可恢复性**：节点树 + `.cfg/`  Together 足以恢复到任意历史状态
+4. **可恢复性**：节点树加上配置仓库，足以回到任一历史状态
 5. **安全卸载**：不自动删除仓库，防止误操作
 6. **部署分离**：deploy/undeploy 独立于节点创建，支持灵活的配置管理
 
@@ -446,7 +446,7 @@ TYPE、VERSION、STATUS 和 TIME 的列宽以当前节点数据和表头的较�
 
 ### `dotcfg history` 输出
 
-Git log --graph 风格，最新节点在顶部，根在底部：
+Git log --graph 风格，最新节点在顶部，根在底部。示例版本号不带 `v`。只有版本元数据存了显示前缀时，历史图才会多出那个前缀。
 
 **颜色方案**（终端支持时启用）：
 - 绿色：`<- HEAD` 标签
@@ -456,32 +456,32 @@ Git log --graph 风格，最新节点在顶部，根在底部：
 
 **线性历史：**
 ```
-*  a1b2c3d4  full     2026-08-06 12:00:00  [deployed]  v1.0.0  <- HEAD
+*  a1b2c3d4  full     2026-08-06 12:00:00  [deployed]  1.0.0  <- HEAD
 | 
-o  e5f6g7h8  min      2026-08-06 11:00:00  v1.0.0
+o  e5f6g7h8  min      2026-08-06 11:00:00  1.0.0
 | 
 ●  fresh_root fresh    2026-08-06 10:00:00  bootstrap  [root]
 ```
 
 **分支历史：**
 ```
-*  a1b2c3d4  full     2026-08-06 12:00:00  [deployed]  v2.0.0  <- HEAD
+*  a1b2c3d4  full     2026-08-06 12:00:00  [deployed]  2.0.0  <- HEAD
 | 
-o  e5f6g7h8  min      2026-08-06 11:00:00  v1.0.0
+o  e5f6g7h8  min      2026-08-06 11:00:00  1.0.0
 | 
 ●  fresh_root fresh    2026-08-06 10:00:00  bootstrap  [root]
 |\
-| o  m3n4o5p6  min      2026-08-06 10:30:00  v1.0.0  [REMOVED]
+| o  m3n4o5p6  min      2026-08-06 10:30:00  1.0.0  [REMOVED]
 |/
 ```
 
 **多分支历史：**
 ```
-*  a1b2c3d4  full     2026-08-06 12:00:00  [deployed]  v2.0.0  <- HEAD
+*  a1b2c3d4  full     2026-08-06 12:00:00  [deployed]  2.0.0  <- HEAD
 |
-o  e5f6g7h8  min      2026-08-06 11:00:00  v1.0.0
+o  e5f6g7h8  min      2026-08-06 11:00:00  1.0.0
 |\
-| o  m3n4o5p6  min      2026-08-06 10:30:00  v1.0.0  [REMOVED]
+| o  m3n4o5p6  min      2026-08-06 10:30:00  1.0.0  [REMOVED]
 |/
 ●  fresh_root fresh    2026-08-06 10:00:00  bootstrap  [root]
 ```
@@ -555,10 +555,10 @@ Categories:
 ```bash
 $ dotcfg categories switch 1.0.0
 
-Switching from v2.1.3 to v1.0.0...
-Warning: Some nodes use v2.1.3. They will continue to use v2.1.3 on recovery.
-Current version set to v1.0.0.
-New nodes will use v1.0.0 by default.
+Switching from 2.1.3 to 1.0.0...
+Warning: Some nodes use 2.1.3. They will continue to use 2.1.3 on recovery.
+Current version set to 1.0.0.
+New nodes will use 1.0.0 by default.
 ```
 
 切换版本只影响**新创建的节点**，已有节点的版本绑定不变。
@@ -717,8 +717,8 @@ dotcfg autoclean --dry-run    # 预览，不执行
 $ dotcfg autoclean --dry-run
 
 The following nodes will be deleted:
-  e5f6g7h8  (min, v1.0.0, 2026-08-06 09:00:00)  - leaf node, marked_for_removal
-  f9g8h7i6  (full, v1.0.0, 2026-08-06 07:00:00)  - leaf node, marked_for_removal
+  e5f6g7h8  (min, 1.0.0, 2026-08-06 09:00:00)  - leaf node, marked_for_removal
+  f9g8h7i6  (full, 1.0.0, 2026-08-06 07:00:00)  - leaf node, marked_for_removal
 
 Total: 2 nodes will be deleted.
 
