@@ -110,7 +110,7 @@
 | `statusbar/{sb-kbselect}` | U07 | U02 |
 | `statusbar/{sb-mpdup,sb-music,sb-volume}` | U07 | U04 |
 | `statusbar/{sb-torrent}` | U07 | U08 |
-| `statusbar/{sb-battery,sb-clock,sb-cpu,sb-cpubars,sb-disk,sb-doppler,sb-forecast,sb-help-icon,sb-internet,sb-iplocate,sb-mailbox,sb-memory,sb-moonphase,sb-nettraf,sb-news,sb-pacpackages,sb-popupgrade,sb-price,sb-tasks}`、`weath` | U07 | - |
+| `statusbar/{sb-battery,sb-clock,sb-cpu,sb-cpubars,sb-disk,sb-doppler,sb-forecast2,sb-help-icon,sb-internet,sb-iplocate,sb-mailbox,sb-memory,sb-moonphase,sb-nettraf,sb-news,sb-pacpackages,sb-popupgrade,sb-price,sb-tasks}`、`weath` | U07 | - |
 | `dmenuhandler`、`linkhandler`、`podentr`、`qndl`、`torrent`、`transadd` | U08 | - |
 | `peertubetorrent`、`rssadd`、`rssget` | U08 | U07 |
 | `queueandnotify`、`tutorialvids` | U08 | U04 |
