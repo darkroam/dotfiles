@@ -52,6 +52,8 @@ DWM 部分以当前 `~/src/dwm/config.h` 为准，st 鼠标操作以当前 `~/sr
 | `Mod+Left/Right` | 切换显示器焦点 |
 | `Mod+Shift+Left/Right` | 将窗口移到另一显示器 |
 
+自动归类：Microsoft Edge 的类名进标签 9。WPS 12 的文字、表格和演示窗口类名都是 `wpsoffice`，共进标签 6，不能再按应用拆开。
+
 ## st 鼠标操作
 
 | 操作 | 动作 |
@@ -127,6 +129,6 @@ DWM 部分以当前 `~/src/dwm/config.h` 为准，st 鼠标操作以当前 `~/sr
 | 屏保键 | 锁屏、关闭 DPMS、暂停 MPD/MPV |
 | 邮件键 | 打开 Neomutt |
 | 我的电脑键 | 用 LF 打开根目录 |
-| 亮度键 | `xbacklight` 增减 15；需安装且硬件支持 |
+| 亮度键 | `xbacklight` 增减 15。`xlight` 只是记住上次值的包装。没有标准背光设备时两者都无效 |
 | `Mod+Ctrl+t` | 切换触控板。`xinput` 按设备名查找，翻转 `libinput Send Events Mode Enabled`。不用 `synclient`。`Mod+t` 仍是平铺布局 |
 | 触摸板切换键、关闭键、开启键 | 与上一行相同的 `xinput` 动作。部分机器没有这三颗硬件键 |

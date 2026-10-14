@@ -2,6 +2,8 @@
 
 本文面向 Agent 和维护者。
 
+2026-10-14：这是双系统里的 Debian 13 档案。主用改为 Gentoo 后，本文没有整篇复核。有日期的行只代表该日期。
+
 ## 设备基本信息
 
 | 项目 | 平台事实 |
@@ -83,8 +85,8 @@ innogpu 设备或其他 Debian 版本。同一设备升级到新的发行版主�
 | `.config/tmux/tmux.conf` | `xclip`、`xsel` | X11 剪贴板绑定 | `xclip` 已安装；`xsel` 缺失，但配置会在无 `xsel` 时回退到 `xclip` | Shell、源代码管理与开发 | 待核对 | 已验证；不要求安装 `xsel` |
 | `.config/mpd/mpd.conf`、`.config/ncmpcpp/config`、`.config/ncmpcpp/bindings`、`.local/bin/statusbar/sb-music`、`.local/bin/statusbar/sb-mpdup`、`.local/bin/sysact` | `mpd`、`mpc`、`ncmpcpp` | 已启用的本地音乐服务、控制客户端与终端界面 | 均已安装；`mpc` 不支持 `--version`，但可执行 | 音频、音乐、录制与视频 | 待核对 | 静态配置与关联脚本的 `sh -n` 检查通过；当前沙箱无权连接用户 D-Bus，`mpc status` 与 MPD 用户服务实际运行状态需在正常登录会话复查 |
 | `.config/mpv/input.conf`、`.config/lf/lfrc`、`.local/bin/pauseallmpv`、`.local/bin/linkhandler`、`.local/bin/dmenuhandler` | `mpv`、`socat`、`ffmpeg`、`zathura`、`yt-dlp` | 已启用的媒体播放、MPV IPC、转码与文档查看 | 均已安装 | 音频、音乐、录制与视频；文件、文档、密码与桌面处理 | 待核对 | 关联 Shell 脚本语法通过；图形交互与 MPV IPC 需在 X11 会话复查 |
-| `.local/bin/qndl`、Newsboat 与 dmenu 下载队列入口、`.local/bin/statusbar/sb-tasks` | `tsp` | 已启用的后台下载队列与任务状态栏模块 | 已安装；Debian 包为 `task-spooler` | 下载、种子与文本浏览 | 待核对 | 可执行；`qndl` 与状态栏模块的 Shell 语法检查通过。实际队列任务需在正常用户会话按需复查 |
-| `.local/bin/torrent`、`.local/bin/transadd`、`.local/bin/td-toggle`、`.local/bin/statusbar/sb-torrent` | `transmission-daemon`、`transmission-remote`、`transmission-show` | 已启用的本地种子守护进程、添加器、控制命令与状态栏 | 均已安装；`transmission-daemon` 单独由 Debian 软件包提供，其余由 `transmission-cli` 提供 | 下载、种子与文本浏览 | 待核对 | Shell 语法检查通过；守护进程实际监听、远程控制与状态栏刷新需在正常用户会话复查 |
+| `.local/bin/qndl`、Newsboat 与 dmenu 下载队列入口、`.local/bin/statusbar/sb-tasks` | `tsp` | 核对当时启用的队列和任务状态栏。共享 `sb-tasks` 后来已注释，切回后再看 | 已安装；Debian 包为 `task-spooler` | 下载、种子与文本浏览 | 待核对 | 可执行；`qndl` 与状态栏模块的 Shell 语法检查通过。实际队列任务需在正常用户会话按需复查 |
+| `.local/bin/torrent`、`.local/bin/transadd`、`.local/bin/td-toggle`、`.local/bin/statusbar/sb-torrent` | `transmission-daemon`、`transmission-remote`、`transmission-show` | 核对当时启用的种子命令和状态栏。共享 `sb-torrent` 后来已注释，切回后再看 | 均已安装；`transmission-daemon` 单独由 Debian 软件包提供，其余由 `transmission-cli` 提供 | 下载、种子与文本浏览 | 待核对 | Shell 语法检查通过；守护进程实际监听、远程控制与状态栏刷新需在正常用户会话复查 |
 | `.local/bin/torrent` | `tremc` | 最低优先级可选的 Transmission 终端界面 | 不检查安装状态；当前 Debian 仓库无同名软件包 | 下载、种子与文本浏览 | 待核对 | 已调整为可选：存在时启动 Tremc，缺失时仍启动守护进程并提示改用 Web 界面或 `transmission-remote`；本轮不安装或运行验证 |
 | `.local/bin/dmenuhandler`、`.config/lf/scope`、`.config/newsboat/config` | `lynx` | dmenu、LF 预览和 Newsboat 中已提供的文本浏览器打开方式 | 已安装；Debian 包为 `lynx` | 下载、种子与文本浏览；文件、文档、密码与桌面处理 | 待核对 | 版本可执行；`dmenuhandler` 与 LF scope 的 Shell 语法检查通过 |
 | `.local/bin/podentr` | `entr` | 监控 Newsboat 队列文件并触发后台下载 | 已安装；Debian 包为 `entr` | 下载、种子与文本浏览 | 待核对 | 可执行，关联脚本的 Shell 语法检查通过；实际队列监控需在正常用户会话按需复查 |
@@ -316,8 +318,7 @@ Mod+F3 -> displayselect -> 共享 RandR apply lock
 - 合盖慢恢复 A/B 中，标准 framebuffer 收敛约 `1.07s`，物理出图曾超过 5 秒；临时保留旧
   `4480x1600` framebuffer 时约 `0.65s` 完成且近乎立即出图。该证据只用于定位 innogpu/输出链路
   重新同步，最终仍采用通用 framebuffer 收敛，避免不可见区域、鼠标越界和整屏截图尺寸错误。
-- 本平台没有标准 `/sys/class/backlight` 设备；`xlight`、`xbacklight` 和状态栏亮度动作仍待选定
-  可用后端后统一。
+- 本平台没有标准 `/sys/class/backlight` 设备。共享亮度键调用 `xbacklight`；没有该设备时调用会失败。这不是共享行为尚未选定。
 - 2026-08-13 重新构建并安装下游 Picom 后，真实 X11 会话日志出现
   `GL_ARB_explicit_uniform_location is not listed by the driver, but shader compilation succeeded; continuing.`，
   Picom 持续运行且未再出现 `Failed to setup OpenGL`。本次验证仅证明当前驱动/GLX 会话通过受限

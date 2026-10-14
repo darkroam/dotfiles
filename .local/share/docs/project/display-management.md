@@ -226,8 +226,7 @@ watcher 主循环每 0.5 秒运行，稳定时约每秒读取 `--current`；事�
 最近一次 `--query` 是 watcher 的权威能力快照；`--current` 只更新连接投影，投影未变时继续使用权威
 能力键，变化时推迟写入并在下一 tick 强制查询。首次 apply 要求外屏 preferred mode 就绪且归一能力键
 连续 2 tick 稳定；第 10 tick 仍未满足时按现有回退目标放行，避免无限阻塞启动。
-同一状态显示布局失败默认最多连续 3 次，失败后等待 10 tick；稳定硬件默认每 120 tick 主动查询，pending
-默认每 10 tick 探测。连续 6 次 RandR 快照失败时认为 X server 已消失并退出；新 watcher 最多等待
+同一状态显示布局失败默认最多连续 3 次，失败后等待 10 tick；稳定硬件默认每 120 tick 到期。到期后先读 `--current`；能力签名与上次全量查询相同则不升级，变了才读 `--query`。pending 默认每 10 tick 探测。连续 6 次 RandR 快照失败时认为 X server 已消失并退出；新 watcher 最多等待
 旧 watch lock 8 秒。
 
 基础 health 为 `ready|stale|pending|no-connected-output`。它能驱动清理和重试，但尚未形成包含所有

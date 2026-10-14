@@ -122,6 +122,8 @@ Debian 13 档案。没有在本系统重新核对的项目保持待填，不用 
 
 `media-libs/libsdl2` 在 2026-10-12 已不在系统里。以后需要 SDL 窗口时再安装，并加 `media-libs/libsdl2 X`，然后 `emerge --ask --newuse media-libs/libsdl2`。
 
+2026-10-14 locale：`/etc/locale.conf` 与 `/etc/env.d/02locale` 的 `LANG` 都是 `zh_CN.UTF-8`。`env-update` 从 `env.d` 生成 `/etc/profile.env`，其中有 `export LANG='zh_CN.UTF-8'`。这不是「系统已是中文」。同日会话观察是 `LC_ALL=C.UTF-8`，各类别跟着 `C.UTF-8`。`make.conf` 的 `LC_MESSAGES=C.UTF-8` 只作用于 Portage 消息。
+
 ## 系统与会话差异
 
 2026-10-14：下面这些已经在后文按日期写过，不能再当成「都还没在 Gentoo 上复核」，也不能从 Debian 档案搬过来。
@@ -182,6 +184,8 @@ Debian 档案里的包映射、服务所有权和实测结果仍只属于 Debian
 - `HDMI-1` 未连接。
 - `eDP-1` 已连接，这次没有标成正在使用的模式。盖子状态是 closed。
 - 屏幕当前大小 `1920x1080`。驱动和本机钩子仍未核对。
+
+2026-10-14：合盖且至少一块外屏为 connected 时，登录前写入 `/etc/X11/xorg.conf.d/90-lid-external.conf`。OutputClass 匹配驱动 `fh2m`，Monitor 段是 `Option "Disable" "true"`。这是 xorg-server 21.1 上关闭已连接输出的语义；`Enable false` 对已连接输出不生效。写入前先删残留。该目录需 root 建一次并交给当前用户，之后写入和删除不调用 sudo；目录不可写则跳过。逻辑在 shell 的 `zprofile`，不写入通用显示设计。
 
 
 ## 显示验证与已知行为

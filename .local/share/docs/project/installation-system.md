@@ -1635,9 +1635,8 @@ git --git-dir=$HOME/.cfg/ --work-tree=$HOME checkout HEAD -- .bashrc
 ```bash
 dotcfg validate                      # 检查仓库状态
 dotcfg status                        # 检查当前节点状态
-# 或手动检查全部 9 个桌面指标文件
-ls -la ~/.xinitrc ~/.xprofile ~/.config/x11 ~/.asoundrc ~/.gtkrc-2.0 \
-       ~/.config/alsa ~/.config/mpd ~/.config/nsxiv ~/.config/zathura
+# 无节点元数据时，状态指标只有这三个 X11 文件
+ls -la ~/.xinitrc ~/.xprofile ~/.config/x11/xinitrc
 ```
 
 ### 急救：doctor/repair 与自举安装
