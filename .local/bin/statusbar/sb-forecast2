@@ -1,0 +1,343 @@
+#!/bin/sh
+
+# Alerts only past a threshold. dwmblocks keeps 47 bytes of this line.
+
+weatherreport="${XDG_CACHE_HOME:-$HOME/.cache}/weatherreport2.json"
+
+getforecast() {
+	tmp="${weatherreport}.tmp"
+	mkdir -p "${weatherreport%/*}"
+	if curl -fsS "https://wttr.in/${LOCATION:-}?format=j1" > "$tmp" 2>/dev/null && jq empty "$tmp" >/dev/null 2>&1; then
+		mv -f "$tmp" "$weatherreport"
+		return 0
+	fi
+	rm -f "$tmp"
+	return 1
+}
+
+day_filter=$(cat << 'JQ'
+def n: tonumber? // 0;
+def hours: .hourly // [];
+def desc($h): ($h.weatherDesc[0].value // "" | ascii_downcase);
+def code($h): ($h.weatherCode | tostring);
+def is_haze($h):
+  (desc($h) | test("haze|smoke|smoky"))
+  or (code($h) | test("^(125|146|149)$"));
+def is_fog($h):
+  (code($h) | test("^(143|248|260)$"))
+  or (desc($h) | test("fog"));
+def vis($h): $h.visibility | tonumber?;
+def daytime:
+  hours | map(select((.time | tonumber? // -1) as $t | $t >= 900 and $t <= 1800));
+def median:
+  (map(select(. != null)) | sort) as $s |
+  if ($s | length) == 0 then ""
+  elif (($s | length) % 2) == 1 then $s[($s | length) / 2 | floor]
+  else (($s[(($s | length) / 2 | floor) - 1] + $s[($s | length) / 2 | floor]) / 2)
+  end;
+def flags:
+  [hours[] | desc(.)] | join(" ") |
+  [
+    (if test("snow|blizzard") then "snow" else empty end),
+    (if test("sleet") then "sleet" else empty end),
+    (if test("heavy rain|torrential") then "heavy" else empty end)
+  ] | join(",");
+def base:
+  (hours | map(.cloudcover | tonumber?) | median) as $m |
+  if $m != "" then
+    if ($m | tonumber) >= 60 then "cloudy"
+    elif ($m | tonumber) >= 20 then "partly"
+    else "clear"
+    end
+  else
+    ([hours[] | desc(.)] | join(" ")) as $d |
+    if ($d | test("overcast")) then "cloudy"
+    elif ($d | test("partly")) then "partly"
+    elif ($d | test("cloudy")) then "cloudy"
+    else "clear"
+    end
+  end;
+.weather[0:3][] |
+[
+  (.mintempC | n | floor),
+  (.maxtempC | n | floor),
+  ([hours[].chanceofrain | n] | max // 0 | floor),
+  ([hours[].chanceofsnow | n] | max // 0 | floor),
+  ([hours[].chanceofthunder | n] | max // 0 | floor),
+  ([hours[].windspeedKmph | n] | max // 0 | floor),
+  (daytime | map(select(is_haze(.)) | vis(.)) | map(select(. != null)) | min // 999),
+  (hours | map(select(is_fog(.)) | vis(.)) | map(select(. != null)) | min // 999),
+  base,
+  flags
+] | join("|")
+JQ
+)
+
+has_flag() {
+	case ",$flags," in
+		*",$1,"*) return 0 ;;
+	esac
+	return 1
+}
+
+num_ok() {
+	awk -v n="$1" 'BEGIN { exit !(n ~ /^-?[0-9]+([.][0-9]+)?$/) }'
+}
+
+ge() {
+	num_ok "$1" || return 1
+	awk -v n="$1" -v m="$2" 'BEGIN { exit !(n + 0 >= m + 0) }'
+}
+
+lt() {
+	num_ok "$1" || return 1
+	awk -v n="$1" -v m="$2" 'BEGIN { exit !(n + 0 < m + 0) }'
+}
+
+le() {
+	num_ok "$1" || return 1
+	awk -v n="$1" -v m="$2" 'BEGIN { exit !(n + 0 <= m + 0) }'
+}
+
+classify() {
+	min=$1
+	max=$2
+	rain=$3
+	snow=$4
+	thunder=$5
+	wind=$6
+	haze_vis=${7:-999}
+	fog_vis=${8:-999}
+	base=$9
+	flags=${10}
+	alert=0
+	alert_icon=
+	alert_label=
+	case $base in
+		cloudy) base_word=阴 ;;
+		partly) base_word=多云 ;;
+		*) base_word=晴 ;;
+	esac
+	if ge "$thunder" 40; then
+		alert=1; alert_icon=⛈; alert_label=雷
+	elif has_flag heavy && ge "$rain" 70; then
+		alert=1; alert_icon=🌧; alert_label=暴
+	elif has_flag snow || ge "$snow" 50; then
+		alert=1; alert_icon=❄️; alert_label=雪
+	elif has_flag sleet && { ge "$rain" 50 || ge "$snow" 50; }; then
+		alert=1; alert_icon=🌨; alert_label=夹
+	elif ge "$rain" 50; then
+		alert=1; alert_icon=🌧; alert_label=雨
+	elif lt "$fog_vis" 1; then
+		alert=1; alert_icon=🌫; alert_label=雾
+	elif lt "$haze_vis" 5; then
+		alert=1; alert_icon=≋; alert_label=霾
+	elif ge "$wind" 40; then
+		alert=1; alert_icon=💨; alert_label=风
+	elif ge "$max" 35; then
+		alert=1; alert_icon=🔥; alert_label=热
+	elif le "$min" -5; then
+		alert=1; alert_icon=🥶; alert_label=冷
+	fi
+	precip=$(awk -v r="$rain" -v s="$snow" 'BEGIN { m = r + 0; if (s + 0 > m) m = s + 0; printf "%d", m }')
+}
+
+phrase() {
+	if [ "$alert" -eq 1 ]; then
+		printf '%s%s' "$alert_icon" "$alert_label"
+	else
+		printf '%s' "$base_word"
+	fi
+}
+
+today_full() {
+	printf '%s 🌡 %s-%s° 💧%s%%' "$(phrase)" "$min" "$max" "$precip"
+}
+
+today_short() {
+	printf '%s 🌡 %s-%s°' "$(phrase)" "$min" "$max"
+}
+
+fits() {
+	printf '%s' "$1" | python3 -c '
+import sys
+s = sys.stdin.read()
+cols = 0
+for ch in s:
+    o = ord(ch)
+    if 0xFE00 <= o <= 0xFE0F:
+        continue
+    if o >= 0x1F000 or 0x4E00 <= o <= 0x9FFF or 0x2600 <= o <= 0x27BF or ch in "·≋":
+        cols += 2
+    else:
+        cols += 1
+sys.exit(0 if len(s.encode()) <= 47 and cols <= 30 else 1)
+'
+}
+
+future_suffix() {
+	ming_text=$1
+	hou_text=$2
+	out=
+	if [ -n "$ming_text" ]; then
+		out="明$ming_text"
+	fi
+	if [ -n "$hou_text" ]; then
+		if [ -n "$out" ]; then
+			out="$out 后$hou_text"
+		else
+			out="后$hou_text"
+		fi
+	fi
+	if [ -n "$out" ]; then
+		printf ' · %s' "$out"
+	fi
+}
+
+try_line() {
+	fits "$1" || return 1
+	printf '%s' "$1"
+}
+
+fit_print() {
+	today=$(today_full)
+	short=$(today_short)
+	ming_text=
+	hou_text=
+	hou_icon_only=
+	if [ -n "$ming_icon" ]; then
+		ming_text="${ming_icon}${ming_label}"
+	fi
+	if [ -n "$hou_icon" ]; then
+		hou_icon_only=$hou_icon
+		if [ -n "$ming_icon" ] && [ "$hou_icon" = "$ming_icon" ]; then
+			hou_text=$hou_icon
+		else
+			hou_text="${hou_icon}${hou_label}"
+		fi
+	fi
+	try_line "$today$(future_suffix "$ming_text" "$hou_text")" && return 0
+	if [ -n "$hou_icon_only" ]; then
+		try_line "$today$(future_suffix "$ming_text" "$hou_icon_only")" && return 0
+	fi
+	try_line "$today$(future_suffix "$ming_text" "")" && return 0
+	if [ -n "$ming_icon" ]; then
+		try_line "$today$(future_suffix "$ming_icon" "")" && return 0
+	fi
+	try_line "$today" && return 0
+	printf '%s' "$short"
+}
+
+showweather() {
+	[ -s "$weatherreport" ] || { printf '🌡 --'; return; }
+	data=$(jq -r "$day_filter" "$weatherreport" 2>/dev/null) || { printf '🌡 --'; return; }
+	[ -n "$data" ] || { printf '🌡 --'; return; }
+	index=0
+	ming_icon=
+	ming_label=
+	hou_icon=
+	hou_label=
+	while IFS='|' read -r min max rain snow thunder wind haze_vis fog_vis base flags; do
+		classify "$min" "$max" "$rain" "$snow" "$thunder" "$wind" "$haze_vis" "$fog_vis" "$base" "$flags"
+		if [ "$index" -eq 0 ]; then
+			today_min=$min
+			today_max=$max
+			today_precip=$precip
+			today_alert=$alert
+			today_icon=$alert_icon
+			today_label=$alert_label
+			today_base=$base_word
+		elif [ "$index" -eq 1 ] && [ "$alert" -eq 1 ]; then
+			ming_icon=$alert_icon
+			ming_label=$alert_label
+		elif [ "$index" -eq 2 ] && [ "$alert" -eq 1 ]; then
+			hou_icon=$alert_icon
+			hou_label=$alert_label
+		fi
+		index=$((index + 1))
+	done << EOF
+$data
+EOF
+	[ "$index" -gt 0 ] || { printf '🌡 --'; return; }
+	min=$today_min
+	max=$today_max
+	precip=$today_precip
+	alert=$today_alert
+	alert_icon=$today_icon
+	alert_label=$today_label
+	base_word=$today_base
+	fit_print
+}
+
+run_check() {
+	fail=0
+	check_one() {
+		classify "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" "${10}"
+		got=$(today_full)
+		if [ "$got" = "${11}" ]; then
+			return 0
+		fi
+		printf 'FAIL %s\n got %s\n want %s\n' "${12}" "$got" "${11}" >&2
+		fail=1
+	}
+	check_one 14 23 9 0 0 10 8 "" clear "" "晴 🌡 14-23° 💧9%" "base"
+	check_one 14 23 9 0 0 10 5 "" clear "" "晴 🌡 14-23° 💧9%" "haze-5"
+	check_one 14 23 9 0 0 10 4 "" clear "" "≋霾 🌡 14-23° 💧9%" "haze-4"
+	check_one 14 23 9 0 0 10 "" "" clear "" "晴 🌡 14-23° 💧9%" "night-haze"
+	check_one 8 12 10 0 0 5 "" 1 clear "" "晴 🌡 8-12° 💧10%" "fog-1"
+	check_one 8 12 10 0 0 5 "" 0 clear "" "🌫雾 🌡 8-12° 💧10%" "fog-0"
+	check_one 16 22 49 0 0 5 "" "" partly "" "多云 🌡 16-22° 💧49%" "rain-49"
+	check_one 16 22 50 0 0 5 "" "" partly "" "🌧雨 🌡 16-22° 💧50%" "rain-50"
+	check_one 16 22 69 0 0 5 "" "" cloudy "heavy" "🌧雨 🌡 16-22° 💧69%" "heavy-69"
+	check_one 16 22 70 0 0 5 "" "" cloudy "heavy" "🌧暴 🌡 16-22° 💧70%" "heavy-70"
+	check_one 18 24 30 0 39 5 "" "" partly "" "多云 🌡 18-24° 💧30%" "thunder-39"
+	check_one 18 24 40 0 40 5 "" "" partly "" "⛈雷 🌡 18-24° 💧40%" "thunder-40"
+	check_one 0 3 10 49 0 5 "" "" cloudy "" "阴 🌡 0-3° 💧49%" "snow-49"
+	check_one 0 3 10 0 0 5 "" "" cloudy "snow" "❄️雪 🌡 0-3° 💧10%" "snow-word"
+	check_one 20 28 0 0 0 39 "" "" clear "" "晴 🌡 20-28° 💧0%" "wind-39"
+	check_one 20 28 0 0 0 40 "" "" clear "" "💨风 🌡 20-28° 💧0%" "wind-40"
+	check_one 28 34 0 0 0 5 "" "" clear "" "晴 🌡 28-34° 💧0%" "hot-34"
+	check_one 35 38 0 0 0 5 "" "" clear "" "🔥热 🌡 35-38° 💧0%" "hot-35"
+	check_one -4 6 0 0 0 5 "" "" clear "" "晴 🌡 -4-6° 💧0%" "cold-4"
+	check_one -8 -5 0 0 0 5 "" "" clear "" "🥶冷 🌡 -8--5° 💧0%" "cold-5"
+	ming_icon=❄️
+	ming_label=雪
+	hou_icon=💨
+	hou_label=风
+	min=-15
+	max=-5
+	precip=100
+	alert=1
+	alert_icon=🥶
+	alert_label=冷
+	base_word=晴
+	got=$(fit_print)
+	if ! fits "$got"; then
+		printf 'FAIL budget %s\n' "$got" >&2
+		fail=1
+	fi
+	exit "$fail"
+}
+
+if [ "${1:-}" = --refresh ]; then
+	getforecast || exit 1
+	pkill -RTMIN+5 "${STATUSBAR:-dwmblocks}" 2>/dev/null || true
+	exit 0
+fi
+
+if [ "${1:-}" = --check ]; then
+	run_check
+fi
+
+case ${BLOCK_BUTTON:-} in
+	1) setsid -f "$TERMINAL" -e less -Srf "$weatherreport" ;;
+	2) getforecast && showweather ;;
+	3) notify-send "🌈 Weather module" "🌡: base weather inside the bar budget
+Alerts only past a threshold
+Left click: full JSON forecast
+Middle click: refresh forecast" ;;
+	6) "$TERMINAL" -e "$EDITOR" "$0" ;;
+esac
+
+[ "$(stat -c %y "$weatherreport" 2>/dev/null | cut -d' ' -f1)" = "$(date '+%Y-%m-%d')" ] || getforecast
+showweather
