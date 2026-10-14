@@ -175,7 +175,10 @@ setup_bootstrap_env() # 从当前工作树构造自举安装用的临时 remote
 
 覆盖跨平台核心 category 的 fresh 安装、冲突备份、dry-run，以及从 full 移除非核心文件。
 
-### TC-30..33, TC-38..44b：卸载与恢复（uninstall.bats）
+### uninstall.bats：TC-30..33、TC-38..44b
+
+本文件的 TC-38 只删除 checkout state。`e2e-state-machine.bats` 里另有同号用例，不是这一条。
+
 
 | 用例 | 描述 |
 |------|------|
@@ -197,7 +200,10 @@ setup_bootstrap_env() # 从当前工作树构造自举安装用的临时 remote
 | TC-34a..34k | `cfg_validate` 各种仓库状态分类（missing/not_git/foreign_repo/valid） |
 | TC-35 | 库不可用时回退到内联验证 |
 
-### TC-36..39：端到端生命周期（e2e-state-machine.bats）
+### e2e-state-machine.bats：TC-36..39
+
+本文件的 TC-38 是 full 切到 min 时保留安装基础设施。它和 `uninstall.bats` 的 TC-38 不是同一条。测试名未改。
+
 
 | 用例 | 描述 |
 |------|------|
@@ -242,12 +248,18 @@ category 数量且版本不带 `v` 前缀；TC-CL09 固定 `categories show` 的
 
 覆盖配置版本和状态字段持久化、标记、删除、孤立子节点查询，以及旧格式 `index.json` 的默认值兼容。
 
-### TC-D01..DS02：部署与撤销（deploy-undeploy.bats）
+### deploy-undeploy.bats：TC-D01..DS02
+
+这一组的 TC-D01 是部署。`doctor-repair.bats` 里另有同号用例。过滤时要带上描述，测试名未改。
+
 
 覆盖 HEAD 缺失、重复部署、强制部署、Fresh 节点、dry-run、状态更新和撤销恢复；其中 TC-U03
 验证符号链接按链接本身恢复，TC-DS02 验证撤销后 dotcfg 命令与运行库仍存在。
 
-### TC-D01..D06：诊断与修复（doctor-repair.bats）
+### doctor-repair.bats：TC-D01..D06
+
+这一组的 TC-D01 是诊断健康状态。它和 `deploy-undeploy.bats` 的 TC-D01 不是同一条。测试名未改。
+
 
 覆盖健康状态、HEAD 和部署状态修复、启动自检提示，以及备份根或节点存储缺失时重建索引并立即
 重新加载节点数据。
@@ -408,6 +420,8 @@ bats -r .local/share/test/ --tap
 
 ### 当前安装测试结果
 
+下面的通过数是 2026-08-12 的完整执行，不是后来的重跑。2026-08-31 只复核了条数。
+
 **验证环境**：2026-08-12 在[平台档案索引](../platforms/index.md)所列 Debian 平台完整执行；
 Bats 满足本文 `>= 1.11.0` 的前置要求。2026-08-31 用 `bats --count
 .local/share/test/installation` 复核当前清单仍为 272；该枚举不冒充一次新的完整执行。
@@ -436,7 +450,7 @@ Failed: 0
 
 ## 相关文档
 
-- [安装系统](installation-system.md) — 安装系统设计文档（v3.0 节点系统）
+- [安装系统](installation-system.md) — 安装系统设计文档
 - [安装系统修复记录](../planning/installation-fixes.md) — 已知问题和修复方案
 - [依赖清单](dependencies.md) — 项目依赖的软件包
 
