@@ -27,6 +27,16 @@ EOF
 	printf '%s\n' "$((time_hour * 3600 + time_minute * 60 + time_second))"
 }
 
+seconds_to_hhmm() {
+	seconds=$1
+	case "$seconds" in
+		*[!0-9]*) return 1 ;;
+	esac
+	[ -n "$seconds" ] || return 1
+	[ "$seconds" -ge 0 ] && [ "$seconds" -lt 86400 ] || return 1
+	printf '%02d:%02d\n' "$((seconds / 3600))" "$(((seconds % 3600) / 60))"
+}
+
 read_sun_cache() {
 	[ -r "$sun_cache" ] || return 1
 	IFS=' ' read -r cache_version saved_date saved_sunrise saved_sunset extra < "$sun_cache" || return 1
@@ -86,6 +96,8 @@ refresh_sun_cache() {
 
 chinese_period() {
 	fallback=$1
+	sun_hint=
+	period=$fallback
 	today=$(date '+%Y-%m-%d')
 	cache_date=
 	sunrise_seconds=
@@ -95,29 +107,31 @@ chinese_period() {
 	if [ "$cache_date" != "$today" ]; then
 		refresh_sun_cache "$today" && read_sun_cache
 	fi
-	[ -n "$sunrise_seconds" ] || { printf '%s\n' "$fallback"; return; }
+	[ -n "$sunrise_seconds" ] || return
 
-	now_seconds=$(time_to_seconds "$(date '+%H:%M:%S')") || {
-		printf '%s\n' "$fallback"
-		return
-	}
+	now_seconds=$(time_to_seconds "$(date '+%H:%M:%S')") || return
 
 	if [ "$now_seconds" -lt "$sunrise_seconds" ]; then
 		period=凌晨
+		hint=$(seconds_to_hhmm "$sunrise_seconds") || return
+		sun_hint="☀$hint"
 	elif [ "$now_seconds" -ge "$sunset_seconds" ]; then
 		period=夜晚
 	elif [ "$now_seconds" -lt 43200 ]; then
 		period=上午
 	else
 		period=下午
+		hint=$(seconds_to_hhmm "$sunset_seconds") || return
+		sun_hint="🌙$hint"
 	fi
-	printf '%s\n' "$period"
 }
 
 clock=$(date '+%I')
+minute=$(date '+%M')
 period=$(date '+%p')
+sun_hint=
 case "$period" in
-	上午|下午) period=$(chinese_period "$period") ;;
+	上午|下午) chinese_period "$period" ;;
 esac
 
 case "$clock" in
@@ -144,4 +158,11 @@ case $BLOCK_BUTTON in
 	6) "$TERMINAL" -e "$EDITOR" "$0" ;;
 esac
 
-date "+%Y %b %d (%a) $icon%I:%M$period"
+case "$period" in
+	凌晨|下午)
+		date "+%b%d日 $icon${clock#0}:$minute$period${sun_hint:+ $sun_hint}"
+		;;
+	*)
+		date "+%Y %b %d (%a) $icon%I:%M$period"
+		;;
+esac
