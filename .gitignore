@@ -1,3 +1,4 @@
 run/
 __pycache__/
 *.pyc
+tests/env/var/

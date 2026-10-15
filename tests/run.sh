@@ -87,8 +87,9 @@ open_mixed() {
 
 shellcheck "$ROOT/bin/axs" "$ROOT/lib/common.sh" "$ROOT/tests/run.sh" \
     "$ROOT/tests/fake-fetch" "$ROOT/tests/fake-fetch-fail" "$ROOT/tests/fake-fetch-html" \
-    "$ROOT/tests/fake-mihomo"
-python3 -m py_compile "$ROOT/lib/merge.py" "$ROOT/tests/check_merge.py" "$ROOT/tests/prep_run.py"
+    "$ROOT/tests/fake-mihomo" "$ROOT/tests/env/run.sh"
+python3 -m py_compile "$ROOT/lib/merge.py" "$ROOT/tests/check_merge.py" "$ROOT/tests/prep_run.py" \
+    "$ROOT/tests/env/lab.py"
 PASS=$((PASS + 1))
 
 new_run
@@ -285,6 +286,14 @@ if grep -F 'test-secret-value' "$RUN/fake/log" "$RUN/out" "$RUN/err" >/dev/null 
 fi
 assert_code 'groups' 0 node groups
 grep -q 'PROXY' "$RUN/out" || fail 'group name missing'
+
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081" AXS_DELAY_URL="http://127.0.0.1:9/204"
+arm_api PROXY 204 7
+assert_code 'delay url' 0 node test PROXY
+grep -q ' 7' "$RUN/out" || fail "delay url output: $(cat "$RUN/out")"
+grep -q '127.0.0.1' "$RUN/fake/log" || fail 'delay url was not sent'
 
 new_run
 printf '%s\n' "$CANARY" >"$RUN/subscription.url"

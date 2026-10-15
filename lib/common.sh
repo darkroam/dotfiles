@@ -1,6 +1,6 @@
 #!/bin/sh
 # Lock, atomic install, and controller calls. ROOT is set by bin/axs.
-# shortcut: AXS_FETCH / AXS_MIXED_PORT / AXS_API keep the suite offline; leave them unset in production.
+# shortcut: AXS_FETCH / AXS_MIXED_PORT / AXS_API / AXS_DELAY_URL keep tests off the public net; leave them unset in production.
 set -eu
 
 : "${ROOT:?}"
@@ -341,5 +341,9 @@ cmd_test() {
         group=$(python3 "$PY" groups "$AXS_RUN/secret" "$API" | head -n 1) || die 3 "控制器"
     fi
     [ -n "$group" ] || die 3 "组名不存在"
-    python3 "$PY" delay "$AXS_RUN/secret" "$API" "$group" || die 3 "控制器"
+    if [ -n "${AXS_DELAY_URL:-}" ]; then
+        python3 "$PY" delay "$AXS_RUN/secret" "$API" "$group" "$AXS_DELAY_URL" || die 3 "控制器"
+    else
+        python3 "$PY" delay "$AXS_RUN/secret" "$API" "$group" || die 3 "控制器"
+    fi
 }
