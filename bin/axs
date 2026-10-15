@@ -1,0 +1,52 @@
+#!/bin/sh
+set -eu
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+# shellcheck disable=SC1091
+. "$ROOT/lib/common.sh"
+
+usage() {
+    printf '%s\n' "用法：axs start|stop|status|restart|health" >&2
+    printf '%s\n' "      axs sub get|refresh" >&2
+    printf '%s\n' "      axs rule list|add|del" >&2
+    printf '%s\n' "      axs node groups|test" >&2
+    exit 1
+}
+
+cmd=${1:-}
+shift || true
+case $cmd in
+    start) cmd_start "$@" ;;
+    stop) cmd_stop "$@" ;;
+    restart) cmd_restart "$@" ;;
+    status) cmd_status "$@" ;;
+    health) cmd_health "$@" ;;
+    sub)
+        sub=${1:-}
+        shift || true
+        case $sub in
+            get) cmd_sub_get "$@" ;;
+            refresh) cmd_refresh "$@" ;;
+            *) usage ;;
+        esac
+        ;;
+    rule)
+        sub=${1:-}
+        shift || true
+        case $sub in
+            list) cmd_rule_list "$@" ;;
+            add) cmd_rule_add "$@" ;;
+            del) cmd_rule_del "$@" ;;
+            *) usage ;;
+        esac
+        ;;
+    node)
+        sub=${1:-}
+        shift || true
+        case $sub in
+            groups) cmd_groups "$@" ;;
+            test) cmd_test "$@" ;;
+            *) usage ;;
+        esac
+        ;;
+    *) usage ;;
+esac
