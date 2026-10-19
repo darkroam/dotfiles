@@ -59,9 +59,12 @@ code_of() {
 }
 
 need() {
+    want=$1
+    label=$2
+    shift 2
     code_of "$@"
-    if [ "$CODE" -ne "$1" ]; then
-        say "FAIL $2 want $1 got $CODE"
+    if [ "$CODE" -ne "$want" ]; then
+        say "FAIL $label want $want got $CODE"
         if [ -f "$VAR/err" ]; then
             cat "$VAR/err" >&2
         fi
@@ -172,12 +175,11 @@ check() {
     [ "$(has_rule "$AXS_RUN/config.yaml.bak" "$MARK")" = "no" ] || { say "FAIL bak has marker"; return 1; }
     cp -p "$AXS_RUN/config.yaml" "$VAR/good-config"
     cp -p "$AXS_RUN/subscription.yaml" "$VAR/good-sub"
-    cp -p "$AXS_RUN/config.yaml.bak" "$VAR/good-bak"
     : >"$VAR/bad"
-    need 3 sub refresh "bad refresh" || return 1
+    need 3 "bad refresh" sub refresh || return 1
     cmp -s "$AXS_RUN/config.yaml" "$VAR/good-config" || { say "FAIL config replaced"; return 1; }
     cmp -s "$AXS_RUN/subscription.yaml" "$VAR/good-sub" || { say "FAIL body replaced"; return 1; }
-    cmp -s "$AXS_RUN/config.yaml.bak" "$VAR/good-bak" || { say "FAIL bak replaced"; return 1; }
+    cmp -s "$AXS_RUN/config.yaml.bak" "$VAR/good-config" || { say "FAIL bak not rebuilt"; return 1; }
     rm -f "$VAR/bad"
     flock "$AXS_RUN/refresh.lock" -c 'sleep 2' &
     lockpid=$!
@@ -189,21 +191,21 @@ check() {
         i=$((i + 1))
         sleep 0.05
     done
-    need 4 sub refresh "lock" || return 1
+    need 4 "lock" sub refresh || return 1
     grep -q '锁' "$VAR/err" || { say "FAIL lock text"; return 1; }
     wait "$lockpid" || true
     say "d refresh-rollback-lock"
     printf '%s\n' past >"$VAR/expire"
     "$AXS" sub refresh >/dev/null
-    need 5 health "expired" || return 1
+    need 5 "expired" health || return 1
     grep -q '已过期' "$VAR/out" || { say "FAIL expired text"; return 1; }
     printf '%s\n' soon >"$VAR/expire"
     "$AXS" sub refresh >/dev/null
-    need 0 health "soon" || return 1
+    need 0 "soon" health || return 1
     grep -q '警告' "$VAR/out" || { say "FAIL soon text"; return 1; }
     printf '%s\n' ok >"$VAR/expire"
     "$AXS" sub refresh >/dev/null
-    need 0 health "valid" || return 1
+    need 0 "valid" health || return 1
     grep -q '订阅有效' "$VAR/out" || { say "FAIL valid text"; return 1; }
     say "e health"
     old=$(cat "$AXS_RUN/mihomo.pid")
