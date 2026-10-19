@@ -58,11 +58,17 @@ def ipv6_loopback(hexip):
     return raw[:12] == b"\x00" * 10 + b"\xff\xff" and raw[12] == 127
 
 
-def subscription(proxy_port, marker):
+def dns_name(port):
+    return f"127.0.0.1:{int(port)}"
+
+
+def subscription(proxy_port, marker, dns_port):
+    # hosts rewrites the name before rules, so a DOMAIN rule would never match.
     rules = []
     if marker:
         rules.append("DOMAIN,marker.test,DIRECT")
     rules.append("MATCH,DIRECT")
+    upstream = dns_name(dns_port)
     data = {
         "mixed-port": 1,
         "mode": "global",
@@ -75,9 +81,11 @@ def subscription(proxy_port, marker):
         "dns": {
             "enable": False,
             "listen": "127.0.0.1:1",
-            "nameserver": ["127.0.0.1:9"],
+            "enhanced-mode": "redir-host",
+            "ipv6": False,
+            "nameserver": [upstream],
+            "default-nameserver": [upstream],
         },
-        "hosts": {"target.test": "127.0.0.1"},
         "proxies": [{
             "name": "local",
             "type": "http",
@@ -92,6 +100,68 @@ def subscription(proxy_port, marker):
         "rules": rules,
     }
     return yaml.safe_dump(data, allow_unicode=True, sort_keys=False)
+
+
+def _decode_dns_name(data, offset):
+    labels = []
+    seen = 0
+    while True:
+        if offset >= len(data) or seen > 8:
+            return None
+        length = data[offset]
+        if length == 0:
+            return ".".join(labels).lower()
+        if length & 0xC0:
+            return None
+        offset += 1
+        labels.append(data[offset:offset + length].decode("ascii", "replace"))
+        offset += length
+        seen += 1
+
+
+def _question_end(data):
+    offset = 12
+    while offset < len(data):
+        length = data[offset]
+        if length == 0:
+            return offset + 5
+        if length & 0xC0:
+            return offset + 6
+        offset += 1 + length
+    return None
+
+
+def answer_dns(query, var):
+    if len(query) < 12 or int.from_bytes(query[4:6], "big") < 1:
+        return None
+    end = _question_end(query)
+    if end is None or end > len(query):
+        return None
+    name = _decode_dns_name(query, 12)
+    if name is None:
+        return None
+    qtype = int.from_bytes(query[end - 4:end - 2], "big")
+    own = name == "target.test" or (name.endswith(".test") and name != "test")
+    if name.endswith(".invalid"):
+        trip(var, name)
+    rcode = 0 if own else 3
+    byte2 = 0x84 | (query[2] & 0x01)
+    byte3 = 0x80 | (0 if own else rcode)
+    if own and qtype == 28:
+        byte3 = 0x80
+    header = bytearray(query[:2] + bytes((byte2, byte3)) + query[4:6] + b"\x00\x00\x00\x00\x00\x00")
+    question = query[12:end]
+    if not own or qtype != 1:
+        return bytes(header) + question
+    header[6:8] = (1).to_bytes(2, "big")
+    answer = b"\xc0\x0c" + (1).to_bytes(2, "big") + (1).to_bytes(2, "big")
+    answer += (60).to_bytes(4, "big") + (4).to_bytes(2, "big") + bytes((127, 0, 0, 1))
+    return bytes(header) + question + answer
+
+
+def dns_query(name, qtype=1):
+    labels = b"".join(bytes((len(part),)) + part.encode() for part in name.split(".")) + b"\x00"
+    return b"\x12\x34\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00" + labels + qtype.to_bytes(2, "big") + b"\x00\x01"
 
 
 def userinfo(var):
@@ -150,7 +220,7 @@ class Target(BaseHTTPRequestHandler):
                 self._send(200, b"<html>\n", "text/html")
                 return
             marker = (Path(self.var) / "marker").is_file()
-            body = subscription(self.server.proxy_port, marker)
+            body = subscription(self.server.proxy_port, marker, self.server.dns_port)
             self._send(200, body, "text/yaml", {"subscription-userinfo": userinfo(self.var)})
             return
         if path == "/who":
@@ -281,7 +351,7 @@ def handle_proxy(conn, var):
         conn.close()
 
 
-def serve(var, http_port, proxy_port):
+def serve(var, http_port, proxy_port, dns_port):
     var = Path(var)
     var.mkdir(parents=True, exist_ok=True)
     os.chmod(var, 0o700)
@@ -292,12 +362,21 @@ def serve(var, http_port, proxy_port):
         sys.stderr.write(f"bind failed: {exc.errno}\n")
         return 1
     httpd.proxy_port = int(proxy_port)
+    httpd.dns_port = int(dns_port)
     try:
         proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         proxy.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         proxy.bind(("127.0.0.1", int(proxy_port)))
         proxy.listen(32)
     except OSError as exc:
+        httpd.server_close()
+        sys.stderr.write(f"bind failed: {exc.errno}\n")
+        return 1
+    try:
+        dns = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        dns.bind(("127.0.0.1", int(dns_port)))
+    except OSError as exc:
+        proxy.close()
         httpd.server_close()
         sys.stderr.write(f"bind failed: {exc.errno}\n")
         return 1
@@ -314,7 +393,27 @@ def serve(var, http_port, proxy_port):
                 break
             threading.Thread(target=handle_proxy, args=(conn, var), daemon=True).start()
 
+    def read_dns():
+        dns.settimeout(0.3)
+        while not stop.is_set():
+            try:
+                data, addr = dns.recvfrom(2048)
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            if not str(addr[0]).startswith("127."):
+                trip(var, str(addr[0]))
+                continue
+            reply = answer_dns(data, var)
+            if reply:
+                try:
+                    dns.sendto(reply, addr)
+                except OSError:
+                    pass
+
     threading.Thread(target=accept_proxy, daemon=True).start()
+    threading.Thread(target=read_dns, daemon=True).start()
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     (var / "lab.pid").write_text(str(os.getpid()) + "\n", encoding="utf-8")
     (var / "ready").write_text("ok\n", encoding="utf-8")
@@ -323,6 +422,7 @@ def serve(var, http_port, proxy_port):
         stop.set()
         httpd.shutdown()
         proxy.close()
+        dns.close()
 
     signal.signal(signal.SIGTERM, halt)
     signal.signal(signal.SIGINT, halt)
@@ -441,7 +541,7 @@ def merge_check():
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
         sub = folder / "sub.yaml"
-        sub.write_text(subscription(9, False), encoding="utf-8")
+        sub.write_text(subscription(9, False, 18095), encoding="utf-8")
         subprocess.check_call(
             ["python3", str(merge), "defaults", str(folder / "override.yaml"), "18093", "127.0.0.1:18094"],
             stdout=subprocess.DEVNULL,
@@ -470,8 +570,28 @@ def merge_check():
     if "from-sub" in body or "canary.invalid" in body:
         sys.stderr.write("subscription secret kept\n")
         return 1
-    if "DOMAIN,target.test,PROXY" not in body or "127.0.0.1:9" not in body:
+    if "hosts:" in body or "DOMAIN,target.test,PROXY" not in body or "127.0.0.1:18095" not in body or "redir-host" not in body:
         sys.stderr.write("merged shape\n")
+        return 1
+    return 0
+
+
+def dns_check(var):
+    good = answer_dns(dns_query("target.test"), var)
+    if good is None or bytes((127, 0, 0, 1)) not in good or (good[3] & 0x0F) != 0:
+        sys.stderr.write("dns target\n")
+        return 1
+    bad = answer_dns(dns_query("canary.invalid"), var)
+    if bad is None or (bad[3] & 0x0F) != 3 or bytes((127, 0, 0, 1)) in bad:
+        sys.stderr.write("dns canary\n")
+        return 1
+    if "canary.invalid" not in (var / "tripwire").read_text(encoding="utf-8"):
+        sys.stderr.write("dns tripwire\n")
+        return 1
+    other = answer_dns(dns_query("example.com"), var)
+    tripped = (var / "tripwire").read_text(encoding="utf-8")
+    if other is None or (other[3] & 0x0F) != 3 or "example.com" in tripped:
+        sys.stderr.write("dns other\n")
         return 1
     return 0
 
@@ -494,9 +614,14 @@ def selfcheck():
         if (var / "tripwire").read_text(encoding="utf-8").strip() != "canary.invalid":
             sys.stderr.write("tripwire\n")
             return 1
-        text = subscription(9, True)
-        if "canary.invalid" in text or "target.test" not in text or "marker.test" not in text:
+        text = subscription(9, True, 18095)
+        if "canary.invalid" in text or "hosts:" in text or "marker.test" not in text:
             sys.stderr.write("subscription shape\n")
+            return 1
+        if "127.0.0.1:18095" not in text or "redir-host" not in text:
+            sys.stderr.write("subscription dns\n")
+            return 1
+        if dns_check(var):
             return 1
         if pair_check(var):
             return 1
@@ -602,7 +727,7 @@ def main(argv):
     if cmd == "merge-check":
         return merge_check()
     if cmd == "serve":
-        return serve(argv[2], argv[3], argv[4])
+        return serve(argv[2], argv[3], argv[4], argv[5])
     if cmd == "audit":
         return audit(int(argv[2]))
     if cmd == "reload-bad":

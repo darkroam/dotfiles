@@ -9,6 +9,7 @@ HTTP=18091
 PROXY=18092
 MIXED=18093
 API_PORT=18094
+DNS=18095
 API=127.0.0.1:$API_PORT
 MARK=DOMAIN,marker.test,DIRECT
 
@@ -82,7 +83,7 @@ up() {
     wipe
     mkdir -p "$AXS_RUN"
     chmod 700 "$VAR" "$AXS_RUN"
-    python3 "$LAB" serve "$VAR" "$HTTP" "$PROXY" >>"$VAR/lab.log" 2>&1 &
+    python3 "$LAB" serve "$VAR" "$HTTP" "$PROXY" "$DNS" >>"$VAR/lab.log" 2>&1 &
     printf '%s\n' "$!" >"$VAR/boot.pid"
     i=0
     while [ "$i" -lt 40 ]; do
