@@ -466,6 +466,58 @@ def delay(secret_path, api, group, url):
         sys.stdout.write(f"{name} {value}\n")
 
 
+YAML_TYPES = {
+    "text/yaml",
+    "application/yaml",
+    "application/x-yaml",
+    "text/x-yaml",
+    "text/plain",
+    "application/octet-stream",
+}
+
+
+def check_url(path):
+    raw = Path(path).read_text(encoding="utf-8", errors="replace")
+    url = raw.strip("\r\n")
+    if url != url.strip() or any(ch.isspace() for ch in url) or "\\" in url:
+        sys.stderr.write("链接含转义字符（如 \\?），请去掉反斜杠\n")
+        raise SystemExit(3)
+
+
+def _header_field(text, name):
+    prefix = name.lower() + ":"
+    for line in text.splitlines():
+        if line.lower().startswith(prefix):
+            return line.split(":", 1)[1].strip()
+    return ""
+
+
+def _yaml_type(value):
+    if not value or not value.strip():
+        return True
+    main = value.split(";", 1)[0].strip().lower()
+    return main in YAML_TYPES or main.endswith("/yaml") or main.endswith("+yaml")
+
+
+def check_fetched(body_path, header_path):
+    body_file = Path(body_path)
+    body = body_file.read_bytes() if body_file.is_file() else b""
+    header = ""
+    header_file = Path(header_path)
+    if header_file.is_file():
+        header = header_file.read_text(encoding="utf-8", errors="replace")
+    status = _header_field(header, "x-axs-status") or "-"
+    ctype = _header_field(header, "x-axs-content-type")
+    html = body.lstrip().startswith(b"<")
+    if body.strip() and _yaml_type(ctype) and not html:
+        return
+    shown = ctype or ("text/html" if html else "-")
+    sys.stderr.write(
+        f"订阅返回空内容/非 YAML（HTTP {status}, {shown}），请检查链接\n"
+    )
+    raise SystemExit(3)
+
+
 def fetch(urlfile, body_path, header_path):
     if os.environ.get("AXS_FORBID_NET") == "1":
         fail("离线测试拒绝联网")
@@ -477,11 +529,16 @@ def fetch(urlfile, body_path, header_path):
         with urllib.request.urlopen(req, timeout=20) as resp:
             payload = resp.read()
             info = resp.headers.get("subscription-userinfo", "")
+            status = getattr(resp, "status", None) or 200
+            ctype = resp.headers.get("content-type") or ""
     except (urllib.error.URLError, TimeoutError, OSError):
         fail("拉取失败")
     Path(body_path).write_bytes(payload)
     Path(header_path).write_text(
-        "subscription-userinfo: " + info + "\n", encoding="utf-8"
+        "subscription-userinfo: " + info + "\n"
+        + f"x-axs-status: {status}\n"
+        + f"x-axs-content-type: {ctype}\n",
+        encoding="utf-8",
     )
 
 
@@ -655,6 +712,10 @@ def main(argv):
         version_ok(argv[2], argv[3])
     elif cmd == "delay":
         delay(argv[2], argv[3], argv[4], argv[5] if len(argv) > 5 else DELAY_URL)
+    elif cmd == "check-url":
+        check_url(argv[2])
+    elif cmd == "check-fetched":
+        check_fetched(argv[2], argv[3])
     elif cmd == "fetch":
         fetch(argv[2], argv[3], argv[4])
     elif cmd == "userinfo":

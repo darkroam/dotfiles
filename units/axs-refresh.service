@@ -1,0 +1,6 @@
+[Unit]
+Description=Refresh axs subscription
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/lib/access/bin/axs sub refresh

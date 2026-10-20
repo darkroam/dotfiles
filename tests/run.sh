@@ -87,6 +87,7 @@ open_mixed() {
 
 shellcheck "$ROOT/bin/axs" "$ROOT/lib/common.sh" "$ROOT/tests/run.sh" \
     "$ROOT/tests/fake-fetch" "$ROOT/tests/fake-fetch-fail" "$ROOT/tests/fake-fetch-html" \
+    "$ROOT/tests/fake-fetch-empty" \
     "$ROOT/tests/fake-mihomo" "$ROOT/tests/env/run.sh"
 python3 -m py_compile "$ROOT/lib/merge.py" "$ROOT/tests/check_merge.py" "$ROOT/tests/prep_run.py" \
     "$ROOT/tests/env/lab.py"
@@ -192,6 +193,33 @@ printf '%s\n' "$CANARY" >"$RUN/subscription.url"
 export AXS_FETCH="$ROOT/tests/fake-fetch-fail"
 assert_code 'refresh transport' 3 sub refresh
 test ! -f "$RUN/config.yaml" || fail 'transport failure left a config'
+
+new_run
+printf '%s\n' 'https://example.invalid/link/\?clash\=1' >"$RUN/subscription.url"
+assert_code 'refresh backslash' 3 sub refresh
+grep -q -F '链接含转义字符（如 \?），请去掉反斜杠' "$RUN/err" || fail "backslash text: $(cat "$RUN/err")"
+test ! -f "$RUN/config.yaml" || fail 'backslash left a config'
+
+new_run
+printf '%s\n' 'https://example.invalid/has space' >"$RUN/subscription.url"
+assert_code 'refresh space' 3 sub refresh
+grep -q -F '链接含转义字符（如 \?），请去掉反斜杠' "$RUN/err" || fail "space text: $(cat "$RUN/err")"
+test ! -f "$RUN/config.yaml" || fail 'space left a config'
+
+new_run
+printf '%s\n' 'https://example.invalid/sub' >"$RUN/subscription.url"
+export AXS_FETCH="$ROOT/tests/fake-fetch-empty"
+assert_code 'refresh empty' 3 sub refresh
+grep -q -F '订阅返回空内容/非 YAML（HTTP 200, text/html），请检查链接' "$RUN/err" || fail "empty text: $(cat "$RUN/err")"
+test ! -f "$RUN/config.yaml" || fail 'empty left a config'
+
+new_run
+printf '%s\n' 'https://example.invalid/sub' >"$RUN/subscription.url"
+printf '%s\n' 'SENTINEL-OLD' >"$RUN/config.yaml"
+export AXS_FETCH="$ROOT/tests/fake-fetch-html"
+assert_code 'refresh html' 3 sub refresh
+grep -q -F '订阅返回空内容/非 YAML（HTTP 200, text/html），请检查链接' "$RUN/err" || fail "html text: $(cat "$RUN/err")"
+test "$(cat "$RUN/config.yaml")" = "SENTINEL-OLD" || fail 'html replaced config'
 
 new_run
 mark_up

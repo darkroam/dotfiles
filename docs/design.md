@@ -1,6 +1,6 @@
 # 访问子系统 · 整体规划设计
 
-> 状态：v1 代码已在本目录（2026-10-15）。v1.1 已实现（2026-10-20）。系统单元仍未安装。
+> 状态：v1 代码已在本目录（2026-10-15）。v1.1 已实现（2026-10-20）。用户单元模板在 `units/`，复制到用户 systemd 后 enable。
 > 依据：R23 要求 §十一、§十二；v1.1 依据 §十九、§二十，修订依据 §二十一、§二十二（2026-10-19），实现依据 §二十四（2026-10-20）。阶段二实施方案里依赖 Verge、写入 `~/.config/mihomo`、包装 codex 的部分作废。
 > 权威：默认值、子命令、退出码只维护在本文。README、roadmap、constraints、轮次档案只引用，不另写一套数。
 
@@ -83,7 +83,7 @@ TUN 评估：现二进制带 `with_gvisor`，具备用户态栈条件。启用�
 
 阶段二把运行目录放在 `~/.config/mihomo`。那个目录主仓库没有忽略。v1 改到已经全局忽略的本树 `run/`，避免订阅被宽 glob 扫进公开仓库。
 
-单元文件本阶段不安装。落地时（另授权）才写用户单元：`axs.service` 执行 `mihomo -d <run>`；`axs-refresh.timer` 每 12 小时跑一次刷新。第一次写出合格 `config.yaml` 之前不 enable。
+用户单元模板在 `units/`。`axs.service` 执行 `mihomo -d <run>`，并写下 `mihomo.pid`，否则 `health` 仍认为未运行。`axs-refresh.timer` 每 12 小时跑 `axs sub refresh`。复制到 `~/.config/systemd/user/` 后 enable。没有合格 `config.yaml` 之前不 enable。登录后由用户会话拉起，不另加 `xprofile`。刷新前若地址含反斜杠或空白（单独的行尾换行不算），退出 3，提示去掉反斜杠。空正文，或 Content-Type 不是 YAML 类（`text/html` 等），退出 3，并带上 HTTP 状态和类型。
 
 ## 5. 子命令与退出码
 

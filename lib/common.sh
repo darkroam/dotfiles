@@ -247,6 +247,7 @@ cmd_refresh() {
         die 3 "没有订阅"
     fi
     chmod 600 "$AXS_RUN/subscription.url"
+    python3 "$PY" check-url "$AXS_RUN/subscription.url" || exit $?
     body=$AXS_RUN/fetch.yaml
     hdr=$AXS_RUN/fetch.hdr
     if [ -n "${AXS_FETCH:-}" ]; then
@@ -256,6 +257,7 @@ cmd_refresh() {
     elif ! python3 "$PY" fetch "$AXS_RUN/subscription.url" "$body" "$hdr"; then
         die 3 "拉取失败"
     fi
+    python3 "$PY" check-fetched "$body" "$hdr" || exit $?
     ensure_override
     ensure_secret
     read_ports
