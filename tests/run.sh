@@ -558,7 +558,7 @@ cat >"$RUN/fake/proxies.json" <<'EOF'
 {"proxies":{"主代理":{"all":["a","b"],"now":"a","type":"Selector"},"a":{"type":"Shadowsocks"},"b":{"type":"Shadowsocks"}}}
 EOF
 assert_code 'list manual' 0 node list
-test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → a（手动） 第1个' || fail "manual head: $(sed -n '1p' "$RUN/out")"
+test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → a（手动）→ a 第1个' || fail "manual head: $(sed -n '1p' "$RUN/out")"
 test "$(sed -n '3p' "$RUN/out")" = '[*]1 a -  2 b -' || fail "manual cells: $(sed -n '3p' "$RUN/out")"
 python3 -c 'import json,os; p=os.environ["AXS_RUN"]+"/fake/proxies.json"; d=json.load(open(p)); d["proxies"]["主代理"].pop("now", None); json.dump(d, open(p,"w"))'
 assert_code 'list none' 0 node list
@@ -575,14 +575,14 @@ cat >"$RUN/fake/proxies.json" <<'EOF'
 {"proxies":{"主代理":{"all":["自动选择"],"now":"自动选择","type":"Selector"},"自动选择":{"all":["a","b"],"now":"b","type":"URLTest"},"a":{"type":"Shadowsocks"},"b":{"type":"Shadowsocks"}}}
 EOF
 assert_code 'list auto' 0 node list
-test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → 自动选择（自动，url-test） 第2个' || fail "auto head: $(sed -n '1p' "$RUN/out")"
+test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → 自动选择（自动，url-test）→ b 第2个' || fail "auto head: $(sed -n '1p' "$RUN/out")"
 test "$(sed -n '3p' "$RUN/out")" = '1 a -     [*]2 b -' || fail "auto cells: $(sed -n '3p' "$RUN/out")"
 python3 -c 'import json,os; p=os.environ["AXS_RUN"]+"/fake/proxies.json"; d=json.load(open(p)); d["proxies"]["自动选择"]["type"]="Fallback"; d["proxies"]["自动选择"].pop("now", None); json.dump(d, open(p,"w"))'
 assert_code 'list auto none' 0 node list
-test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → 自动选择（自动，fallback） 无' || fail "auto none: $(sed -n '1p' "$RUN/out")"
+test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → 自动选择（自动，fallback）→ -' || fail "auto none: $(sed -n '1p' "$RUN/out")"
 python3 -c 'import json,os; p=os.environ["AXS_RUN"]+"/fake/proxies.json"; d=json.load(open(p)); d["proxies"]["自动选择"]["type"]="LoadBalance"; d["proxies"]["自动选择"]["now"]="a"; json.dump(d, open(p,"w"))'
 assert_code 'list balance' 0 node list
-test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → 自动选择（自动，load-balance） 第1个' || fail "balance head: $(sed -n '1p' "$RUN/out")"
+test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → 自动选择（自动，load-balance）→ a 第1个' || fail "balance head: $(sed -n '1p' "$RUN/out")"
 
 new_run
 mark_up
@@ -607,7 +607,7 @@ cat >"$RUN/fake/proxies.json" <<'EOF'
 {"proxies":{"主代理":{"all":["a","b"],"now":"a","type":"Selector"},"PROXY":{"all":["a","b"],"now":"a","type":"Selector"},"a":{"type":"Shadowsocks"},"b":{"type":"Shadowsocks"}}}
 EOF
 assert_code 'list cache' 0 node list
-test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → a（手动） 第1个' || fail "cache head: $(sed -n '1p' "$RUN/out")"
+test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → a（手动）→ a 第1个' || fail "cache head: $(sed -n '1p' "$RUN/out")"
 test "$(sed -n '2p' "$RUN/out")" = '最近测速：3 分钟前' || fail "cache age: $(sed -n '2p' "$RUN/out")"
 test "$(sed -n '3p' "$RUN/out")" = '[*]1 a 42  2 b -' || fail "cache cells: $(sed -n '3p' "$RUN/out")"
 assert_code 'switch cache' 0 node switch PROXY a
@@ -638,6 +638,61 @@ if grep -q 'PUT /proxies' "$RUN/fake/log"; then
     fail 'out of range sent select'
 fi
 assert_code 'list bad flag' 1 node list --nope
+
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081"
+arm_api PROXY 204 0
+cat >"$RUN/fake/proxies.json" <<'EOF'
+{"proxies":{"GLOBAL":{"all":["DIRECT"],"now":"DIRECT","type":"Selector"},"主代理":{"all":["自动选择","a"],"now":"自动选择","type":"Selector"},"自动选择":{"all":["a","新加坡aw1"],"now":"新加坡aw1","type":"URLTest"},"DIRECT":{"type":"Direct"},"a":{"type":"Shadowsocks"},"新加坡aw1":{"type":"Shadowsocks"}}}
+EOF
+export COLUMNS=80
+assert_code 'list leaf' 0 node list
+head=$(sed -n '1p' "$RUN/out")
+printf '%s\n' "$head" | grep -F '→ 新加坡aw1 第' >/dev/null || fail "leaf missing: $head"
+printf '%s\n' "$head" | grep -F '自动选择（自动，url-test）→ 新加坡aw1' >/dev/null || fail "auto leaf: $head"
+: >"$RUN/fake/log"
+assert_code 'default skips global' 0 node test
+python3 -c 'import os,urllib.parse; log=open(os.environ["AXS_RUN"]+"/fake/log",encoding="utf-8").read();
+assert "/group/"+urllib.parse.quote("主代理")+"/delay" in log, log
+assert "/group/GLOBAL/delay" not in log, log'
+
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081"
+arm_api PROXY 204 0
+cat >"$RUN/fake/proxies.json" <<'EOF'
+{"proxies":{"GLOBAL":{"all":["DIRECT"],"now":"DIRECT","type":"Selector"},"PROXY":{"all":["a"],"now":"a","type":"Selector"},"自动选择":{"all":["a"],"now":"a","type":"URLTest"},"DIRECT":{"type":"Direct"},"a":{"type":"Shadowsocks"}}}
+EOF
+: >"$RUN/fake/log"
+assert_code 'default auto' 0 node test
+python3 -c 'import os,urllib.parse; log=open(os.environ["AXS_RUN"]+"/fake/log",encoding="utf-8").read();
+assert "/group/"+urllib.parse.quote("自动选择")+"/delay" in log, log
+assert "/group/GLOBAL/delay" not in log, log'
+
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081"
+arm_api PROXY 204 0
+cat >"$RUN/fake/proxies.json" <<'EOF'
+{"proxies":{"GLOBAL":{"all":["DIRECT"],"now":"DIRECT","type":"Selector"},"DIRECT":{"type":"Direct"}}}
+EOF
+: >"$RUN/fake/log"
+assert_code 'default none' 3 node test
+grep -qx '没有可测组' "$RUN/err" || fail "none text: $(cat "$RUN/err")"
+grep -qx 'GLOBAL' "$RUN/err" || fail "none list: $(cat "$RUN/err")"
+if grep -q '/delay' "$RUN/fake/log"; then
+    fail 'none sent delay'
+fi
+
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081"
+arm_api PROXY 204 0
+: >"$RUN/fake/down"
+assert_code 'delay one line' 3 node test PROXY
+test "$(grep -c . "$RUN/err")" -eq 1 || fail "delay stderr: $(cat "$RUN/err")"
+grep -qx '控制器' "$RUN/err" || fail "delay reason: $(cat "$RUN/err")"
 
 new_run
 assert_code 'list down' 2 node list

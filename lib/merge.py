@@ -340,9 +340,26 @@ def _show_nodes_full(proxies):
         sys.stdout.write("\n".join(line for _, _, line in rows) + "\n")
 
 
+def _is_group(item):
+    return isinstance(item, dict) and item.get("type") in GROUP_TYPES
+
+
+def follow_leaf(proxies, name):
+    seen = set()
+    while isinstance(name, str) and name and name not in seen:
+        seen.add(name)
+        item = proxies.get(name)
+        if not isinstance(item, dict):
+            return None
+        if item.get("type") not in GROUP_TYPES:
+            return name
+        name = item.get("now")
+    return None
+
+
 def current_selection(proxies, numbers):
     main = proxies.get("主代理")
-    if not isinstance(main, dict) or main.get("type") not in GROUP_TYPES:
+    if not _is_group(main):
         return "当前：无", None
     now = main.get("now")
     target = proxies.get(now) if isinstance(now, str) and now else None
@@ -350,18 +367,47 @@ def current_selection(proxies, numbers):
         return "当前：无", None
     kind = target.get("type")
     if kind in AUTO_LABEL:
-        leaf = target.get("now")
-        leaf_item = proxies.get(leaf) if isinstance(leaf, str) else None
-        if (
-            isinstance(leaf_item, dict)
-            and leaf_item.get("type") not in GROUP_TYPES
-            and leaf in numbers
-        ):
-            return f"当前：主代理 → {now}（自动，{AUTO_LABEL[kind]}） 第{numbers[leaf]}个", leaf
-        return f"当前：主代理 → {now}（自动，{AUTO_LABEL[kind]}） 无", None
-    if kind not in GROUP_TYPES and now in numbers:
-        return f"当前：主代理 → {now}（手动） 第{numbers[now]}个", now
-    return "当前：无", None
+        label = f"{now}（自动，{AUTO_LABEL[kind]}）"
+    else:
+        label = f"{now}（手动）"
+    leaf = follow_leaf(proxies, now)
+    if leaf in numbers:
+        return f"当前：主代理 → {label}→ {leaf} 第{numbers[leaf]}个", leaf
+    return f"当前：主代理 → {label}→ -", None
+
+
+def pick_test_group(proxies):
+    groups = {
+        name: item
+        for name, item in proxies.items()
+        if _is_group(item)
+    }
+    main = groups.get("主代理")
+    if main is not None:
+        return "主代理"
+    autos = sorted(name for name, item in groups.items() if item.get("type") in AUTO_LABEL)
+    if autos:
+        return autos[0]
+    others = sorted(name for name in groups if name != "GLOBAL")
+    if others:
+        return others[0]
+    return None
+
+
+def default_group(secret_path, api):
+    try:
+        proxies = load_proxies(secret_path, api)
+    except SystemExit as exc:
+        _as_exit3(exc)
+    name = pick_test_group(proxies)
+    if name:
+        sys.stdout.write(name + "\n")
+        return
+    listed = sorted(name for name, item in proxies.items() if _is_group(item))
+    sys.stderr.write("没有可测组\n")
+    for name in listed:
+        sys.stderr.write(name + "\n")
+    raise SystemExit(3)
 
 
 def display_width(text):
@@ -948,6 +994,8 @@ def main(argv):
     elif cmd == "groups":
         for name in group_names(argv[2], argv[3]):
             sys.stdout.write(name + "\n")
+    elif cmd == "default-group":
+        default_group(argv[2], argv[3])
     elif cmd == "groups-show":
         show_groups(argv[2], argv[3])
     elif cmd == "node-list":

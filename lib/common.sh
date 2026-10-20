@@ -643,7 +643,7 @@ cmd_test() {
     read_ports
     group=${1:-}
     if [ -z "$group" ]; then
-        group=$(python3 "$PY" groups "$AXS_RUN/secret" "$API" | head -n 1) || die 3 "控制器"
+        group=$(python3 "$PY" default-group "$AXS_RUN/secret" "$API") || exit $?
     fi
     [ -n "$group" ] || die 3 "组名不存在"
     code=0
@@ -660,7 +660,7 @@ cmd_test() {
     else
         rm -f "$tmp"
         write_cache node-test fail
-        die 3 "控制器"
+        exit "$code"
     fi
 }
 
