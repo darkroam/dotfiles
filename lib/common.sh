@@ -577,12 +577,22 @@ cmd_ensure() {
 }
 
 cmd_node_list() {
-    [ $# -eq 0 ] || die 1 "用法"
+    full=0
+    for arg in "$@"; do
+        case $arg in
+            --full|-l) full=1 ;;
+            *) die 1 "用法" ;;
+        esac
+    done
     if ! service_up; then
         die 2 "服务：未运行"
     fi
     api=$(api_addr) || die 3 "控制器"
-    python3 "$PY" node-list "$AXS_RUN/secret" "$api" || exit $?
+    if [ "$full" -eq 1 ]; then
+        python3 "$PY" node-list "$AXS_RUN/secret" "$api" --full || exit $?
+    else
+        python3 "$PY" node-list "$AXS_RUN/secret" "$api" "$AXS_RUN" || exit $?
+    fi
 }
 
 cmd_switch() {
@@ -591,7 +601,7 @@ cmd_switch() {
         die 2 "服务：未运行"
     fi
     api=$(api_addr) || die 3 "控制器"
-    python3 "$PY" select "$AXS_RUN/secret" "$api" "$1" "$2" || exit $?
+    python3 "$PY" select "$AXS_RUN/secret" "$api" "$1" "$2" "$AXS_RUN" || exit $?
 }
 
 cmd_net() {
@@ -637,14 +647,18 @@ cmd_test() {
     fi
     [ -n "$group" ] || die 3 "组名不存在"
     code=0
+    tmp=$(mktemp)
     if [ -n "${AXS_DELAY_URL:-}" ]; then
-        python3 "$PY" delay "$AXS_RUN/secret" "$API" "$group" "$AXS_DELAY_URL" || code=$?
+        python3 "$PY" delay "$AXS_RUN/secret" "$API" "$group" "$AXS_DELAY_URL" >"$tmp" || code=$?
     else
-        python3 "$PY" delay "$AXS_RUN/secret" "$API" "$group" || code=$?
+        python3 "$PY" delay "$AXS_RUN/secret" "$API" "$group" >"$tmp" || code=$?
     fi
+    cat "$tmp"
     if [ "$code" -eq 0 ]; then
-        write_cache node-test ok
+        python3 "$PY" cache-node "$AXS_RUN/cache/node-test" "$group" "$tmp"
+        rm -f "$tmp"
     else
+        rm -f "$tmp"
         write_cache node-test fail
         die 3 "控制器"
     fi

@@ -3,8 +3,10 @@
 import http.client
 import json
 import os
+import subprocess
 import sys
 import time
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -215,6 +217,9 @@ def _fake_exchange(method, path, secret, body=None):
         }
         return json.dumps({"proxies": payload}).encode()
     if pure.startswith("/group/") and pure.endswith("/delay"):
+        ready = directory / "delay.json"
+        if ready.is_file():
+            return ready.read_bytes()
         name = urllib.parse.unquote(pure.split("/")[2])
         delay = int((directory / "delay").read_text(encoding="utf-8").strip() or "0")
         return json.dumps({name: delay}).encode()
@@ -296,11 +301,23 @@ def show_groups(secret_path, api):
         sys.stdout.write("\n".join(rows) + "\n")
 
 
-def show_nodes(secret_path, api):
-    try:
-        proxies = load_proxies(secret_path, api)
-    except SystemExit as exc:
-        _as_exit3(exc)
+AUTO_LABEL = {
+    "URLTest": "url-test",
+    "Fallback": "fallback",
+    "LoadBalance": "load-balance",
+}
+
+
+def node_numbers(proxies):
+    names = sorted(
+        name
+        for name, item in proxies.items()
+        if isinstance(item, dict) and item.get("type") not in GROUP_TYPES
+    )
+    return {name: index for index, name in enumerate(names, 1)}
+
+
+def _show_nodes_full(proxies):
     rows = []
     for name, item in proxies.items():
         if not isinstance(item, dict) or item.get("type") in GROUP_TYPES:
@@ -323,7 +340,162 @@ def show_nodes(secret_path, api):
         sys.stdout.write("\n".join(line for _, _, line in rows) + "\n")
 
 
-def select_proxy(secret_path, api, group, node):
+def current_selection(proxies, numbers):
+    main = proxies.get("主代理")
+    if not isinstance(main, dict) or main.get("type") not in GROUP_TYPES:
+        return "当前：无", None
+    now = main.get("now")
+    target = proxies.get(now) if isinstance(now, str) and now else None
+    if not isinstance(target, dict):
+        return "当前：无", None
+    kind = target.get("type")
+    if kind in AUTO_LABEL:
+        leaf = target.get("now")
+        leaf_item = proxies.get(leaf) if isinstance(leaf, str) else None
+        if (
+            isinstance(leaf_item, dict)
+            and leaf_item.get("type") not in GROUP_TYPES
+            and leaf in numbers
+        ):
+            return f"当前：主代理 → {now}（自动，{AUTO_LABEL[kind]}） 第{numbers[leaf]}个", leaf
+        return f"当前：主代理 → {now}（自动，{AUTO_LABEL[kind]}） 无", None
+    if kind not in GROUP_TYPES and now in numbers:
+        return f"当前：主代理 → {now}（手动） 第{numbers[now]}个", now
+    return "当前：无", None
+
+
+def display_width(text):
+    # shortcut: 制表符和组合字符按 1 列，名称里出现再改
+    return sum(2 if unicodedata.east_asian_width(char) in ("W", "F") else 1 for char in text)
+
+
+def term_cols():
+    raw = os.environ.get("COLUMNS", "").strip()
+    if raw.isdigit() and int(raw) > 0:
+        return int(raw)
+    try:
+        out = subprocess.check_output(
+            ["tput", "cols"], stderr=subprocess.DEVNULL, text=True, timeout=2
+        ).strip()
+    except (OSError, subprocess.SubprocessError, ValueError):
+        out = ""
+    if out.isdigit() and int(out) > 0:
+        return int(out)
+    return 80
+
+
+def cache_path(run_dir):
+    if not run_dir:
+        return None
+    path = Path(run_dir) / "cache" / "node-test"
+    return path if path.is_file() else None
+
+
+def load_delays(run_dir):
+    path = cache_path(run_dir)
+    if path is None:
+        return {}
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not line.startswith("{"):
+            continue
+        try:
+            data = json.loads(line)
+        except json.JSONDecodeError:
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        return data
+    return {}
+
+
+def speed_line(run_dir):
+    path = cache_path(run_dir)
+    if path is None:
+        return "最近测速：-"
+    ts = ""
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if line.startswith("ts="):
+            ts = line[3:]
+            break
+    if not ts.isdigit():
+        return "最近测速：-"
+    age = int(time.time()) - int(ts)
+    if age < 0:
+        age = 0
+    if age < 60:
+        rel = f"{age} 秒前"
+    elif age < 3600:
+        rel = f"{age // 60} 分钟前"
+    elif age < 86400:
+        rel = f"{age // 3600} 小时前"
+    else:
+        rel = f"{age // 86400} 天前"
+    return f"最近测速：{rel}"
+
+
+def layout_cells(cells, width):
+    if not cells:
+        return []
+    widest = max(display_width(cell) for cell in cells)
+    cols = max(1, (width + 2) // (widest + 2))
+    lines = []
+    row = []
+    for index, cell in enumerate(cells, 1):
+        row.append(cell)
+        if len(row) != cols and index != len(cells):
+            continue
+        padded = []
+        for pos, item in enumerate(row):
+            if pos == len(row) - 1:
+                padded.append(item)
+            else:
+                padded.append(item + (" " * (widest - display_width(item))))
+        lines.append("  ".join(padded))
+        row = []
+    return lines
+
+
+def show_nodes(secret_path, api, mode=""):
+    try:
+        proxies = load_proxies(secret_path, api)
+    except SystemExit as exc:
+        _as_exit3(exc)
+    if mode == "--full":
+        _show_nodes_full(proxies)
+        return
+    numbers = node_numbers(proxies)
+    head, star = current_selection(proxies, numbers)
+    delays = load_delays(mode)
+    cells = []
+    for name in sorted(numbers, key=numbers.get):
+        mark = "[*]" if name == star else ""
+        delay = delays.get(name, "-")
+        if delay is None or delay == "":
+            delay = "-"
+        cells.append(f"{mark}{numbers[name]} {name} {delay}")
+    lines = [head, speed_line(mode), *layout_cells(cells, term_cols())]
+    sys.stdout.write("\n".join(lines) + "\n")
+
+
+def cached_delay(run_dir, name):
+    value = load_delays(run_dir).get(name, "-")
+    if value is None or value == "":
+        return "-"
+    return str(value)
+
+
+def resolve_switch_name(proxies, members, token):
+    if token in members:
+        return token
+    if token.isdigit() and str(int(token)) == token:
+        wanted = int(token)
+        for name, number in node_numbers(proxies).items():
+            if number == wanted:
+                return name if name in members else None
+    return None
+
+
+def select_proxy(secret_path, api, group, token, run_dir=""):
     try:
         proxies = load_proxies(secret_path, api)
     except SystemExit as exc:
@@ -336,7 +508,10 @@ def select_proxy(secret_path, api, group, node):
         sys.stderr.write("不是策略组\n")
         raise SystemExit(3)
     members = item.get("all") if isinstance(item, dict) else None
-    if not isinstance(members, list) or node not in members:
+    if not isinstance(members, list):
+        members = []
+    node = resolve_switch_name(proxies, members, token)
+    if node is None:
         sys.stderr.write("节点不存在\n")
         raise SystemExit(3)
     secret = _api(secret_path, api)
@@ -346,7 +521,7 @@ def select_proxy(secret_path, api, group, node):
         _request(secret, api, "PUT", f"/proxies/{quoted}", body)
     except SystemExit as exc:
         _as_exit3(exc)
-    sys.stdout.write(f"{group}\t{node}\n")
+    sys.stdout.write(f"{group}\t{node}\t{cached_delay(run_dir, node)}\n")
 
 
 def net_targets(urls_path, given):
@@ -446,6 +621,30 @@ def version_ok(secret_path, api):
         _request(secret, api, "GET", "/version")
     except SystemExit:
         raise SystemExit(3)
+
+
+def write_node_cache(dest, group, lines):
+    path = Path(dest)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.chmod(0o700)
+    delays = {}
+    for line in lines:
+        text = line.strip()
+        if " " not in text:
+            continue
+        name, value = text.rsplit(" ", 1)
+        if name == group:
+            continue
+        try:
+            delays[name] = int(value)
+        except ValueError:
+            delays[name] = value
+    body = f"ts={int(time.time())}\nresult=ok\n{json.dumps(delays, ensure_ascii=False)}\n"
+    tmp = path.with_name("." + path.name + ".tmp")
+    tmp.write_text(body, encoding="utf-8")
+    tmp.chmod(0o600)
+    os.replace(tmp, path)
+    path.chmod(0o600)
 
 
 def delay(secret_path, api, group, url):
@@ -752,9 +951,11 @@ def main(argv):
     elif cmd == "groups-show":
         show_groups(argv[2], argv[3])
     elif cmd == "node-list":
-        show_nodes(argv[2], argv[3])
+        show_nodes(argv[2], argv[3], argv[4] if len(argv) > 4 else "")
     elif cmd == "select":
-        select_proxy(argv[2], argv[3], argv[4], argv[5])
+        select_proxy(argv[2], argv[3], argv[4], argv[5], argv[6] if len(argv) > 6 else "")
+    elif cmd == "cache-node":
+        write_node_cache(argv[2], argv[3], Path(argv[4]).read_text(encoding="utf-8").splitlines())
     elif cmd == "net-precheck":
         net_precheck(argv[2], argv[3:])
     elif cmd == "net-run":

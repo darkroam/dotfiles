@@ -31,7 +31,7 @@ new_run() {
     RUN=$(mktemp -d)
     mkdir -p "$RUN/fake"
     export AXS_RUN="$RUN" AXS_FORBID_NET=1 AXS_FAKE_DIR="$RUN/fake" AXS_SYSTEMD=0
-    unset AXS_MIXED_PORT AXS_API AXS_FETCH AXS_MIHOMO AXS_SYSTEMCTL || true
+    unset AXS_MIXED_PORT AXS_API AXS_FETCH AXS_MIHOMO AXS_SYSTEMCTL COLUMNS || true
     : >"$RUN/err"
     : >"$RUN/out"
 }
@@ -463,6 +463,20 @@ grep -q ' 7' "$RUN/out" || fail "delay url output: $(cat "$RUN/out")"
 grep -q '127.0.0.1' "$RUN/fake/log" || fail 'delay url was not sent'
 
 new_run
+mark_up
+export AXS_API="127.0.0.1:18081"
+arm_api PROXY 204 0
+printf '%s\n' '{"a": 12, "b": 5, "PROXY": 9}' >"$RUN/fake/delay.json"
+assert_code 'node cache delays' 0 node test PROXY
+python3 -c 'import json,os; p=os.environ["AXS_RUN"]+"/cache/node-test"; text=open(p,encoding="utf-8").read();
+assert "PROXY" not in text, text
+line=[row for row in text.splitlines() if row.startswith("{")][0]
+data=json.loads(line)
+assert data=={"a":12,"b":5}, data'
+grep -q '^ts=' "$RUN/cache/node-test" || fail 'delay cache ts'
+grep -q '^result=ok$' "$RUN/cache/node-test" || fail 'delay cache result'
+
+new_run
 printf '%s\n' "$CANARY" >"$RUN/subscription.url"
 export AXS_FETCH="$ROOT/tests/fake-fetch" FIXTURE_SUB="$FIX"
 "$AXS" sub refresh >/dev/null
@@ -493,7 +507,7 @@ cat >"$RUN/fake/proxies.json" <<'EOF'
 {"proxies":{"AUTO":{"all":["b","a b"],"now":"b","type":"URLTest"},"PROXY":{"all":["a","b","a b"],"now":"a","type":"Selector"},"RELAY":{"all":["a"],"type":"Relay"},"DIRECT":{"type":"Direct"},"a":{"type":"Shadowsocks"},"a b":{"type":"Shadowsocks"},"b":{"type":"Shadowsocks"},"lonely":{"type":"Socks"}}}
 EOF
 names=$(find "$RUN" -mindepth 1 -maxdepth 1 -exec basename {} \; | sort)
-assert_code 'node list' 0 node list
+assert_code 'node list' 0 node list --full
 after=$(find "$RUN" -mindepth 1 -maxdepth 1 -exec basename {} \; | sort)
 test "$after" = "$names" || fail "list wrote run: $after"
 list_want=$(printf '%s\n' \
@@ -512,6 +526,118 @@ groups_want=$(printf '%s\n' \
     "$(printf 'PROXY\tSelector\ta')" \
     "$(printf 'RELAY\tRelay\t-')")
 test "$(cat "$RUN/out")" = "$groups_want" || fail "groups now: $(cat "$RUN/out")"
+
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081" COLUMNS=40
+arm_api PROXY 204 0
+python3 -c 'import json; json.dump({"proxies": {f"node-{i:02d}": {"type": "Shadowsocks"} for i in range(1, 9)}}, open("'"$RUN"'/fake/proxies.json", "w"))'
+assert_code 'list columns 40' 0 node list
+test "$(sed -n '1p' "$RUN/out")" = '当前：无' || fail "no selection: $(sed -n '1p' "$RUN/out")"
+test "$(sed -n '2p' "$RUN/out")" = '最近测速：-' || fail "no speed: $(sed -n '2p' "$RUN/out")"
+want40='1 node-01 -  2 node-02 -  3 node-03 -'
+test "$(sed -n '3p' "$RUN/out")" = "$want40" || fail "cols 40: $(sed -n '3p' "$RUN/out")"
+if grep -F '[*]' "$RUN/out" >/dev/null; then
+    fail 'unselected list showed [*]'
+fi
+test ! -e "$RUN/cache" || fail 'compact list created cache'
+COLUMNS=80
+assert_code 'list columns 80' 0 node list
+want80='1 node-01 -  2 node-02 -  3 node-03 -  4 node-04 -  5 node-05 -  6 node-06 -'
+test "$(sed -n '3p' "$RUN/out")" = "$want80" || fail "cols 80: $(sed -n '3p' "$RUN/out")"
+COLUMNS=120
+assert_code 'list columns 120' 0 node list
+want120='1 node-01 -  2 node-02 -  3 node-03 -  4 node-04 -  5 node-05 -  6 node-06 -  7 node-07 -  8 node-08 -'
+test "$(sed -n '3p' "$RUN/out")" = "$want120" || fail "cols 120: $(sed -n '3p' "$RUN/out")"
+
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081" COLUMNS=80
+arm_api PROXY 204 0
+cat >"$RUN/fake/proxies.json" <<'EOF'
+{"proxies":{"主代理":{"all":["a","b"],"now":"a","type":"Selector"},"a":{"type":"Shadowsocks"},"b":{"type":"Shadowsocks"}}}
+EOF
+assert_code 'list manual' 0 node list
+test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → a（手动） 第1个' || fail "manual head: $(sed -n '1p' "$RUN/out")"
+test "$(sed -n '3p' "$RUN/out")" = '[*]1 a -  2 b -' || fail "manual cells: $(sed -n '3p' "$RUN/out")"
+python3 -c 'import json,os; p=os.environ["AXS_RUN"]+"/fake/proxies.json"; d=json.load(open(p)); d["proxies"]["主代理"].pop("now", None); json.dump(d, open(p,"w"))'
+assert_code 'list none' 0 node list
+test "$(sed -n '1p' "$RUN/out")" = '当前：无' || fail "cleared head: $(sed -n '1p' "$RUN/out")"
+if grep -F '[*]' "$RUN/out" >/dev/null; then
+    fail 'cleared selection still starred'
+fi
+
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081" COLUMNS=80
+arm_api PROXY 204 0
+cat >"$RUN/fake/proxies.json" <<'EOF'
+{"proxies":{"主代理":{"all":["自动选择"],"now":"自动选择","type":"Selector"},"自动选择":{"all":["a","b"],"now":"b","type":"URLTest"},"a":{"type":"Shadowsocks"},"b":{"type":"Shadowsocks"}}}
+EOF
+assert_code 'list auto' 0 node list
+test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → 自动选择（自动，url-test） 第2个' || fail "auto head: $(sed -n '1p' "$RUN/out")"
+test "$(sed -n '3p' "$RUN/out")" = '1 a -     [*]2 b -' || fail "auto cells: $(sed -n '3p' "$RUN/out")"
+python3 -c 'import json,os; p=os.environ["AXS_RUN"]+"/fake/proxies.json"; d=json.load(open(p)); d["proxies"]["自动选择"]["type"]="Fallback"; d["proxies"]["自动选择"].pop("now", None); json.dump(d, open(p,"w"))'
+assert_code 'list auto none' 0 node list
+test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → 自动选择（自动，fallback） 无' || fail "auto none: $(sed -n '1p' "$RUN/out")"
+python3 -c 'import json,os; p=os.environ["AXS_RUN"]+"/fake/proxies.json"; d=json.load(open(p)); d["proxies"]["自动选择"]["type"]="LoadBalance"; d["proxies"]["自动选择"]["now"]="a"; json.dump(d, open(p,"w"))'
+assert_code 'list balance' 0 node list
+test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → 自动选择（自动，load-balance） 第1个' || fail "balance head: $(sed -n '1p' "$RUN/out")"
+
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081" COLUMNS=30
+arm_api PROXY 204 0
+cat >"$RUN/fake/proxies.json" <<'EOF'
+{"proxies":{"ab":{"type":"Shadowsocks"},"香港":{"type":"Shadowsocks"}}}
+EOF
+assert_code 'list width' 0 node list
+test "$(sed -n '3p' "$RUN/out")" = '1 ab -    2 香港 -' || fail "cjk width: $(sed -n '3p' "$RUN/out")"
+
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081" COLUMNS=80
+arm_api PROXY 204 0
+now=$(date +%s)
+mkdir -p "$RUN/cache"
+chmod 700 "$RUN/cache"
+printf 'ts=%s\nresult=ok\n{"a": 42}\n' "$((now - 180))" >"$RUN/cache/node-test"
+chmod 600 "$RUN/cache/node-test"
+cat >"$RUN/fake/proxies.json" <<'EOF'
+{"proxies":{"主代理":{"all":["a","b"],"now":"a","type":"Selector"},"PROXY":{"all":["a","b"],"now":"a","type":"Selector"},"a":{"type":"Shadowsocks"},"b":{"type":"Shadowsocks"}}}
+EOF
+assert_code 'list cache' 0 node list
+test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → a（手动） 第1个' || fail "cache head: $(sed -n '1p' "$RUN/out")"
+test "$(sed -n '2p' "$RUN/out")" = '最近测速：3 分钟前' || fail "cache age: $(sed -n '2p' "$RUN/out")"
+test "$(sed -n '3p' "$RUN/out")" = '[*]1 a 42  2 b -' || fail "cache cells: $(sed -n '3p' "$RUN/out")"
+assert_code 'switch cache' 0 node switch PROXY a
+test "$(cat "$RUN/out")" = "$(printf 'PROXY\ta\t42')" || fail "switch delay: $(cat "$RUN/out")"
+
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081"
+arm_api PROXY 204 0
+cat >"$RUN/fake/proxies.json" <<'EOF'
+{"proxies":{"OTHER":{"all":["a","b"],"now":"a","type":"Selector"},"PROXY":{"all":["2","a","b"],"now":"a","type":"Selector"},"2":{"type":"Shadowsocks"},"a":{"type":"Shadowsocks"},"b":{"type":"Shadowsocks"}}}
+EOF
+: >"$RUN/fake/log"
+assert_code 'switch digit name' 0 node switch PROXY 2
+grep -q '{"name": "2"}' "$RUN/fake/log" || fail "digit name body: $(cat "$RUN/fake/log")"
+: >"$RUN/fake/log"
+assert_code 'switch number' 0 node switch OTHER 2
+grep -q '{"name": "a"}' "$RUN/fake/log" || fail "number body: $(cat "$RUN/fake/log")"
+: >"$RUN/fake/log"
+assert_code 'switch number missing' 3 node switch OTHER 1
+grep -q '节点不存在' "$RUN/err" || fail "number missing text: $(cat "$RUN/err")"
+if grep -q 'PUT /proxies' "$RUN/fake/log"; then
+    fail 'number outside group sent select'
+fi
+: >"$RUN/fake/log"
+assert_code 'switch number range' 3 node switch PROXY 9
+if grep -q 'PUT /proxies' "$RUN/fake/log"; then
+    fail 'out of range sent select'
+fi
+assert_code 'list bad flag' 1 node list --nope
 
 new_run
 assert_code 'list down' 2 node list
@@ -534,7 +660,7 @@ printf '%s\n' 'SENTINEL' >"$RUN/config.yaml"
 printf '%s\n' 'RULE' >"$RUN/rules.list"
 : >"$RUN/fake/log"
 assert_code 'switch' 0 node switch PROXY 'a b'
-test "$(cat "$RUN/out")" = "$(printf 'PROXY\ta b')" || fail "switch out: $(cat "$RUN/out")"
+test "$(cat "$RUN/out")" = "$(printf 'PROXY\ta b\t-')" || fail "switch out: $(cat "$RUN/out")"
 grep -q 'PUT /proxies/PROXY' "$RUN/fake/log" || fail 'select was not sent'
 grep -q '{"name": "a b"}' "$RUN/fake/log" || fail "select body: $(cat "$RUN/fake/log")"
 test "$(grep -c 'GET /proxies' "$RUN/fake/log")" -eq 1 || fail 'switch queried twice'
