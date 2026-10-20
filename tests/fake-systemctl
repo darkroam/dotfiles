@@ -38,8 +38,16 @@ case $cmd in
     list-timers)
         printf '%s\n' "Tue 2026-10-21 02:00:00 CST"
         ;;
-    start|stop|restart)
+    start|stop|restart|enable|disable)
         exit 0
+        ;;
+    is-enabled)
+        if [ -f "$AXS_RUN/systemctl.enabled" ]; then
+            printf '%s\n' enabled
+            exit 0
+        fi
+        printf '%s\n' disabled
+        exit 1
         ;;
     *)
         exit 0

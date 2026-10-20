@@ -102,11 +102,16 @@ axs node test [策略组]
 axs node list [--full]
 axs node switch <策略组> <节点>
 axs net test [url ...]
+axs service enable|disable
 axs clean [--yes]
 axs sub clean [--yes]
 ```
 
 `ensure`、`list`、`switch`、`net test`，以及 `groups` 带上 `now`，已实现。内部取默认组名的命令仍只打印组名，避免把制表符带进 `node test`。`start` 仍是没有配置就退出 3，不代为刷新。
+
+`axs service enable` 和 `disable` 只改开机自启，同时作用于 `axs.service` 与 `axs-refresh.timer`，不启停进程。没有 systemd 退出 3。成功打印 `开机自启：enabled` 或 `disabled`。
+
+颜色只在终端输出。`NO_COLOR` 或非终端是纯文本。`AXS_COLOR=always` 强制颜色，`never` 强制关闭。绿 32：延迟小于 100、enabled、选中、运行中。黄 33：延迟 100 到 200、订阅快到期。红 31：延迟大于 200、disabled、过期、错误。青 36：组名和类型。灰 90：没有延迟或次要信息。粗体是表头。`health` 不着色。测速缓存只存数字，不存颜色码。
 
 域名规则：无方案、无路径、无问号。前缀 `.` 表示后缀（`DOMAIN-SUFFIX`），否则是整域（`DOMAIN`）。`via` 的策略组必须由调用者写明，不猜测「主组」。
 
@@ -165,6 +170,7 @@ axs sub clean [--yes]
 - 端口：mixed 监听或不通。控制器：端口可达或不通
 - 节点：`主代理`、`自动选择`、`GLOBAL` 的 now。端口或控制器不通时不查 `/proxies`，写 `-`
 - 订阅：有效、警告、已过期或未知，加剩余天数。有流量缓存再加摘要。只读 `userinfo`
+- 开机自启：systemd 下是 `enabled` 或 `disabled`，否则 `-`。不启停服务
 - 定时刷新：下次时间，或 `-`。只有委派 systemd 时才问 `list-timers`
 - 最近 net test / node test：距今时间。net 再写全部通或有不通。没有缓存写 `-`
 
@@ -237,7 +243,7 @@ v1 基线（不连真实订阅、不启真实进程）：
 
 服务未运行退出 2。读一次控制器 `GET /proxies`。控制器失败退出 3。不调用延迟接口。不写 `run/`，不写日志。多一个不认识的参数退出 1。
 
-默认按终端宽度排多列。宽度取 `COLUMNS`，没有就 `tput cols`，再没有就是 80。非策略组按名称排序，从 1 编号。同名只占一个号。刷新后编号可能变。East Asian Width 的 W/F 算 2 列，其余算 1。单元格是 `[*]编号 名称 延迟`，没选中就没有 `[*]`。补到最宽单元格，中间空两格。列数是 `(宽度 + 2) // (单元格宽 + 2)`，至少 1。
+默认按终端宽度排多列。宽度取 `COLUMNS`，没有就 `tput cols`，再没有就是 80。非策略组按名称排序，从 1 编号。同名只占一个号。刷新后编号可能变。East Asian Width 的 W/F 算 2 列，其余算 1。单元格以 4 列标记开头：选中是 `[*] `，否则四个空格。编号和延迟都右对齐，数字不被标记挤动。补到最宽单元格，中间空两格。列数仍是 `(宽度 + 2) // (单元格宽 + 2)`，至少 1。
 
 `[*]` 只打主代理链解析出的叶子，不给其它组的 `now` 打星。沿 `now` 走到具体节点。第一跳是 `URLTest` / `Fallback` / `LoadBalance` 就是自动，标签写成 `url-test` / `fallback` / `load-balance`。否则是手动。自动链和手动链都写出叶子名和编号。走不到叶子写 `→ -`，不写编号。没有主代理，或主代理没有 `now`，首行是 `当前：无`。
 

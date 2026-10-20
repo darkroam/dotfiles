@@ -5,11 +5,12 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 . "$ROOT/lib/common.sh"
 
 usage() {
-    printf '%s\n' "用法：axs start|stop|status|restart|ensure|clean" >&2
-    printf '%s\n' "      axs sub get|refresh|clean" >&2
-    printf '%s\n' "      axs rule list|add|del" >&2
-    printf '%s\n' "      axs node groups|list|test|switch" >&2
-    printf '%s\n' "      axs net test" >&2
+    say_err "用法：axs start|stop|status|restart|ensure|clean"
+    say_err "      axs service enable|disable"
+    say_err "      axs sub get|refresh|clean"
+    say_err "      axs rule list|add|del"
+    say_err "      axs node groups|list|test|switch"
+    say_err "      axs net test"
     exit 1
 }
 
@@ -23,6 +24,17 @@ case $cmd in
     health) cmd_health "$@" ;;
     ensure) cmd_ensure "$@" ;;
     clean) cmd_clean "$@" ;;
+    service)
+        sub=${1:-}
+        if [ $# -gt 0 ]; then shift; fi
+        case $sub in
+            enable|disable)
+                [ $# -eq 0 ] || die 1 "用法"
+                cmd_service_boot "$sub"
+                ;;
+            *) usage ;;
+        esac
+        ;;
     sub)
         sub=${1:-}
         if [ $# -gt 0 ]; then shift; fi

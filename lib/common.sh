@@ -8,10 +8,50 @@ PY=$ROOT/lib/merge.py
 : "${AXS_RUN:=$ROOT/run}"
 : "${AXS_MIHOMO:=$HOME/.local/bin/mihomo}"
 
+color_on() {
+    case ${AXS_COLOR:-} in
+        always) return 0 ;;
+        never) return 1 ;;
+    esac
+    if [ -n "${NO_COLOR+x}" ]; then
+        return 1
+    fi
+    [ -t 1 ]
+}
+
+color_err() {
+    case ${AXS_COLOR:-} in
+        always) return 0 ;;
+        never) return 1 ;;
+    esac
+    if [ -n "${NO_COLOR+x}" ]; then
+        return 1
+    fi
+    [ -t 2 ]
+}
+
+paint() {
+    code=$1
+    text=$2
+    if color_on; then
+        printf '\033[%sm%s\033[0m' "$code" "$text"
+    else
+        printf '%s' "$text"
+    fi
+}
+
+say_err() {
+    if color_err; then
+        printf '\033[31m%s\033[0m\n' "$1" >&2
+    else
+        printf '%s\n' "$1" >&2
+    fi
+}
+
 die() {
     code=$1
     shift
-    printf '%s\n' "$*" >&2
+    say_err "$*"
     exit "$code"
 }
 
@@ -333,34 +373,34 @@ cmd_status() {
                 ''|*[!0-9]*|0) pid='-' ;;
             esac
             dur=$(systemd_etime)
-            printf '%s\n' "服务：运行中（systemd: axs.service，MainPID ${pid}，运行时长 ${dur}）"
+            printf '%s\n' "服务：$(paint 32 运行中)（systemd: axs.service，MainPID ${pid}，运行时长 ${dur}）"
             running=1
         else
-            printf '%s\n' "服务：未运行（来源 systemd: axs.service）"
+            printf '%s\n' "服务：$(paint 31 未运行)（来源 systemd: axs.service）"
         fi
     elif service_up; then
         pid=$(cat "$AXS_RUN/mihomo.pid")
         dur=$(manual_etime "$pid")
-        printf '%s\n' "服务：运行中（手动，MainPID ${pid}，运行时长 ${dur}）"
+        printf '%s\n' "服务：$(paint 32 运行中)（手动，MainPID ${pid}，运行时长 ${dur}）"
         running=1
     else
-        printf '%s\n' "服务：未运行（来源 手动）"
+        printf '%s\n' "服务：$(paint 31 未运行)（来源 手动）"
     fi
     load_status_ports
     port_ok=0
     if port_open "$MIXED"; then
-        printf '%s\n' "端口：${MIXED} 监听"
+        printf '%s\n' "端口：${MIXED} $(paint 32 监听)"
         port_ok=1
     else
-        printf '%s\n' "端口：${MIXED} 不通"
+        printf '%s\n' "端口：${MIXED} $(paint 31 不通)"
     fi
     api_port=${API##*:}
     api_ok=0
     if controller_ok; then
-        printf '%s\n' "控制器：${api_port} 可达"
+        printf '%s\n' "控制器：${api_port} $(paint 32 可达)"
         api_ok=1
     else
-        printf '%s\n' "控制器：${api_port} 不通"
+        printf '%s\n' "控制器：${api_port} $(paint 31 不通)"
     fi
     if [ "$port_ok" -eq 1 ] && [ "$api_ok" -eq 1 ]; then
         python3 "$PY" status-nodes "$AXS_RUN/secret" "$API" 2>/dev/null || printf '%s\n' "节点：主代理 = -；自动选择 = -；GLOBAL = -"
@@ -372,13 +412,19 @@ unknown'
     printf '%s\n' "$sub_out" | head -n 1
     kind=$(printf '%s\n' "$sub_out" | tail -n 1)
     if use_systemd; then
+        if axs_systemctl is-enabled axs.service >/dev/null 2>&1; then
+            printf '%s\n' "开机自启：$(paint 32 enabled)"
+        else
+            printf '%s\n' "开机自启：$(paint 31 disabled)"
+        fi
         next=$(axs_systemctl list-timers axs-refresh.timer --no-legend 2>/dev/null | head -n 1 || true)
         case $next in
-            ''|*'timers listed'*) printf '%s\n' "定时刷新：-" ;;
+            ''|*'timers listed'*) printf '%s\n' "定时刷新：$(paint 90 -)" ;;
             *) printf '%s\n' "定时刷新：下次 ${next}" ;;
         esac
     else
-        printf '%s\n' "定时刷新：-"
+        printf '%s\n' "开机自启：$(paint 90 -)"
+        printf '%s\n' "定时刷新：$(paint 90 -)"
     fi
     cache_line net-test
     cache_line node-test
@@ -422,6 +468,19 @@ cmd_health() {
 
 cmd_sub_get() {
     python3 "$PY" show-userinfo "$AXS_RUN/userinfo" "$(date +%s)"
+}
+
+cmd_service_boot() {
+    op=$1
+    if ! use_systemd; then
+        die 3 "没有 systemd"
+    fi
+    axs_systemctl "$op" axs.service axs-refresh.timer || die 3 "自启失败"
+    if [ "$op" = "enable" ]; then
+        printf '%s\n' "开机自启：$(paint 32 enabled)"
+    else
+        printf '%s\n' "开机自启：$(paint 31 disabled)"
+    fi
 }
 
 apply_config() {
@@ -706,7 +765,11 @@ clean_run() {
     done
     if [ "$yes" -eq 0 ]; then
         if [ -n "$list" ]; then
-            printf '%s' "$list"
+            if color_on; then
+                printf '\033[90m%s\033[0m' "$list"
+            else
+                printf '%s' "$list"
+            fi
         fi
         if [ -t 0 ]; then
             printf '%s' '确认删除？[y/N] ' >&2

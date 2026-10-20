@@ -31,7 +31,7 @@ new_run() {
     RUN=$(mktemp -d)
     mkdir -p "$RUN/fake"
     export AXS_RUN="$RUN" AXS_FORBID_NET=1 AXS_FAKE_DIR="$RUN/fake" AXS_SYSTEMD=0
-    unset AXS_MIXED_PORT AXS_API AXS_FETCH AXS_MIHOMO AXS_SYSTEMCTL COLUMNS || true
+    unset AXS_MIXED_PORT AXS_API AXS_FETCH AXS_MIHOMO AXS_SYSTEMCTL COLUMNS AXS_COLOR NO_COLOR || true
     : >"$RUN/err"
     : >"$RUN/out"
 }
@@ -535,7 +535,7 @@ python3 -c 'import json; json.dump({"proxies": {f"node-{i:02d}": {"type": "Shado
 assert_code 'list columns 40' 0 node list
 test "$(sed -n '1p' "$RUN/out")" = '当前：无' || fail "no selection: $(sed -n '1p' "$RUN/out")"
 test "$(sed -n '2p' "$RUN/out")" = '最近测速：-' || fail "no speed: $(sed -n '2p' "$RUN/out")"
-want40='1 node-01 -  2 node-02 -  3 node-03 -'
+want40='    1 node-01 -      2 node-02 -'
 test "$(sed -n '3p' "$RUN/out")" = "$want40" || fail "cols 40: $(sed -n '3p' "$RUN/out")"
 if grep -F '[*]' "$RUN/out" >/dev/null; then
     fail 'unselected list showed [*]'
@@ -543,11 +543,11 @@ fi
 test ! -e "$RUN/cache" || fail 'compact list created cache'
 COLUMNS=80
 assert_code 'list columns 80' 0 node list
-want80='1 node-01 -  2 node-02 -  3 node-03 -  4 node-04 -  5 node-05 -  6 node-06 -'
+want80='    1 node-01 -      2 node-02 -      3 node-03 -      4 node-04 -'
 test "$(sed -n '3p' "$RUN/out")" = "$want80" || fail "cols 80: $(sed -n '3p' "$RUN/out")"
 COLUMNS=120
 assert_code 'list columns 120' 0 node list
-want120='1 node-01 -  2 node-02 -  3 node-03 -  4 node-04 -  5 node-05 -  6 node-06 -  7 node-07 -  8 node-08 -'
+want120='    1 node-01 -      2 node-02 -      3 node-03 -      4 node-04 -      5 node-05 -      6 node-06 -      7 node-07 -'
 test "$(sed -n '3p' "$RUN/out")" = "$want120" || fail "cols 120: $(sed -n '3p' "$RUN/out")"
 
 new_run
@@ -559,7 +559,7 @@ cat >"$RUN/fake/proxies.json" <<'EOF'
 EOF
 assert_code 'list manual' 0 node list
 test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → a（手动）→ a 第1个' || fail "manual head: $(sed -n '1p' "$RUN/out")"
-test "$(sed -n '3p' "$RUN/out")" = '[*]1 a -  2 b -' || fail "manual cells: $(sed -n '3p' "$RUN/out")"
+test "$(sed -n '3p' "$RUN/out")" = '[*] 1 a -      2 b -' || fail "manual cells: $(sed -n '3p' "$RUN/out")"
 python3 -c 'import json,os; p=os.environ["AXS_RUN"]+"/fake/proxies.json"; d=json.load(open(p)); d["proxies"]["主代理"].pop("now", None); json.dump(d, open(p,"w"))'
 assert_code 'list none' 0 node list
 test "$(sed -n '1p' "$RUN/out")" = '当前：无' || fail "cleared head: $(sed -n '1p' "$RUN/out")"
@@ -576,7 +576,7 @@ cat >"$RUN/fake/proxies.json" <<'EOF'
 EOF
 assert_code 'list auto' 0 node list
 test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → 自动选择（自动，url-test）→ b 第2个' || fail "auto head: $(sed -n '1p' "$RUN/out")"
-test "$(sed -n '3p' "$RUN/out")" = '1 a -     [*]2 b -' || fail "auto cells: $(sed -n '3p' "$RUN/out")"
+test "$(sed -n '3p' "$RUN/out")" = '    1 a -  [*] 2 b -' || fail "auto cells: $(sed -n '3p' "$RUN/out")"
 python3 -c 'import json,os; p=os.environ["AXS_RUN"]+"/fake/proxies.json"; d=json.load(open(p)); d["proxies"]["自动选择"]["type"]="Fallback"; d["proxies"]["自动选择"].pop("now", None); json.dump(d, open(p,"w"))'
 assert_code 'list auto none' 0 node list
 test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → 自动选择（自动，fallback）→ -' || fail "auto none: $(sed -n '1p' "$RUN/out")"
@@ -592,7 +592,7 @@ cat >"$RUN/fake/proxies.json" <<'EOF'
 {"proxies":{"ab":{"type":"Shadowsocks"},"香港":{"type":"Shadowsocks"}}}
 EOF
 assert_code 'list width' 0 node list
-test "$(sed -n '3p' "$RUN/out")" = '1 ab -    2 香港 -' || fail "cjk width: $(sed -n '3p' "$RUN/out")"
+test "$(sed -n '3p' "$RUN/out")" = '    1 ab -        2 香港 -' || fail "cjk width: $(sed -n '3p' "$RUN/out")"
 
 new_run
 mark_up
@@ -609,7 +609,7 @@ EOF
 assert_code 'list cache' 0 node list
 test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → a（手动）→ a 第1个' || fail "cache head: $(sed -n '1p' "$RUN/out")"
 test "$(sed -n '2p' "$RUN/out")" = '最近测速：3 分钟前' || fail "cache age: $(sed -n '2p' "$RUN/out")"
-test "$(sed -n '3p' "$RUN/out")" = '[*]1 a 42  2 b -' || fail "cache cells: $(sed -n '3p' "$RUN/out")"
+test "$(sed -n '3p' "$RUN/out")" = '[*] 1 a 42      2 b  -' || fail "cache cells: $(sed -n '3p' "$RUN/out")"
 assert_code 'switch cache' 0 node switch PROXY a
 test "$(cat "$RUN/out")" = "$(printf 'PROXY\ta\t42')" || fail "switch delay: $(cat "$RUN/out")"
 
@@ -1007,5 +1007,100 @@ new_run
 assert_code 'clean usage' 1 clean --no
 assert_code 'clean extra' 1 clean --yes extra
 assert_code 'sub clean extra' 1 sub clean --yes extra
+
+ESC=$(printf '\033')
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081" COLUMNS=200
+arm_api PROXY 204 0
+python3 -c 'import json; json.dump({"proxies": {f"node-{i:02d}": {"type": "Shadowsocks"} for i in range(1, 11)} | {"主代理": {"all": ["node-01"], "now": "node-01", "type": "Selector"}}}, open("'"$RUN"'/fake/proxies.json", "w"))'
+assert_code 'align mark' 0 node list
+data=$(sed -n '3p' "$RUN/out")
+printf '%s\n' "$data" | grep -q '^\[\*\] ' || fail "mark width: $data"
+# units digit of 1 and of 10 sit in the same column of their cells
+python3 -c 'import os; line=open(os.environ["AXS_RUN"]+"/out",encoding="utf-8").read().splitlines()[2]
+assert line.startswith("[*]  1 "), line
+idx=line.index("    10 node-10")
+assert line[4:6]==" 1", line
+assert line[idx+4:idx+6]=="10", line'
+if grep -q "$ESC" "$RUN/out"; then
+    fail 'non-tty list has color'
+fi
+
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081" COLUMNS=80 AXS_COLOR=always
+arm_api PROXY 204 0
+cat >"$RUN/fake/proxies.json" <<'EOF'
+{"proxies":{"主代理":{"all":["a"],"now":"a","type":"Selector"},"a":{"type":"Shadowsocks"}}}
+EOF
+mkdir -p "$RUN/cache"
+printf 'ts=1\nresult=ok\n{"a": 50}\n' >"$RUN/cache/node-test"
+assert_code 'color always' 0 node list
+grep -F -q "${ESC}[32m" "$RUN/out" || fail "always green: $(cat "$RUN/out")"
+grep -F -q "${ESC}[1m" "$RUN/out" || fail "always bold: $(cat "$RUN/out")"
+export AXS_COLOR=never
+assert_code 'color never' 0 node list
+if grep -q "$ESC" "$RUN/out"; then
+    fail 'never still colored'
+fi
+
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081" AXS_COLOR=always
+arm_api PROXY 204 0
+printf '%s\n' '{"a": 50, "b": 150, "c": 300}' >"$RUN/fake/delay.json"
+assert_code 'delay colors' 0 node test PROXY
+grep -F -q "${ESC}[32m50${ESC}[0m" "$RUN/out" || fail "green delay: $(cat "$RUN/out")"
+grep -F -q "${ESC}[33m150${ESC}[0m" "$RUN/out" || fail "yellow delay: $(cat "$RUN/out")"
+grep -F -q "${ESC}[31m300${ESC}[0m" "$RUN/out" || fail "red delay: $(cat "$RUN/out")"
+python3 -c 'import json,os; p=os.environ["AXS_RUN"]+"/cache/node-test"; text=open(p,encoding="utf-8").read();
+line=[row for row in text.splitlines() if row.startswith("{")][0]
+assert json.loads(line)=={"a":50,"b":150,"c":300}, text'
+export AXS_COLOR=never
+assert_code 'delay plain' 0 node test PROXY
+if grep -q "$ESC" "$RUN/out"; then
+    fail 'delay never colored'
+fi
+
+new_run
+export AXS_SYSTEMD=1 AXS_SYSTEMCTL="$ROOT/tests/fake-systemctl" AXS_COLOR=always
+assert_code 'service enable' 0 service enable
+grep -q 'enable axs.service axs-refresh.timer' "$RUN/systemctl.log" || fail "enable log: $(cat "$RUN/systemctl.log")"
+if grep -q 'start axs.service' "$RUN/systemctl.log"; then
+    fail 'enable started the service'
+fi
+grep -F -q "${ESC}[32menabled${ESC}[0m" "$RUN/out" || fail "enable color: $(cat "$RUN/out")"
+: >"$RUN/systemctl.log"
+assert_code 'service disable' 0 service disable
+grep -q 'disable axs.service axs-refresh.timer' "$RUN/systemctl.log" || fail "disable log: $(cat "$RUN/systemctl.log")"
+if grep -q 'stop axs.service' "$RUN/systemctl.log"; then
+    fail 'disable stopped the service'
+fi
+grep -F -q "${ESC}[31mdisabled${ESC}[0m" "$RUN/out" || fail "disable color: $(cat "$RUN/out")"
+printf '%s\n' enabled >"$RUN/systemctl.enabled"
+export AXS_MIXED_PORT=7897 AXS_API=127.0.0.1:9097 AXS_COLOR=never
+assert_code 'status enabled' 2 status
+grep -q '开机自启：enabled' "$RUN/out" || fail "status enabled: $(cat "$RUN/out")"
+if grep -q "$ESC" "$RUN/out"; then
+    fail 'status never colored'
+fi
+rm -f "$RUN/systemctl.enabled"
+export AXS_COLOR=always
+assert_code 'status disabled color' 2 status
+grep -F -q "${ESC}[31mdisabled${ESC}[0m" "$RUN/out" || fail "status disabled color: $(cat "$RUN/out")"
+
+new_run
+assert_code 'service no systemd' 3 service enable
+grep -q '没有 systemd' "$RUN/err" || fail "no systemd: $(cat "$RUN/err")"
+assert_code 'service usage' 1 service start
+export AXS_COLOR=always
+assert_code 'usage color' 1
+grep -F -q "${ESC}[31m" "$RUN/err" || fail "usage color: $(cat "$RUN/err")"
+export AXS_COLOR=never
+assert_code 'usage plain' 1
+if grep -q "$ESC" "$RUN/err"; then
+    fail 'usage never colored'
+fi
 
 echo "ok $PASS"

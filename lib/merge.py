@@ -296,7 +296,7 @@ def show_groups(secret_path, api):
         item = proxies[name]
         if not isinstance(item, dict) or item.get("type") not in GROUP_TYPES:
             continue
-        rows.append(f"{name}\t{item.get('type')}\t{_now(item)}")
+        rows.append(f"{ansi('36', name)}\t{ansi('36', str(item.get('type')))}\t{_now(item)}")
     if rows:
         sys.stdout.write("\n".join(rows) + "\n")
 
@@ -410,6 +410,35 @@ def default_group(secret_path, api):
     raise SystemExit(3)
 
 
+def want_color():
+    mode = os.environ.get("AXS_COLOR")
+    if mode == "always":
+        return True
+    if mode == "never":
+        return False
+    if "NO_COLOR" in os.environ:
+        return False
+    return sys.stdout.isatty()
+
+
+def ansi(code, text):
+    if not want_color() or text == "":
+        return text
+    return f"\033[{code}m{text}\033[0m"
+
+
+def delay_code(value):
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return "90"
+    if number < 100:
+        return "32"
+    if number <= 200:
+        return "33"
+    return "31"
+
+
 def display_width(text):
     # shortcut: 制表符和组合字符按 1 列，名称里出现再改
     return sum(2 if unicodedata.east_asian_width(char) in ("W", "F") else 1 for char in text)
@@ -479,24 +508,36 @@ def speed_line(run_dir):
     return f"最近测速：{rel}"
 
 
-def layout_cells(cells, width):
-    if not cells:
+def color_node_cell(plain, selected, delay_raw):
+    if not want_color():
+        return plain
+    head, sep, delay_field = plain.rpartition(" ")
+    if not sep:
+        return plain
+    raw = str(delay_raw)
+    pad = delay_field[: len(delay_field) - len(raw)] if delay_field.endswith(raw) else ""
+    head_out = ansi("32", head) if selected else head
+    return head_out + " " + pad + ansi(delay_code(raw), raw)
+
+
+def layout_cells(entries, width):
+    if not entries:
         return []
-    widest = max(display_width(cell) for cell in cells)
+    widest = max(display_width(plain) for plain, _, _ in entries)
     cols = max(1, (width + 2) // (widest + 2))
     lines = []
     row = []
-    for index, cell in enumerate(cells, 1):
-        row.append(cell)
-        if len(row) != cols and index != len(cells):
+    for index, item in enumerate(entries, 1):
+        row.append(item)
+        if len(row) != cols and index != len(entries):
             continue
-        padded = []
-        for pos, item in enumerate(row):
-            if pos == len(row) - 1:
-                padded.append(item)
-            else:
-                padded.append(item + (" " * (widest - display_width(item))))
-        lines.append("  ".join(padded))
+        pieces = []
+        for pos, (plain, selected, delay_raw) in enumerate(row):
+            pad = ""
+            if pos != len(row) - 1:
+                pad = " " * (widest - display_width(plain))
+            pieces.append(color_node_cell(plain, selected, delay_raw) + pad)
+        lines.append("  ".join(pieces))
         row = []
     return lines
 
@@ -512,14 +553,20 @@ def show_nodes(secret_path, api, mode=""):
     numbers = node_numbers(proxies)
     head, star = current_selection(proxies, numbers)
     delays = load_delays(mode)
-    cells = []
+    shown = []
     for name in sorted(numbers, key=numbers.get):
-        mark = "[*]" if name == star else ""
         delay = delays.get(name, "-")
         if delay is None or delay == "":
             delay = "-"
-        cells.append(f"{mark}{numbers[name]} {name} {delay}")
-    lines = [head, speed_line(mode), *layout_cells(cells, term_cols())]
+        shown.append((name, str(delay)))
+    num_width = len(str(max(numbers.values()))) if numbers else 1
+    delay_width = max((display_width(delay) for _, delay in shown), default=1)
+    entries = []
+    for name, delay in shown:
+        marker = "[*] " if name == star else "    "
+        plain = f"{marker}{numbers[name]:>{num_width}} {name} {delay:>{delay_width}}"
+        entries.append((plain, name == star, delay))
+    lines = [ansi("1", head), ansi("1", speed_line(mode)), *layout_cells(entries, term_cols())]
     sys.stdout.write("\n".join(lines) + "\n")
 
 
@@ -669,13 +716,24 @@ def version_ok(secret_path, api):
         raise SystemExit(3)
 
 
+def _plain(text):
+    # node test colors stdout; the cache must stay numeric
+    while "\033[" in text:
+        start = text.find("\033[")
+        end = text.find("m", start + 2)
+        if end < 0:
+            break
+        text = text[:start] + text[end + 1 :]
+    return text
+
+
 def write_node_cache(dest, group, lines):
     path = Path(dest)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.parent.chmod(0o700)
     delays = {}
     for line in lines:
-        text = line.strip()
+        text = _plain(line).strip()
         if " " not in text:
             continue
         name, value = text.rsplit(" ", 1)
@@ -708,7 +766,7 @@ def delay(secret_path, api, group, url):
     if not isinstance(payload, dict):
         fail("控制器")
     for name, value in payload.items():
-        sys.stdout.write(f"{name} {value}\n")
+        sys.stdout.write(f"{name} {ansi(delay_code(value), str(value))}\n")
 
 
 YAML_TYPES = {
@@ -846,11 +904,13 @@ def show_userinfo(path, now):
             sys.stdout.write(f"{label}: {fields[key]}\n")
     kind, days = classify(path, now)
     if kind == "expired":
-        sys.stdout.write("已过期\n")
+        sys.stdout.write(ansi("31", "已过期") + "\n")
     elif kind == "unknown":
-        sys.stdout.write("未知\n")
+        sys.stdout.write(ansi("90", "未知") + "\n")
+    elif kind == "soon":
+        sys.stdout.write(ansi("33", f"剩余: {days} 天") + "\n")
     else:
-        sys.stdout.write(f"剩余: {days} 天\n")
+        sys.stdout.write(ansi("32", f"剩余: {days} 天") + "\n")
 
 
 
@@ -889,13 +949,13 @@ def status_nodes(secret_path, api):
 def status_sub(path, now):
     kind, days = classify(path, now)
     if kind == "expired":
-        text = "订阅：已过期，剩余 0 天"
+        text = ansi("31", "订阅：已过期，剩余 0 天")
     elif kind == "soon":
-        text = f"订阅：警告，剩余 {days} 天"
+        text = ansi("33", f"订阅：警告，剩余 {days} 天")
     elif kind == "ok":
-        text = f"订阅：有效，剩余 {days} 天"
+        text = ansi("32", f"订阅：有效，剩余 {days} 天")
     else:
-        text = "订阅：未知"
+        text = ansi("90", "订阅：未知")
     bits = []
     fields = _userinfo_fields(path)
     for key, label in (("upload", "上传"), ("download", "下载"), ("total", "总量")):
