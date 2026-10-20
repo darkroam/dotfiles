@@ -430,7 +430,7 @@ clean_run() {
     if [ "$kind" = "config" ]; then
         set -- config.yaml config.yaml.bak userinfo fetch.yaml fetch.hdr mihomo.pid
     else
-        set -- subscription.url userinfo fetch.yaml fetch.hdr
+        set -- subscription.url subscription.yaml userinfo fetch.yaml fetch.hdr
     fi
     if [ -d "$AXS_RUN" ]; then
         root=$(readlink -f -- "$AXS_RUN") || die 3 "越界"

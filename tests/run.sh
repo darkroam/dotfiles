@@ -608,10 +608,10 @@ new_run
 seed_clean
 assert_code 'sub clean yes' 0 sub clean --yes
 test ! -s "$RUN/out" || fail 'sub clean printed'
-for name in subscription.url userinfo fetch.yaml fetch.hdr; do
+for name in subscription.url subscription.yaml userinfo fetch.yaml fetch.hdr; do
     test ! -e "$RUN/$name" || fail "sub clean kept $name"
 done
-for name in config.yaml config.yaml.bak secret rules.list override.yaml mihomo.pid subscription.yaml; do
+for name in config.yaml config.yaml.bak secret rules.list override.yaml mihomo.pid; do
     test -f "$RUN/$name" || fail "sub clean dropped $name"
 done
 assert_code 'sub clean again' 0 sub clean --yes

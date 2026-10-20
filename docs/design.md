@@ -328,11 +328,11 @@ v1 基线（不连真实订阅、不启真实进程）：
 
 `axs clean [--yes]`
 
-删运行态：`config.yaml`、`config.yaml.bak`、`userinfo`、`fetch.yaml`、`fetch.hdr`、`mihomo.pid`。保留 `subscription.url`、`secret`、`rules.list`、`override.yaml`。不删 `subscription.yaml`、`urls`、锁和快照。
+删运行态：`config.yaml`、`config.yaml.bak`、`userinfo`、`fetch.yaml`、`fetch.hdr`、`mihomo.pid`。保留 `subscription.url`、`secret`、`rules.list`、`override.yaml`。不删 `subscription.yaml`（订阅正文缓存，归 `sub clean`）、`urls`、锁和快照。
 
 `axs sub clean [--yes]`
 
-删订阅：`subscription.url`、`userinfo`、`fetch.yaml`、`fetch.hdr`。保留 `config.yaml`。要连配置一起清，先 `sub clean` 再 `clean`。
+删订阅：`subscription.url`、`subscription.yaml`（上次订阅正文缓存）、`userinfo`、`fetch.yaml`、`fetch.hdr`。保留 `config.yaml`。要连配置一起清，先 `sub clean` 再 `clean`。
 
 两边一样：
 
