@@ -323,12 +323,77 @@ cmd_rule_del() {
     mutate_rules del "$1"
 }
 
+api_addr() {
+    if [ -n "${AXS_API:-}" ]; then
+        printf '%s\n' "$AXS_API"
+        return 0
+    fi
+    if [ ! -f "$AXS_RUN/override.yaml" ]; then
+        return 1
+    fi
+    python3 -c 'import sys,yaml; print(yaml.safe_load(open(sys.argv[1],encoding="utf-8"))["external-controller"])' "$AXS_RUN/override.yaml"
+}
+
+cmd_ensure() {
+    [ $# -eq 0 ] || die 1 "用法"
+    if service_up; then
+        exit 0
+    fi
+    read_ports
+    # A busy port must not pull the subscription.
+    if port_open "$MIXED"; then
+        die 2 "端口已被占用"
+    fi
+    if [ ! -f "$AXS_RUN/config.yaml" ]; then
+        if [ ! -f "$AXS_RUN/subscription.url" ]; then
+            die 3 "没有订阅"
+        fi
+        cmd_refresh
+    fi
+    cmd_start
+}
+
+cmd_node_list() {
+    [ $# -eq 0 ] || die 1 "用法"
+    if ! service_up; then
+        die 2 "服务：未运行"
+    fi
+    api=$(api_addr) || die 3 "控制器"
+    python3 "$PY" node-list "$AXS_RUN/secret" "$api" || exit $?
+}
+
+cmd_switch() {
+    [ $# -eq 2 ] || die 1 "用法"
+    if ! service_up; then
+        die 2 "服务：未运行"
+    fi
+    api=$(api_addr) || die 3 "控制器"
+    python3 "$PY" select "$AXS_RUN/secret" "$api" "$1" "$2" || exit $?
+}
+
+cmd_net() {
+    code=0
+    python3 "$PY" net-precheck "$AXS_RUN/urls" "$@" || code=$?
+    if [ "$code" -eq 1 ]; then
+        die 1 "用法"
+    fi
+    if [ "$code" -ne 0 ]; then
+        die 3 "禁止外网"
+    fi
+    read_ports
+    if ! port_open "$MIXED"; then
+        die 2 "入站：不通"
+    fi
+    timeout=${AXS_NET_TIMEOUT_MS:-5000}
+    python3 "$PY" net-run "$AXS_RUN/urls" "http://127.0.0.1:$MIXED" "$timeout" "$@" || exit $?
+}
+
 cmd_groups() {
     if ! service_up; then
         die 2 "服务：未运行"
     fi
-    read_ports
-    python3 "$PY" groups "$AXS_RUN/secret" "$API" || die 3 "控制器"
+    api=$(api_addr) || die 3 "控制器"
+    python3 "$PY" groups-show "$AXS_RUN/secret" "$api" || exit $?
 }
 
 cmd_test() {

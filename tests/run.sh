@@ -330,13 +330,13 @@ assert_code 'node list' 0 node list
 after=$(find "$RUN" -mindepth 1 -maxdepth 1 -exec basename {} \; | sort)
 test "$after" = "$names" || fail "list wrote run: $after"
 list_want=$(printf '%s\n' \
+    "$(printf '\tDIRECT\tDirect\t-')" \
     "$(printf '*\ta\tShadowsocks\tPROXY')" \
     "$(printf '\ta\tShadowsocks\tRELAY')" \
     "$(printf '\ta b\tShadowsocks\tAUTO')" \
     "$(printf '\ta b\tShadowsocks\tPROXY')" \
     "$(printf '*\tb\tShadowsocks\tAUTO')" \
     "$(printf '\tb\tShadowsocks\tPROXY')" \
-    "$(printf '\tDIRECT\tDirect\t-')" \
     "$(printf '\tlonely\tSocks\t-')")
 test "$(cat "$RUN/out")" = "$list_want" || fail "list columns: $(cat "$RUN/out")"
 assert_code 'groups columns' 0 node groups

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Merge a subscription with the local override. Never prints the URL or secret."""
+import http.client
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -11,7 +13,13 @@ from pathlib import Path
 import yaml
 
 DELAY_URL = "https://www.gstatic.com/generate_204"
+DEFAULT_URLS = (
+    "https://www.github.com",
+    "https://www.google.com",
+    "https://www.youtube.com",
+)
 GROUP_TYPES = {"Selector", "URLTest", "Fallback", "LoadBalance", "Relay"}
+LOOPBACK = {"127.0.0.1", "localhost", "::1"}
 CIDRS = [
     "IP-CIDR,127.0.0.0/8,DIRECT,no-resolve",
     "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
@@ -172,22 +180,34 @@ def _api(secret_path, api):
     return secret
 
 
-def _fake_exchange(method, path, secret):
+def _fake_exchange(method, path, secret, body=None):
     directory = Path(os.environ["AXS_FAKE_DIR"])
     flag = "yes" if secret and len(secret) >= 8 else "no"
+    extra = ""
+    if body:
+        extra = " body=" + body.decode("utf-8", "replace")
     with (directory / "log").open("a", encoding="utf-8") as handle:
-        handle.write(f"{method} {path} auth={flag}\n")
+        handle.write(f"{method} {path} auth={flag}{extra}\n")
     if (directory / "down").is_file():
         fail("控制器")
+    pure = path.split("?", 1)[0]
+    if method == "PUT" and pure.startswith("/proxies/"):
+        code_path = directory / "select"
+        code = int(code_path.read_text(encoding="utf-8").strip() or "204") if code_path.is_file() else 204
+        if code >= 300:
+            fail("控制器")
+        return b""
     if method == "PUT":
         code = int((directory / "reload").read_text(encoding="utf-8").strip() or "204")
         if code >= 300:
             fail("控制器")
         return b""
-    pure = path.split("?", 1)[0]
     if pure == "/version":
         return b'{"version":"fake"}'
     if pure == "/proxies":
+        ready = directory / "proxies.json"
+        if ready.is_file():
+            return ready.read_bytes()
         text = (directory / "groups").read_text(encoding="utf-8") if (directory / "groups").is_file() else ""
         payload = {
             name: {"type": "Selector", "now": "a", "all": ["a"]}
@@ -203,7 +223,7 @@ def _fake_exchange(method, path, secret):
 
 def _request(secret, api, method, path, body=None):
     if os.environ.get("AXS_FAKE_DIR"):
-        return _fake_exchange(method, path, secret)
+        return _fake_exchange(method, path, secret, body)
     req = urllib.request.Request(
         f"http://{api}{path}",
         data=body,
@@ -227,7 +247,7 @@ def _request(secret, api, method, path, body=None):
         fail("控制器")
 
 
-def group_names(secret_path, api):
+def load_proxies(secret_path, api):
     secret = _api(secret_path, api)
     raw = _request(secret, api, "GET", "/proxies")
     try:
@@ -237,11 +257,167 @@ def group_names(secret_path, api):
     proxies = payload.get("proxies") if isinstance(payload, dict) else None
     if not isinstance(proxies, dict):
         fail("控制器")
+    return proxies
+
+
+def group_names(secret_path, api):
+    proxies = load_proxies(secret_path, api)
     names = []
     for name, item in proxies.items():
         if isinstance(item, dict) and item.get("type") in GROUP_TYPES:
             names.append(name)
     return names
+
+
+def _as_exit3(exc):
+    code = exc.code if isinstance(exc.code, int) else 1
+    raise SystemExit(3 if code == 1 else code)
+
+
+def _now(item):
+    now = item.get("now") if isinstance(item, dict) else None
+    if not isinstance(now, str) or now == "":
+        return "-"
+    return now
+
+
+def show_groups(secret_path, api):
+    try:
+        proxies = load_proxies(secret_path, api)
+    except SystemExit as exc:
+        _as_exit3(exc)
+    rows = []
+    for name in sorted(proxies):
+        item = proxies[name]
+        if not isinstance(item, dict) or item.get("type") not in GROUP_TYPES:
+            continue
+        rows.append(f"{name}\t{item.get('type')}\t{_now(item)}")
+    if rows:
+        sys.stdout.write("\n".join(rows) + "\n")
+
+
+def show_nodes(secret_path, api):
+    try:
+        proxies = load_proxies(secret_path, api)
+    except SystemExit as exc:
+        _as_exit3(exc)
+    rows = []
+    for name, item in proxies.items():
+        if not isinstance(item, dict) or item.get("type") in GROUP_TYPES:
+            continue
+        kind = item.get("type") or "-"
+        hits = []
+        for gname, gitem in proxies.items():
+            if not isinstance(gitem, dict) or gitem.get("type") not in GROUP_TYPES:
+                continue
+            members = gitem.get("all") or []
+            if isinstance(members, list) and name in members:
+                star = "*" if gitem.get("now") == name else ""
+                hits.append((gname, f"{star}\t{name}\t{kind}\t{gname}"))
+        if hits:
+            rows.extend((name, gname, line) for gname, line in hits)
+        else:
+            rows.append((name, "-", f"\t{name}\t{kind}\t-"))
+    rows.sort()
+    if rows:
+        sys.stdout.write("\n".join(line for _, _, line in rows) + "\n")
+
+
+def select_proxy(secret_path, api, group, node):
+    try:
+        proxies = load_proxies(secret_path, api)
+    except SystemExit as exc:
+        _as_exit3(exc)
+    if group not in proxies:
+        sys.stderr.write("组不存在\n")
+        raise SystemExit(3)
+    item = proxies[group]
+    if not isinstance(item, dict) or item.get("type") not in GROUP_TYPES:
+        sys.stderr.write("不是策略组\n")
+        raise SystemExit(3)
+    members = item.get("all") if isinstance(item, dict) else None
+    if not isinstance(members, list) or node not in members:
+        sys.stderr.write("节点不存在\n")
+        raise SystemExit(3)
+    secret = _api(secret_path, api)
+    quoted = urllib.parse.quote(group, safe="")
+    body = json.dumps({"name": node}).encode()
+    try:
+        _request(secret, api, "PUT", f"/proxies/{quoted}", body)
+    except SystemExit as exc:
+        _as_exit3(exc)
+    sys.stdout.write(f"{group}\t{node}\n")
+
+
+def net_targets(urls_path, given):
+    if given:
+        return list(given)
+    rows = []
+    path = Path(urls_path)
+    if path.is_file():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            text = line.strip()
+            if text and not text.startswith("#"):
+                rows.append(text)
+    return rows or list(DEFAULT_URLS)
+
+
+def net_precheck(urls_path, given):
+    bad = False
+    forbid = False
+    for url in net_targets(urls_path, given):
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            bad = True
+            continue
+        if os.environ.get("AXS_FORBID_NET") == "1" and parsed.hostname not in LOOPBACK:
+            forbid = True
+    if bad:
+        raise SystemExit(1)
+    if forbid:
+        raise SystemExit(3)
+
+
+def _one_try(url, proxy, timeout):
+    class Keep(urllib.request.HTTPErrorProcessor):
+        def http_response(self, request, response):
+            return response
+
+        https_response = http_response
+
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            return None
+
+    opener = urllib.request.build_opener(
+        urllib.request.ProxyHandler({"http": proxy, "https": proxy}),
+        NoRedirect,
+        Keep,
+    )
+    started = time.monotonic()
+    try:
+        with opener.open(url, timeout=timeout) as resp:
+            resp.read(1)
+        return int((time.monotonic() - started) * 1000)
+    except urllib.error.HTTPError:
+        return int((time.monotonic() - started) * 1000)
+    except (urllib.error.URLError, TimeoutError, OSError, http.client.HTTPException):
+        return None
+
+
+def net_run(urls_path, proxy, timeout_ms, given):
+    timeout = int(timeout_ms) / 1000
+    failed = False
+    for url in net_targets(urls_path, given):
+        delay = _one_try(url, proxy, timeout)
+        if delay is None:
+            delay = _one_try(url, proxy, timeout)
+        if delay is None:
+            failed = True
+            sys.stdout.write(f"不通\t-\t{url}\n")
+        else:
+            sys.stdout.write(f"通\t{delay}\t{url}\n")
+    raise SystemExit(3 if failed else 0)
 
 
 def has_group(secret_path, api, name):
@@ -463,6 +639,16 @@ def main(argv):
     elif cmd == "groups":
         for name in group_names(argv[2], argv[3]):
             sys.stdout.write(name + "\n")
+    elif cmd == "groups-show":
+        show_groups(argv[2], argv[3])
+    elif cmd == "node-list":
+        show_nodes(argv[2], argv[3])
+    elif cmd == "select":
+        select_proxy(argv[2], argv[3], argv[4], argv[5])
+    elif cmd == "net-precheck":
+        net_precheck(argv[2], argv[3:])
+    elif cmd == "net-run":
+        net_run(argv[2], argv[3], argv[4], argv[5:])
     elif cmd == "reload":
         reload_core(argv[2], argv[3], argv[4])
     elif cmd == "version":
