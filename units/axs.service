@@ -6,8 +6,8 @@ After=network-online.target
 [Service]
 Type=simple
 ExecStartPre=/bin/mkdir -p %h/.local/lib/access/run
-# health 只认 mihomo.pid。exec 后这个 pid 就是 mihomo。
-ExecStart=/bin/sh -c 'echo $$ > %h/.local/lib/access/run/mihomo.pid; exec %h/.local/bin/mihomo -d %h/.local/lib/access/run'
+# PID 由 mihomo-run 写入。不要在这里写进程号，systemd 会先展开。
+ExecStart=%h/.local/lib/access/bin/mihomo-run
 Restart=on-failure
 RestartSec=2
 

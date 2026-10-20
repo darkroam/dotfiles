@@ -1,0 +1,18 @@
+#!/bin/sh
+# systemd expands $$ in the unit file. This script writes the pid, then replaces itself.
+set -eu
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+RUN=${AXS_RUN:-$ROOT/run}
+MIHOMO=${AXS_MIHOMO:-${HOME:?}/.local/bin/mihomo}
+mkdir -p "$RUN"
+chmod 700 "$RUN"
+pid=$$
+case $pid in
+    ''|*[!0-9]*)
+        printf '%s\n' "告警：PID 不是数字" >&2
+        exit 1
+        ;;
+esac
+printf '%s\n' "$pid" >"$RUN/mihomo.pid.tmp"
+mv -f "$RUN/mihomo.pid.tmp" "$RUN/mihomo.pid"
+exec "$MIHOMO" -d "$RUN"

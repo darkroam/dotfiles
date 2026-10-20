@@ -83,7 +83,7 @@ TUN 评估：现二进制带 `with_gvisor`，具备用户态栈条件。启用�
 
 阶段二把运行目录放在 `~/.config/mihomo`。那个目录主仓库没有忽略。v1 改到已经全局忽略的本树 `run/`，避免订阅被宽 glob 扫进公开仓库。
 
-用户单元模板在 `units/`。`axs.service` 执行 `mihomo -d <run>`，并写下 `mihomo.pid`，否则 `health` 仍认为未运行。`axs-refresh.timer` 每 12 小时跑 `axs sub refresh`。复制到 `~/.config/systemd/user/` 后 enable。没有合格 `config.yaml` 之前不 enable。登录后由用户会话拉起，不另加 `xprofile`。刷新前若地址含反斜杠或空白（单独的行尾换行不算），退出 3，提示去掉反斜杠。空正文，或 Content-Type 不是 YAML 类（`text/html` 等），退出 3，并带上 HTTP 状态和类型。
+用户单元模板在 `units/`。`axs.service` 只启动 `bin/mihomo-run`。脚本校验并原子写下自己的数字 PID，再 exec `mihomo -d <run>`。单元里不写进程号，systemd 会先展开。`axs-refresh.timer` 每 12 小时跑 `axs sub refresh`。复制到 `~/.config/systemd/user/` 后 enable。没有合格 `config.yaml` 之前不 enable。登录后由用户会话拉起，不另加 `xprofile`。刷新前若地址含反斜杠或空白（单独的行尾换行不算），退出 3，提示去掉反斜杠。空正文，或 Content-Type 不是 YAML 类（`text/html` 等），退出 3，并带上 HTTP 状态和类型。
 
 ## 5. 子命令与退出码
 

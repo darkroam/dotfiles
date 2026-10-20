@@ -51,6 +51,12 @@ service_up() {
         return 1
     fi
     pid=$(cat "$pidfile")
+    case $pid in
+        ''|*[!0-9]*)
+            printf '%s\n' "告警：mihomo.pid 不是数字" >&2
+            return 1
+            ;;
+    esac
     if ! kill -0 "$pid" 2>/dev/null; then
         return 1
     fi

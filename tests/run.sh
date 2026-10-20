@@ -85,7 +85,7 @@ open_mixed() {
     printf '%s\n' "$1" >"$RUN/fake/open-ports"
 }
 
-shellcheck "$ROOT/bin/axs" "$ROOT/lib/common.sh" "$ROOT/tests/run.sh" \
+shellcheck "$ROOT/bin/axs" "$ROOT/bin/mihomo-run" "$ROOT/lib/common.sh" "$ROOT/tests/run.sh" \
     "$ROOT/tests/fake-fetch" "$ROOT/tests/fake-fetch-fail" "$ROOT/tests/fake-fetch-html" \
     "$ROOT/tests/fake-fetch-empty" \
     "$ROOT/tests/fake-mihomo" "$ROOT/tests/env/run.sh"
@@ -104,6 +104,44 @@ assert_code 'rule usage' 1 rule add via
 
 new_run
 assert_code 'health down' 2 health
+
+new_run
+printf '%s\n' '$' >"$RUN/mihomo.pid"
+assert_code 'health bad pid' 2 health
+grep -q '服务：未运行' "$RUN/out" || fail "bad pid out: $(cat "$RUN/out")"
+grep -q '告警：mihomo.pid 不是数字' "$RUN/err" || fail "bad pid err: $(cat "$RUN/err")"
+
+new_run
+: >"$RUN/mihomo.pid"
+assert_code 'health empty pid' 2 health
+grep -q '告警：mihomo.pid 不是数字' "$RUN/err" || fail "empty pid err: $(cat "$RUN/err")"
+
+new_run
+export AXS_MIHOMO="$ROOT/tests/fake-mihomo"
+"$ROOT/bin/mihomo-run" &
+child=$!
+echo "$child" >>"$PIDS"
+i=0
+while [ "$i" -lt 20 ] && [ ! -s "$RUN/mihomo.pid" ]; do
+    i=$((i + 1))
+    sleep 0.05
+done
+test -s "$RUN/mihomo.pid" || fail 'mihomo-run wrote no pid'
+pid=$(cat "$RUN/mihomo.pid")
+test "$pid" = "$child" || fail "mihomo-run pid $pid want $child"
+case $pid in
+    ''|*[!0-9]*) fail "mihomo-run pid not numeric: $pid" ;;
+esac
+tr '\0' '\n' <"/proc/$pid/cmdline" | grep -Fxq -- "$AXS_MIHOMO" || fail 'mihomo-run did not exec mihomo'
+kill "$pid" 2>/dev/null || true
+PASS=$((PASS + 1))
+
+if grep -F '$$' "$ROOT/units/axs.service" >/dev/null; then
+    fail 'unit still has $$'
+fi
+grep -q 'ExecStart=%h/.local/lib/access/bin/mihomo-run' "$ROOT/units/axs.service" || fail 'unit ExecStart'
+grep -q 'ExecStartPre=/bin/mkdir -p %h/.local/lib/access/run' "$ROOT/units/axs.service" || fail 'unit mkdir'
+PASS=$((PASS + 1))
 
 new_run
 export AXS_MIXED_PORT=18080
