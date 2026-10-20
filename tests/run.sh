@@ -285,7 +285,7 @@ if grep -F 'test-secret-value' "$RUN/fake/log" "$RUN/out" "$RUN/err" >/dev/null 
     fail 'secret reached the log or output'
 fi
 assert_code 'groups' 0 node groups
-grep -q 'PROXY' "$RUN/out" || fail 'group name missing'
+test "$(cat "$RUN/out")" = "$(printf 'PROXY\tSelector\ta')" || fail "groups columns: $(cat "$RUN/out")"
 
 new_run
 mark_up
@@ -304,5 +304,209 @@ printf '%s\n' "$perms" | grep -q '^700 ' || fail "run perms: $perms"
 printf '%s\n' "$perms" | grep -q '^600 ' || fail "file perms: $perms"
 test "$(stat -c '%a' "$RUN/secret")" = 600 || fail 'secret mode'
 test "$(stat -c '%a' "$RUN/config.yaml")" = 600 || fail 'config mode'
+
+
+new_run
+assert_code 'start no config' 3 start
+grep -q '没有配置' "$RUN/err" || fail 'start no config text'
+test ! -f "$RUN/mihomo.pid" || fail 'start no config launched'
+
+new_run
+printf '%s\n' "$CANARY" >"$RUN/subscription.url"
+export AXS_FETCH="$ROOT/tests/fake-fetch" FIXTURE_SUB="$FIX"
+assert_code 'start ignores url' 3 start
+test ! -f "$RUN/config.yaml" || fail 'start refreshed without being asked'
+test ! -f "$RUN/mihomo.pid" || fail 'start launched without config'
+
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081"
+arm_api PROXY 204 0
+cat >"$RUN/fake/proxies.json" <<'EOF'
+{"proxies":{"AUTO":{"all":["b","a b"],"now":"b","type":"URLTest"},"PROXY":{"all":["a","b","a b"],"now":"a","type":"Selector"},"RELAY":{"all":["a"],"type":"Relay"},"DIRECT":{"type":"Direct"},"a":{"type":"Shadowsocks"},"a b":{"type":"Shadowsocks"},"b":{"type":"Shadowsocks"},"lonely":{"type":"Socks"}}}
+EOF
+names=$(find "$RUN" -mindepth 1 -maxdepth 1 -exec basename {} \; | sort)
+assert_code 'node list' 0 node list
+after=$(find "$RUN" -mindepth 1 -maxdepth 1 -exec basename {} \; | sort)
+test "$after" = "$names" || fail "list wrote run: $after"
+list_want=$(printf '%s\n' \
+    "$(printf '*\ta\tShadowsocks\tPROXY')" \
+    "$(printf '\ta\tShadowsocks\tRELAY')" \
+    "$(printf '\ta b\tShadowsocks\tAUTO')" \
+    "$(printf '\ta b\tShadowsocks\tPROXY')" \
+    "$(printf '*\tb\tShadowsocks\tAUTO')" \
+    "$(printf '\tb\tShadowsocks\tPROXY')" \
+    "$(printf '\tDIRECT\tDirect\t-')" \
+    "$(printf '\tlonely\tSocks\t-')")
+test "$(cat "$RUN/out")" = "$list_want" || fail "list columns: $(cat "$RUN/out")"
+assert_code 'groups columns' 0 node groups
+groups_want=$(printf '%s\n' \
+    "$(printf 'AUTO\tURLTest\tb')" \
+    "$(printf 'PROXY\tSelector\ta')" \
+    "$(printf 'RELAY\tRelay\t-')")
+test "$(cat "$RUN/out")" = "$groups_want" || fail "groups now: $(cat "$RUN/out")"
+
+new_run
+assert_code 'list down' 2 node list
+
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081"
+arm_api PROXY 204 0
+: >"$RUN/fake/down"
+assert_code 'list api down' 3 node list
+
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081"
+arm_api PROXY 204 0
+cat >"$RUN/fake/proxies.json" <<'EOF'
+{"proxies":{"A B":{"all":["a","a b"],"now":"a","type":"Selector"},"AUTO":{"all":["b"],"now":"b","type":"URLTest"},"PROXY":{"all":["a","a b"],"now":"a","type":"Selector"},"a":{"type":"Shadowsocks"},"a b":{"type":"Shadowsocks"},"b":{"type":"Shadowsocks"}}}
+EOF
+printf '%s\n' 'SENTINEL' >"$RUN/config.yaml"
+printf '%s\n' 'RULE' >"$RUN/rules.list"
+: >"$RUN/fake/log"
+assert_code 'switch' 0 node switch PROXY 'a b'
+test "$(cat "$RUN/out")" = "$(printf 'PROXY\ta b')" || fail "switch out: $(cat "$RUN/out")"
+grep -q 'PUT /proxies/PROXY' "$RUN/fake/log" || fail 'select was not sent'
+grep -q '{"name": "a b"}' "$RUN/fake/log" || fail "select body: $(cat "$RUN/fake/log")"
+test "$(grep -c 'GET /proxies' "$RUN/fake/log")" -eq 1 || fail 'switch queried twice'
+test "$(cat "$RUN/config.yaml")" = 'SENTINEL' || fail 'switch edited config'
+test "$(cat "$RUN/rules.list")" = 'RULE' || fail 'switch edited rules'
+test ! -f "$RUN/refresh.lock" || fail 'switch took the refresh lock'
+: >"$RUN/fake/log"
+assert_code 'switch urltest' 0 node switch AUTO b
+grep -q 'PUT /proxies/AUTO' "$RUN/fake/log" || fail 'urltest select was not sent'
+: >"$RUN/fake/log"
+assert_code 'switch encode' 0 node switch 'A B' a
+grep -q 'PUT /proxies/A%20B' "$RUN/fake/log" || fail "encoded path: $(cat "$RUN/fake/log")"
+: >"$RUN/fake/log"
+assert_code 'switch missing group' 3 node switch NOPE a
+grep -q '组不存在' "$RUN/err" || fail "missing group text: $(cat "$RUN/err")"
+if grep -q 'PUT /proxies' "$RUN/fake/log"; then
+    fail 'missing group sent select'
+fi
+: >"$RUN/fake/log"
+assert_code 'switch not group' 3 node switch a b
+grep -q '不是策略组' "$RUN/err" || fail "not group text: $(cat "$RUN/err")"
+if grep -q 'PUT /proxies' "$RUN/fake/log"; then
+    fail 'non-group sent select'
+fi
+: >"$RUN/fake/log"
+assert_code 'switch missing node' 3 node switch PROXY nope
+grep -q '节点不存在' "$RUN/err" || fail "missing node text: $(cat "$RUN/err")"
+if grep -q 'PUT /proxies' "$RUN/fake/log"; then
+    fail 'missing node sent select'
+fi
+: >"$RUN/fake/log"
+: >"$RUN/fake/down"
+assert_code 'switch api down' 3 node switch PROXY a
+if grep -q 'PUT /proxies' "$RUN/fake/log"; then
+    fail 'api down sent select'
+fi
+rm -f "$RUN/fake/down"
+printf '%s\n' '400' >"$RUN/fake/select"
+: >"$RUN/fake/log"
+assert_code 'switch reject' 3 node switch PROXY a
+grep -q 'PUT /proxies/PROXY' "$RUN/fake/log" || fail 'reject did not send select'
+test ! -s "$RUN/out" || fail 'reject printed a success line'
+
+new_run
+assert_code 'switch down' 2 node switch PROXY a
+assert_code 'switch usage' 1 node switch onlyone
+
+new_run
+mark_up
+export AXS_FETCH="$ROOT/tests/fake-fetch-fail" FIXTURE_SUB="$FIX"
+printf '%s\n' 'placeholder: true' >"$RUN/config.yaml"
+printf '%s\n' "$CANARY" >"$RUN/subscription.url"
+pid=$(cat "$RUN/mihomo.pid")
+assert_code 'ensure already' 0 ensure
+test "$(cat "$RUN/mihomo.pid")" = "$pid" || fail 'ensure restarted a running service'
+test ! -s "$RUN/out" || fail 'ensure printed on success'
+
+new_run
+export AXS_MIXED_PORT=18080
+open_mixed 18080
+printf '%s\n' "$CANARY" >"$RUN/subscription.url"
+export AXS_FETCH="$ROOT/tests/fake-fetch" FIXTURE_SUB="$FIX"
+assert_code 'ensure busy' 2 ensure
+grep -q '端口已被占用' "$RUN/err" || fail 'ensure busy text'
+test ! -f "$RUN/config.yaml" || fail 'ensure refreshed while the port was busy'
+test ! -f "$RUN/mihomo.pid" || fail 'ensure launched while the port was busy'
+
+new_run
+assert_code 'ensure no url' 3 ensure
+grep -q '没有订阅' "$RUN/err" || fail 'ensure no url text'
+test ! -f "$RUN/mihomo.pid" || fail 'ensure launched without a subscription'
+
+new_run
+export AXS_MIHOMO="$ROOT/tests/fake-mihomo" AXS_MIXED_PORT=18084
+printf '%s\n' 'placeholder: true' >"$RUN/config.yaml"
+export AXS_FETCH="$ROOT/tests/fake-fetch-fail" FIXTURE_SUB="$FIX"
+assert_code 'ensure start only' 0 ensure
+test -f "$RUN/mihomo.pid" || fail 'ensure did not start'
+cat "$RUN/mihomo.pid" >>"$PIDS"
+test ! -s "$RUN/out" || fail 'ensure start printed'
+
+new_run
+export AXS_MIHOMO="$ROOT/tests/fake-mihomo" AXS_MIXED_PORT=18085
+export AXS_FETCH="$ROOT/tests/fake-fetch" FIXTURE_SUB="$FIX"
+printf '%s\n' "$CANARY" >"$RUN/subscription.url"
+chmod 600 "$RUN/subscription.url"
+assert_code 'ensure refresh start' 0 ensure
+test -f "$RUN/config.yaml" || fail 'ensure did not refresh'
+test -f "$RUN/mihomo.pid" || fail 'ensure did not start after refresh'
+cat "$RUN/mihomo.pid" >>"$PIDS"
+test ! -s "$RUN/out" || fail 'ensure refresh printed'
+
+new_run
+export AXS_FETCH="$ROOT/tests/fake-fetch-fail" FIXTURE_SUB="$FIX"
+printf '%s\n' "$CANARY" >"$RUN/subscription.url"
+assert_code 'ensure fetch fail' 3 ensure
+test ! -f "$RUN/mihomo.pid" || fail 'ensure started after a failed refresh'
+test ! -f "$RUN/config.yaml" || fail 'failed ensure left a config'
+
+new_run
+flock "$RUN/refresh.lock" -c 'sleep 15' &
+echo $! >>"$PIDS"
+i=0
+while [ "$i" -lt 30 ]; do
+    if ! flock -n "$RUN/refresh.lock" -c true; then
+        break
+    fi
+    i=$((i + 1))
+    sleep 0.05
+done
+if flock -n "$RUN/refresh.lock" -c true; then
+    fail 'ensure lock was not held'
+fi
+printf '%s\n' "$CANARY" >"$RUN/subscription.url"
+export AXS_FETCH="$ROOT/tests/fake-fetch" FIXTURE_SUB="$FIX"
+assert_code 'ensure lock' 4 ensure
+grep -q '锁' "$RUN/err" || fail 'ensure lock text'
+test ! -f "$RUN/mihomo.pid" || fail 'ensure started while locked'
+assert_code 'ensure usage' 1 ensure extra
+
+new_run
+assert_code 'net scheme' 1 net test 'ftp://127.0.0.1/' 'https://www.github.com'
+test ! -s "$RUN/out" || fail 'bad scheme still tested'
+assert_code 'net defaults forbid' 3 net test
+test ! -s "$RUN/out" || fail 'forbid tested a default url'
+assert_code 'net forbid partial' 3 net test 'http://127.0.0.1:9/' 'http://example.com/'
+test ! -s "$RUN/out" || fail 'forbid tested the legal url'
+assert_code 'net mixed down' 2 net test 'http://[::1]/'
+grep -q '入站：不通' "$RUN/err" || fail 'net mixed text'
+test ! -s "$RUN/out" || fail 'mixed down still tested'
+printf '%s\n' '# skip' '' 'http://127.0.0.1:9/' >"$RUN/urls"
+chmod 600 "$RUN/urls"
+assert_code 'net urls file' 2 net test
+printf '%s\n' '# only' >"$RUN/urls"
+assert_code 'net urls empty' 3 net test
+mark_up
+export AXS_MIXED_PORT=18086
+open_mixed 18086
+assert_code 'net forbid no dial' 3 net test 'https://www.github.com'
+test ! -s "$RUN/out" || fail 'forbid dialed'
 
 echo "ok $PASS"

@@ -144,8 +144,14 @@ check() {
     say "a kernel-reject"
     up
     groups=$("$AXS" node groups)
-    printf '%s\n' "$groups" | grep -x PROXY >/dev/null || {
+    printf '%s\n' "$groups" | grep -x "$(printf 'PROXY\tSelector\tlocal')" >/dev/null || {
         say "FAIL groups"
+        printf '%s\n' "$groups" >&2
+        return 1
+    }
+    listed=$("$AXS" node list)
+    printf '%s\n' "$listed" | grep -F spare >/dev/null || {
+        say "FAIL spare missing"
         return 1
     }
     delay=$("$AXS" node test PROXY)
@@ -154,6 +160,18 @@ check() {
         *) say "FAIL delay"; printf '%s\n' "$delay" >&2; return 1 ;;
     esac
     say "b groups-delay"
+    export AXS_NET_TIMEOUT_MS=1000
+    need 0 "net all" net test "http://127.0.0.1:$HTTP/204" || return 1
+    grep -q '^通' "$VAR/out" || { say "FAIL net pass line"; return 1; }
+    need 3 "net some" net test "http://127.0.0.1:$HTTP/204" "http://127.0.0.1:18099/" || return 1
+    grep -q '^通' "$VAR/out" || { say "FAIL net some pass"; return 1; }
+    grep -q '^不通' "$VAR/out" || { say "FAIL net some fail"; return 1; }
+    need 3 "net none" net test "http://127.0.0.1:18099/" || return 1
+    if grep -q '^通' "$VAR/out"; then
+        say "FAIL net none marked up"
+        return 1
+    fi
+    say "net three"
     "$AXS" rule add via target.test PROXY >/dev/null
     via=$(curl -fsS --max-time 5 -x "http://127.0.0.1:$MIXED" "http://target.test:$HTTP/who")
     [ "$via" = "node" ] || { say "FAIL via"; printf '%s\n' "$via" >&2; return 1; }
@@ -230,6 +248,28 @@ check() {
         return 1
     fi
     say "f idempotent"
+    record_sims
+}
+
+record_sims() {
+    say "sim switch-restart"
+    before=$("$AXS" node groups 2>/dev/null || true)
+    say "sim before-stop $before"
+    code_of node switch PROXY spare || true
+    say "sim switch-spare code=$CODE"
+    "$AXS" stop >/dev/null 2>&1 || true
+    "$AXS" start >/dev/null 2>&1 || true
+    after=$("$AXS" node groups 2>/dev/null || true)
+    say "sim after-restart $after"
+    say "sim switch-reload"
+    code_of node switch PROXY local || true
+    say "sim switch-local code=$CODE"
+    before=$("$AXS" node groups 2>/dev/null || true)
+    say "sim before-reload $before"
+    code_of rule add via sim.test PROXY || true
+    say "sim rule code=$CODE"
+    after=$("$AXS" node groups 2>/dev/null || true)
+    say "sim after-reload $after"
 }
 
 cmd=${1:-check}

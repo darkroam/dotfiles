@@ -86,16 +86,25 @@ def subscription(proxy_port, marker, dns_port):
             "nameserver": [upstream],
             "default-nameserver": [upstream],
         },
-        "proxies": [{
-            "name": "local",
-            "type": "http",
-            "server": "127.0.0.1",
-            "port": int(proxy_port),
-        }],
+        "proxies": [
+            {
+                "name": "local",
+                "type": "http",
+                "server": "127.0.0.1",
+                "port": int(proxy_port),
+            },
+            {
+                # Port 9 is an empty shell. switch must not dial it.
+                "name": "spare",
+                "type": "http",
+                "server": "127.0.0.1",
+                "port": 9,
+            },
+        ],
         "proxy-groups": [{
             "name": "PROXY",
             "type": "select",
-            "proxies": ["local"],
+            "proxies": ["local", "spare"],
         }],
         "rules": rules,
     }
@@ -620,6 +629,9 @@ def selfcheck():
             return 1
         if "127.0.0.1:18095" not in text or "redir-host" not in text:
             sys.stderr.write("subscription dns\n")
+            return 1
+        if "name: spare" not in text:
+            sys.stderr.write("spare node\n")
             return 1
         if dns_check(var):
             return 1
