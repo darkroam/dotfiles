@@ -270,11 +270,12 @@ check() {
     [ "$(has_rule "$AXS_RUN/config.yaml.bak" "$MARK")" = "no" ] || { say "FAIL bak has marker"; return 1; }
     cp -p "$AXS_RUN/config.yaml" "$VAR/good-config"
     cp -p "$AXS_RUN/subscription.yaml" "$VAR/good-sub"
+    cp -p "$AXS_RUN/config.yaml.bak" "$VAR/bak-before"
     : >"$VAR/bad"
     need 3 "bad refresh" sub refresh || return 1
     cmp -s "$AXS_RUN/config.yaml" "$VAR/good-config" || { say "FAIL config replaced"; return 1; }
     cmp -s "$AXS_RUN/subscription.yaml" "$VAR/good-sub" || { say "FAIL body replaced"; return 1; }
-    cmp -s "$AXS_RUN/config.yaml.bak" "$VAR/good-config" || { say "FAIL bak not rebuilt"; return 1; }
+    cmp -s "$AXS_RUN/config.yaml.bak" "$VAR/bak-before" || { say "FAIL bak changed on precheck"; return 1; }
     rm -f "$VAR/bad"
     flock "$AXS_RUN/refresh.lock" -c 'sleep 2' &
     lockpid=$!

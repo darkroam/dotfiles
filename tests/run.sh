@@ -101,6 +101,9 @@ PASS=$((PASS + 1))
 new_run
 assert_code usage 1
 grep -q '用法' "$RUN/err" || fail 'usage text'
+if grep -q 'health' "$RUN/err"; then
+    fail 'usage still lists health'
+fi
 assert_code 'rule usage' 1 rule add via
 
 new_run
@@ -114,13 +117,6 @@ if grep -q 'shift' "$RUN/err"; then
     fail "bare shift: $(cat "$RUN/err")"
 fi
 PASS=$((PASS + 1))
-
-new_run
-assert_code 'health removed' 1 health
-grep -q '用法' "$RUN/err" || fail 'health usage'
-if grep -q 'health' "$RUN/err"; then
-    fail 'usage still lists health'
-fi
 
 new_run
 assert_code 'status down' 2 status
@@ -309,10 +305,12 @@ test ! -f "$RUN/config.yaml" || fail 'empty left a config'
 new_run
 printf '%s\n' 'https://example.invalid/sub' >"$RUN/subscription.url"
 printf '%s\n' 'SENTINEL-OLD' >"$RUN/config.yaml"
+printf '%s\n' 'OLD-BAK' >"$RUN/config.yaml.bak"
 export AXS_FETCH="$ROOT/tests/fake-fetch-html"
 assert_code 'refresh html' 3 sub refresh
 grep -q -F '订阅返回空内容/非 YAML（HTTP 200, text/html），请检查链接' "$RUN/err" || fail "html text: $(cat "$RUN/err")"
 test "$(cat "$RUN/config.yaml")" = "SENTINEL-OLD" || fail 'html replaced config'
+test "$(cat "$RUN/config.yaml.bak")" = "OLD-BAK" || fail 'precheck rewrote bak'
 
 new_run
 mark_up
@@ -395,6 +393,45 @@ mark_up
 prepare_health 18083
 : >"$RUN/fake/down"
 assert_code 'status api down' 3 status
+
+new_run
+assert_code 'health down' 2 health
+test ! -s "$RUN/out" || fail "health down stdout: $(cat "$RUN/out")"
+grep -qx '未运行' "$RUN/err" || fail "health down: $(cat "$RUN/err")"
+
+new_run
+mark_up
+export AXS_MIXED_PORT=18080
+assert_code 'health port' 2 health
+test ! -s "$RUN/out" || fail "health port stdout: $(cat "$RUN/out")"
+grep -qx '端口不通' "$RUN/err" || fail "health port: $(cat "$RUN/err")"
+
+new_run
+mark_up
+prepare_health 18083
+: >"$RUN/fake/down"
+assert_code 'health api' 3 health
+test ! -s "$RUN/out" || fail "health api stdout: $(cat "$RUN/out")"
+grep -qx '控制器不通' "$RUN/err" || fail "health api: $(cat "$RUN/err")"
+
+new_run
+mark_up
+prepare_health 18080
+now=$(date +%s)
+printf '%s\n' "expire=$((now - 10))" >"$RUN/userinfo"
+assert_code 'health expired' 5 health
+test ! -s "$RUN/out" || fail "health expired stdout: $(cat "$RUN/out")"
+grep -qx '订阅过期' "$RUN/err" || fail "health expired: $(cat "$RUN/err")"
+
+new_run
+mark_up
+prepare_health 18082
+now=$(date +%s)
+printf '%s\n' "expire=$((now + 40 * 86400))" >"$RUN/userinfo"
+assert_code 'health ok' 0 health
+test ! -s "$RUN/out" || fail "health ok stdout: $(cat "$RUN/out")"
+test ! -s "$RUN/err" || fail "health ok stderr: $(cat "$RUN/err")"
+test ! -e "$RUN/cache" || fail 'health wrote a cache'
 
 new_run
 mark_up

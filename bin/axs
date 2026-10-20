@@ -20,6 +20,7 @@ case $cmd in
     stop) cmd_stop "$@" ;;
     restart) cmd_restart "$@" ;;
     status) cmd_status "$@" ;;
+    health) cmd_health "$@" ;;
     ensure) cmd_ensure "$@" ;;
     clean) cmd_clean "$@" ;;
     sub)

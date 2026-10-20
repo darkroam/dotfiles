@@ -393,6 +393,33 @@ unknown'
     exit "$code"
 }
 
+cmd_health() {
+    if use_systemd; then
+        if ! systemd_active; then
+            printf '%s\n' "未运行" >&2
+            exit 2
+        fi
+    elif ! service_up 2>/dev/null; then
+        printf '%s\n' "未运行" >&2
+        exit 2
+    fi
+    load_status_ports
+    if ! port_open "$MIXED"; then
+        printf '%s\n' "端口不通" >&2
+        exit 2
+    fi
+    if ! controller_ok; then
+        printf '%s\n' "控制器不通" >&2
+        exit 3
+    fi
+    kind=$(python3 "$PY" classify "$AXS_RUN/userinfo" "$(date +%s)" 2>/dev/null || true)
+    if [ "$kind" = "expired" ]; then
+        printf '%s\n' "订阅过期" >&2
+        exit 5
+    fi
+    exit 0
+}
+
 cmd_sub_get() {
     python3 "$PY" show-userinfo "$AXS_RUN/userinfo" "$(date +%s)"
 }
