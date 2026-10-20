@@ -134,9 +134,82 @@ up() {
 }
 
 static() {
+    clean_cases
     python3 "$LAB" selfcheck
     python3 "$LAB" kernel
     python3 "$LAB" merge-check
+}
+
+clean_cases() {
+    saved=$AXS_RUN
+    saved_mihomo=${AXS_MIHOMO-}
+    dir=$(mktemp -d)
+    chmod 700 "$dir"
+    export AXS_RUN="$dir"
+    restore() {
+        export AXS_RUN="$saved"
+        if [ -n "$saved_mihomo" ]; then
+            export AXS_MIHOMO="$saved_mihomo"
+        else
+            unset AXS_MIHOMO
+        fi
+        if [ -f "$dir/mihomo.pid" ]; then
+            kill "$(cat "$dir/mihomo.pid")" 2>/dev/null || true
+        fi
+        rm -rf "$dir"
+    }
+    printf '%s\n' only >"$AXS_RUN/config.yaml"
+    code_of clean --yes
+    if [ "$CODE" -ne 0 ] || [ -e "$AXS_RUN/config.yaml" ]; then
+        say "FAIL lab partial clean"
+        restore
+        return 1
+    fi
+    printf '%s\n' drop >"$AXS_RUN/config.yaml"
+    code_of clean
+    if [ "$CODE" -ne 1 ] || [ ! -f "$AXS_RUN/config.yaml" ]; then
+        say "FAIL lab clean without yes"
+        restore
+        return 1
+    fi
+    outside=$(mktemp)
+    ln -s "$outside" "$AXS_RUN/config.yaml"
+    code_of clean --yes
+    if [ "$CODE" -ne 3 ] || [ ! -f "$outside" ] || [ ! -L "$AXS_RUN/config.yaml" ]; then
+        say "FAIL lab symlink"
+        rm -f "$outside"
+        restore
+        return 1
+    fi
+    rm -f "$outside" "$AXS_RUN/config.yaml"
+    printf '%s\n' drop >"$AXS_RUN/config.yaml"
+    printf '%s\n' url >"$AXS_RUN/subscription.url"
+    export AXS_MIHOMO="$ROOT/tests/fake-mihomo"
+    "$AXS_MIHOMO" &
+    printf '%s\n' "$!" >"$AXS_RUN/mihomo.pid"
+    code_of clean --yes
+    if [ "$CODE" -ne 2 ] || [ ! -f "$AXS_RUN/config.yaml" ]; then
+        say "FAIL lab clean while up"
+        restore
+        return 1
+    fi
+    kill "$(cat "$AXS_RUN/mihomo.pid")" 2>/dev/null || true
+    rm -f "$AXS_RUN/mihomo.pid"
+    code_of clean --yes
+    if [ "$CODE" -ne 0 ] || [ -e "$AXS_RUN/config.yaml" ] || [ ! -f "$AXS_RUN/subscription.url" ]; then
+        say "FAIL lab clean keeps url"
+        restore
+        return 1
+    fi
+    printf '%s\n' sentinel >"$AXS_RUN/config.yaml"
+    code_of sub clean --yes
+    if [ "$CODE" -ne 0 ] || [ -e "$AXS_RUN/subscription.url" ] || [ "$(cat "$AXS_RUN/config.yaml")" != sentinel ]; then
+        say "FAIL lab sub clean"
+        restore
+        return 1
+    fi
+    restore
+    say "lab clean"
 }
 
 check() {
@@ -249,6 +322,13 @@ check() {
     fi
     say "f idempotent"
     record_sims
+    if ! kill -0 "$(cat "$AXS_RUN/mihomo.pid")" 2>/dev/null; then
+        say "FAIL clean live has no process"
+        return 1
+    fi
+    need 2 "clean live" clean --yes || return 1
+    test -f "$AXS_RUN/config.yaml" || { say "FAIL live clean deleted config"; return 1; }
+    say "clean live"
 }
 
 record_sims() {

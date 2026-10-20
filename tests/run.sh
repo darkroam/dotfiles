@@ -509,4 +509,143 @@ open_mixed 18086
 assert_code 'net forbid no dial' 3 net test 'https://www.github.com'
 test ! -s "$RUN/out" || fail 'forbid dialed'
 
+
+seed_clean() {
+    printf '%s\n' drop >"$RUN/config.yaml"
+    printf '%s\n' bak >"$RUN/config.yaml.bak"
+    printf '%s\n' info >"$RUN/userinfo"
+    printf '%s\n' fetch >"$RUN/fetch.yaml"
+    printf '%s\n' hdr >"$RUN/fetch.hdr"
+    printf '%s\n' 999999 >"$RUN/mihomo.pid"
+    printf '%s\n' url >"$RUN/subscription.url"
+    printf '%s\n' secret >"$RUN/secret"
+    printf '%s\n' rules >"$RUN/rules.list"
+    printf '%s\n' over >"$RUN/override.yaml"
+    printf '%s\n' body >"$RUN/subscription.yaml"
+}
+
+pty_answer() {
+    answer=$1
+    shift
+    PTY_ANSWER=$answer PTY_CMD=$AXS python3 - "$@" << 'PY'
+import os, pty, select, sys
+reply = os.environ["PTY_ANSWER"] + "\n"
+cmd = [os.environ["PTY_CMD"], *sys.argv[1:]]
+pid, fd = pty.fork()
+if pid == 0:
+    os.execv(cmd[0], cmd)
+sent = False
+while True:
+    ready, _, _ = select.select([fd], [], [], 3)
+    if not ready:
+        break
+    try:
+        chunk = os.read(fd, 1024)
+    except OSError:
+        break
+    if not chunk:
+        break
+    if not sent and "确认删除" in chunk.decode("utf-8", "replace"):
+        os.write(fd, reply.encode())
+        sent = True
+_, status = os.waitpid(pid, 0)
+raise SystemExit(os.waitstatus_to_exitcode(status))
+PY
+}
+
+new_run
+mark_up
+printf '%s\n' drop >"$RUN/config.yaml"
+printf '%s\n' url >"$RUN/subscription.url"
+assert_code 'clean while up' 2 clean --yes
+grep -q 'axs stop' "$RUN/err" || fail "clean up text: $(cat "$RUN/err")"
+test -f "$RUN/config.yaml" || fail 'clean deleted while running'
+assert_code 'clean up no yes' 2 clean
+test -f "$RUN/config.yaml" || fail 'clean no-yes deleted while running'
+assert_code 'sub clean while up' 2 sub clean --yes
+test -f "$RUN/subscription.url" || fail 'sub clean deleted while running'
+
+new_run
+seed_clean
+assert_code 'clean no yes' 1 clean
+grep -F "$RUN/config.yaml" "$RUN/out" >/dev/null || fail 'clean did not list the path'
+test -f "$RUN/config.yaml" || fail 'clean deleted without --yes'
+set +e
+printf 'y\n' | "$AXS" clean >"$RUN/out" 2>"$RUN/err"
+piped=$?
+set -e
+test "$piped" -eq 1 || fail "piped yes want 1 got $piped"
+test -f "$RUN/config.yaml" || fail 'piped yes deleted'
+code=0
+pty_answer n clean || code=$?
+test "$code" -eq 1 || fail "pty no want 1 got $code"
+test -f "$RUN/config.yaml" || fail 'pty no deleted'
+code=0
+pty_answer y clean || code=$?
+test "$code" -eq 0 || fail "pty yes want 0 got $code"
+test ! -e "$RUN/config.yaml" || fail 'pty yes kept config'
+test -f "$RUN/subscription.url" || fail 'pty yes dropped the url'
+
+new_run
+seed_clean
+assert_code 'clean yes' 0 clean --yes
+test ! -s "$RUN/out" || fail 'clean --yes printed'
+for name in config.yaml config.yaml.bak userinfo fetch.yaml fetch.hdr mihomo.pid; do
+    test ! -e "$RUN/$name" || fail "clean kept $name"
+done
+for name in subscription.url secret rules.list override.yaml subscription.yaml; do
+    test -f "$RUN/$name" || fail "clean dropped $name"
+done
+assert_code 'clean again' 0 clean --yes
+
+new_run
+printf '%s\n' only >"$RUN/config.yaml"
+assert_code 'clean partial' 0 clean --yes
+test ! -e "$RUN/config.yaml" || fail 'partial clean kept config'
+test ! -s "$RUN/out" || fail 'partial clean printed'
+
+new_run
+seed_clean
+assert_code 'sub clean yes' 0 sub clean --yes
+test ! -s "$RUN/out" || fail 'sub clean printed'
+for name in subscription.url userinfo fetch.yaml fetch.hdr; do
+    test ! -e "$RUN/$name" || fail "sub clean kept $name"
+done
+for name in config.yaml config.yaml.bak secret rules.list override.yaml mihomo.pid subscription.yaml; do
+    test -f "$RUN/$name" || fail "sub clean dropped $name"
+done
+assert_code 'sub clean again' 0 sub clean --yes
+
+new_run
+outside=$(mktemp)
+printf '%s\n' outside >"$outside"
+ln -s "$outside" "$RUN/config.yaml"
+printf '%s\n' keep >"$RUN/secret"
+printf '%s\n' keep >"$RUN/rules.list"
+assert_code 'clean symlink' 3 clean --yes
+grep -q '越界' "$RUN/err" || fail "symlink text: $(cat "$RUN/err")"
+test -f "$outside" || fail 'clean followed a symlink'
+test -L "$RUN/config.yaml" || fail 'clean removed the symlink after refusing'
+test "$(cat "$RUN/secret")" = keep || fail 'symlink clean deleted a sibling'
+rm -f "$outside"
+
+new_run
+printf '%s\n' drop >"$RUN/config.yaml"
+printf '%s\n' keep >"$RUN/secret"
+chmod 500 "$RUN"
+set +e
+"$AXS" clean --yes >"$RUN/out" 2>"$RUN/err"
+denied=$?
+set -e
+chmod 700 "$RUN"
+test "$denied" -eq 3 || fail "undeletable want 3 got $denied"
+grep -q '删除失败' "$RUN/err" || fail "undeletable text: $(cat "$RUN/err")"
+test -f "$RUN/config.yaml" || fail 'failed clean removed the file'
+test -f "$RUN/secret" || fail 'failed clean removed secret'
+
+new_run
+assert_code 'clean usage' 1 clean --no
+assert_code 'clean extra' 1 clean --yes extra
+assert_code 'sub clean extra' 1 sub clean --yes extra
+
 echo "ok $PASS"

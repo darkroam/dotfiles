@@ -101,6 +101,8 @@ axs node test [策略组]
 axs node list
 axs node switch <策略组> <节点>
 axs net test [url ...]
+axs clean [--yes]
+axs sub clean [--yes]
 axs health
 ```
 
@@ -115,9 +117,9 @@ axs health
 | 码 | 含义 |
 | --- | --- |
 | 0 | 成功。快到期只是提示，仍为 0 |
-| 1 | 用法错误 |
-| 2 | 服务或端口不可用；`start` 与 `ensure` 在端口已被占用时也是 2 |
-| 3 | 拉取、校验、合并、重载失败；组或节点不存在；select 失败；`net test` 至少有一个目标不通；`ensure` 没有订阅地址或刷新失败。组不存在时不写规则列表。节点不存在时不发 select |
+| 1 | 用法错误。清理时非交互且没有 `--yes` 也是 1 |
+| 2 | 服务或端口不可用；`start` 与 `ensure` 在端口已被占用时也是 2。`clean` 与 `sub clean` 在服务运行时也是 2 |
+| 3 | 拉取、校验、合并、重载失败；组或节点不存在；select 失败；`net test` 至少有一个目标不通；`ensure` 没有订阅地址或刷新失败；清理越界或删除失败。组不存在时不写规则列表。节点不存在时不发 select。越界时一个都不删 |
 | 4 | 锁被占用。`ensure` 调用的 refresh 遇锁透传 4 |
 | 5 | 仅 `health`：进程与端口正常，但订阅已过期 |
 
@@ -321,6 +323,25 @@ v1 基线（不连真实订阅、不启真实进程）：
 全通退出 0。有一个不通，包括全不通，退出 3。不把结果写入日志或 `run/`。
 
 开测前先验全表，通过后才拨号。不是 `http`/`https` 已在上面退出 1、一行不测。`AXS_FORBID_NET=1` 时再验主机名：有一条不是 `127.0.0.1`、`localhost`、`::1`，整体退出 3，一行不测，不拨号。不要测完合法的那几条再退出。仿真三态用命令行传入 lab 的本地网址：立即 204 为通，不回答或马上断开为不通。默认公网表不出现在离线夹具里。
+
+### 清理
+
+`axs clean [--yes]`
+
+删运行态：`config.yaml`、`config.yaml.bak`、`userinfo`、`fetch.yaml`、`fetch.hdr`、`mihomo.pid`。保留 `subscription.url`、`secret`、`rules.list`、`override.yaml`。不删 `subscription.yaml`、`urls`、锁和快照。
+
+`axs sub clean [--yes]`
+
+删订阅：`subscription.url`、`userinfo`、`fetch.yaml`、`fetch.hdr`。保留 `config.yaml`。要连配置一起清，先 `sub clean` 再 `clean`。
+
+两边一样：
+
+- 服务在跑就拒绝，退出 2，提示先 `axs stop`。不删。
+- 只删上面这些名字。解析后的路径必须仍在 `run/` 里。符号链接指向外面则整次拒绝，退出 3，一个都不删。
+- 没有 `--yes` 时，先把将删的已存在路径逐行打到标准输出。不是终端就退出 1。是终端再问 `确认删除？[y/N]`，只有 `y` 或 `yes` 才删。
+- `--yes` 跳过确认。成功不打印。
+- 名单里不存在的文件跳过。因此删不存在的也是 0。
+- 删除本身失败退出 3。
 
 ### 实现放行清单
 
