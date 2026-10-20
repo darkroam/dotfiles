@@ -412,3 +412,74 @@ cmd_test() {
         python3 "$PY" delay "$AXS_RUN/secret" "$API" "$group" || die 3 "控制器"
     fi
 }
+
+clean_run() {
+    kind=$1
+    shift
+    yes=0
+    if [ $# -gt 1 ]; then
+        die 1 "用法"
+    fi
+    if [ $# -eq 1 ]; then
+        [ "$1" = "--yes" ] || die 1 "用法"
+        yes=1
+    fi
+    if service_up; then
+        die 2 "服务在运行，先 axs stop"
+    fi
+    if [ "$kind" = "config" ]; then
+        set -- config.yaml config.yaml.bak userinfo fetch.yaml fetch.hdr mihomo.pid
+    else
+        set -- subscription.url userinfo fetch.yaml fetch.hdr
+    fi
+    if [ -d "$AXS_RUN" ]; then
+        root=$(readlink -f -- "$AXS_RUN") || die 3 "越界"
+    else
+        root=''
+    fi
+    list=''
+    for name in "$@"; do
+        case $name in
+            */*|*..*) die 3 "越界" ;;
+        esac
+        path=$AXS_RUN/$name
+        if [ -L "$path" ] || [ -e "$path" ]; then
+            resolved=$(readlink -f -- "$path") || die 3 "越界"
+            case $resolved in
+                "$root"/*) ;;
+                *) die 3 "越界" ;;
+            esac
+            list="${list}${path}
+"
+        fi
+    done
+    if [ "$yes" -eq 0 ]; then
+        if [ -n "$list" ]; then
+            printf '%s' "$list"
+        fi
+        if [ -t 0 ]; then
+            printf '%s' '确认删除？[y/N] ' >&2
+            IFS= read -r answer || die 1 "需要 --yes"
+            case $answer in
+                y|Y|yes|YES) ;;
+                *) die 1 "需要 --yes" ;;
+            esac
+        else
+            die 1 "需要 --yes"
+        fi
+    fi
+    for name in "$@"; do
+        path=$AXS_RUN/$name
+        if [ -L "$path" ] || [ -e "$path" ]; then
+            rm -f -- "$path" || die 3 "删除失败"
+        fi
+    done
+}
+
+cmd_clean() {
+    clean_run config "$@"
+}
+
+cmd_sub_clean() {
+    clean_run sub "$@"
+}

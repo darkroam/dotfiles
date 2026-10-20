@@ -145,6 +145,7 @@ clean_cases() {
     saved_mihomo=${AXS_MIHOMO-}
     dir=$(mktemp -d)
     chmod 700 "$dir"
+    mkdir -p "$VAR"
     export AXS_RUN="$dir"
     restore() {
         export AXS_RUN="$saved"
@@ -173,6 +174,7 @@ clean_cases() {
         return 1
     fi
     outside=$(mktemp)
+    rm -f "$AXS_RUN/config.yaml"
     ln -s "$outside" "$AXS_RUN/config.yaml"
     code_of clean --yes
     if [ "$CODE" -ne 3 ] || [ ! -f "$outside" ] || [ ! -L "$AXS_RUN/config.yaml" ]; then
