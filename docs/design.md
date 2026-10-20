@@ -16,7 +16,7 @@ v1 只做从无到有的最小闭环。下面每一项都要能单独验证，�
 | 订阅 | 用户自己提供一条地址。`get` 只显示流量与剩余有效期；`refresh` 拉取、校验、合并、必要时重载 |
 | 节点 | 已实现 `groups`（含 now）、`list`、`test`、`switch`、`net test`。`test` 仍是控制器延迟，不是端到端 |
 | 规则 | 域名或后缀，持久保存。方向只有 `via`（进指定策略组）和 `direct`。路径、查询、关键字不做 |
-| 健康 | 进程、入站端口、控制器三级。`status` 与 `health` 都带订阅剩余有效提示 |
+| 状态 | `status` 是唯一状态命令。进程、端口、控制器三级，并带订阅、关键组与测试缓存。没有 `health` |
 
 ### 明确不在 v1
 
@@ -51,7 +51,7 @@ TUN 评估：现二进制带 `with_gvisor`，具备用户态栈条件。启用�
 - 内核：本机已有的自编译二进制 `~/.local/bin/mihomo`。用户口径是 v1.19.21。阶段一 `mihomo -v` 只打出 Mihomo Meta、go1.27.1，没有打出该版本标签。实现就用这个文件，文档不把未印出的标签写成已证实事实。
 - 订阅：用户写入运行目录里的地址文件，由本子系统下载。不读 Verge，不依赖它的数据目录，Verge 可卸。
 - v1 只有一条订阅。
-- 控制面只走 mihomo 控制器 API。不另存节点凭据。日志、文档、规则文件不写地址、密钥、节点名。操作者自己的终端可以显示组名、节点名、延迟和 `net test` 的目标网址，因为操作者要看。这些输出不另存文件。
+- 控制面只走 mihomo 控制器 API。不另存节点凭据。日志、文档、规则文件不写地址、密钥、节点名。操作者自己的终端可以显示组名、节点名、延迟和 `net test` 的目标网址，因为操作者要看。这些输出不另存文件。测试缓存只记时间戳和 `ok`/`fail`，不记组名、网址、凭据。
 
 ## 4. 目录与脚本
 
@@ -80,10 +80,11 @@ TUN 评估：现二进制带 `with_gvisor`，具备用户态栈条件。启用�
 | `userinfo` | 0600 | 上次刷新缓存的流量与到期，不含地址 |
 | `refresh.lock` | — | 刷新与规则改写共用 |
 | `urls` | 0600 | 可选。`net test` 的目标，一行一个。没有这个文件就用 §10 的三个默认网址 |
+| `cache/` | 0700 | `node-test` 与 `net-test`，各 0600。只有 `ts` 和 `result=ok|fail` |
 
 阶段二把运行目录放在 `~/.config/mihomo`。那个目录主仓库没有忽略。v1 改到已经全局忽略的本树 `run/`，避免订阅被宽 glob 扫进公开仓库。
 
-用户单元模板在 `units/`。`axs.service` 只启动 `bin/mihomo-run`。脚本校验并原子写下自己的数字 PID，再 exec `mihomo -d <run>`。单元里不写进程号，systemd 会先展开。`axs-refresh.timer` 每 12 小时跑 `axs sub refresh`。复制到 `~/.config/systemd/user/` 后 enable。没有合格 `config.yaml` 之前不 enable。登录后由用户会话拉起，不另加 `xprofile`。刷新前若地址含反斜杠或空白（单独的行尾换行不算），退出 3，提示去掉反斜杠。空正文，或 Content-Type 不是 YAML 类（`text/html` 等），退出 3，并带上 HTTP 状态和类型。
+用户单元模板在 `units/`。`axs.service` 只启动 `bin/mihomo-run`。脚本校验并原子写下自己的数字 PID，再 exec `mihomo -d <run>`。单元里不写进程号，systemd 会先展开。`axs-refresh.timer` 每 12 小时跑 `axs sub refresh`。复制到 `~/.config/systemd/user/` 后 enable。没有合格 `config.yaml` 之前不 enable。登录后由用户会话拉起，不另加 `xprofile`。`axs.service` 的 LoadState 为 loaded 时，`start` / `stop` / `restart` / `ensure` 委派 `systemctl --user`。`AXS_SYSTEMD=0` 强制直接管进程，`AXS_SYSTEMD=1` 强制委派。已 active 的 `start` 与 `ensure` 不再 start。没有配置时 `ensure` 仍先 refresh，再 `systemctl start`。刷新前若地址含反斜杠或空白（单独的行尾换行不算），退出 3，提示去掉反斜杠。空正文，或 Content-Type 不是 YAML 类（`text/html` 等），退出 3，并带上 HTTP 状态和类型。
 
 ## 5. 子命令与退出码
 
@@ -103,7 +104,6 @@ axs node switch <策略组> <节点>
 axs net test [url ...]
 axs clean [--yes]
 axs sub clean [--yes]
-axs health
 ```
 
 `ensure`、`list`、`switch`、`net test`，以及 `groups` 带上 `now`，已实现。内部取默认组名的命令仍只打印组名，避免把制表符带进 `node test`。`start` 仍是没有配置就退出 3，不代为刷新。
@@ -121,7 +121,7 @@ axs health
 | 2 | 服务或端口不可用；`start` 与 `ensure` 在端口已被占用时也是 2。`clean` 与 `sub clean` 在服务运行时也是 2 |
 | 3 | 拉取、校验、合并、重载失败；组或节点不存在；select 失败；`net test` 至少有一个目标不通；`ensure` 没有订阅地址或刷新失败；清理越界或删除失败。组不存在时不写规则列表。节点不存在时不发 select。越界时一个都不删 |
 | 4 | 锁被占用。`ensure` 调用的 refresh 遇锁透传 4 |
-| 5 | 仅 `health`：进程与端口正常，但订阅已过期 |
+| 5 | 仅 `status`：进程与端口正常、控制器可达，但订阅已过期 |
 
 `node test` 里单个节点超时是结果数据，不是失败。API 本身失败才是 3。`net test` 相反：有目标不通就是 3，见 §10。
 
@@ -140,7 +140,7 @@ axs health
 | tun | `enable: false` |
 | 日志 | info，走 journal。不写订阅与密钥 |
 | 刷新 | 12 小时。手动与定时器共用一把锁 |
-| 到期提示 | 剩余不足 3 天：`status`/`health` 打印警告，退出码仍 0 |
+| 到期提示 | 剩余不足 3 天：`status` 打印警告，退出码仍 0。已过期退出 5 |
 | 测速目标 | `https://www.gstatic.com/generate_204` |
 | 前置直连 | `localhost`、`local`、`goproxy.cn`，以及 gh-proxy 一类后缀。回环与私网网段由脚本在运行时插入，不写进文档 |
 | 密钥 | 本地新生成 |
@@ -159,7 +159,16 @@ axs health
 
 健康不是「节点都能用」。节点死活看 `node test`。
 
-`health` 顺序：进程在 → mixed 能连 → 控制器 `/version` 通（密钥从文件读）。三步都过才看到期：已过期退出 5；快到期打印警告仍退出 0；没有到期字段打印「未知」仍退出 0。健康检查不拉订阅、不删配置。
+`status` 是唯一状态命令。先打完这些行，再退出。优先级：未运行或端口不通是 2，控制器不通是 3，订阅过期是 5，快到期仍是 0。不刷新，不跑延迟，不拉全量节点，不创建 `override.yaml` 或 `secret`。
+
+- 服务：运行中（来源 systemd 或手动，MainPID，运行时长）或未运行（来源）。systemd 时长取 `ActiveEnterTimestamp`，没有就写 `-`
+- 端口：mixed 监听或不通。控制器：端口可达或不通
+- 节点：`主代理`、`自动选择`、`GLOBAL` 的 now。端口或控制器不通时不查 `/proxies`，写 `-`
+- 订阅：有效、警告、已过期或未知，加剩余天数。有流量缓存再加摘要。只读 `userinfo`
+- 定时刷新：下次时间，或 `-`。只有委派 systemd 时才问 `list-timers`
+- 最近 net test / node test：距今时间。net 再写全部通或有不通。没有缓存写 `-`
+
+`node test` 每次真正测完都写缓存。`net test` 只在进入实测后写。预检失败、用法错误、端口不通不写。`status` 只读缓存。
 
 | 操作 | 服务未运行 | 服务在运行 |
 | --- | --- | --- |

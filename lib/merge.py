@@ -608,6 +608,59 @@ def show_userinfo(path, now):
         sys.stdout.write(f"剩余: {days} 天\n")
 
 
+
+STATUS_GROUPS = ("主代理", "自动选择", "GLOBAL")
+
+
+def _userinfo_fields(path):
+    fields = {}
+    file = Path(path)
+    if not file.is_file():
+        return fields
+    for line in file.read_text(encoding="utf-8").splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        fields[key] = value
+    return fields
+
+
+def status_nodes(secret_path, api):
+    found = {name: "-" for name in STATUS_GROUPS}
+    try:
+        proxies = load_proxies(secret_path, api)
+    except SystemExit:
+        proxies = {}
+    if isinstance(proxies, dict):
+        for name in STATUS_GROUPS:
+            item = proxies.get(name)
+            if isinstance(item, dict):
+                found[name] = _now(item)
+    sys.stdout.write(
+        "节点：主代理 = {主代理}；自动选择 = {自动选择}；GLOBAL = {GLOBAL}\n".format(**found)
+    )
+
+
+def status_sub(path, now):
+    kind, days = classify(path, now)
+    if kind == "expired":
+        text = "订阅：已过期，剩余 0 天"
+    elif kind == "soon":
+        text = f"订阅：警告，剩余 {days} 天"
+    elif kind == "ok":
+        text = f"订阅：有效，剩余 {days} 天"
+    else:
+        text = "订阅：未知"
+    bits = []
+    fields = _userinfo_fields(path)
+    for key, label in (("upload", "上传"), ("download", "下载"), ("total", "总量")):
+        if key in fields and fields[key] != "":
+            bits.append(f"{label} {fields[key]}")
+    if bits:
+        text += "，" + " ".join(bits)
+    sys.stdout.write(text + "\n" + kind + "\n")
+
+
 def parse_rule(kind, domain, group):
     if kind not in ("via", "direct"):
         fail("用法")
@@ -725,6 +778,10 @@ def main(argv):
     elif cmd == "classify":
         kind, _days = classify(argv[2], argv[3])
         sys.stdout.write(kind + "\n")
+    elif cmd == "status-nodes":
+        status_nodes(argv[2], argv[3])
+    elif cmd == "status-sub":
+        status_sub(argv[2], argv[3])
     elif cmd == "parse-rule":
         parse_rule(argv[2], argv[3], argv[4] if len(argv) > 4 else "")
     elif cmd == "rules-add":

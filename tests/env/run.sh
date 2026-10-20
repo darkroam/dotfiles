@@ -17,7 +17,8 @@ export AXS_RUN="$VAR/run"
 export AXS_MIXED_PORT="$MIXED"
 export AXS_API="$API"
 export AXS_DELAY_URL="http://127.0.0.1:$HTTP/204"
-unset AXS_FETCH AXS_FAKE_DIR AXS_FORBID_NET || true
+export AXS_SYSTEMD=0
+unset AXS_FETCH AXS_FAKE_DIR AXS_FORBID_NET AXS_SYSTEMCTL || true
 
 say() {
     printf '%s\n' "$*"
@@ -121,7 +122,7 @@ up() {
     fi
     i=0
     while [ "$i" -lt 50 ]; do
-        if "$AXS" health >/dev/null 2>&1; then
+        if "$AXS" status >/dev/null 2>&1; then
             python3 "$LAB" audit "$(cat "$AXS_RUN/mihomo.pid")"
             python3 "$LAB" audit "$(cat "$VAR/lab.pid")"
             return 0
@@ -129,7 +130,7 @@ up() {
         i=$((i + 1))
         sleep 0.1
     done
-    say "FAIL health"
+    say "FAIL status"
     return 1
 }
 
@@ -291,17 +292,17 @@ check() {
     say "d refresh-rollback-lock"
     printf '%s\n' past >"$VAR/expire"
     "$AXS" sub refresh >/dev/null
-    need 5 "expired" health || return 1
+    need 5 "expired" status || return 1
     grep -q '已过期' "$VAR/out" || { say "FAIL expired text"; return 1; }
     printf '%s\n' soon >"$VAR/expire"
     "$AXS" sub refresh >/dev/null
-    need 0 "soon" health || return 1
+    need 0 "soon" status || return 1
     grep -q '警告' "$VAR/out" || { say "FAIL soon text"; return 1; }
     printf '%s\n' ok >"$VAR/expire"
     "$AXS" sub refresh >/dev/null
-    need 0 "valid" health || return 1
-    grep -q '订阅有效' "$VAR/out" || { say "FAIL valid text"; return 1; }
-    say "e health"
+    need 0 "valid" status || return 1
+    grep -q '订阅：有效' "$VAR/out" || { say "FAIL valid text"; return 1; }
+    say "e status"
     old=$(cat "$AXS_RUN/mihomo.pid")
     up
     [ "$(cat "$AXS_RUN/mihomo.pid")" = "$old" ] || { say "FAIL second up restarted"; return 1; }

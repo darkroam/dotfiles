@@ -132,6 +132,13 @@ restore_snapshot() {
 }
 
 cmd_start() {
+    if use_systemd; then
+        if systemd_active; then
+            exit 0
+        fi
+        axs_systemctl start axs.service || die 3 "启动失败"
+        exit 0
+    fi
     if service_up; then
         exit 0
     fi
@@ -156,6 +163,10 @@ cmd_start() {
 }
 
 cmd_stop() {
+    if use_systemd; then
+        axs_systemctl stop axs.service || die 3 "停止失败"
+        exit 0
+    fi
     if ! service_up; then
         rm -f "$AXS_RUN/mihomo.pid"
         exit 0
@@ -174,52 +185,212 @@ cmd_stop() {
 }
 
 cmd_restart() {
+    if use_systemd; then
+        axs_systemctl restart axs.service || die 3 "启动失败"
+        exit 0
+    fi
     cmd_stop
     cmd_start
 }
 
-expiry_line() {
-    kind=$(python3 "$PY" classify "$AXS_RUN/userinfo" "$(date +%s)" || true)
-    case $kind in
-        expired) printf '%s\n' "已过期" ;;
-        soon) printf '%s\n' "警告：订阅剩余不足 3 天" ;;
-        unknown) printf '%s\n' "未知" ;;
-        ok) printf '%s\n' "订阅有效" ;;
-        *) printf '%s\n' "未知" ;;
-    esac
-    printf '%s' "$kind"
+axs_systemctl() {
+    "${AXS_SYSTEMCTL:-systemctl}" --user "$@"
 }
 
-report() {
-    # $1 is health or status
-    mode=$1
-    if ! service_up; then
-        printf '%s\n' "服务：未运行" 
-        exit 2
+use_systemd() {
+    case ${AXS_SYSTEMD:-} in
+        0) return 1 ;;
+        1) return 0 ;;
+    esac
+    state=$(axs_systemctl show axs.service -p LoadState --value 2>/dev/null || true)
+    [ "$state" = "loaded" ]
+}
+
+systemd_active() {
+    axs_systemctl is-active axs.service >/dev/null 2>&1
+}
+
+format_span() {
+    secs=$1
+    suffix=$2
+    if [ "$secs" -lt 60 ]; then
+        printf '%s' "${secs} 秒${suffix}"
+    elif [ "$secs" -lt 3600 ]; then
+        printf '%s' "$((secs / 60)) 分钟${suffix}"
+    elif [ "$secs" -lt 86400 ]; then
+        printf '%s' "$((secs / 3600)) 小时${suffix}"
+    else
+        printf '%s' "$((secs / 86400)) 天${suffix}"
     fi
-    read_ports
-    if ! port_open "$MIXED"; then
-        printf '%s\n' "入站：不通"
-        exit 2
+}
+
+manual_etime() {
+    pid=$1
+    secs=$(ps -o etimes= -p "$pid" 2>/dev/null | tr -d ' ' || true)
+    case $secs in
+        ''|*[!0-9]*) printf '%s' '-'; return 0 ;;
+    esac
+    format_span "$secs" ""
+}
+
+systemd_etime() {
+    stamp=$(axs_systemctl show axs.service -p ActiveEnterTimestamp --value 2>/dev/null || true)
+    case $stamp in
+        ''|n/a|N/A) printf '%s' '-'; return 0 ;;
+    esac
+    start=$(date -d "$stamp" +%s 2>/dev/null || true)
+    case $start in
+        ''|*[!0-9]*) printf '%s' '-'; return 0 ;;
+    esac
+    now=$(date +%s)
+    secs=$((now - start))
+    if [ "$secs" -lt 0 ]; then
+        secs=0
     fi
-    if ! python3 "$PY" version "$AXS_RUN/secret" "$API"; then
-        printf '%s\n' "控制器：不通"
-        exit 3
+    format_span "$secs" ""
+}
+
+write_cache() {
+    name=$1
+    result=$2
+    dir=$AXS_RUN/cache
+    mkdir -p "$dir"
+    chmod 700 "$dir"
+    tmp=$dir/.$name.$$
+    printf 'ts=%s\nresult=%s\n' "$(date +%s)" "$result" >"$tmp"
+    chmod 600 "$tmp"
+    mv -f "$tmp" "$dir/$name"
+}
+
+load_status_ports() {
+    if [ -n "${AXS_MIXED_PORT:-}" ]; then
+        MIXED=$AXS_MIXED_PORT
+    elif [ -f "$AXS_RUN/override.yaml" ]; then
+        MIXED=$(python3 -c 'import sys,yaml; print(yaml.safe_load(open(sys.argv[1],encoding="utf-8"))["mixed-port"])' "$AXS_RUN/override.yaml")
+    else
+        MIXED=7897
     fi
-    line=$(expiry_line)
-    kind=$(printf '%s\n' "$line" | tail -n 1)
-    printf '%s\n' "$line" | head -n 1
-    if [ "$mode" = "health" ] && [ "$kind" = "expired" ]; then
-        exit 5
+    if [ -n "${AXS_API:-}" ]; then
+        API=$AXS_API
+    elif [ -f "$AXS_RUN/override.yaml" ]; then
+        API=$(python3 -c 'import sys,yaml; print(yaml.safe_load(open(sys.argv[1],encoding="utf-8"))["external-controller"])' "$AXS_RUN/override.yaml")
+    else
+        API=127.0.0.1:9097
+    fi
+}
+
+controller_ok() {
+    [ -f "$AXS_RUN/secret" ] || return 1
+    python3 "$PY" version "$AXS_RUN/secret" "$API" >/dev/null 2>&1
+}
+
+cache_label() {
+    case $1 in
+        net-test) printf '%s' "net test" ;;
+        *) printf '%s' "node test" ;;
+    esac
+}
+
+cache_line() {
+    name=$1
+    label=$(cache_label "$name")
+    file=$AXS_RUN/cache/$name
+    if [ ! -f "$file" ]; then
+        printf '%s\n' "最近 ${label}：-"
+        return 0
+    fi
+    ts=$(sed -n 's/^ts=//p' "$file" | head -n 1)
+    result=$(sed -n 's/^result=//p' "$file" | head -n 1)
+    case $ts in
+        ''|*[!0-9]*)
+            printf '%s\n' "最近 ${label}：-"
+            return 0
+            ;;
+    esac
+    now=$(date +%s)
+    age=$((now - ts))
+    if [ "$age" -lt 0 ]; then
+        age=0
+    fi
+    rel=$(format_span "$age" "前")
+    if [ "$name" = "net-test" ]; then
+        if [ "$result" = "ok" ]; then
+            printf '%s\n' "最近 net test：${rel} 全部通"
+        else
+            printf '%s\n' "最近 net test：${rel} 有不通"
+        fi
+    else
+        printf '%s\n' "最近 node test：${rel}"
     fi
 }
 
 cmd_status() {
-    report status
-}
-
-cmd_health() {
-    report health
+    running=0
+    if use_systemd; then
+        if systemd_active; then
+            pid=$(axs_systemctl show axs.service -p MainPID --value 2>/dev/null | tr -d '[:space:]' || true)
+            case $pid in
+                ''|*[!0-9]*|0) pid='-' ;;
+            esac
+            dur=$(systemd_etime)
+            printf '%s\n' "服务：运行中（systemd: axs.service，MainPID ${pid}，运行时长 ${dur}）"
+            running=1
+        else
+            printf '%s\n' "服务：未运行（来源 systemd: axs.service）"
+        fi
+    elif service_up; then
+        pid=$(cat "$AXS_RUN/mihomo.pid")
+        dur=$(manual_etime "$pid")
+        printf '%s\n' "服务：运行中（手动，MainPID ${pid}，运行时长 ${dur}）"
+        running=1
+    else
+        printf '%s\n' "服务：未运行（来源 手动）"
+    fi
+    load_status_ports
+    port_ok=0
+    if port_open "$MIXED"; then
+        printf '%s\n' "端口：${MIXED} 监听"
+        port_ok=1
+    else
+        printf '%s\n' "端口：${MIXED} 不通"
+    fi
+    api_port=${API##*:}
+    api_ok=0
+    if controller_ok; then
+        printf '%s\n' "控制器：${api_port} 可达"
+        api_ok=1
+    else
+        printf '%s\n' "控制器：${api_port} 不通"
+    fi
+    if [ "$port_ok" -eq 1 ] && [ "$api_ok" -eq 1 ]; then
+        python3 "$PY" status-nodes "$AXS_RUN/secret" "$API" 2>/dev/null || printf '%s\n' "节点：主代理 = -；自动选择 = -；GLOBAL = -"
+    else
+        printf '%s\n' "节点：主代理 = -；自动选择 = -；GLOBAL = -"
+    fi
+    sub_out=$(python3 "$PY" status-sub "$AXS_RUN/userinfo" "$(date +%s)" 2>/dev/null) || sub_out='订阅：未知
+unknown'
+    printf '%s\n' "$sub_out" | head -n 1
+    kind=$(printf '%s\n' "$sub_out" | tail -n 1)
+    if use_systemd; then
+        next=$(axs_systemctl list-timers axs-refresh.timer --no-legend 2>/dev/null | head -n 1 || true)
+        case $next in
+            ''|*'timers listed'*) printf '%s\n' "定时刷新：-" ;;
+            *) printf '%s\n' "定时刷新：下次 ${next}" ;;
+        esac
+    else
+        printf '%s\n' "定时刷新：-"
+    fi
+    cache_line net-test
+    cache_line node-test
+    code=0
+    if [ "$running" -eq 0 ] || [ "$port_ok" -eq 0 ]; then
+        code=2
+    elif [ "$api_ok" -eq 0 ]; then
+        code=3
+    elif [ "$kind" = "expired" ]; then
+        code=5
+    fi
+    exit "$code"
 }
 
 cmd_sub_get() {
@@ -344,6 +515,23 @@ api_addr() {
 
 cmd_ensure() {
     [ $# -eq 0 ] || die 1 "用法"
+    if use_systemd; then
+        if systemd_active; then
+            exit 0
+        fi
+        read_ports
+        if port_open "$MIXED"; then
+            die 2 "端口已被占用"
+        fi
+        if [ ! -f "$AXS_RUN/config.yaml" ]; then
+            if [ ! -f "$AXS_RUN/subscription.url" ]; then
+                die 3 "没有订阅"
+            fi
+            cmd_refresh
+        fi
+        axs_systemctl start axs.service || die 3 "启动失败"
+        exit 0
+    fi
     if service_up; then
         exit 0
     fi
@@ -393,7 +581,14 @@ cmd_net() {
         die 2 "入站：不通"
     fi
     timeout=${AXS_NET_TIMEOUT_MS:-5000}
-    python3 "$PY" net-run "$AXS_RUN/urls" "http://127.0.0.1:$MIXED" "$timeout" "$@" || exit $?
+    code=0
+    python3 "$PY" net-run "$AXS_RUN/urls" "http://127.0.0.1:$MIXED" "$timeout" "$@" || code=$?
+    if [ "$code" -eq 0 ]; then
+        write_cache net-test ok
+    else
+        write_cache net-test fail
+    fi
+    exit "$code"
 }
 
 cmd_groups() {
@@ -414,10 +609,17 @@ cmd_test() {
         group=$(python3 "$PY" groups "$AXS_RUN/secret" "$API" | head -n 1) || die 3 "控制器"
     fi
     [ -n "$group" ] || die 3 "组名不存在"
+    code=0
     if [ -n "${AXS_DELAY_URL:-}" ]; then
-        python3 "$PY" delay "$AXS_RUN/secret" "$API" "$group" "$AXS_DELAY_URL" || die 3 "控制器"
+        python3 "$PY" delay "$AXS_RUN/secret" "$API" "$group" "$AXS_DELAY_URL" || code=$?
     else
-        python3 "$PY" delay "$AXS_RUN/secret" "$API" "$group" || die 3 "控制器"
+        python3 "$PY" delay "$AXS_RUN/secret" "$API" "$group" || code=$?
+    fi
+    if [ "$code" -eq 0 ]; then
+        write_cache node-test ok
+    else
+        write_cache node-test fail
+        die 3 "控制器"
     fi
 }
 

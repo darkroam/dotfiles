@@ -30,8 +30,8 @@ trap cleanup EXIT INT TERM
 new_run() {
     RUN=$(mktemp -d)
     mkdir -p "$RUN/fake"
-    export AXS_RUN="$RUN" AXS_FORBID_NET=1 AXS_FAKE_DIR="$RUN/fake"
-    unset AXS_MIXED_PORT AXS_API AXS_FETCH AXS_MIHOMO || true
+    export AXS_RUN="$RUN" AXS_FORBID_NET=1 AXS_FAKE_DIR="$RUN/fake" AXS_SYSTEMD=0
+    unset AXS_MIXED_PORT AXS_API AXS_FETCH AXS_MIHOMO AXS_SYSTEMCTL || true
     : >"$RUN/err"
     : >"$RUN/out"
 }
@@ -86,6 +86,7 @@ open_mixed() {
 }
 
 shellcheck "$ROOT/bin/axs" "$ROOT/bin/mihomo-run" "$ROOT/lib/common.sh" "$ROOT/tests/run.sh" \
+    "$ROOT/tests/fake-systemctl" \
     "$ROOT/tests/fake-fetch" "$ROOT/tests/fake-fetch-fail" "$ROOT/tests/fake-fetch-html" \
     "$ROOT/tests/fake-fetch-empty" \
     "$ROOT/tests/fake-mihomo" "$ROOT/tests/env/run.sh"
@@ -103,17 +104,71 @@ grep -q '用法' "$RUN/err" || fail 'usage text'
 assert_code 'rule usage' 1 rule add via
 
 new_run
-assert_code 'health down' 2 health
+set +e
+"$AXS" >"$RUN/out" 2>"$RUN/err"
+bare=$?
+set -e
+test "$bare" -eq 1 || fail "bare want 1 got $bare"
+grep -q '用法' "$RUN/err" || fail "bare usage: $(cat "$RUN/err")"
+if grep -q 'shift' "$RUN/err"; then
+    fail "bare shift: $(cat "$RUN/err")"
+fi
+PASS=$((PASS + 1))
+
+new_run
+assert_code 'health removed' 1 health
+grep -q '用法' "$RUN/err" || fail 'health usage'
+if grep -q 'health' "$RUN/err"; then
+    fail 'usage still lists health'
+fi
+
+new_run
+assert_code 'status down' 2 status
+grep -q '服务：未运行（来源 手动）' "$RUN/out" || fail "down service: $(cat "$RUN/out")"
+grep -q '最近 net test：-' "$RUN/out" || fail "down net cache: $(cat "$RUN/out")"
+grep -q '最近 node test：-' "$RUN/out" || fail "down node cache: $(cat "$RUN/out")"
+grep -q '定时刷新：-' "$RUN/out" || fail "down timer: $(cat "$RUN/out")"
+
+new_run
+now=$(date +%s)
+mkdir -p "$RUN/cache"
+printf 'ts=%s\nresult=ok\n' "$((now - 180))" >"$RUN/cache/net-test"
+printf 'ts=%s\nresult=ok\n' "$((now - 3600))" >"$RUN/cache/node-test"
+assert_code 'status cache age' 2 status
+grep -q '最近 net test：3 分钟前 全部通' "$RUN/out" || fail "cache net: $(cat "$RUN/out")"
+grep -q '最近 node test：1 小时前' "$RUN/out" || fail "cache node: $(cat "$RUN/out")"
+
+new_run
+export AXS_SYSTEMD=1 AXS_SYSTEMCTL="$ROOT/tests/fake-systemctl"
+assert_code 'systemd start' 0 start
+grep -q 'start axs.service' "$RUN/systemctl.log" || fail "start log: $(cat "$RUN/systemctl.log" 2>/dev/null)"
+assert_code 'systemd stop' 0 stop
+grep -q 'stop axs.service' "$RUN/systemctl.log" || fail "stop log: $(cat "$RUN/systemctl.log")"
+assert_code 'systemd restart' 0 restart
+grep -q 'restart axs.service' "$RUN/systemctl.log" || fail "restart log: $(cat "$RUN/systemctl.log")"
+: >"$RUN/systemctl.log"
+printf '%s\n' active >"$RUN/systemctl.active"
+assert_code 'systemd ensure active' 0 ensure
+if grep -q 'start axs.service' "$RUN/systemctl.log"; then
+    fail "active ensure started: $(cat "$RUN/systemctl.log")"
+fi
+export AXS_MIXED_PORT=7897 AXS_API=127.0.0.1:9097
+assert_code 'systemd status' 2 status
+grep -q '服务：运行中（systemd: axs.service，MainPID 4242，运行时长 -）' "$RUN/out" || fail "systemd status: $(cat "$RUN/out")"
+grep -q '定时刷新：下次 Tue 2026-10-21 02:00:00 CST' "$RUN/out" || fail "timer: $(cat "$RUN/out")"
+
+new_run
+assert_code 'status down' 2 status
 
 new_run
 printf '%s\n' '$' >"$RUN/mihomo.pid"
-assert_code 'health bad pid' 2 health
+assert_code 'status bad pid' 2 status
 grep -q '服务：未运行' "$RUN/out" || fail "bad pid out: $(cat "$RUN/out")"
 grep -q '告警：mihomo.pid 不是数字' "$RUN/err" || fail "bad pid err: $(cat "$RUN/err")"
 
 new_run
 : >"$RUN/mihomo.pid"
-assert_code 'health empty pid' 2 health
+assert_code 'status empty pid' 2 status
 grep -q '告警：mihomo.pid 不是数字' "$RUN/err" || fail "empty pid err: $(cat "$RUN/err")"
 
 new_run
@@ -320,24 +375,26 @@ mark_up
 prepare_health 18080
 now=$(date +%s)
 printf '%s\n' "expire=$((now - 10))" >"$RUN/userinfo"
-assert_code 'health expired' 5 health
-grep -q '已过期' "$RUN/out" || fail 'expired text'
-assert_code 'status expired still 0' 0 status
-grep -q '已过期' "$RUN/out" || fail 'status expired text'
+assert_code 'status expired' 5 status
+grep -q '服务：运行中（手动，MainPID' "$RUN/out" || fail "expired service: $(cat "$RUN/out")"
+grep -q '端口：18080 监听' "$RUN/out" || fail "expired port: $(cat "$RUN/out")"
+grep -q '控制器：18081 可达' "$RUN/out" || fail "expired api: $(cat "$RUN/out")"
+grep -q '节点：主代理 = -；自动选择 = -；GLOBAL = -' "$RUN/out" || fail "expired nodes: $(cat "$RUN/out")"
+grep -q '订阅：已过期，剩余 0 天' "$RUN/out" || fail "expired sub: $(cat "$RUN/out")"
 
 new_run
 mark_up
 prepare_health 18082
 now=$(date +%s)
 printf '%s\n' "expire=$((now + 86400))" >"$RUN/userinfo"
-assert_code 'health soon' 0 health
+assert_code 'status soon' 0 status
 grep -q '警告' "$RUN/out" || fail 'warning text'
 
 new_run
 mark_up
 prepare_health 18083
 : >"$RUN/fake/down"
-assert_code 'health api down' 3 health
+assert_code 'status api down' 3 status
 
 new_run
 mark_up
@@ -346,6 +403,13 @@ arm_api PROXY 204 0
 python3 "$ROOT/tests/prep_run.py" "$ROOT" "$RUN" "7897" "$AXS_API"
 assert_code 'node test' 0 node test PROXY
 grep -q ' 0' "$RUN/out" || fail "delay output: $(cat "$RUN/out")"
+test "$(stat -c '%a' "$RUN/cache")" = 700 || fail 'cache dir mode'
+test -f "$RUN/cache/node-test" || fail 'node test wrote no cache'
+grep -q '^result=ok$' "$RUN/cache/node-test" || fail 'node cache result'
+if grep -q 'PROXY' "$RUN/cache/node-test"; then
+    fail 'node cache stored the group'
+fi
+test "$(stat -c '%a' "$RUN/cache/node-test")" = 600 || fail 'node cache mode'
 grep -q 'auth=yes' "$RUN/fake/log" || fail 'api was not authenticated'
 if grep -F 'test-secret-value' "$RUN/fake/log" "$RUN/out" "$RUN/err" >/dev/null 2>&1; then
     fail 'secret reached the log or output'
@@ -574,6 +638,18 @@ export AXS_MIXED_PORT=18086
 open_mixed 18086
 assert_code 'net forbid no dial' 3 net test 'https://www.github.com'
 test ! -s "$RUN/out" || fail 'forbid dialed'
+test ! -e "$RUN/cache/net-test" || fail 'forbid wrote a net cache'
+
+new_run
+export AXS_MIXED_PORT=18086 AXS_NET_TIMEOUT_MS=200
+open_mixed 18086
+assert_code 'net cache fail' 3 net test 'http://127.0.0.1:9/'
+test -f "$RUN/cache/net-test" || fail 'net test wrote no cache'
+grep -q '^result=fail$' "$RUN/cache/net-test" || fail 'net cache result'
+if grep -q '127.0.0.1' "$RUN/cache/net-test"; then
+    fail 'net cache stored the url'
+fi
+test "$(stat -c '%a' "$RUN/cache")" = 700 || fail 'net cache dir mode'
 
 
 seed_clean() {

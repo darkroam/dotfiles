@@ -5,7 +5,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 . "$ROOT/lib/common.sh"
 
 usage() {
-    printf '%s\n' "用法：axs start|stop|status|restart|health|ensure|clean" >&2
+    printf '%s\n' "用法：axs start|stop|status|restart|ensure|clean" >&2
     printf '%s\n' "      axs sub get|refresh|clean" >&2
     printf '%s\n' "      axs rule list|add|del" >&2
     printf '%s\n' "      axs node groups|list|test|switch" >&2
@@ -14,18 +14,17 @@ usage() {
 }
 
 cmd=${1:-}
-shift || true
+if [ $# -gt 0 ]; then shift; fi
 case $cmd in
     start) cmd_start "$@" ;;
     stop) cmd_stop "$@" ;;
     restart) cmd_restart "$@" ;;
     status) cmd_status "$@" ;;
-    health) cmd_health "$@" ;;
     ensure) cmd_ensure "$@" ;;
     clean) cmd_clean "$@" ;;
     sub)
         sub=${1:-}
-        shift || true
+        if [ $# -gt 0 ]; then shift; fi
         case $sub in
             get) cmd_sub_get "$@" ;;
             refresh) cmd_refresh "$@" ;;
@@ -35,7 +34,7 @@ case $cmd in
         ;;
     rule)
         sub=${1:-}
-        shift || true
+        if [ $# -gt 0 ]; then shift; fi
         case $sub in
             list) cmd_rule_list "$@" ;;
             add) cmd_rule_add "$@" ;;
@@ -45,7 +44,7 @@ case $cmd in
         ;;
     node)
         sub=${1:-}
-        shift || true
+        if [ $# -gt 0 ]; then shift; fi
         case $sub in
             groups) cmd_groups "$@" ;;
             list) cmd_node_list "$@" ;;
@@ -56,7 +55,7 @@ case $cmd in
         ;;
     net)
         sub=${1:-}
-        shift || true
+        if [ $# -gt 0 ]; then shift; fi
         case $sub in
             test) cmd_net "$@" ;;
             *) usage ;;
