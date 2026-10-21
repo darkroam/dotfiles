@@ -296,7 +296,9 @@ def show_groups(secret_path, api):
         item = proxies[name]
         if not isinstance(item, dict) or item.get("type") not in GROUP_TYPES:
             continue
-        rows.append(f"{ansi('36', name)}\t{ansi('36', str(item.get('type')))}\t{_now(item)}")
+        now = _now(item)
+        shown = dim(now) if now == "-" else ok(now)
+        rows.append(f"{ident(name)}\t{dim(str(item.get('type')))}\t{shown}")
     if rows:
         sys.stdout.write("\n".join(rows) + "\n")
 
@@ -427,6 +429,34 @@ def ansi(code, text):
     return f"\033[{code}m{text}\033[0m"
 
 
+def label(text):
+    return ansi("90", text)
+
+
+def ident(text):
+    return ansi("36", text)
+
+
+def ok(text):
+    return ansi("32", text)
+
+
+def warn(text):
+    return ansi("33", text)
+
+
+def bad(text):
+    return ansi("31", text)
+
+
+def dim(text):
+    return ansi("90", text)
+
+
+def bold(text):
+    return ansi("1", text)
+
+
 def delay_code(value):
     try:
         number = int(value)
@@ -508,22 +538,24 @@ def speed_line(run_dir):
     return f"最近测速：{rel}"
 
 
-def color_node_cell(plain, selected, delay_raw):
+def paint_cell(marker, num_text, name, delay_text, selected, delay_raw):
+    plain = f"{marker}{num_text} {name} {delay_text}"
     if not want_color():
         return plain
-    head, sep, delay_field = plain.rpartition(" ")
-    if not sep:
-        return plain
-    raw = str(delay_raw)
-    pad = delay_field[: len(delay_field) - len(raw)] if delay_field.endswith(raw) else ""
-    head_out = ansi("32", head) if selected else head
-    return head_out + " " + pad + ansi(delay_code(raw), raw)
+    mark = ok("[*]") + " " if selected else marker
+    lead = len(num_text) - len(num_text.lstrip(" "))
+    number = (" " * lead) + dim(num_text.lstrip(" "))
+    shown = ok(name) if selected else name
+    dlead = len(delay_text) - len(delay_text.lstrip(" "))
+    body = delay_text.lstrip(" ")
+    delay = (" " * dlead) + ansi(delay_code(delay_raw), body)
+    return f"{mark}{number} {shown} {delay}"
 
 
 def layout_cells(entries, width):
     if not entries:
         return []
-    widest = max(display_width(plain) for plain, _, _ in entries)
+    widest = max(display_width(plain) for plain, _ in entries)
     cols = max(1, (width + 2) // (widest + 2))
     lines = []
     row = []
@@ -532,11 +564,11 @@ def layout_cells(entries, width):
         if len(row) != cols and index != len(entries):
             continue
         pieces = []
-        for pos, (plain, selected, delay_raw) in enumerate(row):
+        for pos, (plain, colored) in enumerate(row):
             pad = ""
             if pos != len(row) - 1:
                 pad = " " * (widest - display_width(plain))
-            pieces.append(color_node_cell(plain, selected, delay_raw) + pad)
+            pieces.append(colored + pad)
         lines.append("  ".join(pieces))
         row = []
     return lines
@@ -564,9 +596,12 @@ def show_nodes(secret_path, api, mode=""):
     entries = []
     for name, delay in shown:
         marker = "[*] " if name == star else "    "
-        plain = f"{marker}{numbers[name]:>{num_width}} {name} {delay:>{delay_width}}"
-        entries.append((plain, name == star, delay))
-    lines = [ansi("1", head), ansi("1", speed_line(mode)), *layout_cells(entries, term_cols())]
+        num_text = f"{numbers[name]:>{num_width}}"
+        delay_text = f"{delay:>{delay_width}}"
+        plain = f"{marker}{num_text} {name} {delay_text}"
+        colored = paint_cell(marker, num_text, name, delay_text, name == star, delay)
+        entries.append((plain, colored))
+    lines = [bold(head), bold(speed_line(mode)), *layout_cells(entries, term_cols())]
     sys.stdout.write("\n".join(lines) + "\n")
 
 
@@ -766,7 +801,14 @@ def delay(secret_path, api, group, url):
     if not isinstance(payload, dict):
         fail("控制器")
     for name, value in payload.items():
-        sys.stdout.write(f"{name} {ansi(delay_code(value), str(value))}\n")
+        try:
+            shown = str(int(value))
+            code = delay_code(value)
+        except (TypeError, ValueError):
+            shown = "超时"
+            code = "31"
+        title = ident(name) if name == group else name
+        sys.stdout.write(f"{title} {ansi(code, shown)}\n")
 
 
 YAML_TYPES = {
@@ -899,18 +941,18 @@ def show_userinfo(path, now):
         sys.stdout.write("未知\n")
         return
     labels = (("upload", "上传"), ("download", "下载"), ("total", "总量"))
-    for key, label in labels:
+    for key, lab in labels:
         if key in fields:
-            sys.stdout.write(f"{label}: {fields[key]}\n")
+            sys.stdout.write(f"{label(lab + ':')} {fields[key]}\n")
     kind, days = classify(path, now)
     if kind == "expired":
-        sys.stdout.write(ansi("31", "已过期") + "\n")
+        sys.stdout.write(bad("已过期") + "\n")
     elif kind == "unknown":
-        sys.stdout.write(ansi("90", "未知") + "\n")
+        sys.stdout.write(dim("未知") + "\n")
     elif kind == "soon":
-        sys.stdout.write(ansi("33", f"剩余: {days} 天") + "\n")
+        sys.stdout.write(label("剩余:") + " " + warn(f"{days} 天") + "\n")
     else:
-        sys.stdout.write(ansi("32", f"剩余: {days} 天") + "\n")
+        sys.stdout.write(label("剩余:") + " " + ok(f"{days} 天") + "\n")
 
 
 
@@ -941,26 +983,30 @@ def status_nodes(secret_path, api):
             item = proxies.get(name)
             if isinstance(item, dict):
                 found[name] = _now(item)
-    sys.stdout.write(
-        "节点：主代理 = {主代理}；自动选择 = {自动选择}；GLOBAL = {GLOBAL}\n".format(**found)
-    )
+    bits = []
+    for name in STATUS_GROUPS:
+        now = found[name]
+        shown = dim(now) if now == "-" else ok(now)
+        bits.append(f"{ident(name)} = {shown}")
+    sys.stdout.write(label("节点：") + "；".join(bits) + "\n")
 
 
 def status_sub(path, now):
     kind, days = classify(path, now)
     if kind == "expired":
-        text = ansi("31", "订阅：已过期，剩余 0 天")
+        phrase = bad("已过期，剩余 0 天")
     elif kind == "soon":
-        text = ansi("33", f"订阅：警告，剩余 {days} 天")
+        phrase = warn(f"警告，剩余 {days} 天")
     elif kind == "ok":
-        text = ansi("32", f"订阅：有效，剩余 {days} 天")
+        phrase = ok(f"有效，剩余 {days} 天")
     else:
-        text = ansi("90", "订阅：未知")
+        phrase = dim("未知")
+    text = label("订阅：") + phrase
     bits = []
     fields = _userinfo_fields(path)
-    for key, label in (("upload", "上传"), ("download", "下载"), ("total", "总量")):
+    for key, lab in (("upload", "上传"), ("download", "下载"), ("total", "总量")):
         if key in fields and fields[key] != "":
-            bits.append(f"{label} {fields[key]}")
+            bits.append(f"{lab} {fields[key]}")
     if bits:
         text += "，" + " ".join(bits)
     sys.stdout.write(text + "\n" + kind + "\n")

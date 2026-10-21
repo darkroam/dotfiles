@@ -8,7 +8,7 @@ PY=$ROOT/lib/merge.py
 : "${AXS_RUN:=$ROOT/run}"
 : "${AXS_MIHOMO:=$HOME/.local/bin/mihomo}"
 
-color_on() {
+use_color() {
     case ${AXS_COLOR:-} in
         always) return 0 ;;
         never) return 1 ;;
@@ -16,36 +16,68 @@ color_on() {
     if [ -n "${NO_COLOR+x}" ]; then
         return 1
     fi
-    [ -t 1 ]
+    [ -t "${1:-1}" ]
 }
 
-color_err() {
-    case ${AXS_COLOR:-} in
-        always) return 0 ;;
-        never) return 1 ;;
-    esac
-    if [ -n "${NO_COLOR+x}" ]; then
-        return 1
-    fi
-    [ -t 2 ]
-}
-
-paint() {
+tone() {
     code=$1
     text=$2
-    if color_on; then
+    if use_color "${AXS_PAINT_FD:-1}"; then
         printf '\033[%sm%s\033[0m' "$code" "$text"
     else
         printf '%s' "$text"
     fi
 }
 
+label() { tone 90 "$1"; }
+ident() { tone 36 "$1"; }
+ok() { tone 32 "$1"; }
+warn() { tone 33 "$1"; }
+bad() { tone 31 "$1"; }
+dim() { tone 90 "$1"; }
+bold() { tone 1 "$1"; }
+paint() { tone "$1" "$2"; }
+
 say_err() {
-    if color_err; then
-        printf '\033[31m%s\033[0m\n' "$1" >&2
-    else
-        printf '%s\n' "$1" >&2
-    fi
+    AXS_PAINT_FD=2
+    printf '%s\n' "$(bad "$1")" >&2
+}
+
+help_row() {
+    padded=$(printf '%-22s' "$1")
+    printf '%s\n' "$(ident "$padded")  $(dim "$2")" >&"$AXS_HELP_FD"
+}
+
+show_help() {
+    AXS_HELP_FD=$1
+    AXS_PAINT_FD=$1
+    printf '%s\n' "$(bold '用法')" >&"$AXS_HELP_FD"
+    printf '\n%s\n' "$(bold '服务')" >&"$AXS_HELP_FD"
+    help_row "axs start" "启动服务"
+    help_row "axs stop" "停止服务"
+    help_row "axs restart" "重启服务"
+    help_row "axs status" "查看状态"
+    help_row "axs ensure" "保证服务在跑"
+    help_row "axs service enable" "打开开机自启"
+    help_row "axs service disable" "关闭开机自启"
+    printf '\n%s\n' "$(bold '订阅')" >&"$AXS_HELP_FD"
+    help_row "axs sub get" "查看订阅剩余"
+    help_row "axs sub refresh" "拉取并重载"
+    help_row "axs sub clean" "删除订阅缓存"
+    printf '\n%s\n' "$(bold '规则')" >&"$AXS_HELP_FD"
+    help_row "axs rule list" "列出域名规则"
+    help_row "axs rule add via" "经策略组，后接域名和组"
+    help_row "axs rule add direct" "直连，后接域名"
+    help_row "axs rule del" "删除域名规则"
+    printf '\n%s\n' "$(bold '节点')" >&"$AXS_HELP_FD"
+    help_row "axs node groups" "策略组与当前节点"
+    help_row "axs node list" "节点列表"
+    help_row "axs node test" "测延迟，可接组名"
+    help_row "axs node switch" "切换节点，后接组和节点"
+    printf '\n%s\n' "$(bold '网络')" >&"$AXS_HELP_FD"
+    help_row "axs net test" "测连通，可接网址"
+    printf '\n%s\n' "$(bold '清理')" >&"$AXS_HELP_FD"
+    help_row "axs clean" "删除本地配置，可加 --yes"
 }
 
 die() {
@@ -336,14 +368,14 @@ cache_line() {
     label=$(cache_label "$name")
     file=$AXS_RUN/cache/$name
     if [ ! -f "$file" ]; then
-        printf '%s\n' "最近 ${label}：-"
+        printf '%s\n' "$(label "最近 ${label}：")$(dim '-')"
         return 0
     fi
     ts=$(sed -n 's/^ts=//p' "$file" | head -n 1)
     result=$(sed -n 's/^result=//p' "$file" | head -n 1)
     case $ts in
         ''|*[!0-9]*)
-            printf '%s\n' "最近 ${label}：-"
+            printf '%s\n' "$(label "最近 ${label}：")$(dim '-')"
             return 0
             ;;
     esac
@@ -355,13 +387,17 @@ cache_line() {
     rel=$(format_span "$age" "前")
     if [ "$name" = "net-test" ]; then
         if [ "$result" = "ok" ]; then
-            printf '%s\n' "最近 net test：${rel} 全部通"
+            printf '%s\n' "$(label '最近 net test：')$(dim "$rel") $(ok '全部通')"
         else
-            printf '%s\n' "最近 net test：${rel} 有不通"
+            printf '%s\n' "$(label '最近 net test：')$(dim "$rel") $(bad '有不通')"
         fi
     else
-        printf '%s\n' "最近 node test：${rel}"
+        printf '%s\n' "$(label '最近 node test：')$(dim "$rel")"
     fi
+}
+
+status_node_empty() {
+    printf '%s\n' "$(label '节点：')$(ident '主代理') = $(dim '-')；$(ident '自动选择') = $(dim '-')；$(ident 'GLOBAL') = $(dim '-')"
 }
 
 cmd_status() {
@@ -373,39 +409,39 @@ cmd_status() {
                 ''|*[!0-9]*|0) pid='-' ;;
             esac
             dur=$(systemd_etime)
-            printf '%s\n' "服务：$(paint 32 运行中)（systemd: axs.service，MainPID ${pid}，运行时长 ${dur}）"
+            printf '%s\n' "$(label '服务：')$(ok '运行中')（systemd: $(ident 'axs.service')，MainPID $(dim "$pid")，运行时长 $(dim "$dur")）"
             running=1
         else
-            printf '%s\n' "服务：$(paint 31 未运行)（来源 systemd: axs.service）"
+            printf '%s\n' "$(label '服务：')$(bad '未运行')（来源 systemd: $(ident 'axs.service')）"
         fi
     elif service_up; then
         pid=$(cat "$AXS_RUN/mihomo.pid")
         dur=$(manual_etime "$pid")
-        printf '%s\n' "服务：$(paint 32 运行中)（手动，MainPID ${pid}，运行时长 ${dur}）"
+        printf '%s\n' "$(label '服务：')$(ok '运行中')（手动，MainPID $(dim "$pid")，运行时长 $(dim "$dur")）"
         running=1
     else
-        printf '%s\n' "服务：$(paint 31 未运行)（来源 手动）"
+        printf '%s\n' "$(label '服务：')$(bad '未运行')（来源 $(dim '手动')）"
     fi
     load_status_ports
     port_ok=0
     if port_open "$MIXED"; then
-        printf '%s\n' "端口：${MIXED} $(paint 32 监听)"
+        printf '%s\n' "$(label '端口：')$(dim "$MIXED") $(ok '监听')"
         port_ok=1
     else
-        printf '%s\n' "端口：${MIXED} $(paint 31 不通)"
+        printf '%s\n' "$(label '端口：')$(dim "$MIXED") $(bad '不通')"
     fi
     api_port=${API##*:}
     api_ok=0
     if controller_ok; then
-        printf '%s\n' "控制器：${api_port} $(paint 32 可达)"
+        printf '%s\n' "$(label '控制器：')$(dim "$api_port") $(ok '可达')"
         api_ok=1
     else
-        printf '%s\n' "控制器：${api_port} $(paint 31 不通)"
+        printf '%s\n' "$(label '控制器：')$(dim "$api_port") $(bad '不通')"
     fi
     if [ "$port_ok" -eq 1 ] && [ "$api_ok" -eq 1 ]; then
-        python3 "$PY" status-nodes "$AXS_RUN/secret" "$API" 2>/dev/null || printf '%s\n' "节点：主代理 = -；自动选择 = -；GLOBAL = -"
+        python3 "$PY" status-nodes "$AXS_RUN/secret" "$API" 2>/dev/null || status_node_empty
     else
-        printf '%s\n' "节点：主代理 = -；自动选择 = -；GLOBAL = -"
+        status_node_empty
     fi
     sub_out=$(python3 "$PY" status-sub "$AXS_RUN/userinfo" "$(date +%s)" 2>/dev/null) || sub_out='订阅：未知
 unknown'
@@ -413,18 +449,18 @@ unknown'
     kind=$(printf '%s\n' "$sub_out" | tail -n 1)
     if use_systemd; then
         if axs_systemctl is-enabled axs.service >/dev/null 2>&1; then
-            printf '%s\n' "开机自启：$(paint 32 enabled)"
+            printf '%s\n' "$(label '开机自启：')$(ok 'enabled')"
         else
-            printf '%s\n' "开机自启：$(paint 31 disabled)"
+            printf '%s\n' "$(label '开机自启：')$(bad 'disabled')"
         fi
         next=$(axs_systemctl list-timers axs-refresh.timer --no-legend 2>/dev/null | head -n 1 || true)
         case $next in
-            ''|*'timers listed'*) printf '%s\n' "定时刷新：$(paint 90 -)" ;;
-            *) printf '%s\n' "定时刷新：下次 ${next}" ;;
+            ''|*'timers listed'*) printf '%s\n' "$(label '定时刷新：')$(dim '-')" ;;
+            *) printf '%s\n' "$(label '定时刷新：')$(dim "下次 ${next}")" ;;
         esac
     else
-        printf '%s\n' "开机自启：$(paint 90 -)"
-        printf '%s\n' "定时刷新：$(paint 90 -)"
+        printf '%s\n' "$(label '开机自启：')$(dim '-')"
+        printf '%s\n' "$(label '定时刷新：')$(dim '-')"
     fi
     cache_line net-test
     cache_line node-test
@@ -477,9 +513,9 @@ cmd_service_boot() {
     fi
     axs_systemctl "$op" axs.service axs-refresh.timer || die 3 "自启失败"
     if [ "$op" = "enable" ]; then
-        printf '%s\n' "开机自启：$(paint 32 enabled)"
+        printf '%s\n' "$(label '开机自启：')$(ok 'enabled')"
     else
-        printf '%s\n' "开机自启：$(paint 31 disabled)"
+        printf '%s\n' "$(label '开机自启：')$(bad 'disabled')"
     fi
 }
 
@@ -765,14 +801,12 @@ clean_run() {
     done
     if [ "$yes" -eq 0 ]; then
         if [ -n "$list" ]; then
-            if color_on; then
-                printf '\033[90m%s\033[0m' "$list"
-            else
-                printf '%s' "$list"
-            fi
+            printf '%s' "$(dim "$list")"
         fi
         if [ -t 0 ]; then
-            printf '%s' '确认删除？[y/N] ' >&2
+            AXS_PAINT_FD=2
+            printf '%s' "$(bold '确认删除？[y/N] ')" >&2
+            AXS_PAINT_FD=1
             IFS= read -r answer || die 1 "需要 --yes"
             case $answer in
                 y|Y|yes|YES) ;;
@@ -782,12 +816,17 @@ clean_run() {
             die 1 "需要 --yes"
         fi
     fi
+    deleted=0
     for name in "$@"; do
         path=$AXS_RUN/$name
         if [ -L "$path" ] || [ -e "$path" ]; then
             rm -f -- "$path" || die 3 "删除失败"
+            deleted=1
         fi
     done
+    if [ "$deleted" -eq 1 ]; then
+        printf '%s\n' "$(ok '已删除')"
+    fi
 }
 
 cmd_clean() {

@@ -949,7 +949,7 @@ test -f "$RUN/subscription.url" || fail 'pty yes dropped the url'
 new_run
 seed_clean
 assert_code 'clean yes' 0 clean --yes
-test ! -s "$RUN/out" || fail 'clean --yes printed'
+grep -q '已删除' "$RUN/out" || fail 'clean yes silent'
 for name in config.yaml config.yaml.bak userinfo fetch.yaml fetch.hdr mihomo.pid; do
     test ! -e "$RUN/$name" || fail "clean kept $name"
 done
@@ -962,12 +962,12 @@ new_run
 printf '%s\n' only >"$RUN/config.yaml"
 assert_code 'clean partial' 0 clean --yes
 test ! -e "$RUN/config.yaml" || fail 'partial clean kept config'
-test ! -s "$RUN/out" || fail 'partial clean printed'
+grep -q '已删除' "$RUN/out" || fail 'partial clean silent'
 
 new_run
 seed_clean
 assert_code 'sub clean yes' 0 sub clean --yes
-test ! -s "$RUN/out" || fail 'sub clean printed'
+grep -q '已删除' "$RUN/out" || fail 'sub clean silent'
 for name in subscription.url subscription.yaml userinfo fetch.yaml fetch.hdr; do
     test ! -e "$RUN/$name" || fail "sub clean kept $name"
 done
@@ -1039,6 +1039,12 @@ printf 'ts=1\nresult=ok\n{"a": 50}\n' >"$RUN/cache/node-test"
 assert_code 'color always' 0 node list
 grep -F -q "${ESC}[32m" "$RUN/out" || fail "always green: $(cat "$RUN/out")"
 grep -F -q "${ESC}[1m" "$RUN/out" || fail "always bold: $(cat "$RUN/out")"
+grep -F -q "${ESC}[32m[*]" "$RUN/out" || fail "mark green: $(cat "$RUN/out")"
+grep -F -q "${ESC}[90m1" "$RUN/out" || fail "number gray: $(cat "$RUN/out")"
+assert_code 'groups tone' 0 node groups
+grep -F -q "${ESC}[36m主代理" "$RUN/out" || fail "group cyan: $(cat "$RUN/out")"
+grep -F -q "${ESC}[90mSelector" "$RUN/out" || fail "type gray: $(cat "$RUN/out")"
+grep -F -q "${ESC}[32ma" "$RUN/out" || fail "now green: $(cat "$RUN/out")"
 export AXS_COLOR=never
 assert_code 'color never' 0 node list
 if grep -q "$ESC" "$RUN/out"; then
@@ -1057,6 +1063,11 @@ grep -F -q "${ESC}[31m300${ESC}[0m" "$RUN/out" || fail "red delay: $(cat "$RUN/o
 python3 -c 'import json,os; p=os.environ["AXS_RUN"]+"/cache/node-test"; text=open(p,encoding="utf-8").read();
 line=[row for row in text.splitlines() if row.startswith("{")][0]
 assert json.loads(line)=={"a":50,"b":150,"c":300}, text'
+printf '%s\n' '{"PROXY": "timeout", "a": 12}' >"$RUN/fake/delay.json"
+assert_code 'delay timeout' 0 node test PROXY
+grep -F -q "${ESC}[36mPROXY" "$RUN/out" || fail "group name: $(cat "$RUN/out")"
+grep -F -q "${ESC}[31m超时" "$RUN/out" || fail "timeout red: $(cat "$RUN/out")"
+grep -F -q "${ESC}[32m12" "$RUN/out" || fail "node delay: $(cat "$RUN/out")"
 export AXS_COLOR=never
 assert_code 'delay plain' 0 node test PROXY
 if grep -q "$ESC" "$RUN/out"; then
@@ -1095,12 +1106,80 @@ assert_code 'service no systemd' 3 service enable
 grep -q '没有 systemd' "$RUN/err" || fail "no systemd: $(cat "$RUN/err")"
 assert_code 'service usage' 1 service start
 export AXS_COLOR=always
-assert_code 'usage color' 1
-grep -F -q "${ESC}[31m" "$RUN/err" || fail "usage color: $(cat "$RUN/err")"
-export AXS_COLOR=never
-assert_code 'usage plain' 1
-if grep -q "$ESC" "$RUN/err"; then
-    fail 'usage never colored'
+assert_code 'bare help color' 1
+grep -q '用法' "$RUN/err" || fail "bare help: $(cat "$RUN/err")"
+grep -q '服务' "$RUN/err" || fail "bare section: $(cat "$RUN/err")"
+if grep -q 'health' "$RUN/err"; then
+    fail 'help lists health'
 fi
+if grep -F -q "${ESC}[31m" "$RUN/err"; then
+    fail "bare help is red: $(cat "$RUN/err")"
+fi
+grep -F -q "${ESC}[36m" "$RUN/err" || fail "bare command color: $(cat "$RUN/err")"
+grep -F -q "${ESC}[90m" "$RUN/err" || fail "bare desc color: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1m" "$RUN/err" || fail "bare title: $(cat "$RUN/err")"
+python3 -c 'import os,re
+esc=re.compile("\033\\[[0-9;]*m")
+text=open(os.environ["AXS_RUN"]+"/err",encoding="utf-8").read()
+rows=[esc.sub("", line) for line in text.splitlines() if esc.sub("", line).startswith("axs ")]
+assert rows, text
+assert all(len(line)>=24 and line[22:24]=="  " and line[24]!=" " for line in rows), rows'
+assert_code 'help stdout' 0 help
+grep -q '节点' "$RUN/out" || fail "help out: $(cat "$RUN/out")"
+test ! -s "$RUN/err" || fail "help stderr: $(cat "$RUN/err")"
+assert_code 'help flag' 0 --help
+grep -q '清理' "$RUN/out" || fail "flag out: $(cat "$RUN/out")"
+export AXS_COLOR=never
+assert_code 'help never' 0 help
+if grep -q "$ESC" "$RUN/out"; then
+    fail 'help never colored'
+fi
+export AXS_COLOR=always
+now=$(date +%s)
+printf 'upload=1\nexpire=%s\n' "$((now + 40 * 86400))" >"$RUN/userinfo"
+assert_code 'sub color' 0 sub get
+grep -F -q "${ESC}[90m上传:" "$RUN/out" || fail "sub label: $(cat "$RUN/out")"
+grep -F -q "${ESC}[32m" "$RUN/out" || fail "sub days: $(cat "$RUN/out")"
+export AXS_COLOR=never
+assert_code 'sub plain' 0 sub get
+if grep -q "$ESC" "$RUN/out"; then
+    fail 'sub never colored'
+fi
+
+new_run
+mark_up
+prepare_health 18084
+python3 -c 'import json,os; json.dump({"proxies":{"主代理":{"all":["a"],"now":"a","type":"Selector"},"a":{"type":"Shadowsocks"}}}, open(os.environ["AXS_RUN"]+"/fake/proxies.json","w"))'
+now=$(date +%s)
+printf 'expire=%s\n' "$((now - 10))" >"$RUN/userinfo"
+mkdir -p "$RUN/cache"
+printf 'ts=%s\nresult=ok\n' "$((now - 180))" >"$RUN/cache/net-test"
+export AXS_COLOR=always
+assert_code 'status tone' 5 status
+grep -F -q "${ESC}[90m服务：" "$RUN/out" || fail "status label: $(cat "$RUN/out")"
+grep -F -q "${ESC}[32m运行中" "$RUN/out" || fail "status up: $(cat "$RUN/out")"
+grep -F -q "${ESC}[32m监听" "$RUN/out" || fail "status port: $(cat "$RUN/out")"
+grep -F -q "${ESC}[36m主代理" "$RUN/out" || fail "status group: $(cat "$RUN/out")"
+grep -F -q "${ESC}[32ma" "$RUN/out" || fail "status now: $(cat "$RUN/out")"
+grep -F -q "${ESC}[31m已过期" "$RUN/out" || fail "status sub: $(cat "$RUN/out")"
+grep -F -q "${ESC}[32m全部通" "$RUN/out" || fail "status net: $(cat "$RUN/out")"
+export AXS_COLOR=never
+assert_code 'status tone plain' 5 status
+if grep -q "$ESC" "$RUN/out"; then
+    fail 'status never colored'
+fi
+
+new_run
+printf '%s\n' drop >"$RUN/config.yaml"
+export AXS_COLOR=always
+assert_code 'clean tone' 0 clean --yes
+grep -F -q "${ESC}[32m已删除" "$RUN/out" || fail "clean green: $(cat "$RUN/out")"
+printf '%s\n' drop >"$RUN/config.yaml"
+export AXS_COLOR=never
+assert_code 'clean tone plain' 0 clean --yes
+if grep -q "$ESC" "$RUN/out"; then
+    fail 'clean never colored'
+fi
+grep -q '已删除' "$RUN/out" || fail 'clean plain text'
 
 echo "ok $PASS"
