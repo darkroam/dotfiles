@@ -71,6 +71,7 @@ case $cmd in
         if [ $# -gt 0 ]; then shift; fi
         case $sub in
             test) cmd_net "$@" ;;
+            ip) cmd_net_ip "$@" ;;
             *) usage ;;
         esac
         ;;

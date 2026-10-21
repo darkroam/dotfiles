@@ -405,3 +405,6 @@ v1 基线（不连真实订阅、不启真实进程）：
 - 端口一律取 `override.yaml` 的 mixed-port，不写死；
 - 三层都不改变 mihomo 服务本身；`die` 用法错误退 1。
 - `axs status` 末行显示三层状态：`代理 user on/off · system on/off · session on/off`（on 绿、off 灰）。
+- `axs net ip`：经 mixed 入站请求 `https://ipinfo.io/ip`，输出代理出口 IP；入站不通退 2，
+  查询失败退 3。
+- `axs proxy user on` 在标准错误打一行「需 eval」提示；标准输出仍是可 eval 的 export 行。

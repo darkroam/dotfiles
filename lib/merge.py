@@ -1096,6 +1096,17 @@ def rules_del(path, domain):
     atomic_write(path, ("\n".join(rows) + "\n") if rows else "")
 
 
+def egress(proxy, url):
+    handler = urllib.request.ProxyHandler({"http": proxy, "https": proxy})
+    opener = urllib.request.build_opener(handler)
+    try:
+        with opener.open(url, timeout=10) as resp:
+            text = resp.read(200).decode("utf-8", "replace").strip()
+    except Exception:
+        fail("出口查询失败")
+    print(text)
+
+
 def probe(host, port):
     directory = os.environ.get("AXS_FAKE_DIR")
     if directory:
@@ -1174,6 +1185,8 @@ def main(argv):
         rules_add(argv[2], argv[3])
     elif cmd == "rules-del":
         rules_del(argv[2], argv[3])
+    elif cmd == "egress":
+        egress(argv[2], argv[3] if len(argv) > 3 else "https://ipinfo.io/ip")
     elif cmd == "probe":
         probe(argv[2], argv[3])
     else:

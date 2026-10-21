@@ -106,6 +106,7 @@ show_help() {
     help_note "例：axs node list"
     printf '\n%s\n' "$(bold '网络')" >&"$AXS_HELP_FD"
     help_row "axs net test" "测连通，可接网址"
+    help_row "axs net ip" "经代理查出口 IP"
     help_note "例：axs net test"
     printf '\n%s\n' "$(bold '代理')" >"$AXS_HELP_FD"
     help_row "axs proxy user" "当前 shell 环境（on|off|status）"
@@ -774,6 +775,15 @@ cmd_switch() {
     python3 "$PY" select "$AXS_RUN/secret" "$api" "$1" "$2" "$AXS_RUN" || exit $?
 }
 
+cmd_net_ip() {
+    [ $# -eq 0 ] || die 1 "用法"
+    read_ports
+    if ! port_open "$MIXED"; then
+        die 2 "入站：不通"
+    fi
+    python3 "$PY" egress "http://127.0.0.1:$MIXED" || exit $?
+}
+
 cmd_net() {
     code=0
     python3 "$PY" net-precheck "$AXS_RUN/urls" "$@" || code=$?
@@ -924,6 +934,7 @@ cmd_proxy_user() {
     port=$(proxy_mixed)
     case $sub in
         on)
+            printf '%s\n' "提示：需 eval \"\$(axs proxy user on)\" 才会生效" >&2
             printf 'export http_proxy=http://127.0.0.1:%s\n' "$port"
             printf 'export https_proxy=http://127.0.0.1:%s\n' "$port"
             printf 'export all_proxy=socks5://127.0.0.1:%s\n' "$port"

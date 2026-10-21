@@ -1230,12 +1230,16 @@ grep -F -q "${ESC}[32m已删除" "$RUN/out" || fail "clean green: $(cat "$RUN/ou
 # ---- proxy 三层 ----
 new_run
 assert_code 'proxy user on' 0 proxy user on
+grep -q 'eval' "$RUN/err" || fail "proxy user on hint: $(cat "$RUN/err")"
 grep -qx 'export http_proxy=http://127.0.0.1:7897' "$RUN/out" || fail 'proxy user on export'
 grep -qx 'export all_proxy=socks5://127.0.0.1:7897' "$RUN/out" || fail 'proxy user on all_proxy'
 grep -qx 'export NO_PROXY=localhost,127.0.0.1,::1' "$RUN/out" || fail 'proxy user on NO_PROXY'
 assert_code 'proxy user off' 0 proxy user off
 grep -q '^unset http_proxy' "$RUN/out" || fail 'proxy user off unset'
 assert_code 'proxy user bogus' 1 proxy user bogus
+
+new_run
+assert_code 'net ip down' 2 net ip
 proxy_status_on() {
     export http_proxy=http://127.0.0.1:7897
     "$AXS" proxy user status >"$RUN/out" 2>"$RUN/err"
