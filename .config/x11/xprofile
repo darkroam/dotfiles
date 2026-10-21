@@ -128,3 +128,11 @@ done >/dev/null 2>&1
 # Ensure that xrdb has finished running before moving on to start the WM/DE.
 [ -n "$xrdbpid" ] && wait "$xrdbpid"
 unset xresources
+
+# axs proxy session (managed)
+if [ -f "$HOME/.local/lib/access/run/session-proxy" ]; then
+	export http_proxy=http://127.0.0.1:7897
+	export https_proxy=$http_proxy
+	export all_proxy=socks5://127.0.0.1:7897
+	export no_proxy=localhost,127.0.0.1,::1
+fi
