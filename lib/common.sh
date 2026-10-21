@@ -439,6 +439,37 @@ status_node_empty() {
     printf '%s\n' "$(label '节点：')$(ident '主代理') → $(dim '-') · $(ident 'GLOBAL') = $(dim '-')"
 }
 
+
+proxy_status_line() {
+    read_ports
+    port=$MIXED
+    u=off
+    case ${http_proxy:-${HTTPS_PROXY:-${https_proxy:-}}} in
+        "http://127.0.0.1:$port") u=on ;;
+    esac
+    sys=off
+    if command -v gsettings >/dev/null 2>&1; then
+        m=$(gsettings get org.gnome.system.proxy mode 2>/dev/null | tr -d "'" || true)
+        h=$(gsettings get org.gnome.system.proxy.http host 2>/dev/null | tr -d "'" || true)
+        p=$(gsettings get org.gnome.system.proxy.http port 2>/dev/null | tr -d "'" || true)
+        if [ "$m" = "manual" ] && [ "$h" = "127.0.0.1" ] && [ "$p" = "$port" ]; then
+            sys=on
+        fi
+    fi
+    sess=off
+    xp=${AXS_XPROFILE:-$HOME/.config/x11/xprofile}
+    if [ -f "$AXS_RUN/session-proxy" ] && [ -f "$xp" ] && grep -q 'axs proxy session (managed)' "$xp"; then
+        sess=on
+    fi
+    tone_state() {
+        if [ "$1" = on ]; then ok on; else dim off; fi
+    }
+    printf '%s %s · %s %s · %s %s\n' \
+        "$(label "代理 user")" "$(tone_state "$u")" \
+        "$(label system)" "$(tone_state "$sys")" \
+        "$(label session)" "$(tone_state "$sess")"
+}
+
 cmd_status() {
     running=0
     if use_systemd; then
@@ -507,6 +538,7 @@ unknown'
     fi
     cache_line net-test
     cache_line node-test
+    proxy_status_line
     code=0
     if [ "$running" -eq 0 ] || [ "$port_ok" -eq 0 ]; then
         code=2

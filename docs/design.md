@@ -404,3 +404,4 @@ v1 基线（不连真实订阅、不启真实进程）：
   规则承载，不进环境变量（裁决，非疏漏）；
 - 端口一律取 `override.yaml` 的 mixed-port，不写死；
 - 三层都不改变 mihomo 服务本身；`die` 用法错误退 1。
+- `axs status` 末行显示三层状态：`代理 user on/off · system on/off · session on/off`（on 绿、off 灰）。

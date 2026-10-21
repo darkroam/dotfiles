@@ -156,6 +156,17 @@ export AXS_MIXED_PORT=7897 AXS_API=127.0.0.1:9097
 assert_code 'systemd status' 2 status
 grep -q '服务：运行中（systemd: axs.service，MainPID 4242，运行时长 -）' "$RUN/out" || fail "systemd status: $(cat "$RUN/out")"
 grep -q '定时刷新：下次 Tue 2026-10-21 02:00:00 CST' "$RUN/out" || fail "timer: $(cat "$RUN/out")"
+grep -q '代理 user' "$RUN/out" || fail "status proxy line: $(cat "$RUN/out")"
+
+new_run
+assert_code 'status proxy off' 2 status
+grep -q '代理 user off' "$RUN/out" || fail "status proxy off: $(cat "$RUN/out")"
+proxy_status_env() {
+    export http_proxy=http://127.0.0.1:7897
+    "$AXS" status >"$RUN/out" 2>"$RUN/err" || true
+}
+proxy_status_env
+grep -q '代理 user on' "$RUN/out" || fail "status proxy on: $(cat "$RUN/out")"
 
 new_run
 assert_code 'status down' 2 status
