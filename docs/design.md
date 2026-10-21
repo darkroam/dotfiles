@@ -381,3 +381,26 @@ v1 基线（不连真实订阅、不启真实进程）：
 - 同步 `groups` 旧断言：`tests/env/run.sh` 的 `grep -x PROXY`，以及 `tests/run.sh` 里只查子串 `PROXY` 的那条
 - 两条仿真只记录：switch → stop → start → `now`；switch → `rule add via` → `now`
 - 改 `refresh` 或校验顺序必跑普通终端 `tests/env/run.sh check`。只跑离线套件不算过
+
+## 11. 三层代理接入
+
+服务始终只监听 `127.0.0.1:<mixed>`；三层只是告诉谁去连它。
+
+| 子命令 | 层 | 机制 | 契约 |
+| --- | --- | --- | --- |
+| `axs proxy user on` | 终端 | 环境变量 | 输出去 stdout（供 `eval "$(axs proxy user on)"`）；http/https/all/no proxy 大小写各一份，与 setproxy 对齐 |
+| `axs proxy user off` | 终端 | 环境变量 | 输出 unset 行 |
+| `axs proxy user status` | 终端 | 读环境变量 | 指向本代理退 0，否则退 1 |
+| `axs proxy system on` | 指定应用 | gsettings | mode=manual + http/https host/port + ignore-hosts；无 gsettings 退 3 |
+| `axs proxy system off` | 指定应用 | gsettings | mode=none（不做 schema 级 reset） |
+| `axs proxy system status` | 指定应用 | 读 gsettings | mode=manual 且 host/port 匹配退 0，否则退 1 |
+| `axs proxy session on` | X 会话 | 开关文件 `run/session-proxy`（空文件，0600） | 只作存在性开关；下次登录 X 生效 |
+| `axs proxy session off` | X 会话 | 删开关文件 | — |
+| `axs proxy session status` | X 会话 | 开关文件 + xprofile 标记 | 两者都在退 0；开关在但缺块退 1 并提示「待挂接」 |
+
+- xprofile 托管块（`# axs proxy session (managed)`，dwm 启动前）：条件导出
+  http/https/all/no proxy；安装需判重（幂等）；
+- no_proxy 只含 `localhost,127.0.0.1,::1`：私网段与 goproxy/gh-proxy 例外由 mihomo
+  规则承载，不进环境变量（裁决，非疏漏）；
+- 端口一律取 `override.yaml` 的 mixed-port，不写死；
+- 三层都不改变 mihomo 服务本身；`die` 用法错误退 1。

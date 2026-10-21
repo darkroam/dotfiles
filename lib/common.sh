@@ -61,6 +61,7 @@ show_usage() {
       axs rule list|add|del
       axs node groups|list|test|switch
       axs net test
+      axs proxy user|system|session on|off|status
 EOF
 }
 
@@ -106,6 +107,11 @@ show_help() {
     printf '\n%s\n' "$(bold '网络')" >&"$AXS_HELP_FD"
     help_row "axs net test" "测连通，可接网址"
     help_note "例：axs net test"
+    printf '\n%s\n' "$(bold '代理')" >"$AXS_HELP_FD"
+    help_row "axs proxy user" "当前 shell 环境（on|off|status）"
+    help_row "axs proxy system" "系统代理 gsettings（on|off|status）"
+    help_row "axs proxy session" "X 会话开关（on|off|status）"
+    help_note "例：eval \"\$(axs proxy user on)\""
     printf '\n%s\n' "$(bold '清理')" >&"$AXS_HELP_FD"
     help_row "axs clean" "删除本地配置，可加 --yes"
     help_note "例：axs clean --yes"
@@ -872,4 +878,114 @@ cmd_clean() {
 
 cmd_sub_clean() {
     clean_run sub "$@"
+}
+
+# ---- proxy: three access layers ----
+proxy_mixed() {
+    read_ports
+    printf '%s' "$MIXED"
+}
+
+cmd_proxy_user() {
+    sub=${1:-}
+    [ $# -eq 1 ] || die 1 "用法"
+    port=$(proxy_mixed)
+    case $sub in
+        on)
+            printf 'export http_proxy=http://127.0.0.1:%s\n' "$port"
+            printf 'export https_proxy=http://127.0.0.1:%s\n' "$port"
+            printf 'export all_proxy=socks5://127.0.0.1:%s\n' "$port"
+            printf 'export no_proxy=localhost,127.0.0.1,::1\n'
+            printf 'export HTTP_PROXY=http://127.0.0.1:%s\n' "$port"
+            printf 'export HTTPS_PROXY=http://127.0.0.1:%s\n' "$port"
+            printf 'export ALL_PROXY=socks5://127.0.0.1:%s\n' "$port"
+            printf 'export NO_PROXY=localhost,127.0.0.1,::1\n'
+            ;;
+        off)
+            printf '%s\n' 'unset http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY no_proxy NO_PROXY'
+            ;;
+        status)
+            want="http://127.0.0.1:$port"
+            cur=${http_proxy:-${HTTPS_PROXY:-${https_proxy:-}}}
+            if [ "$cur" = "$want" ]; then
+                printf '%s\n' "user：$(ok on)（$cur）"
+                exit 0
+            fi
+            printf '%s\n' "user：$(bad off)（${cur:-未设置}）"
+            exit 1
+            ;;
+        *) die 1 "用法" ;;
+    esac
+}
+
+cmd_proxy_system() {
+    sub=${1:-}
+    [ $# -eq 1 ] || die 1 "用法"
+    command -v gsettings >/dev/null 2>&1 || die 3 "没有 gsettings"
+    gs=org.gnome.system.proxy
+    port=$(proxy_mixed)
+    case $sub in
+        on)
+            gsettings set "$gs" mode 'manual' || die 3 "gsettings 失败"
+            gsettings set "$gs.http" host '127.0.0.1' || die 3 "gsettings 失败"
+            gsettings set "$gs.http" port "$port" || die 3 "gsettings 失败"
+            gsettings set "$gs.https" host '127.0.0.1' || die 3 "gsettings 失败"
+            gsettings set "$gs.https" port "$port" || die 3 "gsettings 失败"
+            gsettings set "$gs" ignore-hosts "['localhost','127.0.0.1','::1']" || die 3 "gsettings 失败"
+            printf '%s\n' "system：$(ok on)（127.0.0.1:$port）"
+            ;;
+        off)
+            gsettings set "$gs" mode 'none' || die 3 "gsettings 失败"
+            printf '%s\n' "system：$(bad off)"
+            ;;
+        status)
+            mode=$(gsettings get "$gs" mode 2>/dev/null | tr -d "'" ) || die 3 "gsettings 失败"
+            host=$(gsettings get "$gs.http" host 2>/dev/null | tr -d "'" ) || true
+            sport=$(gsettings get "$gs.http" port 2>/dev/null | tr -d "'" ) || true
+            if [ "$mode" = "manual" ] && [ "$host" = "127.0.0.1" ] && [ "$sport" = "$port" ]; then
+                printf '%s\n' "system：$(ok on)（127.0.0.1:$port）"
+                exit 0
+            fi
+            printf '%s\n' "system：$(bad off)（mode=$mode host=$host port=$sport）"
+            exit 1
+            ;;
+        *) die 1 "用法" ;;
+    esac
+}
+
+cmd_proxy_session() {
+    sub=${1:-}
+    [ $# -eq 1 ] || die 1 "用法"
+    flag=$AXS_RUN/session-proxy
+    xp=${AXS_XPROFILE:-$HOME/.config/x11/xprofile}
+    case $sub in
+        on)
+            mkdir -p "$AXS_RUN"
+            ( umask 077; : >"$flag" )
+            printf '%s\n' "session：$(ok on)（下次登录 X 生效）"
+            ;;
+        off)
+            rm -f "$flag"
+            printf '%s\n' "session：$(bad off)"
+            ;;
+        status)
+            flag_on=0
+            [ -f "$flag" ] && flag_on=1
+            hook=0
+            if [ -f "$xp" ] && grep -q 'axs proxy session (managed)' "$xp"; then
+                hook=1
+            fi
+            if [ "$flag_on" -eq 1 ] && [ "$hook" -eq 1 ]; then
+                printf '%s\n' "session：$(ok on)（开关在，xprofile 托管块已挂接）"
+                exit 0
+            fi
+            if [ "$flag_on" -eq 1 ]; then
+                printf '%s\n' "session：$(warn 待挂接)（开关在，xprofile 缺托管块）"
+            else
+                printf '%s\n' "session：$(bad off)（开关文件不存在）"
+            fi
+            exit 1
+            ;;
+        *) die 1 "用法" ;;
+    esac
 }

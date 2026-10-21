@@ -74,5 +74,15 @@ case $cmd in
             *) usage ;;
         esac
         ;;
+    proxy)
+        sub=${1:-}
+        if [ $# -gt 0 ]; then shift; fi
+        case $sub in
+            user) cmd_proxy_user "$@" ;;
+            system) cmd_proxy_system "$@" ;;
+            session) cmd_proxy_session "$@" ;;
+            *) usage ;;
+        esac
+        ;;
     *) usage ;;
 esac

@@ -1112,7 +1112,7 @@ grep -q '没有 systemd' "$RUN/err" || fail "no systemd: $(cat "$RUN/err")"
 assert_code 'service usage' 1 service start
 export AXS_COLOR=always
 assert_code 'bare help color' 1
-test "$(grep -c . "$RUN/err")" -eq 6 || fail "bare lines: $(cat "$RUN/err")"
+test "$(grep -c . "$RUN/err")" -eq 7 || fail "bare lines: $(cat "$RUN/err")"
 grep -q '用法：axs start|stop|status|restart|ensure|clean' "$RUN/err" || fail "bare help: $(cat "$RUN/err")"
 grep -q 'axs net test' "$RUN/err" || fail "bare last: $(cat "$RUN/err")"
 if grep -q 'health' "$RUN/err"; then
@@ -1123,7 +1123,7 @@ if grep -q "$ESC" "$RUN/err"; then
 fi
 test ! -s "$RUN/out" || fail "bare stdout: $(cat "$RUN/out")"
 assert_code 'unknown help' 1 nope
-test "$(grep -c . "$RUN/err")" -eq 6 || fail "unknown lines: $(cat "$RUN/err")"
+test "$(grep -c . "$RUN/err")" -eq 7 || fail "unknown lines: $(cat "$RUN/err")"
 assert_code 'help stdout' 0 help
 grep -q '节点' "$RUN/out" || fail "help out: $(cat "$RUN/out")"
 grep -q '例：axs status' "$RUN/out" || fail "help example: $(cat "$RUN/out")"
@@ -1149,7 +1149,7 @@ grep -q '清理' "$RUN/out" || fail "flag out: $(cat "$RUN/out")"
 assert_code 'help short flag' 0 -h
 grep -q '例：axs node list' "$RUN/out" || fail "short flag: $(cat "$RUN/out")"
 assert_code 'help flag extra' 1 -h extra
-test "$(grep -c . "$RUN/err")" -eq 6 || fail "flag extra: $(cat "$RUN/err")"
+test "$(grep -c . "$RUN/err")" -eq 7 || fail "flag extra: $(cat "$RUN/err")"
 export AXS_COLOR=never
 assert_code 'help never' 0 help
 if grep -q "$ESC" "$RUN/out"; then
@@ -1215,6 +1215,57 @@ printf '%s\n' drop >"$RUN/config.yaml"
 export AXS_COLOR=always
 assert_code 'clean tone' 0 clean --yes
 grep -F -q "${ESC}[32m已删除" "$RUN/out" || fail "clean green: $(cat "$RUN/out")"
+
+# ---- proxy 三层 ----
+new_run
+assert_code 'proxy user on' 0 proxy user on
+grep -qx 'export http_proxy=http://127.0.0.1:7897' "$RUN/out" || fail 'proxy user on export'
+grep -qx 'export all_proxy=socks5://127.0.0.1:7897' "$RUN/out" || fail 'proxy user on all_proxy'
+grep -qx 'export NO_PROXY=localhost,127.0.0.1,::1' "$RUN/out" || fail 'proxy user on NO_PROXY'
+assert_code 'proxy user off' 0 proxy user off
+grep -q '^unset http_proxy' "$RUN/out" || fail 'proxy user off unset'
+assert_code 'proxy user bogus' 1 proxy user bogus
+proxy_status_on() {
+    export http_proxy=http://127.0.0.1:7897
+    "$AXS" proxy user status >"$RUN/out" 2>"$RUN/err"
+}
+proxy_status_off() {
+    unset http_proxy
+    "$AXS" proxy user status >"$RUN/out" 2>"$RUN/err"
+}
+proxy_eval() {
+    eval "$("$AXS" proxy user on)"
+    [ "$http_proxy" = 'http://127.0.0.1:7897' ]
+}
+proxy_status_on || fail 'proxy user status on'
+if proxy_status_off; then fail 'proxy user status off code'; fi
+proxy_eval || fail 'proxy user eval'
+
+new_run
+mkdir -p "$RUN/fakebin"
+ln -s "$ROOT/tests/fake-gsettings" "$RUN/fakebin/gsettings"
+export AXS_GS_DB="$RUN/fake/gs"
+old_path=$PATH
+PATH="$RUN/fakebin:$PATH"
+assert_code 'proxy system on' 0 proxy system on
+assert_code 'proxy system status on' 0 proxy system status
+assert_code 'proxy system off' 0 proxy system off
+assert_code 'proxy system status off' 1 proxy system status
+assert_code 'proxy system bogus' 1 proxy system bogus
+PATH=$old_path
+export PATH
+
+new_run
+export AXS_XPROFILE="$RUN/xprofile"
+printf 'test\n' >"$AXS_XPROFILE"
+assert_code 'proxy session on' 0 proxy session on
+assert_code 'proxy session status unhooked' 1 proxy session status
+printf '# axs proxy session (managed)\n' >>"$AXS_XPROFILE"
+assert_code 'proxy session status hooked' 0 proxy session status
+assert_code 'proxy session off' 0 proxy session off
+assert_code 'proxy session status off' 1 proxy session status
+assert_code 'proxy session bogus' 1 proxy session bogus
+
 printf '%s\n' drop >"$RUN/config.yaml"
 export AXS_COLOR=never
 assert_code 'clean tone plain' 0 clean --yes
