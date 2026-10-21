@@ -8,6 +8,11 @@ PY=$ROOT/lib/merge.py
 : "${AXS_RUN:=$ROOT/run}"
 : "${AXS_MIHOMO:=$HOME/.local/bin/mihomo}"
 
+# $(color) is a pipe, so [ -t 1 ] inside it is always false. Remember the real fds.
+if [ -t 1 ]; then AXS_TTY_OUT=1; else AXS_TTY_OUT=0; fi
+if [ -t 2 ]; then AXS_TTY_ERR=1; else AXS_TTY_ERR=0; fi
+export AXS_TTY_OUT AXS_TTY_ERR
+
 use_color() {
     case ${AXS_COLOR:-} in
         always) return 0 ;;
@@ -16,7 +21,11 @@ use_color() {
     if [ -n "${NO_COLOR+x}" ]; then
         return 1
     fi
-    [ -t "${1:-1}" ]
+    if [ "${1:-1}" -eq 2 ]; then
+        [ "$AXS_TTY_ERR" -eq 1 ]
+    else
+        [ "$AXS_TTY_OUT" -eq 1 ]
+    fi
 }
 
 tone() {
@@ -36,6 +45,7 @@ warn() { tone 33 "$1"; }
 bad() { tone 31 "$1"; }
 dim() { tone 90 "$1"; }
 bold() { tone 1 "$1"; }
+emph() { tone "1;$1" "$2"; }
 paint() { tone "$1" "$2"; }
 
 say_err() {
@@ -43,9 +53,24 @@ say_err() {
     printf '%s\n' "$(bad "$1")" >&2
 }
 
+show_usage() {
+    cat >&2 <<'EOF'
+用法：axs start|stop|status|restart|ensure|clean
+      axs service enable|disable
+      axs sub get|refresh|clean
+      axs rule list|add|del
+      axs node groups|list|test|switch
+      axs net test
+EOF
+}
+
 help_row() {
     padded=$(printf '%-22s' "$1")
     printf '%s\n' "$(ident "$padded")  $(dim "$2")" >&"$AXS_HELP_FD"
+}
+
+help_note() {
+    printf '%s\n' "$(dim "$1")" >&"$AXS_HELP_FD"
 }
 
 show_help() {
@@ -60,24 +85,31 @@ show_help() {
     help_row "axs ensure" "保证服务在跑"
     help_row "axs service enable" "打开开机自启"
     help_row "axs service disable" "关闭开机自启"
+    help_note "例：axs status"
     printf '\n%s\n' "$(bold '订阅')" >&"$AXS_HELP_FD"
     help_row "axs sub get" "查看订阅剩余"
     help_row "axs sub refresh" "拉取并重载"
     help_row "axs sub clean" "删除订阅缓存"
+    help_note "例：axs sub get"
     printf '\n%s\n' "$(bold '规则')" >&"$AXS_HELP_FD"
     help_row "axs rule list" "列出域名规则"
     help_row "axs rule add via" "经策略组，后接域名和组"
     help_row "axs rule add direct" "直连，后接域名"
     help_row "axs rule del" "删除域名规则"
+    help_note "例：axs rule list"
     printf '\n%s\n' "$(bold '节点')" >&"$AXS_HELP_FD"
     help_row "axs node groups" "策略组与当前节点"
     help_row "axs node list" "节点列表"
     help_row "axs node test" "测延迟，可接组名"
     help_row "axs node switch" "切换节点，后接组和节点"
+    help_note "例：axs node list"
     printf '\n%s\n' "$(bold '网络')" >&"$AXS_HELP_FD"
     help_row "axs net test" "测连通，可接网址"
+    help_note "例：axs net test"
     printf '\n%s\n' "$(bold '清理')" >&"$AXS_HELP_FD"
     help_row "axs clean" "删除本地配置，可加 --yes"
+    help_note "例：axs clean --yes"
+    help_note "颜色只是增强，管道或 NO_COLOR 下信息仍完整"
 }
 
 die() {
@@ -397,7 +429,8 @@ cache_line() {
 }
 
 status_node_empty() {
-    printf '%s\n' "$(label '节点：')$(ident '主代理') = $(dim '-')；$(ident '自动选择') = $(dim '-')；$(ident 'GLOBAL') = $(dim '-')"
+    # same sentence as status_nodes when the main chain is missing
+    printf '%s\n' "$(label '节点：')$(ident '主代理') → $(dim '-') · $(ident 'GLOBAL') = $(dim '-')"
 }
 
 cmd_status() {
@@ -409,34 +442,28 @@ cmd_status() {
                 ''|*[!0-9]*|0) pid='-' ;;
             esac
             dur=$(systemd_etime)
-            printf '%s\n' "$(label '服务：')$(ok '运行中')（systemd: $(ident 'axs.service')，MainPID $(dim "$pid")，运行时长 $(dim "$dur")）"
+            printf '%s\n' "$(label '服务：')$(emph 32 '运行中')（systemd: $(ident 'axs.service')，MainPID $(dim "$pid")，运行时长 $(dim "$dur")）"
             running=1
         else
-            printf '%s\n' "$(label '服务：')$(bad '未运行')（来源 systemd: $(ident 'axs.service')）"
+            printf '%s\n' "$(label '服务：')$(emph 31 '未运行')（来源 systemd: $(ident 'axs.service')）"
         fi
     elif service_up; then
         pid=$(cat "$AXS_RUN/mihomo.pid")
         dur=$(manual_etime "$pid")
-        printf '%s\n' "$(label '服务：')$(ok '运行中')（手动，MainPID $(dim "$pid")，运行时长 $(dim "$dur")）"
+        printf '%s\n' "$(label '服务：')$(emph 32 '运行中')（手动，MainPID $(dim "$pid")，运行时长 $(dim "$dur")）"
         running=1
     else
-        printf '%s\n' "$(label '服务：')$(bad '未运行')（来源 $(dim '手动')）"
+        printf '%s\n' "$(label '服务：')$(emph 31 '未运行')（来源 $(dim '手动')）"
     fi
     load_status_ports
     port_ok=0
     if port_open "$MIXED"; then
-        printf '%s\n' "$(label '端口：')$(dim "$MIXED") $(ok '监听')"
         port_ok=1
-    else
-        printf '%s\n' "$(label '端口：')$(dim "$MIXED") $(bad '不通')"
     fi
     api_port=${API##*:}
     api_ok=0
     if controller_ok; then
-        printf '%s\n' "$(label '控制器：')$(dim "$api_port") $(ok '可达')"
         api_ok=1
-    else
-        printf '%s\n' "$(label '控制器：')$(dim "$api_port") $(bad '不通')"
     fi
     if [ "$port_ok" -eq 1 ] && [ "$api_ok" -eq 1 ]; then
         python3 "$PY" status-nodes "$AXS_RUN/secret" "$API" 2>/dev/null || status_node_empty
@@ -447,6 +474,16 @@ cmd_status() {
 unknown'
     printf '%s\n' "$sub_out" | head -n 1
     kind=$(printf '%s\n' "$sub_out" | tail -n 1)
+    if [ "$port_ok" -eq 1 ]; then
+        printf '%s\n' "$(label '端口：')$(dim "$MIXED") $(ok '监听')"
+    else
+        printf '%s\n' "$(label '端口：')$(dim "$MIXED") $(bad '不通')"
+    fi
+    if [ "$api_ok" -eq 1 ]; then
+        printf '%s\n' "$(label '控制器：')$(dim "$api_port") $(ok '可达')"
+    else
+        printf '%s\n' "$(label '控制器：')$(dim "$api_port") $(bad '不通')"
+    fi
     if use_systemd; then
         if axs_systemctl is-enabled axs.service >/dev/null 2>&1; then
             printf '%s\n' "$(label '开机自启：')$(ok 'enabled')"

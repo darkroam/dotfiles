@@ -121,9 +121,13 @@ PASS=$((PASS + 1))
 new_run
 assert_code 'status down' 2 status
 grep -q '服务：未运行（来源 手动）' "$RUN/out" || fail "down service: $(cat "$RUN/out")"
+grep -q '节点：主代理 → - · GLOBAL = -' "$RUN/out" || fail "down nodes: $(cat "$RUN/out")"
 grep -q '最近 net test：-' "$RUN/out" || fail "down net cache: $(cat "$RUN/out")"
 grep -q '最近 node test：-' "$RUN/out" || fail "down node cache: $(cat "$RUN/out")"
 grep -q '定时刷新：-' "$RUN/out" || fail "down timer: $(cat "$RUN/out")"
+if grep -q "$(printf '\033')" "$RUN/out"; then
+    fail 'status down colored off a tty'
+fi
 
 new_run
 now=$(date +%s)
@@ -377,7 +381,7 @@ assert_code 'status expired' 5 status
 grep -q '服务：运行中（手动，MainPID' "$RUN/out" || fail "expired service: $(cat "$RUN/out")"
 grep -q '端口：18080 监听' "$RUN/out" || fail "expired port: $(cat "$RUN/out")"
 grep -q '控制器：18081 可达' "$RUN/out" || fail "expired api: $(cat "$RUN/out")"
-grep -q '节点：主代理 = -；自动选择 = -；GLOBAL = -' "$RUN/out" || fail "expired nodes: $(cat "$RUN/out")"
+grep -q '节点：主代理 → - · GLOBAL = -' "$RUN/out" || fail "expired nodes: $(cat "$RUN/out")"
 grep -q '订阅：已过期，剩余 0 天' "$RUN/out" || fail "expired sub: $(cat "$RUN/out")"
 
 new_run
@@ -1039,12 +1043,13 @@ printf 'ts=1\nresult=ok\n{"a": 50}\n' >"$RUN/cache/node-test"
 assert_code 'color always' 0 node list
 grep -F -q "${ESC}[32m" "$RUN/out" || fail "always green: $(cat "$RUN/out")"
 grep -F -q "${ESC}[1m" "$RUN/out" || fail "always bold: $(cat "$RUN/out")"
-grep -F -q "${ESC}[32m[*]" "$RUN/out" || fail "mark green: $(cat "$RUN/out")"
+grep -F -q "${ESC}[1;32m[*]" "$RUN/out" || fail "mark green: $(cat "$RUN/out")"
+grep -F -q "${ESC}[1;32ma" "$RUN/out" || fail "selected name: $(cat "$RUN/out")"
 grep -F -q "${ESC}[90m1" "$RUN/out" || fail "number gray: $(cat "$RUN/out")"
 assert_code 'groups tone' 0 node groups
 grep -F -q "${ESC}[36m主代理" "$RUN/out" || fail "group cyan: $(cat "$RUN/out")"
 grep -F -q "${ESC}[90mSelector" "$RUN/out" || fail "type gray: $(cat "$RUN/out")"
-grep -F -q "${ESC}[32ma" "$RUN/out" || fail "now green: $(cat "$RUN/out")"
+grep -F -q "${ESC}[1;32ma" "$RUN/out" || fail "now green: $(cat "$RUN/out")"
 export AXS_COLOR=never
 assert_code 'color never' 0 node list
 if grep -q "$ESC" "$RUN/out"; then
@@ -1107,39 +1112,57 @@ grep -q '没有 systemd' "$RUN/err" || fail "no systemd: $(cat "$RUN/err")"
 assert_code 'service usage' 1 service start
 export AXS_COLOR=always
 assert_code 'bare help color' 1
-grep -q '用法' "$RUN/err" || fail "bare help: $(cat "$RUN/err")"
-grep -q '服务' "$RUN/err" || fail "bare section: $(cat "$RUN/err")"
+test "$(grep -c . "$RUN/err")" -eq 6 || fail "bare lines: $(cat "$RUN/err")"
+grep -q '用法：axs start|stop|status|restart|ensure|clean' "$RUN/err" || fail "bare help: $(cat "$RUN/err")"
+grep -q 'axs net test' "$RUN/err" || fail "bare last: $(cat "$RUN/err")"
 if grep -q 'health' "$RUN/err"; then
     fail 'help lists health'
 fi
-if grep -F -q "${ESC}[31m" "$RUN/err"; then
-    fail "bare help is red: $(cat "$RUN/err")"
+if grep -q "$ESC" "$RUN/err"; then
+    fail "bare help colored: $(cat "$RUN/err")"
 fi
-grep -F -q "${ESC}[36m" "$RUN/err" || fail "bare command color: $(cat "$RUN/err")"
-grep -F -q "${ESC}[90m" "$RUN/err" || fail "bare desc color: $(cat "$RUN/err")"
-grep -F -q "${ESC}[1m" "$RUN/err" || fail "bare title: $(cat "$RUN/err")"
+test ! -s "$RUN/out" || fail "bare stdout: $(cat "$RUN/out")"
+assert_code 'unknown help' 1 nope
+test "$(grep -c . "$RUN/err")" -eq 6 || fail "unknown lines: $(cat "$RUN/err")"
+assert_code 'help stdout' 0 help
+grep -q '节点' "$RUN/out" || fail "help out: $(cat "$RUN/out")"
+grep -q '例：axs status' "$RUN/out" || fail "help example: $(cat "$RUN/out")"
+grep -q '颜色只是增强' "$RUN/out" || fail "help color note: $(cat "$RUN/out")"
+test ! -s "$RUN/err" || fail "help stderr: $(cat "$RUN/err")"
+if grep -q 'health' "$RUN/out"; then
+    fail 'long help lists health'
+fi
+if grep -F -q "${ESC}[31m" "$RUN/out"; then
+    fail "help is red: $(cat "$RUN/out")"
+fi
+grep -F -q "${ESC}[36m" "$RUN/out" || fail "help command color: $(cat "$RUN/out")"
+grep -F -q "${ESC}[90m" "$RUN/out" || fail "help desc color: $(cat "$RUN/out")"
+grep -F -q "${ESC}[1m" "$RUN/out" || fail "help title: $(cat "$RUN/out")"
 python3 -c 'import os,re
 esc=re.compile("\033\\[[0-9;]*m")
-text=open(os.environ["AXS_RUN"]+"/err",encoding="utf-8").read()
+text=open(os.environ["AXS_RUN"]+"/out",encoding="utf-8").read()
 rows=[esc.sub("", line) for line in text.splitlines() if esc.sub("", line).startswith("axs ")]
 assert rows, text
 assert all(len(line)>=24 and line[22:24]=="  " and line[24]!=" " for line in rows), rows'
-assert_code 'help stdout' 0 help
-grep -q '节点' "$RUN/out" || fail "help out: $(cat "$RUN/out")"
-test ! -s "$RUN/err" || fail "help stderr: $(cat "$RUN/err")"
 assert_code 'help flag' 0 --help
 grep -q '清理' "$RUN/out" || fail "flag out: $(cat "$RUN/out")"
+assert_code 'help short flag' 0 -h
+grep -q '例：axs node list' "$RUN/out" || fail "short flag: $(cat "$RUN/out")"
+assert_code 'help flag extra' 1 -h extra
+test "$(grep -c . "$RUN/err")" -eq 6 || fail "flag extra: $(cat "$RUN/err")"
 export AXS_COLOR=never
 assert_code 'help never' 0 help
 if grep -q "$ESC" "$RUN/out"; then
     fail 'help never colored'
 fi
+grep -q '颜色只是增强，管道或 NO_COLOR 下信息仍完整' "$RUN/out" || fail "help note plain: $(cat "$RUN/out")"
 export AXS_COLOR=always
 now=$(date +%s)
 printf 'upload=1\nexpire=%s\n' "$((now + 40 * 86400))" >"$RUN/userinfo"
 assert_code 'sub color' 0 sub get
 grep -F -q "${ESC}[90m上传:" "$RUN/out" || fail "sub label: $(cat "$RUN/out")"
-grep -F -q "${ESC}[32m" "$RUN/out" || fail "sub days: $(cat "$RUN/out")"
+grep -F -q "${ESC}[1;32m" "$RUN/out" || fail "sub days: $(cat "$RUN/out")"
+grep -q '1.0B' "$RUN/out" || fail "sub bytes: $(cat "$RUN/out")"
 export AXS_COLOR=never
 assert_code 'sub plain' 0 sub get
 if grep -q "$ESC" "$RUN/out"; then
@@ -1149,25 +1172,43 @@ fi
 new_run
 mark_up
 prepare_health 18084
-python3 -c 'import json,os; json.dump({"proxies":{"主代理":{"all":["a"],"now":"a","type":"Selector"},"a":{"type":"Shadowsocks"}}}, open(os.environ["AXS_RUN"]+"/fake/proxies.json","w"))'
+python3 -c 'import json,os; json.dump({"proxies":{"主代理":{"all":["自动选择"],"now":"自动选择","type":"Selector"},"自动选择":{"all":["a"],"now":"a","type":"URLTest"},"GLOBAL":{"all":["DIRECT"],"now":"DIRECT","type":"Selector"},"a":{"type":"Shadowsocks"},"DIRECT":{"type":"Direct"}}}, open(os.environ["AXS_RUN"]+"/fake/proxies.json","w"))'
 now=$(date +%s)
-printf 'expire=%s\n' "$((now - 10))" >"$RUN/userinfo"
+printf 'upload=1536\nexpire=%s\n' "$((now - 10))" >"$RUN/userinfo"
 mkdir -p "$RUN/cache"
 printf 'ts=%s\nresult=ok\n' "$((now - 180))" >"$RUN/cache/net-test"
 export AXS_COLOR=always
 assert_code 'status tone' 5 status
 grep -F -q "${ESC}[90m服务：" "$RUN/out" || fail "status label: $(cat "$RUN/out")"
-grep -F -q "${ESC}[32m运行中" "$RUN/out" || fail "status up: $(cat "$RUN/out")"
+grep -F -q "${ESC}[1;32m运行中" "$RUN/out" || fail "status up: $(cat "$RUN/out")"
 grep -F -q "${ESC}[32m监听" "$RUN/out" || fail "status port: $(cat "$RUN/out")"
 grep -F -q "${ESC}[36m主代理" "$RUN/out" || fail "status group: $(cat "$RUN/out")"
-grep -F -q "${ESC}[32ma" "$RUN/out" || fail "status now: $(cat "$RUN/out")"
-grep -F -q "${ESC}[31m已过期" "$RUN/out" || fail "status sub: $(cat "$RUN/out")"
+grep -F -q "${ESC}[1;32ma" "$RUN/out" || fail "status now: $(cat "$RUN/out")"
+python3 -c 'import os,re,sys
+esc=re.compile("\x1b\\[[0-9;]*m")
+text=esc.sub("", open(os.environ["AXS_RUN"]+"/out",encoding="utf-8").read())
+chain="节点：主代理 → 自动选择（自动，url-test）→ a · GLOBAL = DIRECT"
+if chain not in text:
+    sys.stderr.write(text)
+    raise SystemExit(1)
+if "上传 1.5K" not in text:
+    raise SystemExit(2)
+want=["服务：","节点：","订阅：","端口：","控制器：","开机自启：","定时刷新：","最近 net test：","最近 node test："]
+got=[line.split("：",1)[0]+"：" for line in text.splitlines() if "：" in line]
+if got!=want:
+    sys.stderr.write(repr(got))
+    raise SystemExit(3)
+' || fail "status plain shape: $(cat "$RUN/out")"
+grep -F -q "${ESC}[1;31m已过期" "$RUN/out" || fail "status sub: $(cat "$RUN/out")"
 grep -F -q "${ESC}[32m全部通" "$RUN/out" || fail "status net: $(cat "$RUN/out")"
 export AXS_COLOR=never
 assert_code 'status tone plain' 5 status
 if grep -q "$ESC" "$RUN/out"; then
     fail 'status never colored'
 fi
+grep -q '节点：主代理 → 自动选择（自动，url-test）→ a · GLOBAL = DIRECT' "$RUN/out" || fail "plain chain: $(cat "$RUN/out")"
+grep -q '上传 1.5K' "$RUN/out" || fail "plain bytes: $(cat "$RUN/out")"
+
 
 new_run
 printf '%s\n' drop >"$RUN/config.yaml"
@@ -1181,5 +1222,42 @@ if grep -q "$ESC" "$RUN/out"; then
     fail 'clean never colored'
 fi
 grep -q '已删除' "$RUN/out" || fail 'clean plain text'
+
+new_run
+python3 -c 'import os, pty, select, subprocess, time, sys
+root, run = sys.argv[1], sys.argv[2]
+env = os.environ.copy()
+env.pop("AXS_COLOR", None)
+env.pop("NO_COLOR", None)
+env["AXS_RUN"] = run
+env["AXS_SYSTEMD"] = "0"
+env["AXS_FORBID_NET"] = "1"
+env["AXS_FAKE_DIR"] = run + "/fake"
+master, slave = pty.openpty()
+proc = subprocess.Popen([root + "/bin/axs", "status"], stdin=slave, stdout=slave, stderr=slave, env=env, close_fds=True)
+os.close(slave)
+data = b""
+deadline = time.time() + 5
+while time.time() < deadline:
+    ready, _, _ = select.select([master], [], [], 0.2)
+    if ready:
+        try:
+            chunk = os.read(master, 4096)
+        except OSError:
+            break
+        if not chunk:
+            break
+        data += chunk
+    elif proc.poll() is not None:
+        break
+code = proc.wait(timeout=5)
+os.close(master)
+text = data.decode("utf-8", "replace")
+open(run + "/pty", "w", encoding="utf-8").write(text)
+if code != 2 or "\033[1;31m未运行" not in text:
+    sys.stderr.write(text)
+    raise SystemExit(1)
+' "$ROOT" "$RUN" || fail "pty status color"
+PASS=$((PASS + 1))
 
 echo "ok $PASS"

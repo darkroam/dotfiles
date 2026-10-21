@@ -297,7 +297,7 @@ def show_groups(secret_path, api):
         if not isinstance(item, dict) or item.get("type") not in GROUP_TYPES:
             continue
         now = _now(item)
-        shown = dim(now) if now == "-" else ok(now)
+        shown = dim(now) if now == "-" else emph("32", now)
         rows.append(f"{ident(name)}\t{dim(str(item.get('type')))}\t{shown}")
     if rows:
         sys.stdout.write("\n".join(rows) + "\n")
@@ -359,23 +359,29 @@ def follow_leaf(proxies, name):
     return None
 
 
-def current_selection(proxies, numbers):
+def selection_parts(proxies):
     main = proxies.get("主代理")
     if not _is_group(main):
-        return "当前：无", None
+        return None, None
     now = main.get("now")
     target = proxies.get(now) if isinstance(now, str) and now else None
     if not isinstance(target, dict):
-        return "当前：无", None
+        return None, None
     kind = target.get("type")
     if kind in AUTO_LABEL:
-        label = f"{now}（自动，{AUTO_LABEL[kind]}）"
+        mid = f"{now}（自动，{AUTO_LABEL[kind]}）"
     else:
-        label = f"{now}（手动）"
-    leaf = follow_leaf(proxies, now)
+        mid = f"{now}（手动）"
+    return mid, follow_leaf(proxies, now)
+
+
+def current_selection(proxies, numbers):
+    mid, leaf = selection_parts(proxies)
+    if mid is None:
+        return "当前：无", None
     if leaf in numbers:
-        return f"当前：主代理 → {label}→ {leaf} 第{numbers[leaf]}个", leaf
-    return f"当前：主代理 → {label}→ -", None
+        return f"当前：主代理 → {mid}→ {leaf} 第{numbers[leaf]}个", leaf
+    return f"当前：主代理 → {mid}→ -", None
 
 
 def pick_test_group(proxies):
@@ -420,6 +426,9 @@ def want_color():
         return False
     if "NO_COLOR" in os.environ:
         return False
+    # Captured output is not a tty. The shell records the real stdout.
+    if os.environ.get("AXS_TTY_OUT") == "1":
+        return True
     return sys.stdout.isatty()
 
 
@@ -455,6 +464,10 @@ def dim(text):
 
 def bold(text):
     return ansi("1", text)
+
+
+def emph(code, text):
+    return ansi(f"1;{code}", text)
 
 
 def delay_code(value):
@@ -542,10 +555,10 @@ def paint_cell(marker, num_text, name, delay_text, selected, delay_raw):
     plain = f"{marker}{num_text} {name} {delay_text}"
     if not want_color():
         return plain
-    mark = ok("[*]") + " " if selected else marker
+    mark = emph("32", "[*]") + " " if selected else marker
     lead = len(num_text) - len(num_text.lstrip(" "))
     number = (" " * lead) + dim(num_text.lstrip(" "))
-    shown = ok(name) if selected else name
+    shown = emph("32", name) if selected else name
     dlead = len(delay_text) - len(delay_text.lstrip(" "))
     body = delay_text.lstrip(" ")
     delay = (" " * dlead) + ansi(delay_code(delay_raw), body)
@@ -927,6 +940,24 @@ def classify(userinfo_path, now):
     return "ok", days
 
 
+def human_bytes(raw):
+    # shortcut: float 在约 9 PB 以上会偏，流量真到那种量级再改整数
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return str(raw)
+    if value < 0:
+        return str(raw)
+    scaled = float(value)
+    unit = "B"
+    for name in ("K", "M", "G", "T"):
+        if scaled < 1024:
+            break
+        scaled /= 1024
+        unit = name
+    return f"{scaled:.1f}{unit}"
+
+
 def show_userinfo(path, now):
     path = Path(path)
     if not path.is_file():
@@ -943,20 +974,17 @@ def show_userinfo(path, now):
     labels = (("upload", "上传"), ("download", "下载"), ("total", "总量"))
     for key, lab in labels:
         if key in fields:
-            sys.stdout.write(f"{label(lab + ':')} {fields[key]}\n")
+            sys.stdout.write(f"{label(lab + ':')} {human_bytes(fields[key])}\n")
     kind, days = classify(path, now)
     if kind == "expired":
-        sys.stdout.write(bad("已过期") + "\n")
+        sys.stdout.write(emph("31", "已过期") + "\n")
     elif kind == "unknown":
         sys.stdout.write(dim("未知") + "\n")
     elif kind == "soon":
-        sys.stdout.write(label("剩余:") + " " + warn(f"{days} 天") + "\n")
+        sys.stdout.write(label("剩余:") + " " + emph("33", f"{days} 天") + "\n")
     else:
-        sys.stdout.write(label("剩余:") + " " + ok(f"{days} 天") + "\n")
+        sys.stdout.write(label("剩余:") + " " + emph("32", f"{days} 天") + "\n")
 
-
-
-STATUS_GROUPS = ("主代理", "自动选择", "GLOBAL")
 
 
 def _userinfo_fields(path):
@@ -973,32 +1001,35 @@ def _userinfo_fields(path):
 
 
 def status_nodes(secret_path, api):
-    found = {name: "-" for name in STATUS_GROUPS}
+    proxies = {}
     try:
-        proxies = load_proxies(secret_path, api)
+        loaded = load_proxies(secret_path, api)
     except SystemExit:
-        proxies = {}
-    if isinstance(proxies, dict):
-        for name in STATUS_GROUPS:
-            item = proxies.get(name)
-            if isinstance(item, dict):
-                found[name] = _now(item)
-    bits = []
-    for name in STATUS_GROUPS:
-        now = found[name]
-        shown = dim(now) if now == "-" else ok(now)
-        bits.append(f"{ident(name)} = {shown}")
-    sys.stdout.write(label("节点：") + "；".join(bits) + "\n")
+        loaded = {}
+    if isinstance(loaded, dict):
+        proxies = loaded
+    mid, leaf = selection_parts(proxies)
+    if leaf not in node_numbers(proxies):
+        leaf = None
+    global_item = proxies.get("GLOBAL")
+    global_now = _now(global_item) if _is_group(global_item) else "-"
+    leaf_shown = emph("32", leaf) if leaf else dim("-")
+    if mid:
+        chain = f"{ident('主代理')} → {ident(mid)}→ {leaf_shown}"
+    else:
+        chain = f"{ident('主代理')} → {dim('-')}"
+    gshown = dim(global_now) if global_now == "-" else ok(global_now)
+    sys.stdout.write(label("节点：") + chain + " · " + f"{ident('GLOBAL')} = {gshown}" + "\n")
 
 
 def status_sub(path, now):
     kind, days = classify(path, now)
     if kind == "expired":
-        phrase = bad("已过期，剩余 0 天")
+        phrase = emph("31", "已过期") + "，" + emph("31", "剩余 0 天")
     elif kind == "soon":
-        phrase = warn(f"警告，剩余 {days} 天")
+        phrase = warn("警告") + "，" + emph("33", f"剩余 {days} 天")
     elif kind == "ok":
-        phrase = ok(f"有效，剩余 {days} 天")
+        phrase = ok("有效") + "，" + emph("32", f"剩余 {days} 天")
     else:
         phrase = dim("未知")
     text = label("订阅：") + phrase
@@ -1006,7 +1037,7 @@ def status_sub(path, now):
     fields = _userinfo_fields(path)
     for key, lab in (("upload", "上传"), ("download", "下载"), ("total", "总量")):
         if key in fields and fields[key] != "":
-            bits.append(f"{lab} {fields[key]}")
+            bits.append(f"{lab} {human_bytes(fields[key])}")
     if bits:
         text += "，" + " ".join(bits)
     sys.stdout.write(text + "\n" + kind + "\n")
