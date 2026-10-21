@@ -1097,13 +1097,17 @@ def rules_del(path, domain):
 
 
 def egress(proxy, url):
+    if os.environ.get("AXS_FORBID_NET") == "1":
+        sys.stderr.write("出口查询失败\n")
+        raise SystemExit(3)
     handler = urllib.request.ProxyHandler({"http": proxy, "https": proxy})
     opener = urllib.request.build_opener(handler)
     try:
         with opener.open(url, timeout=10) as resp:
             text = resp.read(200).decode("utf-8", "replace").strip()
     except Exception:
-        fail("出口查询失败")
+        sys.stderr.write("出口查询失败\n")
+        raise SystemExit(3)
     print(text)
 
 

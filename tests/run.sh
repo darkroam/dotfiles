@@ -1240,6 +1240,10 @@ assert_code 'proxy user bogus' 1 proxy user bogus
 
 new_run
 assert_code 'net ip down' 2 net ip
+open_mixed 7897
+assert_code 'net ip forbid' 3 net ip
+[ ! -s "$RUN/out" ] || fail "net ip forbid stdout: $(cat "$RUN/out")"
+grep -q '出口查询失败' "$RUN/err" || fail "net ip forbid stderr"
 proxy_status_on() {
     export http_proxy=http://127.0.0.1:7897
     "$AXS" proxy user status >"$RUN/out" 2>"$RUN/err"
