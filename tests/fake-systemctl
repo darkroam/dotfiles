@@ -33,6 +33,8 @@ case $cmd in
         done
         if [ "$prop" = "MainPID" ]; then
             printf '%s\n' 4242
+        elif [ "$prop" = "NextElapseUSecRealtime" ]; then
+            printf '%s\n' 4102444800000000
         fi
         ;;
     list-timers)

@@ -302,7 +302,7 @@ check() {
     printf '%s\n' ok >"$VAR/expire"
     "$AXS" sub refresh >/dev/null
     need 0 "valid" status || return 1
-    grep -q '订阅：有效' "$VAR/out" || { say "FAIL valid text"; return 1; }
+    grep -q '剩余' "$VAR/out" || { say "FAIL valid text"; return 1; }
     say "e status"
     old=$(cat "$AXS_RUN/mihomo.pid")
     up

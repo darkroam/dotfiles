@@ -166,15 +166,16 @@ axs sub clean [--yes]
 
 健康不是「节点都能用」。节点死活看 `node test`。
 
-`status` 是唯一状态命令。先打完这些行，再退出。优先级：未运行或端口不通是 2，控制器不通是 3，订阅过期是 5，快到期仍是 0。不刷新，不跑延迟，不拉全量节点，不创建 `override.yaml` 或 `secret`。行序是服务、节点、订阅、端口、控制器、开机自启、定时刷新、最近测速。
+`status` 是唯一状态命令。先打完五节，再退出。优先级：未运行或端口不通是 2，控制器不通是 3，订阅过期是 5，快到期仍是 0。不刷新，不跑延迟，不拉全量节点，不创建 `override.yaml` 或 `secret`。节序是服务、节点、订阅、测试、代理。节标题粗体，标签灰，缩进两格，标签占 8 列。非终端同一布局，没有颜色。
 
-- 服务：运行中（来源 systemd 或手动，MainPID，运行时长）或未运行（来源）。`运行中` / `未运行` 是一级强调。systemd 时长取 `ActiveEnterTimestamp`，没有就写 `-`
-- 节点：`主代理 → 中间组（自动或手动）→ 叶子 · GLOBAL = now`。叶子是一级强调，没有叶子写 `-`。不再并列 `自动选择`。端口或控制器不通时不查 `/proxies`，写 `主代理 → - · GLOBAL = -`
-- 订阅：有效、警告、已过期或未知，加剩余天数。`剩余 N 天` 或 `已过期` 是一级强调。流量按 B/K/M/G/T，保留 1 位小数。只读 `userinfo`
-- 端口、控制器分行：mixed 监听或不通；控制器端口可达或不通。值着色，不加粗
-- 开机自启：systemd 下是 `enabled` 或 `disabled`，否则 `-`。不启停服务
-- 定时刷新：下次时间，或 `-`。只有委派 systemd 时才问 `list-timers`
-- 最近 net test / node test：距今时间。net 再写全部通或有不通。没有缓存写 `-`
+- 服务 / 状态：运行中或未运行，括号里是 systemd 或手动、pid、时长。`运行中` / `未运行` 是一级强调。systemd 时长取 `ActiveEnterTimestamp`，没有就写 `-`
+- 服务 / 端口：mixed 监听或不通，同一行写控制器可达或不通。值着色，不加粗
+- 服务 / 自启：有 systemd 时是 `enabled` 或 `disabled`，并附 `下次 HH:MM（N 后）`。时间来自 `NextElapseUSecRealtime`。没有 systemd，这一格是 `-`
+- 节点 / 主代理：`→ 中间组 → 叶子`。叶子是一级强调，没有叶子写 `-`。端口或控制器不通时不查 `/proxies`，写 `→ -`
+- 节点 / GLOBAL：当前 now，没有写 `-`
+- 订阅 / 剩余：天数。已过期、快到期仍是一级强调。流量在括号里，按 B/K/M/G/T，保留 1 位小数。未知写 `未知`。只读 `userinfo`
+- 测试 / net、node：距今时间。net 再写全部通或有不通。没有缓存写 `-`
+- 代理：见 §11。`on` / `enabled` / `active` 为绿，其余为灰
 
 `node test` 不写组名时，默认组优先「主代理」，否则按名称取第一个 `url-test` / `fallback` / `load-balance`，再否则第一个非 `GLOBAL` 组。都没有则退出 3，并列出剩余组。延迟接口失败只打一行原因。每次真正测完都写缓存。成功时再写一行节点延迟，并丢掉与所测组同名的键。`net test` 只在进入实测后写。预检失败、用法错误、端口不通不写。`status` 只读缓存，不读延迟表。
 
@@ -398,7 +399,7 @@ v1 基线（不连真实订阅、不启真实进程）：
 | `axs proxy system disable` | 指定应用 | 标识开关 | 删标识开关 |
 | `axs proxy session enable` | X 会话 | 开关文件 `run/proxy-session.flag`（空文件，0600） | 只作存在性开关；下次登录 X 生效。`on`/`off` 已移除 |
 | `axs proxy session disable` | X 会话 | 删开关文件 | — |
-| `axs proxy session status` | X 会话 | 开关 + dwm 环境 | 开关不在为 `disabled` 退 1；开关在但 dwm 环境没有代理变量为 `pending` 退 1；已注入为 `effective` 退 0；没有 dwm 为 `no x session` |
+| `axs proxy session status` | X 会话 | 开关 + dwm 环境 | 开关不在为 `disabled`，effect `-`，退 1；开关在但当前会话没有代理变量为 `pending` 退 1；已注入为 `active` 退 0；没有 dwm 且开关在为 `no-x-session` |
 
 - xprofile 托管块（`# axs proxy session (managed)`，dwm 启动前）：条件导出
   http/https/all/no proxy；安装需判重（幂等）；
@@ -406,15 +407,15 @@ v1 基线（不连真实订阅、不启真实进程）：
   规则承载，不进环境变量（裁决，非疏漏）；
 - 端口一律取 `override.yaml` 的 mixed-port，不写死；
 - 三层都不改变 mihomo 服务本身；`die` 用法错误退 1。
-- `axs status` 代理段是三行英文。运行时 `on|off`，持久 `enabled|disabled`，会话生效 `effective|pending`。没有 X 会话时生效位是 `no x session`。`on` / `enabled` / `effective` 为绿，其余为灰。中文说明只留在帮助里：
+- `axs status` 的代理节是三行。`persist disabled` 时 effect 为 `-`，不写 `no-x-session`。`pending` 只在 persist enabled 且当前会话还没注入时出现。已注入是 `active`。没有 dwm 且 persist enabled 才是 `no-x-session`。`on` / `enabled` / `active` 为绿，其余为灰：
 
 ```
-proxy user      on|off
-proxy system    on|off · persist enabled|disabled
-proxy session   persist enabled|disabled · effective effective|pending
+  user    on|off
+  system  on|off（persist enabled|disabled）
+  session persist enabled|disabled · effect active|pending|-|no-x-session
 ```
 
-- 读 dwm 用 `pgrep -x dwm` 的 `/proc/<pid>/environ`。`AXS_SESSION_PID` 可指定进程，供测试。没有进程或读不到，状态是 `no x session`。
+- 读 dwm 用 `pgrep -x dwm` 的 `/proc/<pid>/environ`。`AXS_SESSION_PID` 可指定进程，供测试。没有进程或读不到，且持久开关开着，effect 是 `no-x-session`。
 - `axs net ip`：经 mixed 入站请求 `https://ipinfo.io/ip`，输出代理出口 IP；入站不通退 2，
   查询失败退 3。
 - system 层前提：libproxy 的 gnome 插件与 Edge 都要会话里有 `XDG_CURRENT_DESKTOP=GNOME` 才读 gsettings；没有标识时是 direct。推荐浏览器用 session 层。

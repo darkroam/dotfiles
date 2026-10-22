@@ -1015,32 +1015,31 @@ def status_nodes(secret_path, api):
     global_now = _now(global_item) if _is_group(global_item) else "-"
     leaf_shown = emph("32", leaf) if leaf else dim("-")
     if mid:
-        chain = f"{ident('主代理')} → {ident(mid)}→ {leaf_shown}"
+        chain = f"→ {ident(mid)}→ {leaf_shown}"
     else:
-        chain = f"{ident('主代理')} → {dim('-')}"
+        chain = f"→ {dim('-')}"
     gshown = dim(global_now) if global_now == "-" else ok(global_now)
-    sys.stdout.write(label("节点：") + chain + " · " + f"{ident('GLOBAL')} = {gshown}" + "\n")
+    sys.stdout.write(chain + "\n" + gshown + "\n")
 
 
 def status_sub(path, now):
     kind, days = classify(path, now)
     if kind == "expired":
-        phrase = emph("31", "已过期") + "，" + emph("31", "剩余 0 天")
+        phrase = emph("31", "已过期") + "，" + emph("31", "0 天")
     elif kind == "soon":
-        phrase = warn("警告") + "，" + emph("33", f"剩余 {days} 天")
+        phrase = warn("警告") + "，" + emph("33", f"{days} 天")
     elif kind == "ok":
-        phrase = ok("有效") + "，" + emph("32", f"剩余 {days} 天")
+        phrase = emph("32", f"{days} 天")
     else:
         phrase = dim("未知")
-    text = label("订阅：") + phrase
     bits = []
     fields = _userinfo_fields(path)
     for key, lab in (("upload", "上传"), ("download", "下载"), ("total", "总量")):
         if key in fields and fields[key] != "":
             bits.append(f"{lab} {human_bytes(fields[key])}")
     if bits:
-        text += "，" + " ".join(bits)
-    sys.stdout.write(text + "\n" + kind + "\n")
+        phrase += "（" + " · ".join(bits) + "）"
+    sys.stdout.write(phrase + "\n" + kind + "\n")
 
 
 def parse_rule(kind, domain, group):

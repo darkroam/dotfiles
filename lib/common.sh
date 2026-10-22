@@ -112,8 +112,8 @@ show_help() {
     help_row "axs proxy user" "当前 shell 环境（on|off|status）"
     help_row "axs proxy system" "运行时 on|off；持久 enable|disable"
     help_row "axs proxy session" "登录持久 enable|disable|status"
-    help_note "status 读 dwm 环境，区分持久开关和当前会话是否已生效"
-    help_note "状态三行英文：on/off、enabled/disabled、effective/pending；无 X 会话为 no x session"
+    help_note "status 分五节：服务、节点、订阅、测试、代理。标签对齐，节标题加粗"
+    help_note "会话 effect：active、pending、-、no-x-session。persist disabled 时 effect 为 -"
     help_note "session 的 on|off 已移除，改用 enable|disable。system on 不再写标识开关"
     help_note "例：eval \"\$(axs proxy user on)\""
     printf '\n%s\n' "$(bold '清理')" >&"$AXS_HELP_FD"
@@ -398,26 +398,19 @@ controller_ok() {
     python3 "$PY" version "$AXS_RUN/secret" "$API" >/dev/null 2>&1
 }
 
-cache_label() {
-    case $1 in
-        net-test) printf '%s' "net test" ;;
-        *) printf '%s' "node test" ;;
-    esac
-}
 
-cache_line() {
+cache_value() {
     name=$1
-    label=$(cache_label "$name")
     file=$AXS_RUN/cache/$name
     if [ ! -f "$file" ]; then
-        printf '%s\n' "$(label "最近 ${label}：")$(dim '-')"
+        printf '%s' "$(dim '-')"
         return 0
     fi
     ts=$(sed -n 's/^ts=//p' "$file" | head -n 1)
     result=$(sed -n 's/^result=//p' "$file" | head -n 1)
     case $ts in
         ''|*[!0-9]*)
-            printf '%s\n' "$(label "最近 ${label}：")$(dim '-')"
+            printf '%s' "$(dim '-')"
             return 0
             ;;
     esac
@@ -426,22 +419,19 @@ cache_line() {
     if [ "$age" -lt 0 ]; then
         age=0
     fi
-    rel=$(format_span "$age" "前")
+    rel=$(format_span "$age" '前')
     if [ "$name" = "net-test" ]; then
         if [ "$result" = "ok" ]; then
-            printf '%s\n' "$(label '最近 net test：')$(dim "$rel") $(ok '全部通')"
+            printf '%s' "$(dim "$rel") · $(ok '全部通')"
         else
-            printf '%s\n' "$(label '最近 net test：')$(dim "$rel") $(bad '有不通')"
+            printf '%s' "$(dim "$rel") · $(bad '有不通')"
         fi
     else
-        printf '%s\n' "$(label '最近 node test：')$(dim "$rel")"
+        printf '%s' "$(dim "$rel")"
     fi
 }
 
-status_node_empty() {
-    # same sentence as status_nodes when the main chain is missing
-    printf '%s\n' "$(label '节点：')$(ident '主代理') → $(dim '-') · $(ident 'GLOBAL') = $(dim '-')"
-}
+
 
 
 session_env() {
@@ -460,8 +450,40 @@ session_env() {
     printf '%s\n' "${line#"$key"=}"
 }
 
-proxy_status_line() {
-    read_ports
+status_head() {
+    printf '%s\n' "$(bold "$1")"
+}
+
+status_row() {
+    printf '%s%s%s\n' '  ' "$(label "$1")" "$2"
+}
+
+next_refresh() {
+    raw=$(axs_systemctl show axs-refresh.timer -p NextElapseUSecRealtime --value 2>/dev/null | tr -d '[:space:]' || true)
+    case $raw in
+        ''|0|*[!0-9]*)
+            printf '%s' '-'
+            return 0
+            ;;
+    esac
+    sec=$((raw / 1000000))
+    now=$(date +%s)
+    delta=$((sec - now))
+    if [ "$delta" -lt 0 ]; then
+        delta=0
+    fi
+    hm=$(date -d "@$sec" +%H:%M 2>/dev/null || true)
+    case $hm in
+        '')
+            printf '%s' '-'
+            return 0
+            ;;
+    esac
+    rel=$(format_span "$delta" '后')
+    printf '%s' "下次 ${hm}（${rel}）"
+}
+
+proxy_status_rows() {
     port=$MIXED
     u=off
     case ${http_proxy:-${HTTPS_PROXY:-${https_proxy:-}}} in
@@ -484,23 +506,29 @@ proxy_status_line() {
     if [ -f "$AXS_RUN/proxy-session.flag" ]; then
         sess_flag=enabled
     fi
-    sess_eff=pending
-    live=$(session_env http_proxy) && live_rc=0 || live_rc=$?
-    if [ "$live_rc" -eq 2 ]; then
-        sess_eff='no x session'
-    elif [ "$live_rc" -eq 0 ] && [ "$live" = "http://127.0.0.1:$port" ]; then
-        sess_eff=effective
+    if [ "$sess_flag" = disabled ]; then
+        sess_eff='-'
+    else
+        sess_eff=pending
+        live=$(session_env http_proxy) && live_rc=0 || live_rc=$?
+        if [ "$live_rc" -eq 2 ]; then
+            sess_eff=no-x-session
+        elif [ "$live_rc" -eq 0 ] && [ "$live" = "http://127.0.0.1:$port" ]; then
+            sess_eff=active
+        fi
     fi
     tone_word() {
         case $1 in
-            on|enabled|effective) ok "$1" ;;
+            on|enabled|active) ok "$1" ;;
             *) dim "$1" ;;
         esac
     }
-    printf '%s%s\n' "$(label 'proxy user      ')" "$(tone_word "$u")"
-    printf '%s%s %s %s\n' "$(label 'proxy system    ')" "$(tone_word "$sys")" "$(dim '· persist')" "$(tone_word "$sys_flag")"
-    printf '%s%s %s %s %s\n' "$(label 'proxy session   ')" "$(dim persist)" "$(tone_word "$sess_flag")" "$(dim '· effective')" "$(tone_word "$sess_eff")"
+    status_head '代理'
+    status_row 'user    ' "$(tone_word "$u")"
+    status_row 'system  ' "$(tone_word "$sys")（persist $(tone_word "$sys_flag")）"
+    status_row 'session ' "$(dim persist) $(tone_word "$sess_flag") · $(dim effect) $(tone_word "$sess_eff")"
 }
+
 
 cmd_status() {
     running=0
@@ -511,18 +539,18 @@ cmd_status() {
                 ''|*[!0-9]*|0) pid='-' ;;
             esac
             dur=$(systemd_etime)
-            printf '%s\n' "$(label '服务：')$(emph 32 '运行中')（systemd: $(ident 'axs.service')，MainPID $(dim "$pid")，运行时长 $(dim "$dur")）"
+            state="$(emph 32 '运行中')（systemd，pid $(dim "$pid")，$(dim "$dur")）"
             running=1
         else
-            printf '%s\n' "$(label '服务：')$(emph 31 '未运行')（来源 systemd: $(ident 'axs.service')）"
+            state="$(emph 31 '未运行')（systemd）"
         fi
     elif service_up; then
         pid=$(cat "$AXS_RUN/mihomo.pid")
         dur=$(manual_etime "$pid")
-        printf '%s\n' "$(label '服务：')$(emph 32 '运行中')（手动，MainPID $(dim "$pid")，运行时长 $(dim "$dur")）"
+        state="$(emph 32 '运行中')（手动，pid $(dim "$pid")，$(dim "$dur")）"
         running=1
     else
-        printf '%s\n' "$(label '服务：')$(emph 31 '未运行')（来源 $(dim '手动')）"
+        state="$(emph 31 '未运行')（手动）"
     fi
     load_status_ports
     port_ok=0
@@ -534,43 +562,56 @@ cmd_status() {
     if controller_ok; then
         api_ok=1
     fi
-    if [ "$port_ok" -eq 1 ] && [ "$api_ok" -eq 1 ]; then
-        python3 "$PY" status-nodes "$AXS_RUN/secret" "$API" 2>/dev/null || status_node_empty
-    else
-        status_node_empty
-    fi
-    sub_out=$(python3 "$PY" status-sub "$AXS_RUN/userinfo" "$(date +%s)" 2>/dev/null) || sub_out='订阅：未知
-unknown'
-    printf '%s\n' "$sub_out" | head -n 1
-    kind=$(printf '%s\n' "$sub_out" | tail -n 1)
     if [ "$port_ok" -eq 1 ]; then
-        printf '%s\n' "$(label '端口：')$(dim "$MIXED") $(ok '监听')"
+        port_bit="$(dim "$MIXED") $(ok '监听')"
     else
-        printf '%s\n' "$(label '端口：')$(dim "$MIXED") $(bad '不通')"
+        port_bit="$(dim "$MIXED") $(bad '不通')"
     fi
     if [ "$api_ok" -eq 1 ]; then
-        printf '%s\n' "$(label '控制器：')$(dim "$api_port") $(ok '可达')"
+        api_bit="$(dim "$api_port") $(ok '可达')"
     else
-        printf '%s\n' "$(label '控制器：')$(dim "$api_port") $(bad '不通')"
+        api_bit="$(dim "$api_port") $(bad '不通')"
     fi
     if use_systemd; then
         if axs_systemctl is-enabled axs.service >/dev/null 2>&1; then
-            printf '%s\n' "$(label '开机自启：')$(ok 'enabled')"
+            boot=$(ok 'enabled')
         else
-            printf '%s\n' "$(label '开机自启：')$(bad 'disabled')"
+            boot=$(bad 'disabled')
         fi
-        next=$(axs_systemctl list-timers axs-refresh.timer --no-legend 2>/dev/null | head -n 1 || true)
-        case $next in
-            ''|*'timers listed'*) printf '%s\n' "$(label '定时刷新：')$(dim '-')" ;;
-            *) printf '%s\n' "$(label '定时刷新：')$(dim "下次 ${next}")" ;;
-        esac
+        when=$(next_refresh)
+        boot="$boot（刷新：$when）"
     else
-        printf '%s\n' "$(label '开机自启：')$(dim '-')"
-        printf '%s\n' "$(label '定时刷新：')$(dim '-')"
+        boot=$(dim '-')
     fi
-    cache_line net-test
-    cache_line node-test
-    proxy_status_line
+    status_head '服务'
+    status_row '状态    ' "$state"
+    status_row '端口    ' "$port_bit · 控制器 $api_bit"
+    status_row '自启    ' "$boot"
+    node_mid="→ $(dim '-')"
+    node_g=$(dim '-')
+    if [ "$port_ok" -eq 1 ] && [ "$api_ok" -eq 1 ]; then
+        nodes=$(python3 "$PY" status-nodes "$AXS_RUN/secret" "$API" 2>/dev/null || true)
+        one=$(printf '%s\n' "$nodes" | sed -n '1p')
+        two=$(printf '%s\n' "$nodes" | sed -n '2p')
+        if [ -n "$one" ]; then
+            node_mid=$one
+        fi
+        if [ -n "$two" ]; then
+            node_g=$two
+        fi
+    fi
+    status_head '节点'
+    status_row '主代理  ' "$node_mid"
+    status_row 'GLOBAL  ' "$node_g"
+    sub_out=$(python3 "$PY" status-sub "$AXS_RUN/userinfo" "$(date +%s)" 2>/dev/null) || sub_out="$(printf '%s\n%s\n' "$(dim '未知')" unknown)"
+    sub_value=$(printf '%s\n' "$sub_out" | head -n 1)
+    kind=$(printf '%s\n' "$sub_out" | tail -n 1)
+    status_head '订阅'
+    status_row '剩余    ' "$sub_value"
+    status_head '测试'
+    status_row 'net     ' "$(cache_value net-test)"
+    status_row 'node    ' "$(cache_value node-test)"
+    proxy_status_rows
     code=0
     if [ "$running" -eq 0 ] || [ "$port_ok" -eq 0 ]; then
         code=2
@@ -581,6 +622,7 @@ unknown'
     fi
     exit "$code"
 }
+
 
 cmd_health() {
     if use_systemd; then
@@ -1090,23 +1132,23 @@ cmd_proxy_session() {
         status)
             port=$(proxy_mixed)
             if [ ! -f "$flag" ]; then
-                printf '%s\n' "session: $(dim disabled)"
+                printf '%s\n' "session: persist $(dim disabled) · effect $(dim '-')"
                 exit 1
             fi
             if [ ! -f "$xp" ] || ! grep -q 'axs proxy session (managed)' "$xp"; then
-                printf '%s\n' "session: $(ok enabled) (xprofile hook missing)"
+                printf '%s\n' "session: persist $(ok enabled) (xprofile hook missing)"
                 exit 1
             fi
             live=$(session_env http_proxy) && live_rc=0 || live_rc=$?
             if [ "$live_rc" -eq 2 ]; then
-                printf '%s\n' "session: $(ok enabled) · effective $(dim 'no x session')"
+                printf '%s\n' "session: persist $(ok enabled) · effect $(dim 'no-x-session')"
                 exit 1
             fi
             if [ "$live_rc" -eq 0 ] && [ "$live" = "http://127.0.0.1:$port" ]; then
-                printf '%s\n' "session: $(ok enabled) · effective $(ok effective)"
+                printf '%s\n' "session: persist $(ok enabled) · effect $(ok active)"
                 exit 0
             fi
-            printf '%s\n' "session: $(ok enabled) · effective $(dim pending)"
+            printf '%s\n' "session: persist $(ok enabled) · effect $(dim pending)"
             exit 1
             ;;
         *) die 1 "用法" ;;

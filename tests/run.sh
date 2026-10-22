@@ -120,11 +120,12 @@ PASS=$((PASS + 1))
 
 new_run
 assert_code 'status down' 2 status
-grep -q '服务：未运行（来源 手动）' "$RUN/out" || fail "down service: $(cat "$RUN/out")"
-grep -q '节点：主代理 → - · GLOBAL = -' "$RUN/out" || fail "down nodes: $(cat "$RUN/out")"
-grep -q '最近 net test：-' "$RUN/out" || fail "down net cache: $(cat "$RUN/out")"
-grep -q '最近 node test：-' "$RUN/out" || fail "down node cache: $(cat "$RUN/out")"
-grep -q '定时刷新：-' "$RUN/out" || fail "down timer: $(cat "$RUN/out")"
+grep -q '状态    未运行（手动）' "$RUN/out" || fail "down service: $(cat "$RUN/out")"
+grep -q '主代理  → -' "$RUN/out" || fail "down nodes: $(cat "$RUN/out")"
+grep -q 'GLOBAL  -' "$RUN/out" || fail "down global: $(cat "$RUN/out")"
+grep -q 'net     -' "$RUN/out" || fail "down net cache: $(cat "$RUN/out")"
+grep -q 'node    -' "$RUN/out" || fail "down node cache: $(cat "$RUN/out")"
+grep -q '自启    -' "$RUN/out" || fail "down timer: $(cat "$RUN/out")"
 if grep -q "$(printf '\033')" "$RUN/out"; then
     fail 'status down colored off a tty'
 fi
@@ -135,8 +136,8 @@ mkdir -p "$RUN/cache"
 printf 'ts=%s\nresult=ok\n' "$((now - 180))" >"$RUN/cache/net-test"
 printf 'ts=%s\nresult=ok\n' "$((now - 3600))" >"$RUN/cache/node-test"
 assert_code 'status cache age' 2 status
-grep -q '最近 net test：3 分钟前 全部通' "$RUN/out" || fail "cache net: $(cat "$RUN/out")"
-grep -q '最近 node test：1 小时前' "$RUN/out" || fail "cache node: $(cat "$RUN/out")"
+grep -q 'net     3 分钟前 · 全部通' "$RUN/out" || fail "cache net: $(cat "$RUN/out")"
+grep -q 'node    1 小时前' "$RUN/out" || fail "cache node: $(cat "$RUN/out")"
 
 new_run
 export AXS_SYSTEMD=1 AXS_SYSTEMCTL="$ROOT/tests/fake-systemctl"
@@ -154,25 +155,48 @@ if grep -q 'start axs.service' "$RUN/systemctl.log"; then
 fi
 export AXS_MIXED_PORT=7897 AXS_API=127.0.0.1:9097
 assert_code 'systemd status' 2 status
-grep -q '服务：运行中（systemd: axs.service，MainPID 4242，运行时长 -）' "$RUN/out" || fail "systemd status: $(cat "$RUN/out")"
-grep -q '定时刷新：下次 Tue 2026-10-21 02:00:00 CST' "$RUN/out" || fail "timer: $(cat "$RUN/out")"
-grep -q 'proxy user      ' "$RUN/out" || fail "status proxy line: $(cat "$RUN/out")"
-grep -q 'proxy system    ' "$RUN/out" || fail "status system line: $(cat "$RUN/out")"
-grep -q 'proxy session   ' "$RUN/out" || fail "status session line: $(cat "$RUN/out")"
+grep -q '状态    运行中（systemd，pid 4242，-）' "$RUN/out" || fail "systemd status: $(cat "$RUN/out")"
+grep -q 'NextElapseUSecRealtime' "$RUN/systemctl.log" || fail "timer query: $(cat "$RUN/systemctl.log")"
+python3 -c 'import os, time, datetime, pathlib, sys
+text = pathlib.Path(os.environ["AXS_RUN"] + "/out").read_text(encoding="utf-8")
+sec = 4102444800000000 // 1000000
+hhmm = datetime.datetime.fromtimestamp(sec).strftime("%H:%M")
+delta = sec - int(time.time())
+if delta < 0:
+    delta = 0
+if delta < 60:
+    rel = f"{delta} 秒后"
+elif delta < 3600:
+    rel = f"{delta // 60} 分钟后"
+elif delta < 86400:
+    rel = f"{delta // 3600} 小时后"
+else:
+    rel = f"{delta // 86400} 天后"
+want = f"下次 {hhmm}（{rel}）"
+if want not in text:
+    sys.stderr.write(want + "\n" + text)
+    raise SystemExit(1)
+' || fail "timer parse: $(cat "$RUN/out")"
+grep -q 'user    ' "$RUN/out" || fail "status proxy line: $(cat "$RUN/out")"
+grep -q 'system  ' "$RUN/out" || fail "status system line: $(cat "$RUN/out")"
+grep -q 'session ' "$RUN/out" || fail "status session line: $(cat "$RUN/out")"
 
 new_run
 export AXS_SESSION_PID=2147483001
 assert_code 'status proxy off' 2 status
-grep -q 'proxy user      off' "$RUN/out" || fail "status proxy off: $(cat "$RUN/out")"
-grep -q -E 'proxy system    (on|off) · persist disabled' "$RUN/out" || fail "status system line: $(cat "$RUN/out")"
-grep -q 'proxy session   persist disabled · effective no x session' "$RUN/out" || fail "status session line: $(cat "$RUN/out")"
+grep -q 'user    off' "$RUN/out" || fail "status proxy off: $(cat "$RUN/out")"
+grep -q -E 'system  (on|off)（persist disabled）' "$RUN/out" || fail "status system line: $(cat "$RUN/out")"
+grep -q 'session persist disabled · effect -' "$RUN/out" || fail "status session line: $(cat "$RUN/out")"
+if grep -q 'no-x-session' "$RUN/out"; then
+    fail 'disabled effect is no-x-session'
+fi
 unset AXS_SESSION_PID || true
 proxy_status_env() {
     export http_proxy=http://127.0.0.1:7897
     "$AXS" status >"$RUN/out" 2>"$RUN/err" || true
 }
 proxy_status_env
-grep -q 'proxy user      on' "$RUN/out" || fail "status proxy on: $(cat "$RUN/out")"
+grep -q 'user    on' "$RUN/out" || fail "status proxy on: $(cat "$RUN/out")"
 
 new_run
 assert_code 'status down' 2 status
@@ -180,7 +204,7 @@ assert_code 'status down' 2 status
 new_run
 printf '%s\n' '$' >"$RUN/mihomo.pid"
 assert_code 'status bad pid' 2 status
-grep -q '服务：未运行' "$RUN/out" || fail "bad pid out: $(cat "$RUN/out")"
+grep -q '未运行（手动）' "$RUN/out" || fail "bad pid out: $(cat "$RUN/out")"
 grep -q '告警：mihomo.pid 不是数字' "$RUN/err" || fail "bad pid err: $(cat "$RUN/err")"
 
 new_run
@@ -395,11 +419,11 @@ prepare_health 18080
 now=$(date +%s)
 printf '%s\n' "expire=$((now - 10))" >"$RUN/userinfo"
 assert_code 'status expired' 5 status
-grep -q '服务：运行中（手动，MainPID' "$RUN/out" || fail "expired service: $(cat "$RUN/out")"
-grep -q '端口：18080 监听' "$RUN/out" || fail "expired port: $(cat "$RUN/out")"
-grep -q '控制器：18081 可达' "$RUN/out" || fail "expired api: $(cat "$RUN/out")"
-grep -q '节点：主代理 → - · GLOBAL = -' "$RUN/out" || fail "expired nodes: $(cat "$RUN/out")"
-grep -q '订阅：已过期，剩余 0 天' "$RUN/out" || fail "expired sub: $(cat "$RUN/out")"
+grep -q '状态    运行中（手动，pid' "$RUN/out" || fail "expired service: $(cat "$RUN/out")"
+grep -q '18080 监听' "$RUN/out" || fail "expired port: $(cat "$RUN/out")"
+grep -q '控制器 18081 可达' "$RUN/out" || fail "expired api: $(cat "$RUN/out")"
+grep -q '主代理  → -' "$RUN/out" || fail "expired nodes: $(cat "$RUN/out")"
+grep -q '已过期，0 天' "$RUN/out" || fail "expired sub: $(cat "$RUN/out")"
 
 new_run
 mark_up
@@ -1114,7 +1138,7 @@ grep -F -q "${ESC}[31mdisabled${ESC}[0m" "$RUN/out" || fail "disable color: $(ca
 printf '%s\n' enabled >"$RUN/systemctl.enabled"
 export AXS_MIXED_PORT=7897 AXS_API=127.0.0.1:9097 AXS_COLOR=never
 assert_code 'status enabled' 2 status
-grep -q '开机自启：enabled' "$RUN/out" || fail "status enabled: $(cat "$RUN/out")"
+grep -q '自启    enabled（刷新：' "$RUN/out" || fail "status enabled: $(cat "$RUN/out")"
 if grep -q "$ESC" "$RUN/out"; then
     fail 'status never colored'
 fi
@@ -1200,22 +1224,25 @@ mkdir -p "$RUN/cache"
 printf 'ts=%s\nresult=ok\n' "$((now - 180))" >"$RUN/cache/net-test"
 export AXS_COLOR=always
 assert_code 'status tone' 5 status
-grep -F -q "${ESC}[90m服务：" "$RUN/out" || fail "status label: $(cat "$RUN/out")"
+grep -F -q "${ESC}[1m服务" "$RUN/out" || fail "status label: $(cat "$RUN/out")"
+grep -F -q "${ESC}[90m状态" "$RUN/out" || fail "status row label: $(cat "$RUN/out")"
 grep -F -q "${ESC}[1;32m运行中" "$RUN/out" || fail "status up: $(cat "$RUN/out")"
 grep -F -q "${ESC}[32m监听" "$RUN/out" || fail "status port: $(cat "$RUN/out")"
-grep -F -q "${ESC}[36m主代理" "$RUN/out" || fail "status group: $(cat "$RUN/out")"
+grep -F -q "${ESC}[36m自动选择" "$RUN/out" || fail "status group: $(cat "$RUN/out")"
 grep -F -q "${ESC}[1;32ma" "$RUN/out" || fail "status now: $(cat "$RUN/out")"
 python3 -c 'import os,re,sys
 esc=re.compile("\x1b\\[[0-9;]*m")
 text=esc.sub("", open(os.environ["AXS_RUN"]+"/out",encoding="utf-8").read())
-chain="节点：主代理 → 自动选择（自动，url-test）→ a · GLOBAL = DIRECT"
-if chain not in text:
+if "主代理  → 自动选择（自动，url-test）→ a" not in text:
     sys.stderr.write(text)
     raise SystemExit(1)
+if "GLOBAL  DIRECT" not in text:
+    sys.stderr.write(text)
+    raise SystemExit(4)
 if "上传 1.5K" not in text:
     raise SystemExit(2)
-want=["服务：","节点：","订阅：","端口：","控制器：","开机自启：","定时刷新：","最近 net test：","最近 node test："]
-got=[line.split("：",1)[0]+"：" for line in text.splitlines() if "：" in line]
+want=["服务","节点","订阅","测试","代理"]
+got=[line for line in text.splitlines() if line in want]
 if got!=want:
     sys.stderr.write(repr(got))
     raise SystemExit(3)
@@ -1227,7 +1254,8 @@ assert_code 'status tone plain' 5 status
 if grep -q "$ESC" "$RUN/out"; then
     fail 'status never colored'
 fi
-grep -q '节点：主代理 → 自动选择（自动，url-test）→ a · GLOBAL = DIRECT' "$RUN/out" || fail "plain chain: $(cat "$RUN/out")"
+grep -q '主代理  → 自动选择（自动，url-test）→ a' "$RUN/out" || fail "plain chain: $(cat "$RUN/out")"
+grep -q 'GLOBAL  DIRECT' "$RUN/out" || fail "plain global: $(cat "$RUN/out")"
 grep -q '上传 1.5K' "$RUN/out" || fail "plain bytes: $(cat "$RUN/out")"
 
 
@@ -1369,25 +1397,27 @@ grep -q 'xprofile hook missing' "$RUN/out" || fail "session unhooked: $(cat "$RU
 printf '# axs proxy session (managed)\n' >>"$AXS_XPROFILE"
 export AXS_SESSION_PID=2147483001
 assert_code 'proxy session status no-dwm' 1 proxy session status
-grep -q 'effective no x session' "$RUN/out" || fail "session no dwm: $(cat "$RUN/out")"
+grep -q 'effect no-x-session' "$RUN/out" || fail "session no dwm: $(cat "$RUN/out")"
+"$AXS" status >"$RUN/status" 2>"$RUN/err" || true
+grep -q 'session persist enabled · effect no-x-session' "$RUN/status" || fail "summary no-x: $(cat "$RUN/status")"
 env -i /bin/sleep 30 &
 echo $! >>"$PIDS"
 export AXS_SESSION_PID=$!
 assert_code 'proxy session status cold' 1 proxy session status
-grep -q 'effective pending' "$RUN/out" || fail "session cold: $(cat "$RUN/out")"
+grep -q 'effect pending' "$RUN/out" || fail "session cold: $(cat "$RUN/out")"
 env -i http_proxy=http://127.0.0.1:7897 /bin/sleep 30 &
 echo $! >>"$PIDS"
 export AXS_SESSION_PID=$!
 assert_code 'proxy session status live' 0 proxy session status
-grep -q 'effective effective' "$RUN/out" || fail "session live: $(cat "$RUN/out")"
+grep -q 'effect active' "$RUN/out" || fail "session live: $(cat "$RUN/out")"
 if grep -q 'pending' "$RUN/out"; then
     fail 'session live still cold'
 fi
 "$AXS" status >"$RUN/out" 2>"$RUN/err" || true
-grep -q 'proxy session   persist enabled · effective effective' "$RUN/out" || fail "status line live: $(cat "$RUN/out")"
+grep -q 'session persist enabled · effect active' "$RUN/out" || fail "status line live: $(cat "$RUN/out")"
 assert_code 'proxy session disable' 0 proxy session disable
 assert_code 'proxy session status off' 1 proxy session status
-grep -q 'disabled' "$RUN/out" || fail "session disabled: $(cat "$RUN/out")"
+grep -q 'effect -' "$RUN/out" || fail "session disabled: $(cat "$RUN/out")"
 unset AXS_SESSION_PID || true
 assert_code 'proxy session bogus' 1 proxy session bogus
 
