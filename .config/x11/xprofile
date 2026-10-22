@@ -136,3 +136,8 @@ if [ -f "$HOME/.local/lib/access/run/session-proxy" ]; then
 	export all_proxy=socks5://127.0.0.1:7897
 	export no_proxy=localhost,127.0.0.1,::1
 fi
+
+# axs proxy system identity (managed)
+if [ -f "$HOME/.local/lib/access/run/gsettings-identity" ]; then
+	export XDG_CURRENT_DESKTOP=GNOME
+fi
