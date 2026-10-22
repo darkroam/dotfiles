@@ -46,7 +46,6 @@ bad() { tone 31 "$1"; }
 dim() { tone 90 "$1"; }
 bold() { tone 1 "$1"; }
 emph() { tone "1;$1" "$2"; }
-paint() { tone "$1" "$2"; }
 
 say_err() {
     AXS_PAINT_FD=2
@@ -261,16 +260,6 @@ install_file() {
         mv -f "$dest.tmp" "$dest"
     fi
     chmod 600 "$dest"
-}
-
-restore_bak() {
-    dest=$1
-    if [ -f "$dest.bak" ]; then
-        cp -p "$dest.bak" "$dest"
-        chmod 600 "$dest"
-    else
-        rm -f "$dest"
-    fi
 }
 
 snapshot() {

@@ -8,6 +8,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "lib"))
 import merge  # noqa: E402
+from axs.config import DEFAULT_API, DEFAULT_DNS_LISTEN, DEFAULT_MIXED, PREPEND  # noqa: E402
 
 CIDRS = [
     "IP-CIDR,127.0.0.0/8,DIRECT,no-resolve",
@@ -18,15 +19,6 @@ CIDRS = [
     "IP-CIDR6,fc00::/7,DIRECT,no-resolve",
     "IP-CIDR6,fe80::/10,DIRECT,no-resolve",
 ]
-PREPEND = [
-    "DOMAIN-SUFFIX,localhost,DIRECT",
-    "DOMAIN-SUFFIX,local,DIRECT",
-    "DOMAIN-SUFFIX,goproxy.cn,DIRECT",
-    "DOMAIN-SUFFIX,ghproxy.com,DIRECT",
-    "DOMAIN-SUFFIX,gh-proxy.com,DIRECT",
-]
-
-
 def main():
     work = Path(sys.argv[1])
     secret = "test-secret-value"
@@ -36,7 +28,7 @@ def main():
     )
     override = work / "override.yaml"
     merged = work / "out.yaml"
-    merge.write_defaults(override, "7897", "127.0.0.1:9097")
+    merge.write_defaults(override, DEFAULT_MIXED, DEFAULT_API)
     merge.build_file(
         ROOT / "tests" / "fixtures" / "subscription.yaml",
         override,
@@ -47,17 +39,17 @@ def main():
     data = yaml.safe_load(merged.read_text(encoding="utf-8"))
     expect = {
         "mode": "rule",
-        "mixed-port": 7897,
+        "mixed-port": int(DEFAULT_MIXED),
         "allow-lan": False,
         "ipv6": True,
         "log-level": "info",
-        "external-controller": "127.0.0.1:9097",
+        "external-controller": DEFAULT_API,
         "secret": secret,
     }
     for key, value in expect.items():
         if data.get(key) != value:
             raise SystemExit(f"{key}: {data.get(key)!r}")
-    if data["dns"]["enable"] is not True or data["dns"]["listen"] != "127.0.0.1:1053":
+    if data["dns"]["enable"] is not True or data["dns"]["listen"] != DEFAULT_DNS_LISTEN:
         raise SystemExit(f"dns: {data['dns']!r}")
     if data["dns"]["nameserver"] != ["192.0.2.53"]:
         raise SystemExit("nameserver overwritten")
@@ -67,7 +59,7 @@ def main():
         if key in data:
             raise SystemExit(f"left {key}")
     rules = data["rules"]
-    head = CIDRS + PREPEND + ["DOMAIN-SUFFIX,added.example,PROXY", "MATCH,PROXY"]
+    head = CIDRS + list(PREPEND) + ["DOMAIN-SUFFIX,added.example,PROXY", "MATCH,PROXY"]
     if rules != head:
         raise SystemExit("rule order\n" + "\n".join(rules))
     if rules.count("DOMAIN-SUFFIX,localhost,DIRECT") != 1:

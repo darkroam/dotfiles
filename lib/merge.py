@@ -14,6 +14,8 @@ from pathlib import Path
 
 import yaml
 
+from axs.core import atomic_write
+
 DELAY_URL = "https://www.gstatic.com/generate_204"
 DEFAULT_URLS = (
     "https://www.github.com",
@@ -31,13 +33,6 @@ CIDRS = [
     "IP-CIDR6,fc00::/7,DIRECT,no-resolve",
     "IP-CIDR6,fe80::/10,DIRECT,no-resolve",
 ]
-PREPEND = [
-    "DOMAIN-SUFFIX,localhost,DIRECT",
-    "DOMAIN-SUFFIX,local,DIRECT",
-    "DOMAIN-SUFFIX,goproxy.cn,DIRECT",
-    "DOMAIN-SUFFIX,ghproxy.com,DIRECT",
-    "DOMAIN-SUFFIX,gh-proxy.com,DIRECT",
-]
 DROP_PORTS = ("port", "socks-port", "redir-port", "tproxy-port")
 
 
@@ -46,36 +41,13 @@ def fail(message):
     raise SystemExit(1)
 
 
-def atomic_write(path, text):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    os.chmod(path.parent, 0o700)
-    tmp = path.with_name(path.name + ".tmp")
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    try:
-        os.write(fd, text.encode("utf-8"))
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-    os.replace(tmp, path)
-    os.chmod(path, 0o600)
-
-
 def write_defaults(path, mixed, api):
-    if not str(api).startswith("127.0.0.1:"):
-        fail("控制器必须在本机回环")
-    data = {
-        "mixed-port": int(mixed),
-        "mode": "rule",
-        "allow-lan": False,
-        "log-level": "info",
-        "ipv6": True,
-        "external-controller": str(api),
-        "tun": {"enable": False},
-        "dns": {"enable": True, "listen": "127.0.0.1:1053"},
-        "prepend-rules": list(PREPEND),
-    }
-    atomic_write(path, yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
+    from axs.config import write_override
+
+    try:
+        write_override(path, mixed, api)
+    except ValueError as exc:
+        fail(str(exc))
 
 
 def merge_dict(base, over):

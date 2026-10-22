@@ -92,12 +92,15 @@ shellcheck "$ROOT/bin/axs" "$ROOT/bin/mihomo-run" "$ROOT/lib/common.sh" "$ROOT/t
     "$ROOT/tests/fake-mihomo" "$ROOT/tests/env/run.sh"
 python3 -m py_compile "$ROOT/lib/merge.py" "$ROOT/tests/check_merge.py" "$ROOT/tests/prep_run.py" \
     "$ROOT/lib/axs/__init__.py" "$ROOT/lib/axs/render.py" "$ROOT/lib/axs/cli.py" \
+    "$ROOT/lib/axs/config.py" "$ROOT/lib/axs/core.py" \
     "$ROOT/tests/env/lab.py" "$ROOT/tests/support/snap.py" \
-    "$ROOT/tests/unit/test_cli.py" "$ROOT/tests/unit/test_bare_exit.py"
+    "$ROOT/tests/unit/test_cli.py" "$ROOT/tests/unit/test_bare_exit.py" \
+    "$ROOT/tests/unit/test_core.py"
 python3 "$ROOT/tests/unit/test_cli.py"
 python3 "$ROOT/tests/unit/test_bare_exit.py"
+python3 "$ROOT/tests/unit/test_core.py"
 python3 "$ROOT/tests/support/snap.py" check
-PASS=$((PASS + 4))
+PASS=$((PASS + 5))
 
 new_run
 python3 "$ROOT/tests/check_merge.py" "$RUN"
@@ -412,7 +415,7 @@ arm_api PROXY 500 0
 cp "$FIX" "$RUN/subscription.yaml"
 printf '%s\n' 'SENTINEL-OLD' >"$RUN/config.yaml"
 printf '%s\n' 'DOMAIN kept.example DIRECT' >"$RUN/rules.list"
-python3 "$ROOT/tests/prep_run.py" "$ROOT" "$RUN" "7897" "$AXS_API"
+python3 "$ROOT/tests/prep_run.py" "$ROOT" "$RUN" "" "$AXS_API"
 assert_code 'rule reload rollback' 3 rule add direct new.example
 test "$(cat "$RUN/rules.list")" = "DOMAIN kept.example DIRECT" || fail 'rule add kept a failed edit'
 test "$(cat "$RUN/config.yaml")" = "SENTINEL-OLD" || fail 'rule add kept a failed config'
@@ -513,7 +516,7 @@ new_run
 mark_up
 export AXS_API="127.0.0.1:18081"
 arm_api PROXY 204 0
-python3 "$ROOT/tests/prep_run.py" "$ROOT" "$RUN" "7897" "$AXS_API"
+python3 "$ROOT/tests/prep_run.py" "$ROOT" "$RUN" "" "$AXS_API"
 assert_code 'node test' 0 node test PROXY
 grep -q ' 0' "$RUN/out" || fail "delay output: $(cat "$RUN/out")"
 test "$(stat -c '%a' "$RUN/cache")" = 700 || fail 'cache dir mode'

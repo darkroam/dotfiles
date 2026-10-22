@@ -53,9 +53,6 @@ def emph(code, text):
     return tone(f"1;{code}", text)
 
 
-def paint(code, text):
-    return tone(code, text)
-
 
 def pad(text, width):
     # printf '%-Ns' counts bytes. A character pad would shift the Chinese header.
