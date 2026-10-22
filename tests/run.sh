@@ -95,12 +95,13 @@ python3 -m py_compile "$ROOT/lib/merge.py" "$ROOT/tests/check_merge.py" "$ROOT/t
     "$ROOT/lib/axs/config.py" "$ROOT/lib/axs/core.py" \
     "$ROOT/tests/env/lab.py" "$ROOT/tests/support/snap.py" \
     "$ROOT/tests/unit/test_cli.py" "$ROOT/tests/unit/test_bare_exit.py" \
-    "$ROOT/tests/unit/test_core.py"
+    "$ROOT/tests/unit/test_core.py" "$ROOT/tests/unit/test_pin.py"
 python3 "$ROOT/tests/unit/test_cli.py"
 python3 "$ROOT/tests/unit/test_bare_exit.py"
 python3 "$ROOT/tests/unit/test_core.py"
+python3 "$ROOT/tests/unit/test_pin.py"
 python3 "$ROOT/tests/support/snap.py" check
-PASS=$((PASS + 5))
+PASS=$((PASS + 6))
 
 new_run
 python3 "$ROOT/tests/check_merge.py" "$RUN"

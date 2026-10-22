@@ -5,6 +5,7 @@ import io
 import os
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -20,9 +21,11 @@ from axs.config import (  # noqa: E402
     read_ports,
     status_ports,
 )
+from axs.config import LOCK  # noqa: E402
 from axs.core import (  # noqa: E402
     LockBusy,
     SystemdCache,
+    atomic_write,
     install_file,
     lock,
     restore_snapshot,
@@ -100,6 +103,24 @@ def check_install(tmp):
     install_file(same, dest)
     if dest.read_text(encoding="utf-8") != "same\n" or same.exists():
         raise SystemExit("same-dir move")
+    if (run / "config.yaml.bak").read_text(encoding="utf-8") != "new\n":
+        raise SystemExit("same-dir bak was not the previous file")
+    fresh_src = src_dir / "fresh.yaml"
+    fresh_src.write_text("only\n", encoding="utf-8")
+    fresh = run / "fresh.yaml"
+    install_file(fresh_src, fresh)
+    if fresh.read_text(encoding="utf-8") != "only\n" or (run / "fresh.yaml.bak").exists():
+        raise SystemExit("missing dest created a bak")
+    if mode(fresh) != "600":
+        raise SystemExit("fresh mode")
+    os.chmod(run, 0o755)
+    atomic_write(run / "secret", "abc\n")
+    if (run / "secret").read_text(encoding="utf-8") != "abc\n":
+        raise SystemExit("atomic body")
+    if mode(run / "secret") != "600" or mode(run) != "700":
+        raise SystemExit("atomic mode")
+    if (run / "secret.tmp").exists():
+        raise SystemExit("atomic tmp left")
 
 
 def check_snapshot(tmp):
@@ -132,21 +153,51 @@ def check_snapshot(tmp):
         raise SystemExit("bak contract")
     if mode(run / "config.yaml") != "600" or mode(run / "config.yaml.bak") != "600":
         raise SystemExit("restore mode")
+    if mode(run / ".snap") != "700":
+        raise SystemExit("snap dir mode")
+    (run / "notes").write_text("keep\n", encoding="utf-8")
+    (run / ".snap" / "config.yaml").unlink()
+    restore_snapshot(run)
+    if (run / "config.yaml").exists():
+        raise SystemExit("absent snap config left the live file")
+    if (run / "config.yaml.bak").read_text(encoding="utf-8") != "c\n":
+        raise SystemExit("absent snap config rewrote bak")
+    if (run / "notes").read_text(encoding="utf-8") != "keep\n":
+        raise SystemExit("restore removed an unrelated file")
 
 
 def check_lock(tmp):
-    first = lock(tmp)
+    run = Path(tmp)
+    held = threading.Event()
+    release = threading.Event()
+    errors = []
+
+    def holder():
+        handle = lock(run)
+        held.set()
+        if not release.wait(2):
+            errors.append("holder timed out")
+        handle.close()
+
+    thread = threading.Thread(target=holder)
+    thread.start()
+    if not held.wait(2):
+        raise SystemExit("holder did not lock")
     try:
-        try:
-            lock(tmp)
-        except LockBusy:
-            pass
-        else:
-            raise SystemExit("lock was not exclusive")
-    finally:
-        first.close()
-    second = lock(tmp)
-    second.close()
+        lock(run)
+    except LockBusy as exc:
+        if str(exc) != "锁被占用":
+            raise SystemExit(f"lock text {exc}") from exc
+    else:
+        raise SystemExit("lock was not exclusive")
+    release.set()
+    thread.join(2)
+    if thread.is_alive() or errors:
+        raise SystemExit("holder stuck")
+    again = lock(run)
+    again.close()
+    if not (run / LOCK).is_file() or mode(run) != "700":
+        raise SystemExit("lock path or run mode")
 
 
 def check_systemd():
@@ -163,6 +214,17 @@ def check_systemd():
         raise SystemExit("systemd cache recomputed")
     if SystemdCache().get({}, lambda: "not-loaded") != "0":
         raise SystemExit("unloaded")
+    calls["n"] = 0
+    if SystemdCache().get({"AXS_SYSTEMD": "1"}, show) != "1" or calls["n"] != 0:
+        raise SystemExit("forced on queried systemd")
+    env = {"AXS_SYSTEMD": "2"}
+    if SystemdCache().get(env, lambda: " loaded \n") != "1" or "AXS_SYSTEMD_MODE" in env:
+        raise SystemExit("whitespace or env write")
+    if SystemdCache().get({}, lambda: (_ for _ in ()).throw(OSError("down"))) != "0":
+        raise SystemExit("show failure")
+    other = SystemdCache()
+    if other.mode is not None or other.get({}, lambda: "loaded") != "1":
+        raise SystemExit("caches are not independent")
 
 
 def main():
