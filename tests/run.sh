@@ -1129,6 +1129,10 @@ assert_code 'bare help color' 1
 test "$(grep -c . "$RUN/err")" -eq 7 || fail "bare lines: $(cat "$RUN/err")"
 grep -q '用法：axs start|stop|status|restart|ensure|clean' "$RUN/err" || fail "bare help: $(cat "$RUN/err")"
 grep -q 'axs net test' "$RUN/err" || fail "bare last: $(cat "$RUN/err")"
+grep -q 'session enable|disable|status' "$RUN/err" || fail "usage session: $(cat "$RUN/err")"
+if grep -q 'session on|off' "$RUN/err"; then
+    fail 'usage still lists session on'
+fi
 if grep -q 'health' "$RUN/err"; then
     fail 'help lists health'
 fi
@@ -1270,9 +1274,19 @@ export AXS_GS_DB="$RUN/fake/gs"
 old_path=$PATH
 PATH="$RUN/fakebin:$PATH"
 assert_code 'proxy system on' 0 proxy system on
+if [ -e "$RUN/proxy-system.flag" ]; then
+    fail 'on created flag'
+fi
 assert_code 'proxy system status on' 0 proxy system status
+grep -q '持久：disabled' "$RUN/out" || fail "runtime on persist: $(cat "$RUN/out")"
 assert_code 'proxy system off' 0 proxy system off
 assert_code 'proxy system status off' 1 proxy system status
+assert_code 'proxy system enable' 0 proxy system enable
+test "$(stat -c '%a' "$RUN/proxy-system.flag")" = 600 || fail 'enable mode'
+assert_code 'proxy system disable' 0 proxy system disable
+if [ -e "$RUN/proxy-system.flag" ]; then
+    fail 'disable left flag'
+fi
 assert_code 'proxy system bogus' 1 proxy system bogus
 PATH=$old_path
 export PATH
@@ -1286,12 +1300,13 @@ unset XDG_CURRENT_DESKTOP || true
 old_path=$PATH
 PATH="$RUN/fakebin:$PATH"
 : >"$RUN/gsettings-identity"
-assert_code 'proxy system identity on' 0 proxy system on
+assert_code 'proxy system enable migrate' 0 proxy system enable
 test "$(stat -c '%a' "$RUN/proxy-system.flag")" = 600 || fail 'identity mode'
 if [ -e "$RUN/gsettings-identity" ]; then
     fail 'old system flag remains'
 fi
-grep -q '重登 X 后 libproxy/Edge 才会读取 gsettings' "$RUN/out" || fail 'system on relogin hint'
+grep -q '重登 X 后 libproxy/Edge 才会读取 gsettings' "$RUN/out" || fail 'system enable relogin hint'
+assert_code 'proxy system on keeps flag' 0 proxy system on
 env -i /bin/sleep 30 &
 echo $! >>"$PIDS"
 export AXS_SESSION_PID=$!
@@ -1317,12 +1332,18 @@ grep -q '会话标识：生效' "$RUN/out" || fail "status gnome list: $(cat "$R
 export AXS_SESSION_PID=2147483001
 assert_code 'proxy system status no session' 0 proxy system status
 grep -q '无 X 会话' "$RUN/out" || fail "system no session: $(cat "$RUN/out")"
-assert_code 'proxy system identity off' 0 proxy system off
+assert_code 'proxy system off keeps flag' 0 proxy system off
+if [ ! -f "$RUN/proxy-system.flag" ]; then
+    fail 'off removed flag'
+fi
+assert_code 'proxy system status still enabled' 1 proxy system status
+grep -q '持久：enabled' "$RUN/out" || fail "off kept persist: $(cat "$RUN/out")"
+assert_code 'proxy system disable' 0 proxy system disable
 if [ -e "$RUN/proxy-system.flag" ]; then
     fail 'identity file remains'
 fi
 assert_code 'proxy system status identity off' 1 proxy system status
-grep -q '标识：off' "$RUN/out" || fail "status identity off: $(cat "$RUN/out")"
+grep -q '持久：disabled' "$RUN/out" || fail "status identity off: $(cat "$RUN/out")"
 PATH=$old_path
 export PATH
 unset AXS_XPROFILE AXS_GS_DB XDG_CURRENT_DESKTOP || true
@@ -1330,8 +1351,10 @@ unset AXS_XPROFILE AXS_GS_DB XDG_CURRENT_DESKTOP || true
 new_run
 export AXS_XPROFILE="$RUN/xprofile"
 printf 'test\n' >"$AXS_XPROFILE"
+assert_code 'proxy session on removed' 1 proxy session on
+assert_code 'proxy session off removed' 1 proxy session off
 : >"$RUN/session-proxy"
-assert_code 'proxy session on' 0 proxy session on
+assert_code 'proxy session enable' 0 proxy session enable
 test "$(stat -c '%a' "$RUN/proxy-session.flag")" = 600 || fail 'session flag mode'
 if [ -e "$RUN/session-proxy" ]; then
     fail 'old session flag remains'
@@ -1357,7 +1380,7 @@ if grep -q '未生效' "$RUN/out"; then
 fi
 "$AXS" status >"$RUN/out" 2>"$RUN/err" || true
 grep -q 'session 持久 on/生效 on' "$RUN/out" || fail "status line live: $(cat "$RUN/out")"
-assert_code 'proxy session off' 0 proxy session off
+assert_code 'proxy session disable' 0 proxy session disable
 assert_code 'proxy session status off' 1 proxy session status
 grep -q 'disabled' "$RUN/out" || fail "session disabled: $(cat "$RUN/out")"
 unset AXS_SESSION_PID || true

@@ -21,7 +21,7 @@
 
 - 不改其它工具的命令，不用包装器占名，不新增会挡住 `/usr/bin/proxy` 的函数。
 - 默认不注入；三层为显式开关，`proxy user` 与 `setproxy` 对齐。
-- 存在性开关以 `.flag` 结尾，只看文件在不在：`run/proxy-session.flag`、`run/proxy-system.flag`。`proxy system on` 写后者；xprofile 只在它存在时导出 `XDG_CURRENT_DESKTOP=GNOME`，重登 X 生效。这不是默认注入。副作用是部分应用会把会话当成 GNOME。浏览器推荐走 session 层。
+- 存在性开关以 `.flag` 结尾，只看文件在不在：`run/proxy-session.flag`、`run/proxy-system.flag`。`proxy system enable` 写后者，`on` 不写。xprofile 只在它存在时导出 `XDG_CURRENT_DESKTOP=GNOME`，重登 X 生效。这不是默认注入。副作用是部分应用会把会话当成 GNOME。浏览器推荐走 session 层。
 - 未启用 TUN 之前，不得在文档或状态里写成「对其它工具已经透明」。
 
 ## 运行边界

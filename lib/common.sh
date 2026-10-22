@@ -61,7 +61,7 @@ show_usage() {
       axs rule list|add|del
       axs node groups|list|test|switch
       axs net test
-      axs proxy user|system|session on|off|status
+      axs proxy user on|off|status; system on|off|enable|disable|status; session enable|disable|status
 EOF
 }
 
@@ -110,9 +110,10 @@ show_help() {
     help_note "例：axs net test"
     printf '\n%s\n' "$(bold '代理')" >"$AXS_HELP_FD"
     help_row "axs proxy user" "当前 shell 环境（on|off|status）"
-    help_row "axs proxy system" "gsettings 运行时（on|off|status）"
-    help_row "axs proxy session" "登录持久开关（on|off|status）"
+    help_row "axs proxy system" "运行时 on|off；持久 enable|disable"
+    help_row "axs proxy session" "登录持久 enable|disable|status"
     help_note "status 读 dwm 环境，区分持久开关和当前会话是否已生效"
+    help_note "session 的 on|off 已移除，改用 enable|disable。system on 不再写标识开关"
     help_note "例：eval \"\$(axs proxy user on)\""
     printf '\n%s\n' "$(bold '清理')" >&"$AXS_HELP_FD"
     help_row "axs clean" "删除本地配置，可加 --yes"
@@ -990,32 +991,42 @@ cmd_proxy_user() {
 cmd_proxy_system() {
     sub=${1:-}
     [ $# -eq 1 ] || die 1 "用法"
-    command -v gsettings >/dev/null 2>&1 || die 3 "没有 gsettings"
-    gs=org.gnome.system.proxy
-    port=$(proxy_mixed)
     flag=$AXS_RUN/proxy-system.flag
     xp=${AXS_XPROFILE:-$HOME/.config/x11/xprofile}
     case $sub in
+        on|off|status)
+            command -v gsettings >/dev/null 2>&1 || die 3 "没有 gsettings"
+            ;;
+    esac
+    gs=org.gnome.system.proxy
+    case $sub in
         on)
+            port=$(proxy_mixed)
             gsettings set "$gs" mode 'manual' || die 3 "gsettings 失败"
             gsettings set "$gs.http" host '127.0.0.1' || die 3 "gsettings 失败"
             gsettings set "$gs.http" port "$port" || die 3 "gsettings 失败"
             gsettings set "$gs.https" host '127.0.0.1' || die 3 "gsettings 失败"
             gsettings set "$gs.https" port "$port" || die 3 "gsettings 失败"
             gsettings set "$gs" ignore-hosts "['localhost','127.0.0.1','::1']" || die 3 "gsettings 失败"
+            printf '%s\n' "system：$(ok on)（127.0.0.1:$port）"
+            ;;
+        off)
+            gsettings set "$gs" mode 'none' || die 3 "gsettings 失败"
+            printf '%s\n' "system：$(bad off)"
+            ;;
+        enable)
             mkdir -p "$AXS_RUN"
             ( umask 077; : >"$flag" )
             chmod 600 "$flag"
             rm -f "$AXS_RUN/gsettings-identity"
-            printf '%s\n' "system：$(ok on)（127.0.0.1:$port）"
-            printf '%s\n' "重登 X 后 libproxy/Edge 才会读取 gsettings"
+            printf '%s\n' "system：$(ok enabled)（重登 X 后 libproxy/Edge 才会读取 gsettings）"
             ;;
-        off)
-            gsettings set "$gs" mode 'none' || die 3 "gsettings 失败"
+        disable)
             rm -f "$flag"
-            printf '%s\n' "system：$(bad off)"
+            printf '%s\n' "system：$(bad disabled)"
             ;;
         status)
+            port=$(proxy_mixed)
             mode=$(gsettings get "$gs" mode 2>/dev/null | tr -d "'" ) || die 3 "gsettings 失败"
             host=$(gsettings get "$gs.http" host 2>/dev/null | tr -d "'" ) || true
             sport=$(gsettings get "$gs.http" port 2>/dev/null | tr -d "'" ) || true
@@ -1027,11 +1038,11 @@ cmd_proxy_system() {
                 code=1
             fi
             if [ -f "$flag" ] && { [ ! -f "$xp" ] || ! grep -q 'axs proxy system identity (managed)' "$xp"; }; then
-                printf '%s\n' "标识：$(warn 待挂接)"
+                printf '%s\n' "持久：$(warn enabled)（待挂接）"
             elif [ -f "$flag" ]; then
-                printf '%s\n' "标识：$(ok on)（xprofile 已挂接）"
+                printf '%s\n' "持久：$(ok enabled)（xprofile 已挂接）"
             else
-                printf '%s\n' "标识：$(bad off)"
+                printf '%s\n' "持久：$(bad disabled)"
             fi
             desk_state=off
             desk=$(session_env XDG_CURRENT_DESKTOP) && desk_rc=0 || desk_rc=$?
@@ -1062,15 +1073,16 @@ cmd_proxy_session() {
     flag=$AXS_RUN/proxy-session.flag
     xp=${AXS_XPROFILE:-$HOME/.config/x11/xprofile}
     case $sub in
-        on)
+        enable)
             mkdir -p "$AXS_RUN"
             ( umask 077; : >"$flag" )
+            chmod 600 "$flag"
             rm -f "$AXS_RUN/session-proxy"
-            printf '%s\n' "session：$(ok on)（下次登录 X 生效）"
+            printf '%s\n' "session：$(ok enabled)（下次登录 X 生效）"
             ;;
-        off)
+        disable)
             rm -f "$flag"
-            printf '%s\n' "session：$(bad off)"
+            printf '%s\n' "session：$(bad disabled)"
             ;;
         status)
             port=$(proxy_mixed)

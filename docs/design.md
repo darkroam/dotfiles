@@ -391,11 +391,13 @@ v1 基线（不连真实订阅、不启真实进程）：
 | `axs proxy user on` | 终端 | 环境变量 | 输出去 stdout（供 `eval "$(axs proxy user on)"`）；http/https/all/no proxy 大小写各一份，与 setproxy 对齐 |
 | `axs proxy user off` | 终端 | 环境变量 | 输出 unset 行 |
 | `axs proxy user status` | 终端 | 读环境变量 | 指向本代理退 0，否则退 1 |
-| `axs proxy system on` | 指定应用 | gsettings + 标识开关 | mode=manual + http/https host/port + ignore-hosts；写 `run/proxy-system.flag`（0600）；提示重登 X；无 gsettings 退 3 |
-| `axs proxy system off` | 指定应用 | gsettings | mode=none（不做 schema 级 reset），并删标识开关 |
-| `axs proxy system status` | 指定应用 | gsettings 运行时 + 持久开关 + dwm 环境 | mode/host/port 匹配退 0，否则退 1；另显示开关。dwm 的 `XDG_CURRENT_DESKTOP` 含 `GNOME` 为生效，否则未生效；没有 dwm 为无 X 会话 |
-| `axs proxy session on` | X 会话 | 开关文件 `run/proxy-session.flag`（空文件，0600） | 只作存在性开关；下次登录 X 生效 |
-| `axs proxy session off` | X 会话 | 删开关文件 | — |
+| `axs proxy system on` | 指定应用 | gsettings 运行时 | mode=manual + http/https host/port + ignore-hosts；不写标识开关；无 gsettings 退 3 |
+| `axs proxy system off` | 指定应用 | gsettings 运行时 | mode=none（不做 schema 级 reset）；不删标识开关 |
+| `axs proxy system status` | 指定应用 | 运行时 + 持久 + dwm 环境 | 运行时匹配退 0，否则退 1。持久为 enabled 或 disabled。dwm 的 `XDG_CURRENT_DESKTOP` 含 `GNOME` 为生效，否则未生效；没有 dwm 为无 X 会话 |
+| `axs proxy system enable` | 指定应用 | 标识开关 | 写 `run/proxy-system.flag`（0600）；重登 X 后导出桌面标识 |
+| `axs proxy system disable` | 指定应用 | 标识开关 | 删标识开关 |
+| `axs proxy session enable` | X 会话 | 开关文件 `run/proxy-session.flag`（空文件，0600） | 只作存在性开关；下次登录 X 生效。`on`/`off` 已移除 |
+| `axs proxy session disable` | X 会话 | 删开关文件 | — |
 | `axs proxy session status` | X 会话 | 开关 + dwm 环境 | 开关不在为 disabled 退 1；开关在但 dwm 环境没有代理变量为 enabled 未生效（提示重登 X）退 1；已有为 enabled 且生效退 0；没有 dwm 为无 X 会话 |
 
 - xprofile 托管块（`# axs proxy session (managed)`，dwm 启动前）：条件导出
@@ -409,7 +411,7 @@ v1 基线（不连真实订阅、不启真实进程）：
 - `axs net ip`：经 mixed 入站请求 `https://ipinfo.io/ip`，输出代理出口 IP；入站不通退 2，
   查询失败退 3。
 - system 层前提：libproxy 的 gnome 插件与 Edge 都要会话里有 `XDG_CURRENT_DESKTOP=GNOME` 才读 gsettings；没有标识时是 direct。推荐浏览器用 session 层。
-- 条件式标识：`proxy system on` 写 `run/proxy-system.flag`。xprofile 托管块 `# axs proxy system identity (managed)` 只在开关存在时导出 `XDG_CURRENT_DESKTOP=GNOME`，插入判重；重登 X 生效。`off` 删开关。
-- `.flag` 后缀表示存在性开关，只看文件在不在：`run/proxy-session.flag`、`run/proxy-system.flag`。`on` 会删掉改名前的旧文件。
+- 条件式标识：`proxy system enable` 写 `run/proxy-system.flag`。xprofile 托管块 `# axs proxy system identity (managed)` 只在开关存在时导出 `XDG_CURRENT_DESKTOP=GNOME`，插入判重；重登 X 生效。`disable` 删开关。`on`/`off` 只改 gsettings，不再碰这个开关。旧脚本若靠 `on` 建开关，要改成 `enable`。
+- `.flag` 后缀表示存在性开关，只看文件在不在：`run/proxy-session.flag`、`run/proxy-system.flag`。`enable` 会删掉改名前的旧文件。
 - 副作用：该标识会让部分应用把会话当成 GNOME（桌面集成行为可能变化）。
 - `axs proxy user on` 在标准错误打一行「需 eval」提示；标准输出仍是可 eval 的 export 行。
