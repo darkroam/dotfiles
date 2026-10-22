@@ -28,14 +28,12 @@ from axs.config import (  # noqa: E402
 
 SHELL = ROOT / "lib" / "common.sh"
 MERGE = ROOT / "lib" / "merge.py"
+MIHOMO = ROOT / "lib" / "axs" / "mihomo.py"
 ROUTES = {
     "/configs?force=true",
     "/delay",
     "/group/",
-    "/group/{quoted}/delay?{query}",
     "/proxies",
-    "/proxies/",
-    "/proxies/{quoted}",
     "/version",
 }
 
@@ -93,13 +91,17 @@ def pin_routes(text):
     quoted = set(re.findall(r"""["'](/(?:proxies|version|configs|group|delay)[^"']*)["']""", text))
     if quoted != ROUTES:
         raise SystemExit(f"quoted routes {sorted(quoted)}")
+    merge = MERGE.read_text(encoding="utf-8")
+    leaked = [route for route in ROUTES if route in merge]
+    if leaked:
+        raise SystemExit(f"merge still owns {leaked}")
 
 
 def main():
     shell = SHELL.read_text(encoding="utf-8")
     pin_ports(shell)
     pin_paths(shell)
-    pin_routes(MERGE.read_text(encoding="utf-8"))
+    pin_routes(MIHOMO.read_text(encoding="utf-8"))
     print("pins")
     return 0
 

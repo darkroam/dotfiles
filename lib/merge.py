@@ -41,6 +41,18 @@ def fail(message):
     raise SystemExit(1)
 
 
+from axs.mihomo import (  # noqa: E402
+    delay_path,
+    probe,
+    proxies_path,
+    read_secret as _api,
+    reload_path,
+    request as _request,
+    select_path,
+    version_path,
+)
+
+
 def write_defaults(path, mixed, api):
     from axs.config import write_override
 
@@ -142,91 +154,9 @@ def gen_secret(path):
     atomic_write(path, secrets.token_hex(16) + "\n")
 
 
-def _api(secret_path, api):
-    if not str(api).startswith("127.0.0.1:"):
-        fail("控制器必须在本机回环")
-    path = Path(secret_path)
-    if not path.is_file():
-        fail("控制器")
-    secret = path.read_text(encoding="utf-8").strip()
-    if len(secret) < 8:
-        fail("控制器")
-    return secret
-
-
-def _fake_exchange(method, path, secret, body=None):
-    directory = Path(os.environ["AXS_FAKE_DIR"])
-    flag = "yes" if secret and len(secret) >= 8 else "no"
-    extra = ""
-    if body:
-        extra = " body=" + body.decode("utf-8", "replace")
-    with (directory / "log").open("a", encoding="utf-8") as handle:
-        handle.write(f"{method} {path} auth={flag}{extra}\n")
-    if (directory / "down").is_file():
-        fail("控制器")
-    pure = path.split("?", 1)[0]
-    if method == "PUT" and pure.startswith("/proxies/"):
-        code_path = directory / "select"
-        code = int(code_path.read_text(encoding="utf-8").strip() or "204") if code_path.is_file() else 204
-        if code >= 300:
-            fail("控制器")
-        return b""
-    if method == "PUT":
-        code = int((directory / "reload").read_text(encoding="utf-8").strip() or "204")
-        if code >= 300:
-            fail("控制器")
-        return b""
-    if pure == "/version":
-        return b'{"version":"fake"}'
-    if pure == "/proxies":
-        ready = directory / "proxies.json"
-        if ready.is_file():
-            return ready.read_bytes()
-        text = (directory / "groups").read_text(encoding="utf-8") if (directory / "groups").is_file() else ""
-        payload = {
-            name: {"type": "Selector", "now": "a", "all": ["a"]}
-            for name in text.split()
-        }
-        return json.dumps({"proxies": payload}).encode()
-    if pure.startswith("/group/") and pure.endswith("/delay"):
-        ready = directory / "delay.json"
-        if ready.is_file():
-            return ready.read_bytes()
-        name = urllib.parse.unquote(pure.split("/")[2])
-        delay = int((directory / "delay").read_text(encoding="utf-8").strip() or "0")
-        return json.dumps({name: delay}).encode()
-    fail("控制器")
-
-
-def _request(secret, api, method, path, body=None):
-    if os.environ.get("AXS_FAKE_DIR"):
-        return _fake_exchange(method, path, secret, body)
-    req = urllib.request.Request(
-        f"http://{api}{path}",
-        data=body,
-        method=method,
-        headers={
-            "Authorization": "Bearer " + secret,
-            "Content-Type": "application/json",
-        },
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            raw = resp.read()
-            if resp.status >= 300:
-                fail("控制器")
-            return raw
-    except urllib.error.HTTPError as exc:
-        if exc.code >= 300:
-            fail("控制器")
-        raise
-    except (urllib.error.URLError, TimeoutError, OSError):
-        fail("控制器")
-
-
 def load_proxies(secret_path, api):
     secret = _api(secret_path, api)
-    raw = _request(secret, api, "GET", "/proxies")
+    raw = _request(secret, api, "GET", proxies_path())
     try:
         payload = json.loads(raw.decode("utf-8"))
     except json.JSONDecodeError:
@@ -628,10 +558,9 @@ def select_proxy(secret_path, api, group, token, run_dir=""):
         sys.stderr.write("节点不存在\n")
         raise SystemExit(3)
     secret = _api(secret_path, api)
-    quoted = urllib.parse.quote(group, safe="")
     body = json.dumps({"name": node}).encode()
     try:
-        _request(secret, api, "PUT", f"/proxies/{quoted}", body)
+        _request(secret, api, "PUT", select_path(group), body)
     except SystemExit as exc:
         _as_exit3(exc)
     sys.stdout.write(f"{group}\t{node}\t{cached_delay(run_dir, node)}\n")
@@ -723,7 +652,7 @@ def reload_core(secret_path, api, config_path):
     secret = _api(secret_path, api)
     body = json.dumps({"path": str(config_path), "payload": ""}).encode()
     try:
-        _request(secret, api, "PUT", "/configs?force=true", body)
+        _request(secret, api, "PUT", reload_path(), body)
     except SystemExit:
         fail("重载失败")
 
@@ -731,7 +660,7 @@ def reload_core(secret_path, api, config_path):
 def version_ok(secret_path, api):
     secret = _api(secret_path, api)
     try:
-        _request(secret, api, "GET", "/version")
+        _request(secret, api, "GET", version_path())
     except SystemExit:
         raise SystemExit(3)
 
@@ -773,10 +702,8 @@ def write_node_cache(dest, group, lines):
 
 def delay(secret_path, api, group, url):
     secret = _api(secret_path, api)
-    query = urllib.parse.urlencode({"timeout": "5000", "url": url})
-    quoted = urllib.parse.quote(group, safe="")
     try:
-        raw = _request(secret, api, "GET", f"/group/{quoted}/delay?{query}")
+        raw = _request(secret, api, "GET", delay_path(group, url))
     except SystemExit:
         raise SystemExit(3)
     try:
@@ -1080,28 +1007,6 @@ def egress(proxy, url):
         sys.stderr.write("出口查询失败\n")
         raise SystemExit(3)
     print(text)
-
-
-def probe(host, port):
-    directory = os.environ.get("AXS_FAKE_DIR")
-    if directory:
-        listed = ""
-        path = Path(directory) / "open-ports"
-        if path.is_file():
-            listed = path.read_text(encoding="utf-8")
-        if str(port) not in listed.split():
-            raise SystemExit(1)
-        return
-    import socket
-
-    sock = socket.socket()
-    sock.settimeout(0.3)
-    try:
-        sock.connect((host, int(port)))
-    except OSError:
-        raise SystemExit(1)
-    finally:
-        sock.close()
 
 
 def main(argv):
