@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# count: grep -cE 'die [0-9]+' over bin/axs, bin/mihomo-run, lib/common.sh; grep -cE 'SystemExit\([0-9]+' over lib/merge.py. The regexes below count occurrences. Ceiling only shrinks.
 """Bare numeric exits may only shrink. Baseline is the step 0 tree."""
 import re
 import sys

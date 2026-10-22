@@ -1,79 +1,125 @@
 #!/usr/bin/env python3
-"""Alias and prefix matrix. Step 1 will import the resolver instead of spawning axs."""
+"""Alias order and the three help/usage snapshots, imported directly."""
 import os
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-AXS = str(ROOT / "bin" / "axs")
+sys.path.insert(0, str(ROOT / "lib"))
+
+from axs.cli import GROUPS, ResolveError, help_text, resolve_token, usage_text
+from axs.render import bad, bold, dim, emph, ident, label, ok, tone, warn
+
+GOLDEN = ROOT / "tests" / "golden"
+EXACT = (
+    ("s", "top", "status"),
+    ("status", "top", "status"),
+    ("k", "top", "health"),
+    ("h", "top", "help"),
+    ("?", "top", "help"),
+    ("--help", "top", "help"),
+    ("-h", "top", "help"),
+    ("x", "top", "start"),
+    ("o", "top", "stop"),
+    ("ens", "top", "ensure"),
+    ("stat", "top", "status"),
+    ("n", "top", "node"),
+    ("node", "top", "node"),
+    ("g", "node", "groups"),
+    ("gro", "node", "groups"),
+    ("sy", "proxy", "system"),
+    ("ge", "sub", "get"),
+    ("s", "proxy", "system"),
+)
+AMBIGUOUS = (
+    ("sta", "top", "候选：start status"),
+    ("st", "top", "候选：start stop status"),
+    ("he", "top", "候选：health help"),
+)
+UNKNOWN = (
+    ("nope", "top"),
+    ("st", "proxy"),
+)
 
 
-def run(argv):
-    with tempfile.TemporaryDirectory(prefix="axs-alias-") as tmp:
-        env = {
-            "PATH": os.environ.get("PATH", "/usr/bin"),
-            "HOME": tmp,
-            "LANG": "C.UTF-8",
-            "AXS_RUN": tmp + "/run",
-            "AXS_FAKE_DIR": tmp + "/fake",
-            "AXS_FORBID_NET": "1",
-            "AXS_COLOR": "never",
-            "AXS_SYSTEMD": "0",
-            "AXS_SESSION_PID": "2147483001",
-            "AXS_MIXED_PORT": "18080",
-            "AXS_API": "127.0.0.1:18081",
-        }
-        Path(env["AXS_RUN"]).mkdir()
-        Path(env["AXS_FAKE_DIR"]).mkdir()
-        result = subprocess.run([AXS, *argv], env=env, text=True, capture_output=True, check=False)
-    return result.returncode, result.stdout, result.stderr
+def resolve(word, group):
+    words, aliases = GROUPS[group]
+    return resolve_token(word, words, aliases)
 
 
-def expect(argv, code, out="", err="", err_has="", out_has="", err_lacks=""):
-    got_code, got_out, got_err = run(argv)
-    if got_code != code:
-        raise SystemExit(f"{argv} exit {got_code} want {code}\n{got_err}{got_out}")
-    if out != "" and got_out != out:
-        raise SystemExit(f"{argv} stdout {got_out!r}")
-    if err != "" and got_err != err:
-        raise SystemExit(f"{argv} stderr {got_err!r}")
-    if err_has and err_has not in got_err:
-        raise SystemExit(f"{argv} stderr missing {err_has!r}\n{got_err}")
-    if out_has and out_has not in got_out:
-        raise SystemExit(f"{argv} stdout missing {out_has!r}\n{got_out}")
-    if err_lacks and err_lacks in got_err:
-        raise SystemExit(f"{argv} stderr has {err_lacks!r}\n{got_err}")
+def golden(name):
+    text = (GOLDEN / name).read_text(encoding="utf-8")
+    head, rest = text.split("\n--- stdout\n", 1)
+    stdout, stderr = rest.split("--- stderr\n", 1)
+    return int(head.split(": ", 1)[1]), stdout, stderr
+
+
+def check_color():
+    saved = {key: os.environ.get(key) for key in ("AXS_COLOR", "NO_COLOR", "AXS_TTY_OUT", "AXS_TTY_ERR", "AXS_PAINT_FD")}
+    try:
+        os.environ["AXS_COLOR"] = "always"
+        os.environ.pop("NO_COLOR", None)
+        assert tone("32", "on") == "\033[32mon\033[0m"
+        assert ok("on") == "\033[32mon\033[0m"
+        assert warn("mid") == "\033[33mmid\033[0m"
+        assert bad("off") == "\033[31moff\033[0m"
+        assert label("k") == dim("k") == "\033[90mk\033[0m"
+        assert ident("axs") == "\033[36maxs\033[0m"
+        assert bold("用法") == "\033[1m用法\033[0m"
+        assert emph("32", "on") == "\033[1;32mon\033[0m"
+        os.environ["NO_COLOR"] = "1"
+        assert bold("用法") == "\033[1m用法\033[0m"
+        os.environ["AXS_COLOR"] = "never"
+        assert ok("on") == "on"
+        os.environ.pop("AXS_COLOR")
+        os.environ.pop("NO_COLOR")
+        os.environ["AXS_TTY_OUT"] = "0"
+        os.environ["AXS_TTY_ERR"] = "1"
+        os.environ["AXS_PAINT_FD"] = "1"
+        assert bad("e") == "e"
+        os.environ["AXS_PAINT_FD"] = "2"
+        assert bad("e") == "\033[31me\033[0m"
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 def main():
-    # Exact alias wins over the prefix that would be ambiguous.
-    expect(["s"], 2, out_has="服务", err_lacks="候选")
-    expect(["status"], 2, out_has="服务", err_lacks="候选")
-    expect(["k"], 2, out="", err="未运行\n")
-    expect(["h"], 0, out_has="用法", err="")
-    expect(["?"], 0, out_has="用法", err="")
-    expect(["--help"], 0, out_has="用法")
-    expect(["-h"], 0, out_has="用法")
-    expect(["x"], 3, err_has="没有配置")
-    expect(["o"], 0, out="", err="")
-    # Full name, then the unique prefix of that name.
-    expect(["ens"], 3, err_has="没有订阅")
-    expect(["stat"], 2, out_has="服务", err_lacks="候选")
-    expect(["n", "g"], 2, err="服务：未运行\n")
-    expect(["node", "groups"], 2, err="服务：未运行\n")
-    expect(["n", "gro"], 2, err="服务：未运行\n")
-    expect(["p", "sy"], 1, err="用法\n")
-    expect(["sub", "ge"], 0, out="未知\n")
-    # Ambiguous prefix lists candidates and does not print usage.
-    expect(["sta"], 1, err="候选：start status\n")
-    expect(["st"], 1, err="候选：start stop status\n")
-    expect(["he"], 1, err="候选：health help\n")
-    # Unknown token prints usage, not candidates. "st" is not a prefix of system.
-    expect(["nope"], 1, err_has="用法：axs", err_lacks="候选")
-    expect(["p", "st"], 1, err_has="用法：axs", err_lacks="候选")
-    print("alias matrix 21")
+    for word, group, want in EXACT:
+        got = resolve(word, group)
+        if got != want:
+            raise SystemExit(f"{group} {word!r} -> {got!r}, want {want!r}")
+    for word, group, message in AMBIGUOUS:
+        try:
+            resolve(word, group)
+        except ResolveError as exc:
+            if exc.code != 1 or exc.message != message:
+                raise SystemExit(f"{group} {word!r} ambiguous {exc.code} {exc.message!r}") from exc
+        else:
+            raise SystemExit(f"{group} {word!r} should be ambiguous")
+    for word, group in UNKNOWN:
+        try:
+            resolve(word, group)
+        except ResolveError as exc:
+            if exc.code != 2 or exc.message:
+                raise SystemExit(f"{group} {word!r} unknown {exc.code} {exc.message!r}") from exc
+        else:
+            raise SystemExit(f"{group} {word!r} should be unknown")
+    os.environ["AXS_COLOR"] = "never"
+    checks = (
+        ("help--default.txt", 0, help_text(), ""),
+        ("usage--bare.txt", 1, "", usage_text()),
+        ("usage--unknown.txt", 1, "", usage_text()),
+    )
+    for name, code, stdout, stderr in checks:
+        got_code, got_out, got_err = golden(name)
+        if (got_code, got_out, got_err) != (code, stdout, stderr):
+            raise SystemExit(f"golden {name} mismatch")
+    check_color()
+    print(f"alias matrix {len(EXACT) + len(AMBIGUOUS) + len(UNKNOWN)}; help golden 3")
     return 0
 
 
