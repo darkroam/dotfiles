@@ -84,7 +84,7 @@ TUN 评估：现二进制带 `with_gvisor`，具备用户态栈条件。启用�
 
 阶段二把运行目录放在 `~/.config/mihomo`。那个目录主仓库没有忽略。v1 改到已经全局忽略的本树 `run/`，避免订阅被宽 glob 扫进公开仓库。
 
-用户单元模板在 `units/`。`axs.service` 只启动 `bin/mihomo-run`。脚本校验并原子写下自己的数字 PID，再 exec `mihomo -d <run>`。单元里不写进程号，systemd 会先展开。`axs-refresh.timer` 每 12 小时跑 `axs sub refresh`。复制到 `~/.config/systemd/user/` 后 enable。没有合格 `config.yaml` 之前不 enable。登录后由用户会话拉起，不另加 `xprofile`。`axs.service` 的 LoadState 为 loaded 时，`start` / `stop` / `restart` / `ensure` 委派 `systemctl --user`。`AXS_SYSTEMD=0` 强制直接管进程，`AXS_SYSTEMD=1` 强制委派。已 active 的 `start` 与 `ensure` 不再 start。没有配置时 `ensure` 仍先 refresh，再 `systemctl start`。刷新前若地址含反斜杠或空白（单独的行尾换行不算），退出 3，提示去掉反斜杠。空正文，或 Content-Type 不是 YAML 类（`text/html` 等），退出 3，并带上 HTTP 状态和类型。
+用户单元模板在 `units/`。`axs.service` 只启动 `bin/mihomo-run`。脚本校验并原子写下自己的数字 PID，再 exec `mihomo -d <run>`。单元里不写进程号，systemd 会先展开。`axs-refresh.timer` 每 12 小时跑 `axs sub refresh`。复制到 `~/.config/systemd/user/` 后 enable。没有合格 `config.yaml` 之前不 enable。登录后由用户会话拉起，不另加 `xprofile`。`axs.service` 的 LoadState 为 loaded 时，`start` / `stop` / `restart` / `ensure` 委派 `systemctl --user`。`AXS_SYSTEMD=0` 强制直接管进程，`AXS_SYSTEMD=1` 强制委派。未设置时入口只探测一次 `LoadState`，结果放在 `AXS_SYSTEMD_MODE`。`use_systemd` 只读它，不写其它全局。已 active 的 `start` 与 `ensure` 不再 start。没有配置时 `ensure` 仍先 refresh，再 `systemctl start`。刷新前若地址含反斜杠或空白（单独的行尾换行不算），退出 3，提示去掉反斜杠。空正文，或 Content-Type 不是 YAML 类（`text/html` 等），退出 3，并带上 HTTP 状态和类型。
 
 ## 5. 子命令与退出码
 
@@ -170,7 +170,7 @@ axs sub clean [--yes]
 
 - 服务 / 状态：运行中或未运行，括号里是 systemd 或手动、pid、时长。`运行中` / `未运行` 是一级强调。systemd 时长取 `ActiveEnterTimestamp`，没有就写 `-`
 - 服务 / 端口：mixed 监听或不通，同一行写控制器可达或不通。值着色，不加粗
-- 服务 / 自启：有 systemd 时是 `enabled` 或 `disabled`，并附 `下次 HH:MM（N 后）`。时间来自 `NextElapseUSecRealtime`。没有 systemd，这一格是 `-`
+- 服务 / 自启：有 systemd 时是 `enabled` 或 `disabled`，并附 `下次 HH:MM（N 后）`。时间来自 `systemctl list-timers --output=json` 的 `next` 和 `left`。两者都是绝对微秒：`next` 定钟点，`left` 定还要多久。缺一就是 `-`。单调定时器的 `NextElapseUSecRealtime` 为空，不能用它。没有 systemd，这一格是 `-`
 - 节点 / 主代理：`→ 中间组 → 叶子`。叶子是一级强调，没有叶子写 `-`。端口或控制器不通时不查 `/proxies`，写 `→ -`
 - 节点 / GLOBAL：当前 now，没有写 `-`
 - 订阅 / 剩余：天数。已过期、快到期仍是一级强调。流量在括号里，按 B/K/M/G/T，保留 1 位小数。未知写 `未知`。只读 `userinfo`
@@ -197,6 +197,8 @@ axs sub clean [--yes]
 ## 9. 测试策略
 
 先有失败测试，再写实现。每个 bug 先加一条能复现它的测试，修完保持为回归。改 `refresh` 或校验顺序的提交，必须跑普通终端 `tests/env/run.sh check`。只跑离线套件不算过。
+
+夹具输出必须复刻真实命令格式，不得按实现方便编。systemd 夹具同此，与错题本 P7 同族。
 
 v1 基线（不连真实订阅、不启真实进程）：
 

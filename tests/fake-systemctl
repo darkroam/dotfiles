@@ -33,12 +33,17 @@ case $cmd in
         done
         if [ "$prop" = "MainPID" ]; then
             printf '%s\n' 4242
-        elif [ "$prop" = "NextElapseUSecRealtime" ]; then
-            printf '%s\n' 4102444800000000
+        elif [ "$prop" = "LoadState" ]; then
+            printf '%s\n' loaded
         fi
         ;;
     list-timers)
-        printf '%s\n' "Tue 2026-10-21 02:00:00 CST"
+        # Monotonic timers leave NextElapseUSecRealtime empty. JSON next/left are absolute realtime usec.
+        if [ -f "$AXS_RUN/timer.json" ]; then
+            cat "$AXS_RUN/timer.json"
+        else
+            printf '%s\n' '[{"next":4102444800000000,"left":4102444800000000,"last":null,"passed":null,"unit":"axs-refresh.timer","activates":"axs-refresh.service"}]'
+        fi
         ;;
     start|stop|restart|enable|disable)
         exit 0

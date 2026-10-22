@@ -311,13 +311,22 @@ axs_systemctl() {
     "${AXS_SYSTEMCTL:-systemctl}" --user "$@"
 }
 
-use_systemd() {
+cache_systemd_mode() {
     case ${AXS_SYSTEMD:-} in
-        0) return 1 ;;
-        1) return 0 ;;
+        0|1)
+            AXS_SYSTEMD_MODE=$AXS_SYSTEMD
+            return 0
+            ;;
     esac
-    state=$(axs_systemctl show axs.service -p LoadState --value 2>/dev/null || true)
-    [ "$state" = "loaded" ]
+    if [ "$(axs_systemctl show axs.service -p LoadState --value 2>/dev/null | tr -d '[:space:]' || true)" = "loaded" ]; then
+        AXS_SYSTEMD_MODE=1
+    else
+        AXS_SYSTEMD_MODE=0
+    fi
+}
+
+use_systemd() {
+    [ "${AXS_SYSTEMD_MODE:-0}" = 1 ]
 }
 
 systemd_active() {
@@ -458,17 +467,31 @@ status_row() {
     printf '%s%s%s\n' '  ' "$(label "$1")" "$2"
 }
 
+json_usec() {
+    key=$1
+    printf '%s\n' "$2" | sed -n "s/.*\"${key}\"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p" | head -n 1
+}
+
 next_refresh() {
-    raw=$(axs_systemctl show axs-refresh.timer -p NextElapseUSecRealtime --value 2>/dev/null | tr -d '[:space:]' || true)
-    case $raw in
+    raw=$(axs_systemctl list-timers --output=json axs-refresh.timer 2>/dev/null || true)
+    next=$(json_usec next "$raw")
+    left=$(json_usec left "$raw")
+    case $next in
         ''|0|*[!0-9]*)
             printf '%s' '-'
             return 0
             ;;
     esac
-    sec=$((raw / 1000000))
+    case $left in
+        ''|0|*[!0-9]*)
+            printf '%s' '-'
+            return 0
+            ;;
+    esac
+    sec=$((next / 1000000))
+    left_sec=$((left / 1000000))
     now=$(date +%s)
-    delta=$((sec - now))
+    delta=$((left_sec - now))
     if [ "$delta" -lt 0 ]; then
         delta=0
     fi

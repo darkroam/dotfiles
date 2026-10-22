@@ -3,6 +3,7 @@ set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 # shellcheck disable=SC1091
 . "$ROOT/lib/common.sh"
+cache_systemd_mode
 
 usage() {
     show_usage

@@ -156,7 +156,10 @@ fi
 export AXS_MIXED_PORT=7897 AXS_API=127.0.0.1:9097
 assert_code 'systemd status' 2 status
 grep -q '状态    运行中（systemd，pid 4242，-）' "$RUN/out" || fail "systemd status: $(cat "$RUN/out")"
-grep -q 'NextElapseUSecRealtime' "$RUN/systemctl.log" || fail "timer query: $(cat "$RUN/systemctl.log")"
+grep -q 'list-timers --output=json axs-refresh.timer' "$RUN/systemctl.log" || fail "timer query: $(cat "$RUN/systemctl.log")"
+if grep -q 'NextElapseUSecRealtime' "$RUN/systemctl.log"; then
+    fail "timer still uses NextElapseUSecRealtime: $(cat "$RUN/systemctl.log")"
+fi
 python3 -c 'import os, time, datetime, pathlib, sys
 text = pathlib.Path(os.environ["AXS_RUN"] + "/out").read_text(encoding="utf-8")
 sec = 4102444800000000 // 1000000
@@ -180,6 +183,29 @@ if want not in text:
 grep -q 'user    ' "$RUN/out" || fail "status proxy line: $(cat "$RUN/out")"
 grep -q 'system  ' "$RUN/out" || fail "status system line: $(cat "$RUN/out")"
 grep -q 'session ' "$RUN/out" || fail "status session line: $(cat "$RUN/out")"
+
+new_run
+unset AXS_SYSTEMD
+export AXS_SYSTEMCTL="$ROOT/tests/fake-systemctl"
+printf '%s\n' active >"$RUN/systemctl.active"
+export AXS_MIXED_PORT=7897 AXS_API=127.0.0.1:9097
+assert_code 'systemd default leg' 2 status
+grep -q '状态    运行中（systemd，pid 4242，' "$RUN/out" || fail "default leg: $(cat "$RUN/out")"
+if grep -q 'loaded' "$RUN/out"; then
+    fail "default leg clobbered state: $(cat "$RUN/out")"
+fi
+grep -q '下次 ' "$RUN/out" || fail "default leg timer: $(cat "$RUN/out")"
+loads=$(grep -c 'LoadState' "$RUN/systemctl.log" || true)
+test "$loads" -eq 1 || fail "LoadState count $loads: $(cat "$RUN/systemctl.log")"
+
+new_run
+export AXS_SYSTEMD=1 AXS_SYSTEMCTL="$ROOT/tests/fake-systemctl"
+printf '%s\n' '[{"next":4102444800000000,"left":null,"last":null,"passed":null,"unit":"axs-refresh.timer","activates":"axs-refresh.service"}]' >"$RUN/timer.json"
+assert_code 'timer missing left' 2 status
+grep -q '刷新：-' "$RUN/out" || fail "missing left: $(cat "$RUN/out")"
+if grep -q '下次 ' "$RUN/out"; then
+    fail "missing left invented a time: $(cat "$RUN/out")"
+fi
 
 new_run
 export AXS_SESSION_PID=2147483001
