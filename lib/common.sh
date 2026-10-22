@@ -110,8 +110,9 @@ show_help() {
     help_note "例：axs net test"
     printf '\n%s\n' "$(bold '代理')" >"$AXS_HELP_FD"
     help_row "axs proxy user" "当前 shell 环境（on|off|status）"
-    help_row "axs proxy system" "系统代理 gsettings（on|off|status）"
-    help_row "axs proxy session" "X 会话开关（on|off|status）"
+    help_row "axs proxy system" "gsettings 运行时（on|off|status）"
+    help_row "axs proxy session" "登录持久开关（on|off|status）"
+    help_note "status 读 dwm 环境，区分持久开关和当前会话是否已生效"
     help_note "例：eval \"\$(axs proxy user on)\""
     printf '\n%s\n' "$(bold '清理')" >&"$AXS_HELP_FD"
     help_row "axs clean" "删除本地配置，可加 --yes"
@@ -441,6 +442,22 @@ status_node_empty() {
 }
 
 
+session_env() {
+    key=$1
+    pid=${AXS_SESSION_PID:-}
+    if [ -z "$pid" ]; then
+        pid=$(pgrep -x dwm 2>/dev/null | head -n 1 || true)
+    fi
+    if [ -z "$pid" ] || [ ! -r "/proc/$pid/environ" ]; then
+        return 2
+    fi
+    line=$(tr '\0' '\n' <"/proc/$pid/environ" | grep -m 1 -e "^${key}=" || true)
+    if [ -z "$line" ]; then
+        return 1
+    fi
+    printf '%s\n' "${line#"$key"=}"
+}
+
 proxy_status_line() {
     read_ports
     port=$MIXED
@@ -457,18 +474,27 @@ proxy_status_line() {
             sys=on
         fi
     fi
-    sess=off
-    xp=${AXS_XPROFILE:-$HOME/.config/x11/xprofile}
-    if [ -f "$AXS_RUN/proxy-session.flag" ] && [ -f "$xp" ] && grep -q 'axs proxy session (managed)' "$xp"; then
-        sess=on
+    sys_flag=off
+    if [ -f "$AXS_RUN/proxy-system.flag" ]; then
+        sys_flag=on
+    fi
+    sess_flag=off
+    if [ -f "$AXS_RUN/proxy-session.flag" ]; then
+        sess_flag=on
+    fi
+    sess_live=off
+    if live=$(session_env http_proxy); then
+        if [ "$live" = "http://127.0.0.1:$port" ]; then
+            sess_live=on
+        fi
     fi
     tone_state() {
         if [ "$1" = on ]; then ok on; else dim off; fi
     }
-    printf '%s %s · %s %s · %s %s\n' \
-        "$(label "代理 user")" "$(tone_state "$u")" \
-        "$(label system)" "$(tone_state "$sys")" \
-        "$(label session)" "$(tone_state "$sess")"
+    printf '%s %s %s · %s %s %s/%s %s · %s %s %s/%s %s\n' \
+        "$(label "代理 user")" "$(dim 运行时)" "$(tone_state "$u")" \
+        "$(label system)" "$(dim 运行时)" "$(tone_state "$sys")" "$(dim 持久)" "$(tone_state "$sys_flag")" \
+        "$(label session)" "$(dim 持久)" "$(tone_state "$sess_flag")" "$(dim 生效)" "$(tone_state "$sess_live")"
 }
 
 cmd_status() {
@@ -1007,12 +1033,22 @@ cmd_proxy_system() {
             else
                 printf '%s\n' "标识：$(bad off)"
             fi
-            desk=${XDG_CURRENT_DESKTOP:-}
-            if [ -z "$desk" ]; then
-                printf '%s\n' "桌面：空"
-                printf '%s\n' "当前会话无桌面标识，gsettings 不会被读取；重登 X 后生效"
+            desk_state=off
+            desk=$(session_env XDG_CURRENT_DESKTOP) && desk_rc=0 || desk_rc=$?
+            if [ "$desk_rc" -eq 0 ]; then
+                case ":$desk:" in
+                    *:GNOME:*) desk_state=on ;;
+                esac
+            elif [ "$desk_rc" -eq 2 ]; then
+                desk_state=none
+            fi
+            if [ "$desk_state" = on ]; then
+                printf '%s\n' "会话标识：$(ok 生效)"
+            elif [ "$desk_state" = none ]; then
+                none_msg=$(warn "无 X 会话")
+                printf '%s\n' "会话标识：$none_msg"
             else
-                printf '%s\n' "桌面：$desk"
+                printf '%s\n' "会话标识：$(warn 未生效)（重登 X）"
             fi
             exit "$code"
             ;;
@@ -1037,21 +1073,25 @@ cmd_proxy_session() {
             printf '%s\n' "session：$(bad off)"
             ;;
         status)
-            flag_on=0
-            [ -f "$flag" ] && flag_on=1
-            hook=0
-            if [ -f "$xp" ] && grep -q 'axs proxy session (managed)' "$xp"; then
-                hook=1
+            port=$(proxy_mixed)
+            if [ ! -f "$flag" ]; then
+                printf '%s\n' "session：$(bad disabled)"
+                exit 1
             fi
-            if [ "$flag_on" -eq 1 ] && [ "$hook" -eq 1 ]; then
-                printf '%s\n' "session：$(ok on)（开关在，xprofile 托管块已挂接）"
+            if [ ! -f "$xp" ] || ! grep -q 'axs proxy session (managed)' "$xp"; then
+                printf '%s\n' "session：$(warn enabled)（待挂接，xprofile 缺托管块）"
+                exit 1
+            fi
+            live=$(session_env http_proxy) && live_rc=0 || live_rc=$?
+            if [ "$live_rc" -eq 2 ]; then
+                printf '%s\n' "session：$(warn enabled)（无 X 会话）"
+                exit 1
+            fi
+            if [ "$live_rc" -eq 0 ] && [ "$live" = "http://127.0.0.1:$port" ]; then
+                printf '%s\n' "session：$(ok enabled)（当前会话已生效）"
                 exit 0
             fi
-            if [ "$flag_on" -eq 1 ]; then
-                printf '%s\n' "session：$(warn 待挂接)（开关在，xprofile 缺托管块）"
-            else
-                printf '%s\n' "session：$(bad off)（开关文件不存在）"
-            fi
+            printf '%s\n' "session：$(warn enabled)（当前会话未生效，重登 X）"
             exit 1
             ;;
         *) die 1 "用法" ;;

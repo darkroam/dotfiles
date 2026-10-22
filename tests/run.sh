@@ -31,7 +31,7 @@ new_run() {
     RUN=$(mktemp -d)
     mkdir -p "$RUN/fake"
     export AXS_RUN="$RUN" AXS_FORBID_NET=1 AXS_FAKE_DIR="$RUN/fake" AXS_SYSTEMD=0
-    unset AXS_MIXED_PORT AXS_API AXS_FETCH AXS_MIHOMO AXS_SYSTEMCTL COLUMNS AXS_COLOR NO_COLOR || true
+    unset AXS_MIXED_PORT AXS_API AXS_FETCH AXS_MIHOMO AXS_SYSTEMCTL COLUMNS AXS_COLOR NO_COLOR AXS_SESSION_PID || true
     : >"$RUN/err"
     : >"$RUN/out"
 }
@@ -160,13 +160,16 @@ grep -q '代理 user' "$RUN/out" || fail "status proxy line: $(cat "$RUN/out")"
 
 new_run
 assert_code 'status proxy off' 2 status
-grep -q '代理 user off' "$RUN/out" || fail "status proxy off: $(cat "$RUN/out")"
+grep -q '代理 user 运行时 off' "$RUN/out" || fail "status proxy off: $(cat "$RUN/out")"
+grep -q 'system 运行时' "$RUN/out" || fail "status system runtime: $(cat "$RUN/out")"
+grep -q 'session 持久' "$RUN/out" || fail "status session persist: $(cat "$RUN/out")"
+grep -q '生效' "$RUN/out" || fail "status session live: $(cat "$RUN/out")"
 proxy_status_env() {
     export http_proxy=http://127.0.0.1:7897
     "$AXS" status >"$RUN/out" 2>"$RUN/err" || true
 }
 proxy_status_env
-grep -q '代理 user on' "$RUN/out" || fail "status proxy on: $(cat "$RUN/out")"
+grep -q '代理 user 运行时 on' "$RUN/out" || fail "status proxy on: $(cat "$RUN/out")"
 
 new_run
 assert_code 'status down' 2 status
@@ -1289,18 +1292,31 @@ if [ -e "$RUN/gsettings-identity" ]; then
     fail 'old system flag remains'
 fi
 grep -q '重登 X 后 libproxy/Edge 才会读取 gsettings' "$RUN/out" || fail 'system on relogin hint'
+env -i /bin/sleep 30 &
+echo $! >>"$PIDS"
+export AXS_SESSION_PID=$!
 assert_code 'proxy system status empty' 0 proxy system status
 grep -q 'mode=manual' "$RUN/out" || fail "status mode: $(cat "$RUN/out")"
 grep -q '待挂接' "$RUN/out" || fail "status unhooked: $(cat "$RUN/out")"
-grep -q '当前会话无桌面标识，gsettings 不会被读取；重登 X 后生效' "$RUN/out" || fail "status empty desk: $(cat "$RUN/out")"
-export XDG_CURRENT_DESKTOP=GNOME
+grep -q '会话标识：未生效' "$RUN/out" || fail "status empty desk: $(cat "$RUN/out")"
+env -i XDG_CURRENT_DESKTOP=GNOME /bin/sleep 30 &
+echo $! >>"$PIDS"
+export AXS_SESSION_PID=$!
 printf '%s\n' '# axs proxy system identity (managed)' >>"$AXS_XPROFILE"
 assert_code 'proxy system status gnome' 0 proxy system status
-grep -q '桌面：GNOME' "$RUN/out" || fail "status gnome: $(cat "$RUN/out")"
+grep -q '会话标识：生效' "$RUN/out" || fail "status gnome: $(cat "$RUN/out")"
 grep -q '已挂接' "$RUN/out" || fail "status hooked: $(cat "$RUN/out")"
-if grep -q '当前会话无桌面标识' "$RUN/out"; then
-    fail 'status gnome still warns'
+if grep -q '会话标识：未生效' "$RUN/out"; then
+    fail 'status gnome still cold'
 fi
+env -i XDG_CURRENT_DESKTOP=dwm:GNOME /bin/sleep 30 &
+echo $! >>"$PIDS"
+export AXS_SESSION_PID=$!
+assert_code 'proxy system status gnome list' 0 proxy system status
+grep -q '会话标识：生效' "$RUN/out" || fail "status gnome list: $(cat "$RUN/out")"
+export AXS_SESSION_PID=2147483001
+assert_code 'proxy system status no session' 0 proxy system status
+grep -q '无 X 会话' "$RUN/out" || fail "system no session: $(cat "$RUN/out")"
 assert_code 'proxy system identity off' 0 proxy system off
 if [ -e "$RUN/proxy-system.flag" ]; then
     fail 'identity file remains'
@@ -1322,9 +1338,29 @@ if [ -e "$RUN/session-proxy" ]; then
 fi
 assert_code 'proxy session status unhooked' 1 proxy session status
 printf '# axs proxy session (managed)\n' >>"$AXS_XPROFILE"
-assert_code 'proxy session status hooked' 0 proxy session status
+export AXS_SESSION_PID=2147483001
+assert_code 'proxy session status no-dwm' 1 proxy session status
+grep -q '无 X 会话' "$RUN/out" || fail "session no dwm: $(cat "$RUN/out")"
+env -i /bin/sleep 30 &
+echo $! >>"$PIDS"
+export AXS_SESSION_PID=$!
+assert_code 'proxy session status cold' 1 proxy session status
+grep -q '未生效' "$RUN/out" || fail "session cold: $(cat "$RUN/out")"
+grep -q '重登 X' "$RUN/out" || fail "session cold hint: $(cat "$RUN/out")"
+env -i http_proxy=http://127.0.0.1:7897 /bin/sleep 30 &
+echo $! >>"$PIDS"
+export AXS_SESSION_PID=$!
+assert_code 'proxy session status live' 0 proxy session status
+grep -q '已生效' "$RUN/out" || fail "session live: $(cat "$RUN/out")"
+if grep -q '未生效' "$RUN/out"; then
+    fail 'session live still cold'
+fi
+"$AXS" status >"$RUN/out" 2>"$RUN/err" || true
+grep -q 'session 持久 on/生效 on' "$RUN/out" || fail "status line live: $(cat "$RUN/out")"
 assert_code 'proxy session off' 0 proxy session off
 assert_code 'proxy session status off' 1 proxy session status
+grep -q 'disabled' "$RUN/out" || fail "session disabled: $(cat "$RUN/out")"
+unset AXS_SESSION_PID || true
 assert_code 'proxy session bogus' 1 proxy session bogus
 
 printf '%s\n' drop >"$RUN/config.yaml"

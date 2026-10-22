@@ -393,10 +393,10 @@ v1 基线（不连真实订阅、不启真实进程）：
 | `axs proxy user status` | 终端 | 读环境变量 | 指向本代理退 0，否则退 1 |
 | `axs proxy system on` | 指定应用 | gsettings + 标识开关 | mode=manual + http/https host/port + ignore-hosts；写 `run/proxy-system.flag`（0600）；提示重登 X；无 gsettings 退 3 |
 | `axs proxy system off` | 指定应用 | gsettings | mode=none（不做 schema 级 reset），并删标识开关 |
-| `axs proxy system status` | 指定应用 | gsettings + 开关 + 当前桌面标识 | mode/host/port 匹配退 0，否则退 1；开关在但缺 xprofile 块为待挂接；桌面标识空则警告 |
+| `axs proxy system status` | 指定应用 | gsettings 运行时 + 持久开关 + dwm 环境 | mode/host/port 匹配退 0，否则退 1；另显示开关。dwm 的 `XDG_CURRENT_DESKTOP` 含 `GNOME` 为生效，否则未生效；没有 dwm 为无 X 会话 |
 | `axs proxy session on` | X 会话 | 开关文件 `run/proxy-session.flag`（空文件，0600） | 只作存在性开关；下次登录 X 生效 |
 | `axs proxy session off` | X 会话 | 删开关文件 | — |
-| `axs proxy session status` | X 会话 | 开关文件 + xprofile 标记 | 两者都在退 0；开关在但缺块退 1 并提示「待挂接」 |
+| `axs proxy session status` | X 会话 | 开关 + dwm 环境 | 开关不在为 disabled 退 1；开关在但 dwm 环境没有代理变量为 enabled 未生效（提示重登 X）退 1；已有为 enabled 且生效退 0；没有 dwm 为无 X 会话 |
 
 - xprofile 托管块（`# axs proxy session (managed)`，dwm 启动前）：条件导出
   http/https/all/no proxy；安装需判重（幂等）；
@@ -404,7 +404,8 @@ v1 基线（不连真实订阅、不启真实进程）：
   规则承载，不进环境变量（裁决，非疏漏）；
 - 端口一律取 `override.yaml` 的 mixed-port，不写死；
 - 三层都不改变 mihomo 服务本身；`die` 用法错误退 1。
-- `axs status` 末行显示三层状态：`代理 user on/off · system on/off · session on/off`（on 绿、off 灰）。
+- `axs status` 末行：`代理 user 运行时 on/off · system 运行时 on/off/持久 on/off · session 持久 on/off/生效 on/off`（on 绿、off 灰）。运行时是当前值，持久是开关文件，生效是 dwm 进程环境里已经有对应变量。
+- 读 dwm 用 `pgrep -x dwm` 的 `/proc/<pid>/environ`。`AXS_SESSION_PID` 可指定进程，供测试。没有进程或读不到，状态是无 X 会话。
 - `axs net ip`：经 mixed 入站请求 `https://ipinfo.io/ip`，输出代理出口 IP；入站不通退 2，
   查询失败退 3。
 - system 层前提：libproxy 的 gnome 插件与 Edge 都要会话里有 `XDG_CURRENT_DESKTOP=GNOME` 才读 gsettings；没有标识时是 direct。推荐浏览器用 session 层。
