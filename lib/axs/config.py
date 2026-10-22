@@ -28,6 +28,35 @@ CACHE = "cache"
 SYSTEM_FLAG = "proxy-system.flag"
 SESSION_FLAG = "proxy-session.flag"
 SNAP_NAMES = (CONFIG, SUBSCRIPTION, RULES)
+FETCH_BODY = "fetch.yaml"
+FETCH_HEADER = "fetch.hdr"
+CONFIG_NEW = CONFIG + ".new"
+CONFIG_BAK = CONFIG + ".bak"
+URLS = "urls"
+LEGACY_SYSTEM_FLAG = "gsettings-identity"
+LEGACY_SESSION_FLAG = "session-proxy"
+RUN_FILES = (
+    OVERRIDE,
+    CONFIG,
+    CONFIG_BAK,
+    CONFIG_NEW,
+    SUBSCRIPTION,
+    RULES,
+    SECRET,
+    LOCK,
+    PID,
+    SNAP,
+    USERINFO,
+    URL,
+    CACHE,
+    SYSTEM_FLAG,
+    SESSION_FLAG,
+    FETCH_BODY,
+    FETCH_HEADER,
+    URLS,
+    LEGACY_SYSTEM_FLAG,
+    LEGACY_SESSION_FLAG,
+)
 
 
 def override_body(mixed, api):

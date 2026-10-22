@@ -8,22 +8,10 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
 from axs.config import (  # noqa: E402
-    CACHE,
-    CONFIG,
     DEFAULT_API,
     DEFAULT_MIXED,
-    LOCK,
-    OVERRIDE,
-    PID,
-    RULES,
-    SECRET,
-    SESSION_FLAG,
-    SNAP,
+    RUN_FILES,
     SNAP_NAMES,
-    SUBSCRIPTION,
-    SYSTEM_FLAG,
-    URL,
-    USERINFO,
 )
 
 SHELL = ROOT / "lib" / "common.sh"
@@ -55,29 +43,9 @@ def pin_ports(text):
 
 def pin_paths(text):
     found = set(re.findall(r"\$AXS_RUN/([A-Za-z0-9._-]+)", text))
-    # shortcut: clean temps and pre-rename flags are not config constants yet; drop them when those calls move.
-    allowed = {
-        OVERRIDE,
-        CONFIG,
-        SUBSCRIPTION,
-        RULES,
-        SECRET,
-        LOCK,
-        PID,
-        SNAP,
-        USERINFO,
-        URL,
-        CACHE,
-        SYSTEM_FLAG,
-        SESSION_FLAG,
-        CONFIG + ".bak",
-        CONFIG + ".new",
-        "fetch.yaml",
-        "fetch.hdr",
-        "urls",
-        "gsettings-identity",
-        "session-proxy",
-    }
+    allowed = set(RUN_FILES)
+    if len(allowed) != len(RUN_FILES):
+        fail("duplicate run file name")
     extra = found - allowed
     missing = allowed - found
     if extra or missing:

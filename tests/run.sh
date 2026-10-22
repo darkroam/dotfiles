@@ -90,24 +90,23 @@ shellcheck "$ROOT/bin/axs" "$ROOT/bin/mihomo-run" "$ROOT/lib/common.sh" "$ROOT/t
     "$ROOT/tests/fake-fetch" "$ROOT/tests/fake-fetch-fail" "$ROOT/tests/fake-fetch-html" \
     "$ROOT/tests/fake-fetch-empty" \
     "$ROOT/tests/fake-mihomo" "$ROOT/tests/env/run.sh"
-python3 -m py_compile "$ROOT/lib/merge.py" "$ROOT/tests/check_merge.py" "$ROOT/tests/prep_run.py" \
+python3 -m py_compile "$ROOT/lib/merge.py" "$ROOT/tests/prep_run.py" \
     "$ROOT/lib/axs/__init__.py" "$ROOT/lib/axs/render.py" "$ROOT/lib/axs/cli.py" \
     "$ROOT/lib/axs/config.py" "$ROOT/lib/axs/core.py" "$ROOT/lib/axs/mihomo.py" \
+    "$ROOT/lib/axs/subscription.py" \
     "$ROOT/tests/env/lab.py" "$ROOT/tests/support/snap.py" \
     "$ROOT/tests/unit/test_cli.py" "$ROOT/tests/unit/test_bare_exit.py" \
     "$ROOT/tests/unit/test_core.py" "$ROOT/tests/unit/test_pin.py" \
-    "$ROOT/tests/unit/test_mihomo.py"
+    "$ROOT/tests/unit/test_mihomo.py" \
+    "$ROOT/tests/unit/test_subscription.py"
 python3 "$ROOT/tests/unit/test_cli.py"
 python3 "$ROOT/tests/unit/test_bare_exit.py"
 python3 "$ROOT/tests/unit/test_core.py"
 python3 "$ROOT/tests/unit/test_pin.py"
 python3 "$ROOT/tests/unit/test_mihomo.py"
+python3 "$ROOT/tests/unit/test_subscription.py"
 python3 "$ROOT/tests/support/snap.py" check
-PASS=$((PASS + 7))
-
-new_run
-python3 "$ROOT/tests/check_merge.py" "$RUN"
-PASS=$((PASS + 1))
+PASS=$((PASS + 8))
 
 new_run
 assert_code usage 1

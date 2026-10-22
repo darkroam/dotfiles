@@ -244,24 +244,6 @@ with_lock() {
     fi
 }
 
-install_file() {
-    src=$1
-    dest=$2
-    if [ -f "$dest" ]; then
-        cp -p "$dest" "$dest.bak"
-        chmod 600 "$dest.bak"
-    fi
-    # Caller already wrote src with mode 600. Replace within the run dir when possible.
-    if [ "$(dirname "$src")" = "$(dirname "$dest")" ]; then
-        mv -f "$src" "$dest"
-    else
-        cp -p "$src" "$dest.tmp"
-        chmod 600 "$dest.tmp"
-        mv -f "$dest.tmp" "$dest"
-    fi
-    chmod 600 "$dest"
-}
-
 snapshot() {
     snap=$AXS_RUN/.snap
     mkdir -p "$snap"
@@ -740,19 +722,19 @@ cmd_service_boot() {
 apply_config() {
     body=$1
     if [ "${2:-}" != "keep" ]; then
-        snapshot
+        python3 "$PY" snap "$AXS_RUN"
     fi
     if ! python3 "$PY" build "$body" "$AXS_RUN/override.yaml" "$AXS_RUN/secret" "$AXS_RUN/rules.list" "$AXS_RUN/config.yaml.new"; then
-        restore_snapshot
+        python3 "$PY" rollback "$AXS_RUN"
         die 3 "校验失败"
     fi
-    install_file "$AXS_RUN/config.yaml.new" "$AXS_RUN/config.yaml"
+    python3 "$PY" install "$AXS_RUN/config.yaml.new" "$AXS_RUN/config.yaml"
     if [ "$body" != "$AXS_RUN/subscription.yaml" ]; then
-        install_file "$body" "$AXS_RUN/subscription.yaml"
+        python3 "$PY" install "$body" "$AXS_RUN/subscription.yaml"
     fi
     if service_up; then
         if ! python3 "$PY" reload "$AXS_RUN/secret" "$API" "$AXS_RUN/config.yaml"; then
-            restore_snapshot
+            python3 "$PY" rollback "$AXS_RUN"
             die 3 "重载失败"
         fi
     fi
@@ -780,7 +762,7 @@ cmd_refresh() {
     read_ports
     apply_config "$body"
     python3 "$PY" userinfo "$hdr" "$AXS_RUN/userinfo"
-    rm -f "$body" "$hdr" "$AXS_RUN/.snap/config.yaml" "$AXS_RUN/.snap/subscription.yaml"
+    python3 "$PY" clear-fetch "$AXS_RUN"
 }
 
 cmd_rule_list() {
@@ -1000,11 +982,14 @@ clean_run() {
     if service_up; then
         die 2 "服务在运行，先 axs stop"
     fi
-    if [ "$kind" = "config" ]; then
-        set -- config.yaml config.yaml.bak userinfo fetch.yaml fetch.hdr mihomo.pid
-    else
-        set -- subscription.url subscription.yaml userinfo fetch.yaml fetch.hdr
-    fi
+    names=$(python3 "$PY" clean-names "$kind")
+    set --
+    while IFS= read -r name; do
+        [ -n "$name" ] || continue
+        set -- "$@" "$name"
+    done <<EOF
+$names
+EOF
     if [ -d "$AXS_RUN" ]; then
         root=$(readlink -f -- "$AXS_RUN") || die 3 "越界"
     else
