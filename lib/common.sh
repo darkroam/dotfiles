@@ -65,9 +65,63 @@ show_usage() {
 EOF
 }
 
+resolve_token() {
+    word=$1
+    words=$2
+    aliases=$3
+    rest=$aliases
+    while [ -n "$rest" ]; do
+        pair=${rest%% *}
+        rest=${rest#"$pair"}
+        rest=${rest# }
+        key=${pair%%=*}
+        val=${pair#*=}
+        if [ "$word" = "$key" ]; then
+            printf '%s\n' "$val"
+            return 0
+        fi
+    done
+    rest=$words
+    while [ -n "$rest" ]; do
+        name=${rest%% *}
+        rest=${rest#"$name"}
+        rest=${rest# }
+        if [ "$word" = "$name" ]; then
+            printf '%s\n' "$name"
+            return 0
+        fi
+    done
+    hit=
+    n=0
+    rest=$words
+    while [ -n "$rest" ]; do
+        name=${rest%% *}
+        rest=${rest#"$name"}
+        rest=${rest# }
+        if [ "${name#"$word"}" != "$name" ]; then
+            if [ -z "$hit" ]; then
+                hit=$name
+            else
+                hit="$hit $name"
+            fi
+            n=$((n + 1))
+        fi
+    done
+    if [ "$n" -eq 1 ]; then
+        printf '%s\n' "$hit"
+        return 0
+    fi
+    if [ "$n" -gt 1 ]; then
+        printf '%s\n' "候选：$hit" >&2
+        return 1
+    fi
+    return 2
+}
+
 help_row() {
     padded=$(printf '%-22s' "$1")
-    printf '%s\n' "$(ident "$padded")  $(dim "$2")" >&"$AXS_HELP_FD"
+    alias=$(printf '%-6s' "$2")
+    printf '%s\n' "$(ident "$padded")  $(dim "$alias")  $(dim "$3")" >&"$AXS_HELP_FD"
 }
 
 help_note() {
@@ -78,46 +132,48 @@ show_help() {
     AXS_HELP_FD=$1
     AXS_PAINT_FD=$1
     printf '%s\n' "$(bold '用法')" >&"$AXS_HELP_FD"
+    printf '%s\n' "$(bold "$(printf '%-22s  %s' '命令' '别名')")" >&"$AXS_HELP_FD"
+    help_note "单字符精确优先；未命中则唯一前缀。多个候选退出 1 并列出。h 与 ? 是这份帮助"
     printf '\n%s\n' "$(bold '服务')" >&"$AXS_HELP_FD"
-    help_row "axs start" "启动服务"
-    help_row "axs stop" "停止服务"
-    help_row "axs restart" "重启服务"
-    help_row "axs status" "查看状态"
-    help_row "axs ensure" "保证服务在跑"
-    help_row "axs service enable" "打开开机自启"
-    help_row "axs service disable" "关闭开机自启"
+    help_row "axs start" "x" "启动服务"
+    help_row "axs stop" "o" "停止服务"
+    help_row "axs restart" "-" "重启服务"
+    help_row "axs status" "s" "查看状态"
+    help_row "axs ensure" "e" "保证服务在跑"
+    help_row "axs service enable" "e" "打开开机自启"
+    help_row "axs service disable" "d" "关闭开机自启"
     help_note "例：axs status"
     printf '\n%s\n' "$(bold '订阅')" >&"$AXS_HELP_FD"
-    help_row "axs sub get" "查看订阅剩余"
-    help_row "axs sub refresh" "拉取并重载"
-    help_row "axs sub clean" "删除订阅缓存"
+    help_row "axs sub get" "g" "查看订阅剩余"
+    help_row "axs sub refresh" "r" "拉取并重载"
+    help_row "axs sub clean" "c" "删除订阅缓存"
     help_note "例：axs sub get"
     printf '\n%s\n' "$(bold '规则')" >&"$AXS_HELP_FD"
-    help_row "axs rule list" "列出域名规则"
-    help_row "axs rule add via" "经策略组，后接域名和组"
-    help_row "axs rule add direct" "直连，后接域名"
-    help_row "axs rule del" "删除域名规则"
+    help_row "axs rule list" "l" "列出域名规则"
+    help_row "axs rule add via" "a" "经策略组，后接域名和组"
+    help_row "axs rule add direct" "a" "直连，后接域名"
+    help_row "axs rule del" "d" "删除域名规则"
     help_note "例：axs rule list"
     printf '\n%s\n' "$(bold '节点')" >&"$AXS_HELP_FD"
-    help_row "axs node groups" "策略组与当前节点"
-    help_row "axs node list" "节点列表"
-    help_row "axs node test" "测延迟，可接组名"
-    help_row "axs node switch" "切换节点，后接组和节点"
+    help_row "axs node groups" "g" "策略组与当前节点"
+    help_row "axs node list" "l" "节点列表"
+    help_row "axs node test" "t" "测延迟，可接组名"
+    help_row "axs node switch" "s" "切换节点，后接组和节点"
     help_note "例：axs node list"
     printf '\n%s\n' "$(bold '网络')" >&"$AXS_HELP_FD"
-    help_row "axs net test" "测连通，可接网址"
-    help_row "axs net ip" "经代理查出口 IP"
+    help_row "axs net test" "t" "测连通，可接网址"
+    help_row "axs net ip" "i" "经代理查出口 IP"
     help_note "例：axs net test"
-    printf '\n%s\n' "$(bold '代理')" >"$AXS_HELP_FD"
-    help_row "axs proxy user" "当前 shell 环境（on|off|status）"
-    help_row "axs proxy system" "运行时 on|off；持久 enable|disable"
-    help_row "axs proxy session" "登录持久 enable|disable|status"
+    printf '\n%s\n' "$(bold '代理')" >&"$AXS_HELP_FD"
+    help_row "axs proxy user" "u" "当前 shell 环境（on|off|status）"
+    help_row "axs proxy system" "s" "运行时 on|off；持久 enable|disable"
+    help_row "axs proxy session" "e" "登录持久 enable|disable|status"
     help_note "status 分五节：服务、节点、订阅、测试、代理。标签对齐，节标题加粗"
     help_note "会话 effect：active、pending、-、no-x-session。persist disabled 时 effect 为 -"
     help_note "session 的 on|off 已移除，改用 enable|disable。system on 不再写标识开关"
     help_note "例：eval \"\$(axs proxy user on)\""
     printf '\n%s\n' "$(bold '清理')" >&"$AXS_HELP_FD"
-    help_row "axs clean" "删除本地配置，可加 --yes"
+    help_row "axs clean" "c" "删除本地配置，可加 --yes"
     help_note "例：axs clean --yes"
     help_note "颜色只是增强，管道或 NO_COLOR 下信息仍完整"
 }

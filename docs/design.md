@@ -113,7 +113,21 @@ axs sub clean [--yes]
 
 颜色只在终端输出。`NO_COLOR` 或非终端是纯文本。`AXS_COLOR=always` 强制颜色，优先于 `NO_COLOR`，`never` 强制关闭。只染语义，不整行刷色，色码不嵌套。粗体：帮助分区和表头。一级强调是一条码 `1;32` / `1;33` / `1;31`，只用在运行中或未运行、剩余天数或已过期、节点行的叶子、`node list` 的 `[*]` 和选中名、`node groups` 的 now、`sub get` 的剩余天数。灰 90：字段名、编号、路径、时间、`-`、类型。青 36：命令、组名、服务名。`node test` 的组名也是青，不加粗。绿 32：正常、enabled、延迟小于 100。黄 33：警告、延迟 100 到 200。红 31：失败、disabled、延迟大于 200、超时、`die`。帮助不用红色。清理成功和开机自启不加粗。`health` 不着色。测速缓存只存数字，不存颜色码。
 
-裸 `axs` 和未知子命令把 6 行命令清单打到标准错误，不着色，退出 1。`axs help`、`--help`、`-h` 把分组帮助打到标准输出，退出 0。`-h` 再带参数仍退出 1。长帮助按服务、订阅、规则、节点、网络、清理分节，命令列只用 ASCII，按 `%-22s` 对齐，示例另起灰色一行。尾行说明颜色只是增强。不列出 `health`。
+裸 `axs` 和未知子命令把 7 行命令清单打到标准错误，不着色，退出 1。歧义前缀不打清单，只打一行 `候选：` 加空格分隔的名字，退出 1。`axs help`、`h`、`?`、`--help`、`-h` 把分组帮助打到标准输出，退出 0。再带参数仍退出 1。长帮助在用法下加命令和别名两列。命令列只用 ASCII，按 `%-22s`，别名列 6 宽。示例另起灰色一行。尾行说明颜色只是增强。不列出 `health`，也不列出它的别名 `k`。
+
+精确别名优先于前缀。未命中别名时，只接受该层唯一前缀。`sta` 同时是 `start` 和 `status` 的前缀，所以退出 1；`stat` 才是 `status`。缺了下一层子命令仍打用法清单，不把空串当成歧义。
+
+| 层 | 别名 |
+| --- | --- |
+| 顶层 | `s` status，`n` node，`p` proxy，`r` rule，`u` sub，`c` clean，`e` ensure，`h` help，`?` help，`k` health，`x` start，`o` stop |
+| node | `g` groups，`l` list，`t` test，`s` switch |
+| proxy | `u` user，`s` system，`e` session |
+| sub | `g` get，`r` refresh，`c` clean |
+| rule | `l` list，`a` add，`d` del |
+| net | `t` test，`i` ip |
+| service | `e` enable，`d` disable |
+
+`restart`、`net`、`service` 没有单字符别名，用唯一前缀，例如 `re`、`ne`、`se`。
 
 域名规则：无方案、无路径、无问号。前缀 `.` 表示后缀（`DOMAIN-SUFFIX`），否则是整域（`DOMAIN`）。`via` 的策略组必须由调用者写明，不猜测「主组」。
 

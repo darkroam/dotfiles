@@ -10,8 +10,28 @@ usage() {
     exit 1
 }
 
+need() {
+    words=$1
+    aliases=$2
+    word=$3
+    if [ -z "$word" ]; then
+        usage
+    fi
+    resolved=$(resolve_token "$word" "$words" "$aliases") && rc=0 || rc=$?
+    if [ "$rc" -eq 1 ]; then
+        exit 1
+    fi
+    if [ "$rc" -ne 0 ]; then
+        usage
+    fi
+}
+
 cmd=${1:-}
 if [ $# -gt 0 ]; then shift; fi
+need "start stop status restart health ensure clean help service sub rule node net proxy" \
+    "s=status n=node p=proxy r=rule u=sub c=clean e=ensure h=help ?=help k=health x=start o=stop --help=help -h=help" \
+    "$cmd"
+cmd=$resolved
 case $cmd in
     start) cmd_start "$@" ;;
     stop) cmd_stop "$@" ;;
@@ -20,26 +40,28 @@ case $cmd in
     health) cmd_health "$@" ;;
     ensure) cmd_ensure "$@" ;;
     clean) cmd_clean "$@" ;;
-    help|--help|-h)
+    help)
         [ $# -eq 0 ] || usage
         show_help 1
         exit 0
         ;;
     service)
-        sub=${1:-}
+        word=${1:-}
         if [ $# -gt 0 ]; then shift; fi
-        case $sub in
+        need "enable disable" "e=enable d=disable" "$word"
+        case $resolved in
             enable|disable)
                 [ $# -eq 0 ] || die 1 "用法"
-                cmd_service_boot "$sub"
+                cmd_service_boot "$resolved"
                 ;;
             *) usage ;;
         esac
         ;;
     sub)
-        sub=${1:-}
+        word=${1:-}
         if [ $# -gt 0 ]; then shift; fi
-        case $sub in
+        need "get refresh clean" "g=get r=refresh c=clean" "$word"
+        case $resolved in
             get) cmd_sub_get "$@" ;;
             refresh) cmd_refresh "$@" ;;
             clean) cmd_sub_clean "$@" ;;
@@ -47,9 +69,10 @@ case $cmd in
         esac
         ;;
     rule)
-        sub=${1:-}
+        word=${1:-}
         if [ $# -gt 0 ]; then shift; fi
-        case $sub in
+        need "list add del" "l=list a=add d=del" "$word"
+        case $resolved in
             list) cmd_rule_list "$@" ;;
             add) cmd_rule_add "$@" ;;
             del) cmd_rule_del "$@" ;;
@@ -57,9 +80,10 @@ case $cmd in
         esac
         ;;
     node)
-        sub=${1:-}
+        word=${1:-}
         if [ $# -gt 0 ]; then shift; fi
-        case $sub in
+        need "groups list test switch" "g=groups l=list t=test s=switch" "$word"
+        case $resolved in
             groups) cmd_groups "$@" ;;
             list) cmd_node_list "$@" ;;
             test) cmd_test "$@" ;;
@@ -68,18 +92,20 @@ case $cmd in
         esac
         ;;
     net)
-        sub=${1:-}
+        word=${1:-}
         if [ $# -gt 0 ]; then shift; fi
-        case $sub in
+        need "test ip" "t=test i=ip" "$word"
+        case $resolved in
             test) cmd_net "$@" ;;
             ip) cmd_net_ip "$@" ;;
             *) usage ;;
         esac
         ;;
     proxy)
-        sub=${1:-}
+        word=${1:-}
         if [ $# -gt 0 ]; then shift; fi
-        case $sub in
+        need "user system session" "u=user s=system e=session" "$word"
+        case $resolved in
             user) cmd_proxy_user "$@" ;;
             system) cmd_proxy_system "$@" ;;
             session) cmd_proxy_session "$@" ;;
