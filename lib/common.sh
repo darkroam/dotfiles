@@ -967,6 +967,8 @@ cmd_proxy_system() {
     command -v gsettings >/dev/null 2>&1 || die 3 "没有 gsettings"
     gs=org.gnome.system.proxy
     port=$(proxy_mixed)
+    flag=$AXS_RUN/gsettings-identity
+    xp=${AXS_XPROFILE:-$HOME/.config/x11/xprofile}
     case $sub in
         on)
             gsettings set "$gs" mode 'manual' || die 3 "gsettings 失败"
@@ -975,10 +977,15 @@ cmd_proxy_system() {
             gsettings set "$gs.https" host '127.0.0.1' || die 3 "gsettings 失败"
             gsettings set "$gs.https" port "$port" || die 3 "gsettings 失败"
             gsettings set "$gs" ignore-hosts "['localhost','127.0.0.1','::1']" || die 3 "gsettings 失败"
+            mkdir -p "$AXS_RUN"
+            ( umask 077; : >"$flag" )
+            chmod 600 "$flag"
             printf '%s\n' "system：$(ok on)（127.0.0.1:$port）"
+            printf '%s\n' "重登 X 后 libproxy/Edge 才会读取 gsettings"
             ;;
         off)
             gsettings set "$gs" mode 'none' || die 3 "gsettings 失败"
+            rm -f "$flag"
             printf '%s\n' "system：$(bad off)"
             ;;
         status)
@@ -986,11 +993,27 @@ cmd_proxy_system() {
             host=$(gsettings get "$gs.http" host 2>/dev/null | tr -d "'" ) || true
             sport=$(gsettings get "$gs.http" port 2>/dev/null | tr -d "'" ) || true
             if [ "$mode" = "manual" ] && [ "$host" = "127.0.0.1" ] && [ "$sport" = "$port" ]; then
-                printf '%s\n' "system：$(ok on)（127.0.0.1:$port）"
-                exit 0
+                printf '%s\n' "system：$(ok on)（mode=$mode host=$host port=$sport）"
+                code=0
+            else
+                printf '%s\n' "system：$(bad off)（mode=$mode host=$host port=$sport）"
+                code=1
             fi
-            printf '%s\n' "system：$(bad off)（mode=$mode host=$host port=$sport）"
-            exit 1
+            if [ -f "$flag" ] && { [ ! -f "$xp" ] || ! grep -q 'axs proxy system identity (managed)' "$xp"; }; then
+                printf '%s\n' "标识：$(warn 待挂接)"
+            elif [ -f "$flag" ]; then
+                printf '%s\n' "标识：$(ok on)（xprofile 已挂接）"
+            else
+                printf '%s\n' "标识：$(bad off)"
+            fi
+            desk=${XDG_CURRENT_DESKTOP:-}
+            if [ -z "$desk" ]; then
+                printf '%s\n' "桌面：空"
+                printf '%s\n' "当前会话无桌面标识，gsettings 不会被读取；重登 X 后生效"
+            else
+                printf '%s\n' "桌面：$desk"
+            fi
+            exit "$code"
             ;;
         *) die 1 "用法" ;;
     esac
