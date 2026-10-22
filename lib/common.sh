@@ -244,35 +244,6 @@ with_lock() {
     fi
 }
 
-snapshot() {
-    snap=$AXS_RUN/.snap
-    mkdir -p "$snap"
-    chmod 700 "$snap"
-    for name in config.yaml subscription.yaml rules.list; do
-        if [ -f "$AXS_RUN/$name" ]; then
-            cp -p "$AXS_RUN/$name" "$snap/$name"
-        else
-            rm -f "$snap/$name"
-        fi
-    done
-}
-
-restore_snapshot() {
-    snap=$AXS_RUN/.snap
-    for name in config.yaml subscription.yaml rules.list; do
-        if [ -f "$snap/$name" ]; then
-            cp -p "$snap/$name" "$AXS_RUN/$name"
-            chmod 600 "$AXS_RUN/$name"
-        else
-            rm -f "$AXS_RUN/$name"
-        fi
-    done
-    if [ -f "$snap/config.yaml" ]; then
-        cp -p "$snap/config.yaml" "$AXS_RUN/config.yaml.bak"
-        chmod 600 "$AXS_RUN/config.yaml.bak"
-    fi
-}
-
 cmd_start() {
     if use_systemd; then
         if systemd_active; then
@@ -772,36 +743,16 @@ cmd_rule_list() {
 }
 
 mutate_rules() {
-    # $1 is add or del, remaining args passed through
     op=$1
     shift
-    if [ "$op" = "add" ]; then
-        line=$(python3 "$PY" parse-rule "$@") || exit 1
-    else
-        line=$(python3 "$PY" parse-rule direct "$1" "") || exit 1
-    fi
-    if service_up && [ "${1:-}" = "via" ]; then
-        read_ports
-        python3 "$PY" has-group "$AXS_RUN/secret" "$API" "$3" || exit 3
-    fi
-    with_lock
-    snapshot
-    if [ "$op" = "add" ]; then
-        python3 "$PY" rules-add "$AXS_RUN/rules.list" "$line"
-    else
-        python3 "$PY" rules-del "$AXS_RUN/rules.list" "$1"
-    fi
+    running=0
     if service_up; then
-        if [ ! -f "$AXS_RUN/subscription.yaml" ]; then
-            restore_snapshot
-            die 3 "没有订阅"
-        fi
+        running=1
         read_ports
-        ensure_secret
-        apply_config "$AXS_RUN/subscription.yaml" keep
-    else
-        printf '%s\n' "已写入，启动时生效"
     fi
+    python3 "$PY" rules-check "$AXS_RUN" "$op" "$running" "${API:-}" "$@" || exit $?
+    with_lock
+    python3 "$PY" rules-mutate "$AXS_RUN" "$op" "$running" "${API:-}" "$@" || exit $?
 }
 
 cmd_rule_add() {

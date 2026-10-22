@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shell literals must stay equal to config while both copies exist."""
+"""Shell literals stay inside config names. Snapshot names now live in core."""
 import re
 import sys
 from pathlib import Path
@@ -8,10 +8,11 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
 from axs.config import (  # noqa: E402
+    CONFIG_BAK,
     DEFAULT_API,
     DEFAULT_MIXED,
     RUN_FILES,
-    SNAP_NAMES,
+    SNAP,
 )
 
 SHELL = ROOT / "lib" / "common.sh"
@@ -47,12 +48,16 @@ def pin_paths(text):
     if len(allowed) != len(RUN_FILES):
         fail("duplicate run file name")
     extra = found - allowed
-    missing = allowed - found
-    if extra or missing:
-        fail(f"paths extra={sorted(extra)} missing={sorted(missing)}")
-    loops = re.findall(r"for name in ([A-Za-z0-9. ]+);", text)
-    if tuple(loops) != (" ".join(SNAP_NAMES),) * 2:
-        fail(f"snap names {loops}")
+    if extra:
+        fail(f"paths extra={sorted(extra)}")
+    # snapshot names left the shell with the functions; core still loops twice
+    if allowed - found != {SNAP, CONFIG_BAK}:
+        fail(f"paths missing={sorted(allowed - found)}")
+    if re.search(r"(?m)^(snapshot|restore_snapshot)\(\) \{", text):
+        fail("shell still owns snapshot")
+    core = (ROOT / "lib" / "axs" / "core.py").read_text(encoding="utf-8")
+    if len(re.findall(r"for name in SNAP_NAMES:", core)) != 2:
+        fail("snap loops moved")
 
 
 def pin_routes(text):

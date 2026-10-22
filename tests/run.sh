@@ -93,20 +93,21 @@ shellcheck "$ROOT/bin/axs" "$ROOT/bin/mihomo-run" "$ROOT/lib/common.sh" "$ROOT/t
 python3 -m py_compile "$ROOT/lib/merge.py" "$ROOT/tests/prep_run.py" \
     "$ROOT/lib/axs/__init__.py" "$ROOT/lib/axs/render.py" "$ROOT/lib/axs/cli.py" \
     "$ROOT/lib/axs/config.py" "$ROOT/lib/axs/core.py" "$ROOT/lib/axs/mihomo.py" \
-    "$ROOT/lib/axs/subscription.py" \
+    "$ROOT/lib/axs/subscription.py" "$ROOT/lib/axs/rules.py" \
     "$ROOT/tests/env/lab.py" "$ROOT/tests/support/snap.py" \
     "$ROOT/tests/unit/test_cli.py" "$ROOT/tests/unit/test_bare_exit.py" \
     "$ROOT/tests/unit/test_core.py" "$ROOT/tests/unit/test_pin.py" \
     "$ROOT/tests/unit/test_mihomo.py" \
-    "$ROOT/tests/unit/test_subscription.py"
+    "$ROOT/tests/unit/test_subscription.py" "$ROOT/tests/unit/test_rules.py"
 python3 "$ROOT/tests/unit/test_cli.py"
 python3 "$ROOT/tests/unit/test_bare_exit.py"
 python3 "$ROOT/tests/unit/test_core.py"
 python3 "$ROOT/tests/unit/test_pin.py"
 python3 "$ROOT/tests/unit/test_mihomo.py"
 python3 "$ROOT/tests/unit/test_subscription.py"
+python3 "$ROOT/tests/unit/test_rules.py"
 python3 "$ROOT/tests/support/snap.py" check
-PASS=$((PASS + 8))
+PASS=$((PASS + 9))
 
 new_run
 assert_code usage 1

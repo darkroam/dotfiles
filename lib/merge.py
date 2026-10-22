@@ -58,6 +58,15 @@ from axs.subscription import (  # noqa: E402
     write_userinfo,
 )
 
+from axs.rules import (  # noqa: E402
+    check,
+    has_group,
+    mutate,
+    parse_rule,
+    rules_add,
+    rules_del,
+)
+
 
 def write_defaults(path, mixed, api):
     from axs.config import write_override
@@ -561,17 +570,6 @@ def net_run(urls_path, proxy, timeout_ms, given):
     raise SystemExit(3 if failed else 0)
 
 
-def has_group(secret_path, api, name):
-    try:
-        names = group_names(secret_path, api)
-    except (SystemExit, OSError):
-        sys.stderr.write("控制器\n")
-        raise SystemExit(3)
-    if name not in names:
-        sys.stderr.write("组名不存在\n")
-        raise SystemExit(3)
-
-
 def reload_core(secret_path, api, config_path):
     secret = _api(secret_path, api)
     body = json.dumps({"path": str(config_path), "payload": ""}).encode()
@@ -669,59 +667,6 @@ def status_nodes(secret_path, api):
     sys.stdout.write(chain + "\n" + gshown + "\n")
 
 
-def parse_rule(kind, domain, group):
-    if kind not in ("via", "direct"):
-        fail("用法")
-    if "://" in domain or any(ch in domain for ch in "/?#,* \t"):
-        fail("用法")
-    if domain.startswith("."):
-        host = domain.lstrip(".")
-        form = "DOMAIN-SUFFIX"
-    else:
-        host = domain
-        form = "DOMAIN"
-    if not host or host.startswith("-") or ".." in host:
-        fail("用法")
-    if kind == "direct":
-        policy = "DIRECT"
-    else:
-        if not group or any(ch in group for ch in " ,\t"):
-            fail("用法")
-        policy = group
-    sys.stdout.write(f"{form} {host} {policy}\n")
-
-
-def rules_add(path, line):
-    parts = line.split()
-    if len(parts) != 3:
-        fail("用法")
-    path = Path(path)
-    rows = []
-    if path.is_file():
-        rows = [item for item in path.read_text(encoding="utf-8").splitlines() if item.strip()]
-    rows = [item for item in rows if item.split()[1:2] != [parts[1]]]
-    rows.append(line.strip())
-    atomic_write(path, "\n".join(rows) + "\n")
-
-
-def rules_del(path, domain):
-    if domain.startswith("."):
-        host = domain.lstrip(".")
-    else:
-        host = domain
-    path = Path(path)
-    if not path.is_file():
-        return
-    rows = []
-    for item in path.read_text(encoding="utf-8").splitlines():
-        parts = item.split()
-        if len(parts) == 3 and parts[1] == host:
-            continue
-        if item.strip():
-            rows.append(item)
-    atomic_write(path, ("\n".join(rows) + "\n") if rows else "")
-
-
 def egress(proxy, url):
     if os.environ.get("AXS_FORBID_NET") == "1":
         sys.stderr.write("出口查询失败\n")
@@ -797,6 +742,10 @@ def main(argv):
         status_nodes(argv[2], argv[3])
     elif cmd == "status-sub":
         status_sub(argv[2], argv[3])
+    elif cmd == "rules-check":
+        check(argv[2], argv[3], argv[4], argv[5], argv[6:])
+    elif cmd == "rules-mutate":
+        mutate(argv[2], argv[3], argv[4], argv[5], argv[6:])
     elif cmd == "parse-rule":
         parse_rule(argv[2], argv[3], argv[4] if len(argv) > 4 else "")
     elif cmd == "rules-add":
