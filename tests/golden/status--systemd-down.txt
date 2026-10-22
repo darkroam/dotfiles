@@ -1,0 +1,19 @@
+exit: 2
+--- stdout
+服务
+  状态    未运行（systemd）
+  端口    18080 不通 · 控制器 18081 不通
+  自启    disabled（刷新：下次 00:00（27806 天后））
+节点
+  主代理  → -
+  GLOBAL  -
+订阅
+  剩余    未知
+测试
+  net     -
+  node    -
+代理
+  user    off
+  system  off（persist disabled）
+  session persist disabled · effect -
+--- stderr

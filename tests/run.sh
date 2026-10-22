@@ -91,8 +91,12 @@ shellcheck "$ROOT/bin/axs" "$ROOT/bin/mihomo-run" "$ROOT/lib/common.sh" "$ROOT/t
     "$ROOT/tests/fake-fetch-empty" \
     "$ROOT/tests/fake-mihomo" "$ROOT/tests/env/run.sh"
 python3 -m py_compile "$ROOT/lib/merge.py" "$ROOT/tests/check_merge.py" "$ROOT/tests/prep_run.py" \
-    "$ROOT/tests/env/lab.py"
-PASS=$((PASS + 1))
+    "$ROOT/tests/env/lab.py" "$ROOT/tests/support/snap.py" \
+    "$ROOT/tests/unit/test_cli.py" "$ROOT/tests/unit/test_bare_exit.py"
+python3 "$ROOT/tests/unit/test_cli.py"
+python3 "$ROOT/tests/unit/test_bare_exit.py"
+python3 "$ROOT/tests/support/snap.py" check
+PASS=$((PASS + 4))
 
 new_run
 python3 "$ROOT/tests/check_merge.py" "$RUN"

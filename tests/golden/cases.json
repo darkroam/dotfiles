@@ -1,0 +1,115 @@
+[
+  {
+    "name": "help--default.txt",
+    "argv": [
+      "help"
+    ]
+  },
+  {
+    "name": "usage--bare.txt",
+    "argv": []
+  },
+  {
+    "name": "usage--unknown.txt",
+    "argv": [
+      "nope"
+    ]
+  },
+  {
+    "name": "status--manual-down.txt",
+    "argv": [
+      "status"
+    ]
+  },
+  {
+    "name": "status--systemd-down.txt",
+    "argv": [
+      "status"
+    ],
+    "systemd": true
+  },
+  {
+    "name": "node-list--down.txt",
+    "argv": [
+      "node",
+      "list"
+    ]
+  },
+  {
+    "name": "node-groups--down.txt",
+    "argv": [
+      "node",
+      "groups"
+    ]
+  },
+  {
+    "name": "node-list--up.txt",
+    "argv": [
+      "node",
+      "list"
+    ],
+    "up": true
+  },
+  {
+    "name": "node-groups--up.txt",
+    "argv": [
+      "node",
+      "groups"
+    ],
+    "up": true
+  },
+  {
+    "name": "sub-get--missing.txt",
+    "argv": [
+      "sub",
+      "get"
+    ]
+  },
+  {
+    "name": "sub-get--expired.txt",
+    "argv": [
+      "sub",
+      "get"
+    ],
+    "expired": true
+  },
+  {
+    "name": "net-test--forbid.txt",
+    "argv": [
+      "net",
+      "test"
+    ]
+  },
+  {
+    "name": "proxy-user--off.txt",
+    "argv": [
+      "proxy",
+      "user",
+      "status"
+    ]
+  },
+  {
+    "name": "proxy-user--on.txt",
+    "argv": [
+      "proxy",
+      "user",
+      "on"
+    ]
+  },
+  {
+    "name": "proxy-system--off.txt",
+    "argv": [
+      "proxy",
+      "system",
+      "status"
+    ]
+  },
+  {
+    "name": "proxy-session--off.txt",
+    "argv": [
+      "proxy",
+      "session",
+      "status"
+    ]
+  }
+]

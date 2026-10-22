@@ -1,0 +1,55 @@
+exit: 0
+--- stdout
+用法
+命令                  别名
+单字符精确优先；未命中则唯一前缀。多个候选退出 1 并列出。h 与 ? 是这份帮助
+
+服务
+axs start               x       启动服务
+axs stop                o       停止服务
+axs restart             -       重启服务
+axs status              s       查看状态
+axs ensure              e       保证服务在跑
+axs service enable      e       打开开机自启
+axs service disable     d       关闭开机自启
+例：axs status
+
+订阅
+axs sub get             g       查看订阅剩余
+axs sub refresh         r       拉取并重载
+axs sub clean           c       删除订阅缓存
+例：axs sub get
+
+规则
+axs rule list           l       列出域名规则
+axs rule add via        a       经策略组，后接域名和组
+axs rule add direct     a       直连，后接域名
+axs rule del            d       删除域名规则
+例：axs rule list
+
+节点
+axs node groups         g       策略组与当前节点
+axs node list           l       节点列表
+axs node test           t       测延迟，可接组名
+axs node switch         s       切换节点，后接组和节点
+例：axs node list
+
+网络
+axs net test            t       测连通，可接网址
+axs net ip              i       经代理查出口 IP
+例：axs net test
+
+代理
+axs proxy user          u       当前 shell 环境（on|off|status）
+axs proxy system        s       运行时 on|off；持久 enable|disable
+axs proxy session       e       登录持久 enable|disable|status
+status 分五节：服务、节点、订阅、测试、代理。标签对齐，节标题加粗
+会话 effect：active、pending、-、no-x-session。persist disabled 时 effect 为 -
+session 的 on|off 已移除，改用 enable|disable。system on 不再写标识开关
+例：eval "$(axs proxy user on)"
+
+清理
+axs clean               c       删除本地配置，可加 --yes
+例：axs clean --yes
+颜色只是增强，管道或 NO_COLOR 下信息仍完整
+--- stderr

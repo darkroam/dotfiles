@@ -1,0 +1,12 @@
+exit: 0
+--- stdout
+export http_proxy=http://127.0.0.1:18080
+export https_proxy=http://127.0.0.1:18080
+export all_proxy=socks5://127.0.0.1:18080
+export no_proxy=localhost,127.0.0.1,::1
+export HTTP_PROXY=http://127.0.0.1:18080
+export HTTPS_PROXY=http://127.0.0.1:18080
+export ALL_PROXY=socks5://127.0.0.1:18080
+export NO_PROXY=localhost,127.0.0.1,::1
+--- stderr
+提示：需 eval "$(axs proxy user on)" 才会生效

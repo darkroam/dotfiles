@@ -1,0 +1,4 @@
+exit: 0
+--- stdout
+已过期
+--- stderr
