@@ -459,7 +459,7 @@ proxy_status_line() {
     fi
     sess=off
     xp=${AXS_XPROFILE:-$HOME/.config/x11/xprofile}
-    if [ -f "$AXS_RUN/session-proxy" ] && [ -f "$xp" ] && grep -q 'axs proxy session (managed)' "$xp"; then
+    if [ -f "$AXS_RUN/proxy-session.flag" ] && [ -f "$xp" ] && grep -q 'axs proxy session (managed)' "$xp"; then
         sess=on
     fi
     tone_state() {
@@ -967,7 +967,7 @@ cmd_proxy_system() {
     command -v gsettings >/dev/null 2>&1 || die 3 "没有 gsettings"
     gs=org.gnome.system.proxy
     port=$(proxy_mixed)
-    flag=$AXS_RUN/gsettings-identity
+    flag=$AXS_RUN/proxy-system.flag
     xp=${AXS_XPROFILE:-$HOME/.config/x11/xprofile}
     case $sub in
         on)
@@ -980,6 +980,7 @@ cmd_proxy_system() {
             mkdir -p "$AXS_RUN"
             ( umask 077; : >"$flag" )
             chmod 600 "$flag"
+            rm -f "$AXS_RUN/gsettings-identity"
             printf '%s\n' "system：$(ok on)（127.0.0.1:$port）"
             printf '%s\n' "重登 X 后 libproxy/Edge 才会读取 gsettings"
             ;;
@@ -1022,12 +1023,13 @@ cmd_proxy_system() {
 cmd_proxy_session() {
     sub=${1:-}
     [ $# -eq 1 ] || die 1 "用法"
-    flag=$AXS_RUN/session-proxy
+    flag=$AXS_RUN/proxy-session.flag
     xp=${AXS_XPROFILE:-$HOME/.config/x11/xprofile}
     case $sub in
         on)
             mkdir -p "$AXS_RUN"
             ( umask 077; : >"$flag" )
+            rm -f "$AXS_RUN/session-proxy"
             printf '%s\n' "session：$(ok on)（下次登录 X 生效）"
             ;;
         off)

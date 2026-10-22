@@ -1282,8 +1282,12 @@ printf 'test\n' >"$AXS_XPROFILE"
 unset XDG_CURRENT_DESKTOP || true
 old_path=$PATH
 PATH="$RUN/fakebin:$PATH"
+: >"$RUN/gsettings-identity"
 assert_code 'proxy system identity on' 0 proxy system on
-test "$(stat -c '%a' "$RUN/gsettings-identity")" = 600 || fail 'identity mode'
+test "$(stat -c '%a' "$RUN/proxy-system.flag")" = 600 || fail 'identity mode'
+if [ -e "$RUN/gsettings-identity" ]; then
+    fail 'old system flag remains'
+fi
 grep -q '重登 X 后 libproxy/Edge 才会读取 gsettings' "$RUN/out" || fail 'system on relogin hint'
 assert_code 'proxy system status empty' 0 proxy system status
 grep -q 'mode=manual' "$RUN/out" || fail "status mode: $(cat "$RUN/out")"
@@ -1298,7 +1302,7 @@ if grep -q '当前会话无桌面标识' "$RUN/out"; then
     fail 'status gnome still warns'
 fi
 assert_code 'proxy system identity off' 0 proxy system off
-if [ -e "$RUN/gsettings-identity" ]; then
+if [ -e "$RUN/proxy-system.flag" ]; then
     fail 'identity file remains'
 fi
 assert_code 'proxy system status identity off' 1 proxy system status
@@ -1310,7 +1314,12 @@ unset AXS_XPROFILE AXS_GS_DB XDG_CURRENT_DESKTOP || true
 new_run
 export AXS_XPROFILE="$RUN/xprofile"
 printf 'test\n' >"$AXS_XPROFILE"
+: >"$RUN/session-proxy"
 assert_code 'proxy session on' 0 proxy session on
+test "$(stat -c '%a' "$RUN/proxy-session.flag")" = 600 || fail 'session flag mode'
+if [ -e "$RUN/session-proxy" ]; then
+    fail 'old session flag remains'
+fi
 assert_code 'proxy session status unhooked' 1 proxy session status
 printf '# axs proxy session (managed)\n' >>"$AXS_XPROFILE"
 assert_code 'proxy session status hooked' 0 proxy session status
