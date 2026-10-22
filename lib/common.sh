@@ -128,6 +128,7 @@ help_note() {
     printf '%s\n' "$(dim "$1")" >&"$AXS_HELP_FD"
 }
 
+# health 是低调入口（内部入口）：不在帮助与用法列出，可用 health 或 k 调用，候选可含。
 show_help() {
     AXS_HELP_FD=$1
     AXS_PAINT_FD=$1
