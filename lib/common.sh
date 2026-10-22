@@ -113,6 +113,7 @@ show_help() {
     help_row "axs proxy system" "运行时 on|off；持久 enable|disable"
     help_row "axs proxy session" "登录持久 enable|disable|status"
     help_note "status 读 dwm 环境，区分持久开关和当前会话是否已生效"
+    help_note "状态三行英文：on/off、enabled/disabled、effective/pending；无 X 会话为 no x session"
     help_note "session 的 on|off 已移除，改用 enable|disable。system on 不再写标识开关"
     help_note "例：eval \"\$(axs proxy user on)\""
     printf '\n%s\n' "$(bold '清理')" >&"$AXS_HELP_FD"
@@ -475,27 +476,30 @@ proxy_status_line() {
             sys=on
         fi
     fi
-    sys_flag=off
+    sys_flag=disabled
     if [ -f "$AXS_RUN/proxy-system.flag" ]; then
-        sys_flag=on
+        sys_flag=enabled
     fi
-    sess_flag=off
+    sess_flag=disabled
     if [ -f "$AXS_RUN/proxy-session.flag" ]; then
-        sess_flag=on
+        sess_flag=enabled
     fi
-    sess_live=off
-    if live=$(session_env http_proxy); then
-        if [ "$live" = "http://127.0.0.1:$port" ]; then
-            sess_live=on
-        fi
+    sess_eff=pending
+    live=$(session_env http_proxy) && live_rc=0 || live_rc=$?
+    if [ "$live_rc" -eq 2 ]; then
+        sess_eff='no x session'
+    elif [ "$live_rc" -eq 0 ] && [ "$live" = "http://127.0.0.1:$port" ]; then
+        sess_eff=effective
     fi
-    tone_state() {
-        if [ "$1" = on ]; then ok on; else dim off; fi
+    tone_word() {
+        case $1 in
+            on|enabled|effective) ok "$1" ;;
+            *) dim "$1" ;;
+        esac
     }
-    printf '%s %s %s · %s %s %s/%s %s · %s %s %s/%s %s\n' \
-        "$(label "代理 user")" "$(dim 运行时)" "$(tone_state "$u")" \
-        "$(label system)" "$(dim 运行时)" "$(tone_state "$sys")" "$(dim 持久)" "$(tone_state "$sys_flag")" \
-        "$(label session)" "$(dim 持久)" "$(tone_state "$sess_flag")" "$(dim 生效)" "$(tone_state "$sess_live")"
+    printf '%s%s\n' "$(label 'proxy user      ')" "$(tone_word "$u")"
+    printf '%s%s %s %s\n' "$(label 'proxy system    ')" "$(tone_word "$sys")" "$(dim '· persist')" "$(tone_word "$sys_flag")"
+    printf '%s%s %s %s %s\n' "$(label 'proxy session   ')" "$(dim persist)" "$(tone_word "$sess_flag")" "$(dim '· effective')" "$(tone_word "$sess_eff")"
 }
 
 cmd_status() {
@@ -978,10 +982,10 @@ cmd_proxy_user() {
             want="http://127.0.0.1:$port"
             cur=${http_proxy:-${HTTPS_PROXY:-${https_proxy:-}}}
             if [ "$cur" = "$want" ]; then
-                printf '%s\n' "user：$(ok on)（$cur）"
+                printf '%s\n' "user: $(ok on) ($cur)"
                 exit 0
             fi
-            printf '%s\n' "user：$(bad off)（${cur:-未设置}）"
+            printf '%s\n' "user: $(dim off) (${cur:-unset})"
             exit 1
             ;;
         *) die 1 "用法" ;;
@@ -1031,18 +1035,18 @@ cmd_proxy_system() {
             host=$(gsettings get "$gs.http" host 2>/dev/null | tr -d "'" ) || true
             sport=$(gsettings get "$gs.http" port 2>/dev/null | tr -d "'" ) || true
             if [ "$mode" = "manual" ] && [ "$host" = "127.0.0.1" ] && [ "$sport" = "$port" ]; then
-                printf '%s\n' "system：$(ok on)（mode=$mode host=$host port=$sport）"
+                printf '%s\n' "system: $(ok on) (mode=$mode host=$host port=$sport)"
                 code=0
             else
-                printf '%s\n' "system：$(bad off)（mode=$mode host=$host port=$sport）"
+                printf '%s\n' "system: $(dim off) (mode=$mode host=$host port=$sport)"
                 code=1
             fi
             if [ -f "$flag" ] && { [ ! -f "$xp" ] || ! grep -q 'axs proxy system identity (managed)' "$xp"; }; then
-                printf '%s\n' "持久：$(warn enabled)（待挂接）"
+                printf '%s\n' "persist: $(ok enabled) (xprofile hook missing)"
             elif [ -f "$flag" ]; then
-                printf '%s\n' "持久：$(ok enabled)（xprofile 已挂接）"
+                printf '%s\n' "persist: $(ok enabled)"
             else
-                printf '%s\n' "持久：$(bad disabled)"
+                printf '%s\n' "persist: $(dim disabled)"
             fi
             desk_state=off
             desk=$(session_env XDG_CURRENT_DESKTOP) && desk_rc=0 || desk_rc=$?
@@ -1054,12 +1058,11 @@ cmd_proxy_system() {
                 desk_state=none
             fi
             if [ "$desk_state" = on ]; then
-                printf '%s\n' "会话标识：$(ok 生效)"
+                printf '%s\n' "desktop: $(ok effective)"
             elif [ "$desk_state" = none ]; then
-                none_msg=$(warn "无 X 会话")
-                printf '%s\n' "会话标识：$none_msg"
+                printf '%s\n' "desktop: $(dim 'no x session')"
             else
-                printf '%s\n' "会话标识：$(warn 未生效)（重登 X）"
+                printf '%s\n' "desktop: $(dim pending)"
             fi
             exit "$code"
             ;;
@@ -1087,23 +1090,23 @@ cmd_proxy_session() {
         status)
             port=$(proxy_mixed)
             if [ ! -f "$flag" ]; then
-                printf '%s\n' "session：$(bad disabled)"
+                printf '%s\n' "session: $(dim disabled)"
                 exit 1
             fi
             if [ ! -f "$xp" ] || ! grep -q 'axs proxy session (managed)' "$xp"; then
-                printf '%s\n' "session：$(warn enabled)（待挂接，xprofile 缺托管块）"
+                printf '%s\n' "session: $(ok enabled) (xprofile hook missing)"
                 exit 1
             fi
             live=$(session_env http_proxy) && live_rc=0 || live_rc=$?
             if [ "$live_rc" -eq 2 ]; then
-                printf '%s\n' "session：$(warn enabled)（无 X 会话）"
+                printf '%s\n' "session: $(ok enabled) · effective $(dim 'no x session')"
                 exit 1
             fi
             if [ "$live_rc" -eq 0 ] && [ "$live" = "http://127.0.0.1:$port" ]; then
-                printf '%s\n' "session：$(ok enabled)（当前会话已生效）"
+                printf '%s\n' "session: $(ok enabled) · effective $(ok effective)"
                 exit 0
             fi
-            printf '%s\n' "session：$(warn enabled)（当前会话未生效，重登 X）"
+            printf '%s\n' "session: $(ok enabled) · effective $(dim pending)"
             exit 1
             ;;
         *) die 1 "用法" ;;

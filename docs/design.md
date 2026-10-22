@@ -390,15 +390,15 @@ v1 基线（不连真实订阅、不启真实进程）：
 | --- | --- | --- | --- |
 | `axs proxy user on` | 终端 | 环境变量 | 输出去 stdout（供 `eval "$(axs proxy user on)"`）；http/https/all/no proxy 大小写各一份，与 setproxy 对齐 |
 | `axs proxy user off` | 终端 | 环境变量 | 输出 unset 行 |
-| `axs proxy user status` | 终端 | 读环境变量 | 指向本代理退 0，否则退 1 |
+| `axs proxy user status` | 终端 | 读环境变量 | 指向本代理打印 `on` 退 0，否则 `off` 退 1 |
 | `axs proxy system on` | 指定应用 | gsettings 运行时 | mode=manual + http/https host/port + ignore-hosts；不写标识开关；无 gsettings 退 3 |
 | `axs proxy system off` | 指定应用 | gsettings 运行时 | mode=none（不做 schema 级 reset）；不删标识开关 |
-| `axs proxy system status` | 指定应用 | 运行时 + 持久 + dwm 环境 | 运行时匹配退 0，否则退 1。持久为 enabled 或 disabled。dwm 的 `XDG_CURRENT_DESKTOP` 含 `GNOME` 为生效，否则未生效；没有 dwm 为无 X 会话 |
+| `axs proxy system status` | 指定应用 | 运行时 + 持久 + dwm 环境 | 运行时 `on` 退 0，否则 `off` 退 1。持久为 `enabled` 或 `disabled`。dwm 的 `XDG_CURRENT_DESKTOP` 含 `GNOME` 打印 `effective`，否则 `pending`；没有 dwm 为 `no x session` |
 | `axs proxy system enable` | 指定应用 | 标识开关 | 写 `run/proxy-system.flag`（0600）；重登 X 后导出桌面标识 |
 | `axs proxy system disable` | 指定应用 | 标识开关 | 删标识开关 |
 | `axs proxy session enable` | X 会话 | 开关文件 `run/proxy-session.flag`（空文件，0600） | 只作存在性开关；下次登录 X 生效。`on`/`off` 已移除 |
 | `axs proxy session disable` | X 会话 | 删开关文件 | — |
-| `axs proxy session status` | X 会话 | 开关 + dwm 环境 | 开关不在为 disabled 退 1；开关在但 dwm 环境没有代理变量为 enabled 未生效（提示重登 X）退 1；已有为 enabled 且生效退 0；没有 dwm 为无 X 会话 |
+| `axs proxy session status` | X 会话 | 开关 + dwm 环境 | 开关不在为 `disabled` 退 1；开关在但 dwm 环境没有代理变量为 `pending` 退 1；已注入为 `effective` 退 0；没有 dwm 为 `no x session` |
 
 - xprofile 托管块（`# axs proxy session (managed)`，dwm 启动前）：条件导出
   http/https/all/no proxy；安装需判重（幂等）；
@@ -406,8 +406,15 @@ v1 基线（不连真实订阅、不启真实进程）：
   规则承载，不进环境变量（裁决，非疏漏）；
 - 端口一律取 `override.yaml` 的 mixed-port，不写死；
 - 三层都不改变 mihomo 服务本身；`die` 用法错误退 1。
-- `axs status` 末行：`代理 user 运行时 on/off · system 运行时 on/off/持久 on/off · session 持久 on/off/生效 on/off`（on 绿、off 灰）。运行时是当前值，持久是开关文件，生效是 dwm 进程环境里已经有对应变量。
-- 读 dwm 用 `pgrep -x dwm` 的 `/proc/<pid>/environ`。`AXS_SESSION_PID` 可指定进程，供测试。没有进程或读不到，状态是无 X 会话。
+- `axs status` 代理段是三行英文。运行时 `on|off`，持久 `enabled|disabled`，会话生效 `effective|pending`。没有 X 会话时生效位是 `no x session`。`on` / `enabled` / `effective` 为绿，其余为灰。中文说明只留在帮助里：
+
+```
+proxy user      on|off
+proxy system    on|off · persist enabled|disabled
+proxy session   persist enabled|disabled · effective effective|pending
+```
+
+- 读 dwm 用 `pgrep -x dwm` 的 `/proc/<pid>/environ`。`AXS_SESSION_PID` 可指定进程，供测试。没有进程或读不到，状态是 `no x session`。
 - `axs net ip`：经 mixed 入站请求 `https://ipinfo.io/ip`，输出代理出口 IP；入站不通退 2，
   查询失败退 3。
 - system 层前提：libproxy 的 gnome 插件与 Edge 都要会话里有 `XDG_CURRENT_DESKTOP=GNOME` 才读 gsettings；没有标识时是 direct。推荐浏览器用 session 层。
