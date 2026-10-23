@@ -1,7 +1,8 @@
 """Command words, aliases, and the help text they print."""
+import os
 import sys
 
-from axs.render import bold, die, dim, ident, pad
+from axs.render import bold, die, dim, emph, ident, pad
 
 
 class ResolveError(Exception):
@@ -39,16 +40,6 @@ GROUPS = {
     "proxy": ("user system session".split(), {"u": "user", "s": "system", "e": "session"}),
 }
 
-USAGE = """\
-用法：axs start|stop|status|restart|ensure|clean
-      axs service enable|disable
-      axs sub get|refresh|clean
-      axs rule list|add|del
-      axs node groups|list|test|switch
-      axs net test
-      axs proxy user on|off|status; system on|off|enable|disable|status; session enable|disable|status
-"""
-
 INTRO = "单字符精确优先；未命中则唯一前缀。多个候选退出 1 并列出。h 与 ? 是这份帮助"
 SECTIONS = (
     ("服务", (
@@ -68,7 +59,7 @@ SECTIONS = (
     ("规则", (
         ("axs rule list", "l", "列出域名规则"),
         ("axs rule add via", "a", "经策略组，后接域名和组"),
-        ("axs rule add direct", "a", "直连，后接域名"),
+        ("axs rule add direct", "", "直连，后接域名"),
         ("axs rule del", "d", "删除域名规则"),
     ), ("例：axs rule list",)),
     ("节点", (
@@ -86,9 +77,6 @@ SECTIONS = (
         ("axs proxy system", "s", "运行时 on|off；持久 enable|disable"),
         ("axs proxy session", "e", "登录持久 enable|disable|status"),
     ), (
-        "status 分五节：服务、节点、订阅、测试、代理。标签对齐，节标题加粗",
-        "会话 effect：active、pending、-、no-x-session。persist disabled 时 effect 为 -",
-        "session 的 on|off 已移除，改用 enable|disable。system on 不再写标识开关",
         '例：eval "$(axs proxy user on)"',
     )),
     ("清理", (
@@ -127,8 +115,79 @@ def help_text():
     return "\n".join(lines) + "\n"
 
 
+_USAGE_LETTER = {
+    "stop": "o",
+    "status": "s",
+    "ensure": "e",
+    "clean": "c",
+    "sub": "u",
+    "rule": "r",
+    "node": "n",
+    "proxy": "p",
+}
+
+
+def _paint_marked(word, letter=None):
+    if not letter or letter not in word:
+        return bold(word)
+    index = word.index(letter)
+    chunks = []
+    if index:
+        chunks.append(bold(word[:index]))
+    chunks.append(emph("36", letter))
+    tail = word[index + 1 :]
+    if tail:
+        chunks.append(bold(tail))
+    return "".join(chunks)
+
+
+def _usage_word(word, mark=True):
+    if word == "start":
+        return bold(word) + " " + ident("[x]")
+    if mark:
+        return _paint_marked(word, _USAGE_LETTER.get(word))
+    return bold(word)
+
+
+def _pipes(words, mark=True):
+    return "|".join(_usage_word(word, mark) for word in words)
+
+
 def usage_text():
-    return USAGE
+    # Usage is stderr. Color follows that stream, not stdout.
+    previous = os.environ.get("AXS_PAINT_FD")
+    os.environ["AXS_PAINT_FD"] = "2"
+    try:
+        lines = [
+            "用法：axs " + _pipes(["start", "stop", "status", "restart", "ensure", "clean"]),
+            "      axs " + _usage_word("service", False) + " " + _pipes(["enable", "disable"], False),
+            "      axs " + _usage_word("sub") + " " + _pipes(["get", "refresh", "clean"]),
+            "      axs " + _usage_word("rule") + " " + _pipes(["list", "add", "del"], False),
+            "      axs " + _usage_word("node") + " " + _pipes(["groups", "list", "test", "switch"], False),
+            "      axs " + _usage_word("net", False) + " " + _usage_word("test", False),
+            "      axs "
+            + _usage_word("proxy")
+            + " "
+            + _usage_word("user", False)
+            + " "
+            + _pipes(["on", "off", "status"], False)
+            + "; "
+            + _usage_word("system", False)
+            + " "
+            + _pipes(["on", "off", "enable", "disable", "status"], False)
+            + "; "
+            + _usage_word("session", False)
+            + " "
+            + _pipes(["enable", "disable", "status"], False),
+        ]
+    finally:
+        if previous is None:
+            os.environ.pop("AXS_PAINT_FD", None)
+        else:
+            os.environ["AXS_PAINT_FD"] = previous
+    return "\n".join(lines) + "\n"
+
+
 
 
 def _usage():

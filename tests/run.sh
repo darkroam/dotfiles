@@ -1215,17 +1215,11 @@ assert_code 'service usage' 1 service start
 export AXS_COLOR=always
 assert_code 'bare help color' 1
 test "$(grep -c . "$RUN/err")" -eq 7 || fail "bare lines: $(cat "$RUN/err")"
-grep -q '用法：axs start|stop|status|restart|ensure|clean' "$RUN/err" || fail "bare help: $(cat "$RUN/err")"
-grep -q 'axs net test' "$RUN/err" || fail "bare last: $(cat "$RUN/err")"
-grep -q 'session enable|disable|status' "$RUN/err" || fail "usage session: $(cat "$RUN/err")"
-if grep -q 'session on|off' "$RUN/err"; then
-    fail 'usage still lists session on'
-fi
-if grep -q 'health' "$RUN/err"; then
-    fail 'help lists health'
-fi
-if grep -q "$ESC" "$RUN/err"; then
-    fail "bare help colored: $(cat "$RUN/err")"
+grep -F -q "${ESC}[36m[x]${ESC}[0m" "$RUN/err" || fail "start marker: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36mo${ESC}[0m" "$RUN/err" || fail "stop letter: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36ms${ESC}[0m" "$RUN/err" || fail "status letter: $(cat "$RUN/err")"
+if ! grep -q "$ESC" "$RUN/err"; then
+    fail "bare help not colored"
 fi
 test ! -s "$RUN/out" || fail "bare stdout: $(cat "$RUN/out")"
 assert_code 'unknown help' 1 nope
@@ -1249,7 +1243,7 @@ esc=re.compile("\033\\[[0-9;]*m")
 text=open(os.environ["AXS_RUN"]+"/out",encoding="utf-8").read()
 rows=[esc.sub("", line) for line in text.splitlines() if esc.sub("", line).startswith("axs ")]
 assert rows, text
-assert all(len(line)>=24 and line[22:24]=="  " and line[24]!=" " for line in rows), rows'
+assert all(len(line)>=32 and line[22:24]=="  " and (line[24]!=" " or (line[24:32]=="        " and line[32]!=" ")) for line in rows), rows'
 assert_code 'help flag' 0 --help
 grep -q '清理' "$RUN/out" || fail "flag out: $(cat "$RUN/out")"
 assert_code 'help short flag' 0 -h
@@ -1257,11 +1251,28 @@ grep -q '例：axs node list' "$RUN/out" || fail "short flag: $(cat "$RUN/out")"
 assert_code 'help flag extra' 1 -h extra
 test "$(grep -c . "$RUN/err")" -eq 7 || fail "flag extra: $(cat "$RUN/err")"
 export AXS_COLOR=never
+assert_code 'bare help plain' 1
+grep -F -q '用法：axs start [x]|stop|status|restart|ensure|clean' "$RUN/err" || fail "bare plain: $(cat "$RUN/err")"
+grep -q 'axs net test' "$RUN/err" || fail "bare last: $(cat "$RUN/err")"
+grep -q 'session enable|disable|status' "$RUN/err" || fail "usage session: $(cat "$RUN/err")"
+if grep -q 'session on|off' "$RUN/err"; then
+    fail 'usage still lists session on'
+fi
+if grep -q 'health' "$RUN/err"; then
+    fail 'help lists health'
+fi
+if grep -q "$ESC" "$RUN/err"; then
+    fail "bare help colored: $(cat "$RUN/err")"
+fi
 assert_code 'help never' 0 help
 if grep -q "$ESC" "$RUN/out"; then
     fail 'help never colored'
 fi
 grep -q '颜色只是增强，管道或 NO_COLOR 下信息仍完整' "$RUN/out" || fail "help note plain: $(cat "$RUN/out")"
+grep -q 'axs rule add direct' "$RUN/out" || fail "direct row: $(cat "$RUN/out")"
+if grep -q 'direct             a' "$RUN/out"; then
+    fail 'direct still shows alias a'
+fi
 
 new_run
 assert_code 'alias status' 2 s

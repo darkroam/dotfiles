@@ -141,6 +141,25 @@ def main():
         got_code, got_out, got_err = golden(name)
         if (got_code, got_out, got_err) != (code, stdout, stderr):
             raise SystemExit(f"golden {name} mismatch")
+    help_plain = help_text()
+    if "分五节" in help_plain or "会话 effect" in help_plain or "已移除" in help_plain:
+        raise SystemExit("help still has internal notes")
+    if "a       直连" in help_plain:
+        raise SystemExit("direct still repeats alias a")
+    os.environ["AXS_COLOR"] = "always"
+    colored = usage_text()
+    os.environ["AXS_COLOR"] = "never"
+    plain = usage_text()
+    import re
+    stripped = re.sub(r"\033\[[0-9;]*m", "", colored)
+    if stripped != plain or plain.count("\n") != 7:
+        raise SystemExit("usage highlight changed the plain text")
+    if "\033[36m[x]\033[0m" not in colored:
+        raise SystemExit("start marker")
+    if "\033[1mst\033[0m\033[1;36mo\033[0m\033[1mp\033[0m" not in colored:
+        raise SystemExit("stop letter")
+    if "\033[1;36ms\033[0m\033[1mtatus\033[0m" not in colored:
+        raise SystemExit("status letter")
     check_color()
     print(f"alias matrix {len(EXACT) + len(AMBIGUOUS) + len(UNKNOWN)}; help golden 3")
     return 0
