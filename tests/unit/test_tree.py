@@ -183,15 +183,15 @@ def check_select():
         fail("leaf missing\n" + select)
     if select.count("甲") != 2:
         fail(f"relay/auto {select.count('甲')}\n{select}")
-    if "[URLTest] * 自动·成员不可选" not in select:
+    if "[URLTest] * 自动·手选会被覆盖" not in select:
         fail("urltest note\n" + select)
-    if "[Fallback] 自动·成员不可选" not in select or "[LoadBalance] 自动·成员不可选" not in select:
+    if "[Fallback] 自动·手选会被覆盖" not in select or "[LoadBalance] 自动·手选会被覆盖" not in select:
         fail("auto note\n" + select)
     if "隐藏" in select.split("[URLTest]", 1)[-1].split("[Relay]", 1)[0]:
         fail("urltest expanded")
-    if "甲" in shallow or "[URLTest]" in shallow or "隐藏" in shallow or "[LoadBalance] 自动·成员不可选" not in shallow:
+    if "甲" in shallow or "[URLTest]" in shallow or "隐藏" in shallow or "[LoadBalance] 自动·手选会被覆盖" not in shallow:
         fail("select depth 1\n" + shallow)
-    if "隐藏" in mid or "[URLTest] * 自动·成员不可选" not in mid or "甲" not in mid:
+    if "隐藏" in mid or "[URLTest] * 自动·手选会被覆盖" not in mid or "甲" not in mid:
         fail("select depth 2\n" + mid)
     if _list_flags(["--select"]) != ("select", None) or _list_flags(["--depth", "2", "--select"]) != ("select", 2):
         fail("select flags")

@@ -91,7 +91,7 @@ def render_tree(proxies, depth=None, width=None, mode="full", origin=None):
 
     def group_line(name, prefix, mark):
         kind = str(proxies[name].get("type") or "-")
-        note = " 自动·成员不可选" if select and kind in AUTO_TYPES else ""
+        note = " 自动·手选会被覆盖" if select and kind in AUTO_TYPES else ""
         return f"{prefix}G{gnums[name]} {name} [{kind}]{mark}{note}"
 
     def leaf_text(parent, name):
