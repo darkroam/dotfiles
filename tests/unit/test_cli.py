@@ -172,6 +172,32 @@ def check_help_aliases():
             raise SystemExit(f"help extra alias {group} {word}")
 
 
+
+def check_help_heads(help_plain):
+    heads = (
+        ("服务", "service"),
+        ("订阅", "sub"),
+        ("规则", "rule"),
+        ("节点", "node"),
+        ("网络", "net"),
+        ("代理", "proxy"),
+        ("清理", "clean"),
+    )
+    marks = _alias_marks(GROUPS["top"][1])
+    titles = [item[0] for item in SECTIONS]
+    if len(titles) != len(heads):
+        raise SystemExit("help section count")
+    for (zh, command), title in zip(heads, titles):
+        want = f"{zh}（{command} / {marks[command]}）"
+        if title != want or title not in help_plain.splitlines():
+            raise SystemExit("help head " + want)
+    for line in help_plain.splitlines():
+        if not line.startswith("axs "):
+            continue
+        if line[22:24] != "  " or line[30:32] != "  ":
+            raise SystemExit("help columns " + line)
+
+
 def main():
     for word, group, want in EXACT:
         got = resolve(word, group)
@@ -212,6 +238,7 @@ def main():
         raise SystemExit("help still has redundant lines")
     if "单字符优先；冲突用两字母；前缀亦可" not in help_plain:
         raise SystemExit("help intro")
+    check_help_heads(help_plain)
     if '示例：axs s · axs n l · axs p sy on' not in help_plain:
         raise SystemExit("help example")
     os.environ["AXS_COLOR"] = "always"
