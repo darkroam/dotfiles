@@ -1,4 +1,4 @@
-"""Connectivity and egress."""
+"""Connectivity, open ports, and egress."""
 
 from axs.codes import USAGE, DOWN, FAIL
 from axs.config import LOOPBACK, LOOPBACK_HOSTS
@@ -104,10 +104,19 @@ def egress(proxy, url):
     print(text)
 
 
+def port_open(port):
+    from axs.mihomo import probe
+
+    try:
+        probe(LOOPBACK, port)
+    except SystemExit:
+        return False
+    return True
+
+
 def net_ip(run, args):
     from axs.config import read_ports
     from axs.render import die
-    from axs.service import port_open
 
     if args:
         die(USAGE, "用法错误")
@@ -120,7 +129,7 @@ def net_ip(run, args):
 def net_test(run, args):
     from axs.config import URLS, read_ports
     from axs.render import die
-    from axs.service import port_open, write_cache
+    from axs.core import write_cache
 
     try:
         net_precheck(Path(run) / URLS, list(args))

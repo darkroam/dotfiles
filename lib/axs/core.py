@@ -1,4 +1,4 @@
-"""Lock, atomic install, snapshot, and the systemd-mode cache."""
+"""Lock, process check, atomic install, snapshot, and the systemd-mode cache."""
 from axs.codes import USAGE
 import fcntl
 import os
@@ -8,7 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from axs.config import CONFIG, LOCK, SNAP, SNAP_NAMES
+from axs.config import CONFIG, LOCK, PID, SNAP, SNAP_NAMES, mihomo_path
 
 
 class LockBusy(Exception):
@@ -89,6 +89,53 @@ def lock(run):
         handle.close()
         raise LockBusy("锁被占用")
     return handle
+
+
+_HELD = []
+
+
+def hold_lock(run):
+    from axs.codes import LOCK as BUSY
+    from axs.render import die
+
+    try:
+        _HELD.append(lock(run))
+    except LockBusy as exc:
+        die(BUSY, str(exc))
+
+
+def read_pid(run):
+    text = (Path(run) / PID).read_text(encoding="utf-8")
+    while text.endswith("\n"):
+        text = text[:-1]
+    return text
+
+
+def alive(pid):
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def service_up(run, quiet=False):
+    pidfile = Path(run) / PID
+    if not pidfile.is_file():
+        return False
+    pid = read_pid(run)
+    if not pid.isdigit():
+        if not quiet:
+            sys.stderr.write("告警：mihomo.pid 不是数字\n")
+        return False
+    if not alive(int(pid)):
+        return False
+    path = Path(f"/proc/{pid}/cmdline")
+    try:
+        fields = path.read_bytes().split(b"\0")
+    except OSError:
+        return False
+    return mihomo_path().encode() in fields
 
 
 def detect_systemd(env, show):

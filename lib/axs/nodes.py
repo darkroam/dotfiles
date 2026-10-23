@@ -78,11 +78,8 @@ def group_table(proxies):
 def show_groups(secret_path, api):
     sys.stdout.write(group_table(_proxies(secret_path, api)))
 
-AUTO_LABEL = {
-    "URLTest": "url-test",
-    "Fallback": "fallback",
-    "LoadBalance": "load-balance",
-}
+AUTO_LABEL = {"URLTest": "url-test", "Fallback": "fallback", "LoadBalance": "load-balance"}
+AUTO_TYPES = frozenset(AUTO_LABEL)
 
 def node_numbers(proxies):
     names = sorted(

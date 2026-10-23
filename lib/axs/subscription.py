@@ -323,10 +323,9 @@ def refresh_run(run):
     import subprocess
 
     from axs.config import CONFIG_NEW, OVERRIDE, RULES, SECRET, ensure_override, read_ports
-    from axs.core import gen_secret
+    from axs.core import gen_secret, hold_lock, service_up
     from axs.mihomo import reload_core
     from axs.render import die
-    from axs.service import hold_lock, service_up
 
     runp = Path(run)
     hold_lock(run)

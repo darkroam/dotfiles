@@ -12,33 +12,43 @@
 
 ## 依赖
 
-只向下。上层不被下层调用。
+只向下。上层不被下层调用。`from axs.service import` 只允许出现在 `cli.py`。
 
 ```
 bin/axs  bin/mihomo-run
     |
    cli
     |
- service  subscription  rules  nodes  net  proxy
+ service
+    |
+ subscription  rules  nodes  net  proxy
     |
    core ---------------- mihomo
     |                      |
  config                  config
 ```
 
-`render` 不在这条链上。cli 和各命令模块为了输出才调用它。`rules` 可以调用 `subscription` 的合并；反向不行。除此以外同层互不 import。锁、快照、回滚只来自 `core`。重载请求只来自 `mihomo`。
+`render` 不在这条链上。cli 和各命令模块为了输出才调用它。`service` 是编排，可以调用它下面的模块。命令模块不调用 `service`。
+
+已批准斜边只有一条：
+
+| 从 | 到 | 原因 |
+| --- | --- | --- |
+| rules | subscription | 合并后的安装复用订阅模块 |
+
+反向不行。不另批同层斜边。锁、持锁和进程存活只来自 `core`。入站端口是否打开只来自 `net`。内核路径只来自 `config`。重载请求只来自 `mihomo`。
 
 | 模块 | 拥有 | 不拥有 |
 | --- | --- | --- |
-| config | 路径、`run/` 文件名、默认值、端口与控制器地址 | 网络、颜色 |
+| config | 路径、`run/` 文件名、默认值、端口、控制器地址、内核路径 | 网络、颜色 |
 | render | 颜色、对齐、帮助和 status 的排版 | 订阅、控制器 |
-| core | 锁、原子安装、快照与回滚、systemd 探测、会话 environ | 订阅正文、命令模块 |
+| core | 锁、持锁、进程存活、原子安装、快照与回滚、systemd 探测、会话 environ | 订阅正文、命令模块、端口探测 |
 | mihomo | 控制器 HTTP、探活、重载请求 | 回滚、规则语义 |
-| service | 启停、health、清理、status 编排 | 订阅解析、自己的锁 |
+| service | 启停、health、清理、status 编排 | 订阅解析、锁、进程探测、端口探测 |
 | subscription | 拉取、校验、合并、流量与到期 | status 排版 |
 | rules | 规则列表，以及合并后的安装、重载、回滚 | 读端口、再写一遍锁 |
 | nodes | 组、列表、延迟、切换、测速缓存 | 改配置 |
-| net | 连通性、出口地址 | 写订阅 |
+| net | 连通性、出口地址、入站是否打开 | 写订阅 |
 | proxy | 三层开关和状态词 | 改内核进程 |
 | cli | 命令表、别名、分发 | 被下层调用 |
 | codes | 退出码常量 | 任何其它逻辑 |
@@ -76,15 +86,15 @@ run/                         运行时。不入库
 | `lib/axs/codes.py` | 退出码常量 | 20 行 |
 | `lib/axs/cli.py` | 命令表、别名、前缀、分发 | 400 行 |
 | `lib/axs/render.py` | 颜色和对齐 | 300 行 |
-| `lib/axs/config.py` | 默认值、路径、端口的唯一读取 | 200 行 |
-| `lib/axs/core.py` | 锁、安装、快照、systemd、会话探测 | 400 行 |
+| `lib/axs/config.py` | 默认值、路径、端口、内核路径 | 200 行 |
+| `lib/axs/core.py` | 锁、持锁、进程存活、安装、快照、systemd、会话探测 | 400 行 |
 | `lib/axs/mihomo.py` | 控制器 HTTP，规则类型词和来源表。不是内核二进制 | 300 行 |
 | `lib/axs/service.py` | 启停、ensure、health、清理、status | 400 行 |
 | `lib/axs/subscription.py` | 拉取、校验、合并、流量与到期 | 400 行 |
 | `lib/axs/rules.py` | 规则增删、安装回滚、list 入口 | 250 行 |
 | `lib/axs/nodes.py` | 组、列表、延迟、切换 | 400 行 |
 | `lib/axs/tree.py` | `node list --full` / `--select` 的树。编号仍问 nodes | 250 行 |
-| `lib/axs/net.py` | 连通与出口 | 250 行 |
+| `lib/axs/net.py` | 连通、出口、入站是否打开 | 250 行 |
 | `lib/axs/proxy.py` | 三层开关和状态词 | 300 行 |
 | `units/*` | 已安装单元的模板。外部行为不改 | 各 40 行 |
 | `tests/run.sh` | 先单元，再集成。不含 lab | 40 行 |

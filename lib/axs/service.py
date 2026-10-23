@@ -1,6 +1,6 @@
 """Service lifecycle, status, and the command bodies that used to live in shell."""
 
-from axs.codes import USAGE, DOWN, FAIL, LOCK, EXPIRED
+from axs.codes import USAGE, DOWN, FAIL, EXPIRED
 import contextlib
 import io
 import os
@@ -11,82 +11,35 @@ import sys
 import time
 from pathlib import Path
 
-from axs.config import CONFIG, LOOPBACK, PID, SECRET, URL, USERINFO, read_ports, status_ports
+from axs.config import CONFIG, PID, SECRET, URL, USERINFO, mihomo_path, read_ports, status_ports
 from axs.core import (
-    LockBusy,
     active,
+    alive,
     format_span,
     gen_secret,
-    lock,
     manual_etime,
     next_refresh,
     prime,
+    read_pid,
     run_systemctl,
+    service_up,
     systemd_etime,
     systemd_on,
     unix_now,
     write_cache,
 )
-from axs.mihomo import probe, version_ok
+from axs.mihomo import version_ok
+from axs.net import port_open
 from axs.nodes import status_nodes
 from axs.proxy import status_summary
 from axs.render import bad, bold, die, dim, emph, label, ok
 from axs.subscription import classify, clean_names, refresh_run, status_sub
-
-_HELD = []
 
 def run_dir():
     chosen = os.environ.get("AXS_RUN")
     if chosen:
         return chosen
     return str(Path(__file__).resolve().parents[2] / "run")
-
-def mihomo_path():
-    return os.environ.get("AXS_MIHOMO") or str(Path.home() / ".local" / "bin" / "mihomo")
-
-def hold_lock(run):
-    try:
-        _HELD.append(lock(run))
-    except LockBusy as exc:
-        die(LOCK, str(exc))
-
-def read_pid(run):
-    text = (Path(run) / PID).read_text(encoding="utf-8")
-    while text.endswith("\n"):
-        text = text[:-1]
-    return text
-
-def alive(pid):
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return False
-    return True
-
-def service_up(run, quiet=False):
-    pidfile = Path(run) / PID
-    if not pidfile.is_file():
-        return False
-    pid = read_pid(run)
-    if not pid.isdigit():
-        if not quiet:
-            sys.stderr.write("告警：mihomo.pid 不是数字\n")
-        return False
-    if not alive(int(pid)):
-        return False
-    path = Path(f"/proc/{pid}/cmdline")
-    try:
-        fields = path.read_bytes().split(b"\0")
-    except OSError:
-        return False
-    return mihomo_path().encode() in fields
-
-def port_open(port):
-    try:
-        probe(LOOPBACK, port)
-    except SystemExit:
-        return False
-    return True
 
 def controller_ok(run, api):
     secret = Path(run) / SECRET

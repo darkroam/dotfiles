@@ -1,4 +1,4 @@
-"""Defaults, run-file names, and the four port reads. No network and no color."""
+"""Defaults, paths, kernel binary, and the four port reads. No network and no color."""
 import os
 from pathlib import Path
 
@@ -64,6 +64,10 @@ RUN_FILES = (
     LEGACY_SYSTEM_FLAG,
     LEGACY_SESSION_FLAG,
 )
+
+
+def mihomo_path():
+    return os.environ.get("AXS_MIHOMO") or str(Path.home() / ".local" / "bin" / "mihomo")
 
 
 def override_body(mixed, api):

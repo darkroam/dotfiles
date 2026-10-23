@@ -240,7 +240,7 @@ def check_list():
         proc = subprocess.Popen([str(mihomo)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         try:
             (run / "mihomo.pid").write_text(f"{proc.pid}\n", encoding="utf-8")
-            from axs.service import service_up
+            from axs.core import service_up
             for _ in range(20):
                 if service_up(run):
                     break

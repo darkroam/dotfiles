@@ -5,10 +5,8 @@ from pathlib import Path
 import yaml
 
 from axs.config import CONFIG
-from axs.nodes import _is_group, follow_leaf, group_numbers, node_numbers, selection_parts
+from axs.nodes import AUTO_TYPES, _is_group, follow_leaf, group_numbers, node_numbers, selection_parts
 from axs.render import display_width, term_cols
-
-AUTO = {"URLTest", "Fallback", "LoadBalance"}
 
 
 def exit_line(proxies):
@@ -81,7 +79,7 @@ def render_tree(proxies, depth=None, width=None, mode="full", origin=None):
 
     def group_line(name, prefix, mark):
         kind = str(proxies[name].get("type") or "-")
-        note = " 自动·成员不可选" if select and kind in AUTO else ""
+        note = " 自动·成员不可选" if select and kind in AUTO_TYPES else ""
         return f"{prefix}G{gnums[name]} {name} [{kind}]{mark}{note}"
 
     def leaf_text(parent, name):
@@ -148,7 +146,7 @@ def render_tree(proxies, depth=None, width=None, mode="full", origin=None):
 
     def expand(name, line_prefix, child_base, level, stack, mark):
         lines = [group_line(name, line_prefix, mark)]
-        if select and str(proxies[name].get("type") or "") in AUTO:
+        if select and str(proxies[name].get("type") or "") in AUTO_TYPES:
             return lines
         if depth is not None and level >= depth:
             return lines

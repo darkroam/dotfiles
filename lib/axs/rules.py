@@ -205,7 +205,7 @@ def cmd_list(run, local=False):
         sys.stdout.write(path.read_text(encoding="utf-8") if path.is_file() else "")
         return
     from axs.render import die
-    from axs.service import service_up
+    from axs.core import service_up
 
     if service_up(run):
         sys.stdout.write(_controlled(run))
@@ -218,7 +218,7 @@ def cmd_list(run, local=False):
 
 def _mutate_live(run, op, args):
     from axs.config import read_ports
-    from axs.service import hold_lock, service_up
+    from axs.core import hold_lock, service_up
 
     running, api = "0", ""
     if service_up(run):
