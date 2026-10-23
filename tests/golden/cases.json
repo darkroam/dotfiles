@@ -51,6 +51,16 @@
     "up": true
   },
   {
+    "name": "node-list--tree.txt",
+    "argv": [
+      "node",
+      "list",
+      "--full"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"GLOBAL\": {\"type\": \"Selector\", \"now\": \"主代理\", \"all\": [\"主代理\"]}, \"主代理\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\", \"甲\", \"乙\", \"丙\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"甲\", \"all\": [\"甲\", \"乙\", \"主代理\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Shadowsocks\"}, \"丙\": {\"type\": \"Vless\"}}}\n"
+  },
+  {
     "name": "node-groups--up.txt",
     "argv": [
       "node",

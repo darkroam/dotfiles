@@ -70,7 +70,7 @@ SECTIONS = (
     ), ()),
     ("节点（node / n）", (
         ("axs node groups", "g", "策略组与当前节点"),
-        ("axs node list", "l", "节点列表"),
+        ("axs node list", "l", "--full 树（--depth 层数），--flat 表"),
         ("axs node test", "t", "测延迟，可接组号或组名"),
         ("axs node switch", "s", "组号或组名，再接节点"),
     ), ()),
@@ -160,7 +160,7 @@ def usage_text():
             "      axs " + _usage_word("service", "top") + " " + _pipes(["enable", "disable"], "service"),
             "      axs " + _usage_word("sub", "top") + " " + _pipes(["get", "refresh", "clean"], "sub"),
             "      axs " + _usage_word("rule", "top") + " " + _pipes(["list", "add", "del"], "rule"),
-            "      axs " + _usage_word("node", "top") + " " + _pipes(["groups", "list", "test", "switch"], "node"),
+            "      axs " + _usage_word("node", "top") + " " + _pipes(["groups", "list", "test", "switch"], "node") + " " + _usage_word("--full") + "|" + _usage_word("--flat") + " " + _usage_word("--depth") + " N",
             "      axs " + _usage_word("net", "top") + " " + _usage_word("test", "net"),
             "      axs "
             + _usage_word("proxy", "top")
@@ -208,6 +208,33 @@ def _take(group, argv):
     return name, argv[1:]
 
 
+
+def _list_flags(args):
+    mode = ""
+    depth = None
+    index = 0
+    while index < len(args):
+        arg = args[index]
+        if arg in ("--full", "--flat", "-l"):
+            if mode:
+                die(USAGE, "用法错误")
+            mode = "flat" if arg in ("--flat", "-l") else "full"
+            index += 1
+            continue
+        if arg != "--depth":
+            die(USAGE, "用法错误")
+        if depth is not None or index + 1 >= len(args):
+            die(USAGE, "用法错误")
+        token = args[index + 1]
+        if not (token.isascii() and token.isdigit() and str(int(token)) == token and int(token) >= 1):
+            die(USAGE, "用法错误")
+        depth = int(token)
+        index += 2
+    if depth is not None and mode != "full":
+        die(USAGE, "用法错误")
+    return mode, depth
+
+
 def _node(run, kind, args):
     from pathlib import Path
 
@@ -217,13 +244,9 @@ def _node(run, kind, args):
     import os
     if kind == "switch" and len(args) != 2:
         die(USAGE, "用法错误")
+    list_mode, depth = "", None
     if kind == "list":
-        full = False
-        for arg in args:
-            if arg in ("--full", "-l"):
-                full = True
-            else:
-                die(USAGE, "用法错误")
+        list_mode, depth = _list_flags(args)
     if kind == "test":
         if not service_up(run):
             die(DOWN, "服务：未运行")
@@ -256,7 +279,12 @@ def _node(run, kind, args):
     if kind == "groups":
         show_groups(secret, api)
     elif kind == "list":
-        show_nodes(secret, api, "--full" if full else str(run))
+        if list_mode == "full":
+            show_nodes(secret, api, "full", depth)
+        elif list_mode == "flat":
+            show_nodes(secret, api, "flat")
+        else:
+            show_nodes(secret, api, str(run))
     else:
         select_proxy(secret, api, args[0], args[1], str(run))
 

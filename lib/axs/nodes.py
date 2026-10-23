@@ -254,14 +254,17 @@ def paint_cell(marker, num_text, name, delay_text, selected, delay_raw):
     delay = (" " * dlead) + _ansi(delay_code(delay_raw), body)
     return f"{mark}{number} {shown} {delay}"
 
-def show_nodes(secret_path, api, mode=""):
+def show_nodes(secret_path, api, mode="", depth=None):
     try:
         proxies = load_proxies(secret_path, api)
     except SystemExit as exc:
         _as_exit3(exc)
-    if mode == "--full":
+    if mode == "flat":
         _show_nodes_full(proxies)
         return
+    if mode == "full":
+        from axs.tree import render_tree
+        return sys.stdout.write(render_tree(proxies, depth))
     numbers = node_numbers(proxies)
     head, star = current_selection(proxies, numbers)
     delays = load_delays(mode)

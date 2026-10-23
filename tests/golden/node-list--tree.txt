@@ -1,0 +1,10 @@
+exit: 0
+--- stdout
+当前出口：主代理 → 自动（自动，url-test）→ 甲
+G1 GLOBAL [Selector]
+└─ G2 主代理 [Selector] *
+   ├─ G3 自动 [URLTest] *
+   │  ├─ N3 甲 [Shadowsocks] [*]  N2 乙 [Shadowsocks]
+   │  └─ ↩ G2 主代理（回到上层）
+   └─ N3 甲 [Shadowsocks]  N2 乙 [Shadowsocks]  N1 丙 [Vless]
+--- stderr

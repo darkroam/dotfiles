@@ -70,7 +70,7 @@ def prepare(tmp, case):
         )
         (run / "mihomo.pid").write_text(f"{proc.pid}\n", encoding="utf-8")
         env["AXS_MIHOMO"] = str(ROOT / "tests" / "fixtures" / "fake-mihomo")
-        (fake / "proxies.json").write_text(PROXIES, encoding="utf-8")
+        (fake / "proxies.json").write_text(case.get("proxies") or PROXIES, encoding="utf-8")
         (run / "secret").write_text("test-secret-value\n", encoding="utf-8")
     if case.get("expired"):
         (run / "userinfo").write_text("expire=1\n", encoding="utf-8")

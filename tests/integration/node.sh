@@ -114,7 +114,7 @@ cat >"$RUN/fake/proxies.json" <<'EOF'
 {"proxies":{"AUTO":{"all":["b","a b"],"now":"b","type":"URLTest"},"PROXY":{"all":["a","b","a b"],"now":"a","type":"Selector"},"RELAY":{"all":["a"],"type":"Relay"},"DIRECT":{"type":"Direct"},"a":{"type":"Shadowsocks"},"a b":{"type":"Shadowsocks"},"b":{"type":"Shadowsocks"},"lonely":{"type":"Socks"}}}
 EOF
 names=$(find "$RUN" -mindepth 1 -maxdepth 1 -exec basename {} \; | sort)
-assert_code 'node list' 0 node list --full
+assert_code 'node flat' 0 node list --flat
 after=$(find "$RUN" -mindepth 1 -maxdepth 1 -exec basename {} \; | sort)
 test "$after" = "$names" || fail "list wrote run: $after"
 list_want=$(printf '%s\n' \
