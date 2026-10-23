@@ -11,6 +11,8 @@ from axs.config import (  # noqa: E402
     CONFIG_BAK,
     DEFAULT_API,
     DEFAULT_MIXED,
+    LEGACY_SESSION_FLAG,
+    LEGACY_SYSTEM_FLAG,
     RUN_FILES,
     SNAP,
 )
@@ -50,8 +52,9 @@ def pin_paths(text):
     extra = found - allowed
     if extra:
         fail(f"paths extra={sorted(extra)}")
-    # snapshot names left the shell with the functions; core still loops twice
-    if allowed - found != {SNAP, CONFIG_BAK}:
+    # snapshot names left with core; legacy proxy flags left with proxy.py
+    moved = {SNAP, CONFIG_BAK, LEGACY_SYSTEM_FLAG, LEGACY_SESSION_FLAG}
+    if allowed - found != moved:
         fail(f"paths missing={sorted(allowed - found)}")
     if re.search(r"(?m)^(snapshot|restore_snapshot)\(\) \{", text):
         fail("shell still owns snapshot")

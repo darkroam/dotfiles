@@ -2,6 +2,7 @@
 import fcntl
 import os
 import shutil
+import sys
 from pathlib import Path
 
 from axs.config import CONFIG, LOCK, SNAP, SNAP_NAMES
@@ -109,8 +110,6 @@ class SystemdCache:
 
 
 def fail(message):
-    import sys
-
     sys.stderr.write(message + "\n")
     raise SystemExit(1)
 

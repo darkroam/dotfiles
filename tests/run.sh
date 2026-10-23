@@ -95,12 +95,14 @@ python3 -m py_compile "$ROOT/lib/merge.py" "$ROOT/tests/prep_run.py" \
     "$ROOT/lib/axs/config.py" "$ROOT/lib/axs/core.py" "$ROOT/lib/axs/mihomo.py" \
     "$ROOT/lib/axs/subscription.py" "$ROOT/lib/axs/rules.py" "$ROOT/lib/axs/nodes.py" \
     "$ROOT/lib/axs/net.py" \
+    "$ROOT/lib/axs/proxy.py" \
     "$ROOT/tests/env/lab.py" "$ROOT/tests/support/snap.py" \
     "$ROOT/tests/unit/test_cli.py" "$ROOT/tests/unit/test_bare_exit.py" \
     "$ROOT/tests/unit/test_core.py" "$ROOT/tests/unit/test_pin.py" \
     "$ROOT/tests/unit/test_mihomo.py" \
     "$ROOT/tests/unit/test_subscription.py" "$ROOT/tests/unit/test_rules.py" \
-    "$ROOT/tests/unit/test_nodes.py"
+    "$ROOT/tests/unit/test_nodes.py" \
+    "$ROOT/tests/unit/test_net.py"
 python3 "$ROOT/tests/unit/test_cli.py"
 python3 "$ROOT/tests/unit/test_bare_exit.py"
 python3 "$ROOT/tests/unit/test_core.py"
@@ -109,8 +111,9 @@ python3 "$ROOT/tests/unit/test_mihomo.py"
 python3 "$ROOT/tests/unit/test_subscription.py"
 python3 "$ROOT/tests/unit/test_rules.py"
 python3 "$ROOT/tests/unit/test_nodes.py"
+python3 "$ROOT/tests/unit/test_net.py"
 python3 "$ROOT/tests/support/snap.py" check
-PASS=$((PASS + 10))
+PASS=$((PASS + 11))
 
 new_run
 assert_code usage 1

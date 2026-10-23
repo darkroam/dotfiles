@@ -303,6 +303,8 @@ run/                         运行时。不入库
 
 步 6 留下的失败退出，步 7 改完：`mihomo._fail` 与 `subscription.fail` 都进 `core.fail`。连通、预检和出口在 `net.py`，`merge.py` 只转发。
 
+步 8：三层代理命令在 `proxy.py`，`merge.py` 只转发，shell 只留调用。`axs status` 的代理行仍用 shell 里的会话读取，步 9 再收。
+
 ### 10.7 文档子树
 
 位置都在 `docs/`，不新建目录。阶段 1 的四份边界仍然有效。

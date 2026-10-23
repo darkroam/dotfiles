@@ -59,6 +59,12 @@ from axs.net import (  # noqa: E402
     net_run,
 )
 
+from axs.proxy import (  # noqa: E402
+    proxy_session,
+    proxy_system,
+    proxy_user,
+)
+
 def write_defaults(path, mixed, api):
     from axs.config import write_override
 
@@ -146,6 +152,12 @@ def main(argv):
         rules_add(argv[2], argv[3])
     elif cmd == "rules-del":
         rules_del(argv[2], argv[3])
+    elif cmd == "proxy-user":
+        proxy_user(argv[2], argv[3:])
+    elif cmd == "proxy-system":
+        proxy_system(argv[2], argv[3:])
+    elif cmd == "proxy-session":
+        proxy_session(argv[2], argv[3:])
     elif cmd == "egress":
         egress(argv[2], argv[3] if len(argv) > 3 else "https://ipinfo.io/ip")
     elif cmd == "probe":
