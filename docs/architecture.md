@@ -301,6 +301,7 @@ run/                         运行时。不入库
 | `rules.mutate` 的密钥 | `core.gen_secret` |
 | via 组名 | 只在 `check` 查一次。`mutate` 不再查 |
 
+步 6 留下的失败退出，步 7 改完：`mihomo._fail` 与 `subscription.fail` 都进 `core.fail`。连通、预检和出口在 `net.py`，`merge.py` 只转发。
 
 ### 10.7 文档子树
 

@@ -27,6 +27,15 @@ def check_forward():
     rules = (ROOT / "lib" / "axs" / "rules.py").read_text(encoding="utf-8")
     if "import merge" in rules or "merge." in rules:
         fail("rules still depends on merge")
+    if merge.net_precheck.__module__ != "axs.net" or merge.egress.__module__ != "axs.net":
+        fail("net forward")
+    for name in ("def net_precheck", "def net_run", "def egress", "def net_targets"):
+        if name in source:
+            fail("merge still defines " + name)
+    for name in ("mihomo.py", "subscription.py"):
+        body = (ROOT / "lib" / "axs" / name).read_text(encoding="utf-8")
+        if "import merge" in body or "merge." in body:
+            fail(name + " still depends on merge")
 
 
 def check_switch():

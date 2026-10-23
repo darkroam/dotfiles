@@ -18,17 +18,10 @@ from axs.config import (
     URL,
     USERINFO,
 )
-from axs.core import atomic_write, install_file, restore_snapshot, snapshot
+from axs.core import atomic_write, fail, install_file, restore_snapshot, snapshot
 from axs.render import dim, emph, label, warn
 
 
-def _fail(message):
-    import merge
-
-    merge.fail(message)
-
-
-fail = _fail
 take_snapshot = snapshot
 rollback = restore_snapshot
 install_merged = install_file

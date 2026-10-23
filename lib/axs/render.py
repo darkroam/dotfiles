@@ -1,6 +1,7 @@
 """Color and padding. Shell keeps its copy until the old file is removed."""
 import os
 import subprocess
+import sys
 import unicodedata
 
 
@@ -13,7 +14,10 @@ def use_color(fd=1):
     if "NO_COLOR" in os.environ:
         return False
     key = "AXS_TTY_ERR" if str(fd) == "2" else "AXS_TTY_OUT"
-    return os.environ.get(key) == "1"
+    if key in os.environ:
+        return os.environ.get(key) == "1"
+    stream = sys.stderr if str(fd) == "2" else sys.stdout
+    return stream.isatty()
 
 
 def tone(code, text):

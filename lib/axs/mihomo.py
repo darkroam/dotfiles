@@ -36,9 +36,9 @@ def delay_path(group, url, timeout="5000"):
 
 
 def _fail(message):
-    import merge
+    from axs.core import fail
 
-    merge.fail(message)
+    fail(message)
 
 
 def read_secret(secret_path, api):

@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
 from axs.cli import GROUPS, ResolveError, help_text, resolve_token, usage_text
-from axs.render import bad, bold, dim, emph, ident, label, ok, tone, warn
+from axs.render import bad, bold, dim, emph, ident, label, ok, tone, use_color, warn
 
 GOLDEN = ROOT / "tests" / "golden"
 EXACT = (
@@ -79,6 +79,29 @@ def check_color():
         assert bad("e") == "e"
         os.environ["AXS_PAINT_FD"] = "2"
         assert bad("e") == "\033[31me\033[0m"
+        for key in ("AXS_COLOR", "NO_COLOR", "AXS_TTY_OUT", "AXS_TTY_ERR", "AXS_PAINT_FD"):
+            os.environ.pop(key, None)
+
+        class _TTY:
+            def __init__(self, yes):
+                self.yes = yes
+
+            def isatty(self):
+                return self.yes
+
+        real_out, real_err = sys.stdout, sys.stderr
+        try:
+            sys.stdout, sys.stderr = _TTY(True), _TTY(False)
+            if use_color(1) is not True or use_color(2) is not False:
+                raise SystemExit("isatty fallback")
+            sys.stdout, sys.stderr = _TTY(False), _TTY(True)
+            if use_color(1) is not False or use_color(2) is not True:
+                raise SystemExit("isatty fallback swapped")
+            os.environ["AXS_TTY_OUT"] = "0"
+            if use_color(1) is not False:
+                raise SystemExit("tty flag beats isatty")
+        finally:
+            sys.stdout, sys.stderr = real_out, real_err
     finally:
         for key, value in saved.items():
             if value is None:
