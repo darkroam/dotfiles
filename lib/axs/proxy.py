@@ -1,4 +1,4 @@
-"""Three proxy layers. Status summary in the shell stays until service moves."""
+"""Three proxy layers."""
 import os
 import shutil
 import subprocess
@@ -12,7 +12,7 @@ from axs.config import (
     SYSTEM_FLAG,
     proxy_mixed,
 )
-from axs.render import bad, dim, ok
+from axs.render import bad, bold, dim, label, ok
 
 GS = "org.gnome.system.proxy"
 SYSTEM_HOOK = "axs proxy system identity (managed)"
@@ -263,3 +263,37 @@ def proxy_session(run, args):
         return
     _line(f"session: persist {ok('enabled')} · effect {dim('pending')}")
     _quit(1)
+
+
+def _word(text):
+    return ok(text) if text in ("on", "enabled", "active") else dim(text)
+
+
+def _row(name, value):
+    sys.stdout.write("  " + label(name) + value + "\n")
+
+
+def status_summary(run, port):
+    current = os.environ.get("http_proxy") or os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") or ""
+    user = "on" if current == _want(port) else "off"
+    system = "off"
+    if shutil.which("gsettings"):
+        mode = _gs_get(GS, "mode")
+        host = _gs_get(GS + ".http", "host")
+        sport = _gs_get(GS + ".http", "port")
+        if mode == "manual" and host == "127.0.0.1" and sport == str(port):
+            system = "on"
+    system_flag = "enabled" if (Path(run) / SYSTEM_FLAG).is_file() else "disabled"
+    session_flag = "enabled" if (Path(run) / SESSION_FLAG).is_file() else "disabled"
+    effect = "-"
+    if session_flag == "enabled":
+        effect = "pending"
+        rc, live = session_value("http_proxy")
+        if rc == 2:
+            effect = "no-x-session"
+        elif rc == 0 and live == _want(port):
+            effect = "active"
+    sys.stdout.write(bold("代理") + "\n")
+    _row("user    ", _word(user))
+    _row("system  ", f"{_word(system)}（persist {_word(system_flag)}）")
+    _row("session ", f"{dim('persist')} {_word(session_flag)} · {dim('effect')} {_word(effect)}")

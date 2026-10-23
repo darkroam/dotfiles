@@ -59,13 +59,11 @@ def check_egress():
 
 
 def check_forward():
-    shell = (ROOT / "lib" / "common.sh").read_text(encoding="utf-8")
-    if "gsettings set" in shell:
-        fail("shell still sets gsettings")
-    import merge
-
-    if merge.proxy_user.__module__ != "axs.proxy":
-        fail("proxy forward")
+    if (ROOT / "lib" / "common.sh").exists():
+        fail("shell remains")
+    from axs.proxy import proxy_user
+    if proxy_user.__module__ != "axs.proxy":
+        fail("proxy module")
 
 
 def main():

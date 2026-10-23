@@ -17,8 +17,6 @@ from axs.config import (  # noqa: E402
     SNAP,
 )
 
-SHELL = ROOT / "lib" / "common.sh"
-MERGE = ROOT / "lib" / "merge.py"
 MIHOMO = ROOT / "lib" / "axs" / "mihomo.py"
 ROUTES = {
     "/configs?force=true",
@@ -33,50 +31,36 @@ def fail(message):
     raise SystemExit(message)
 
 
-def pin_ports(text):
-    mixed = re.findall(r"AXS_MIXED_PORT:-(\d+)", text)
-    mixed += re.findall(r"(?m)^\s*MIXED=(\d+)\s*$", text)
-    api = re.findall(r"AXS_API:-([0-9.]+(?::[0-9]+)?)", text)
-    api += re.findall(r"(?m)^\s*API=([0-9.]+(?::[0-9]+)?)\s*$", text)
-    if mixed != [str(DEFAULT_MIXED), str(DEFAULT_MIXED)]:
-        fail(f"mixed literals {mixed}")
-    if api != [DEFAULT_API, DEFAULT_API]:
-        fail(f"api literals {api}")
-
-
-def pin_paths(text):
-    found = set(re.findall(r"\$AXS_RUN/([A-Za-z0-9._-]+)", text))
-    allowed = set(RUN_FILES)
-    if len(allowed) != len(RUN_FILES):
+def pin_defaults():
+    if (ROOT / "lib" / "common.sh").exists() or (ROOT / "lib" / "merge.py").exists():
+        fail("forwarding layer remains")
+    if len(set(RUN_FILES)) != len(RUN_FILES):
         fail("duplicate run file name")
-    extra = found - allowed
-    if extra:
-        fail(f"paths extra={sorted(extra)}")
-    # snapshot names left with core; legacy proxy flags left with proxy.py
-    moved = {SNAP, CONFIG_BAK, LEGACY_SYSTEM_FLAG, LEGACY_SESSION_FLAG}
-    if allowed - found != moved:
-        fail(f"paths missing={sorted(allowed - found)}")
-    if re.search(r"(?m)^(snapshot|restore_snapshot)\(\) \{", text):
-        fail("shell still owns snapshot")
-    core = (ROOT / "lib" / "axs" / "core.py").read_text(encoding="utf-8")
-    if len(re.findall(r"for name in SNAP_NAMES:", core)) != 2:
-        fail("snap loops moved")
+    for path in sorted((ROOT / "lib" / "axs").glob("*.py")):
+        if path.name == "config.py":
+            continue
+        body = path.read_text(encoding="utf-8")
+        if "7897" in body or DEFAULT_API in body:
+            fail(path.name + " repeats a default")
+    config = (ROOT / "lib" / "axs" / "config.py").read_text(encoding="utf-8")
+    if str(DEFAULT_MIXED) not in config or DEFAULT_API not in config:
+        fail("config lost the defaults")
 
 
 def pin_routes(text):
     quoted = set(re.findall(r"""["'](/(?:proxies|version|configs|group|delay)[^"']*)["']""", text))
     if quoted != ROUTES:
         raise SystemExit(f"quoted routes {sorted(quoted)}")
-    merge = MERGE.read_text(encoding="utf-8")
-    leaked = [route for route in ROUTES if route in merge]
-    if leaked:
-        raise SystemExit(f"merge still owns {leaked}")
+    for path in sorted((ROOT / "lib" / "axs").glob("*.py")):
+        if path.name == "mihomo.py":
+            continue
+        leaked = [route for route in ROUTES if route in path.read_text(encoding="utf-8")]
+        if leaked:
+            raise SystemExit(f"{path.name} owns {leaked}")
 
 
 def main():
-    shell = SHELL.read_text(encoding="utf-8")
-    pin_ports(shell)
-    pin_paths(shell)
+    pin_defaults()
     pin_routes(MIHOMO.read_text(encoding="utf-8"))
     print("pins")
     return 0

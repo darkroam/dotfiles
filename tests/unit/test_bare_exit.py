@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# count: grep -cE 'die [0-9]+' over bin/axs, bin/mihomo-run, lib/common.sh; grep -cE 'SystemExit\([0-9]+' over lib/merge.py and lib/axs/*.py. The regexes below count occurrences. Ceiling only shrinks.
+# count: grep -cE 'die [0-9]+' over bin/axs and bin/mihomo-run; grep -cE 'SystemExit\([0-9]+' over lib/axs/*.py. The regexes below count occurrences. Ceiling only shrinks.
 """Bare numeric exits may only shrink. Baseline is the step 0 tree."""
 import re
 import sys
@@ -20,8 +20,8 @@ def count(pattern, paths):
 
 
 def main():
-    shell = count(SHELL, [ROOT / "bin/axs", ROOT / "bin/mihomo-run", ROOT / "lib/common.sh"])
-    python_files = [ROOT / "lib" / "merge.py", *sorted((ROOT / "lib" / "axs").glob("*.py"))]
+    shell = count(SHELL, [ROOT / "bin/axs", ROOT / "bin/mihomo-run"])
+    python_files = sorted((ROOT / "lib" / "axs").glob("*.py"))
     python = count(PYTHON, python_files)
     if shell > SHELL_LIMIT or python > PYTHON_LIMIT:
         print(f"bare exits grew: shell {shell}>{SHELL_LIMIT} python {python}>{PYTHON_LIMIT}", file=sys.stderr)

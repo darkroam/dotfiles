@@ -145,3 +145,12 @@ def api_address(run, env=None):
 
 def proxy_mixed(run, env=None):
     return read_ports(run, env)[0]
+
+
+def write_defaults(path, mixed, api):
+    try:
+        write_override(path, mixed, api)
+    except ValueError as exc:
+        from axs.core import fail
+
+        fail(str(exc))

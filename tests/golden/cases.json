@@ -111,5 +111,14 @@
       "session",
       "status"
     ]
+  },
+  {
+    "name": "proxy-session--hook-missing.txt",
+    "argv": [
+      "proxy",
+      "session",
+      "status"
+    ],
+    "session_flag": true
   }
 ]

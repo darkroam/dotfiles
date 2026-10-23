@@ -8,6 +8,8 @@ from pathlib import Path
 from axs.mihomo import GROUP_TYPES, delay_path, load_proxies, read_secret, request, select_path
 from axs.render import bold, dim, display_width, emph, ident, layout_cells, ok, term_cols, tone, use_color
 
+DELAY_URL = "https://www.gstatic.com/generate_204"
+
 def _fail(message):
     from axs.core import fail
 

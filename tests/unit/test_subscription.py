@@ -8,13 +8,13 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
-import merge  # noqa: E402
 from axs.config import (  # noqa: E402
     CONFIG,
     CONFIG_BAK,
     DEFAULT_API,
     DEFAULT_DNS_LISTEN,
     DEFAULT_MIXED,
+    write_defaults,
     FETCH_BODY,
     FETCH_HEADER,
     PID,
@@ -54,7 +54,7 @@ def check_merge(work):
     (work / "rules.list").write_text("DOMAIN-SUFFIX added.example PROXY\n", encoding="utf-8")
     override = work / "override.yaml"
     merged = work / "out.yaml"
-    merge.write_defaults(override, DEFAULT_MIXED, DEFAULT_API)
+    write_defaults(override, DEFAULT_MIXED, DEFAULT_API)
     build_file(
         ROOT / "tests" / "fixtures" / "subscription.yaml",
         override,
@@ -96,14 +96,10 @@ def check_merge(work):
 
 
 def check_forward():
-    if merge.build_file is not build_file:
-        fail("build forward")
-    if merge.fetch.__module__ != "axs.subscription":
-        fail("fetch module " + merge.fetch.__module__)
-    source = (ROOT / "lib" / "merge.py").read_text(encoding="utf-8")
-    for name in ("def build_file", "def fetch", "def check_url", "def classify"):
-        if name in source:
-            fail("merge still defines " + name)
+    if (ROOT / "lib" / "merge.py").exists():
+        fail("merge remains")
+    if build_file.__module__ != "axs.subscription":
+        fail("build module")
 
 
 def check_names():

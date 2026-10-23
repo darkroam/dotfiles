@@ -1,4 +1,4 @@
-"""Connectivity and egress. The command entry still forwards through merge.py."""
+"""Connectivity and egress."""
 import http.client
 import os
 import sys
@@ -100,3 +100,43 @@ def egress(proxy, url):
         sys.stderr.write("出口查询失败\n")
         raise SystemExit(3)
     print(text)
+
+
+def net_ip(run, args):
+    from axs.config import read_ports
+    from axs.render import die
+    from axs.service import port_open
+
+    if args:
+        die(1, "用法")
+    mixed, _api = read_ports(run)
+    if not port_open(mixed):
+        die(2, "入站：不通")
+    egress(f"http://127.0.0.1:{mixed}", "https://ipinfo.io/ip")
+
+
+def net_test(run, args):
+    from axs.config import URLS, read_ports
+    from axs.render import die
+    from axs.service import port_open, write_cache
+
+    try:
+        net_precheck(Path(run) / URLS, list(args))
+    except SystemExit as exc:
+        code = exc.code if isinstance(exc.code, int) else 1
+        if code == 1:
+            die(1, "用法")
+        die(3, "禁止外网")
+    mixed, _api = read_ports(run)
+    if not port_open(mixed):
+        die(2, "入站：不通")
+    timeout = os.environ.get("AXS_NET_TIMEOUT_MS") or "5000"
+    try:
+        net_run(Path(run) / URLS, f"http://127.0.0.1:{mixed}", timeout, list(args))
+    except SystemExit as exc:
+        code = exc.code if isinstance(exc.code, int) else 1
+    else:
+        code = 0
+    write_cache(run, "net-test", "ok" if code == 0 else "fail")
+    if code:
+        raise SystemExit(code)

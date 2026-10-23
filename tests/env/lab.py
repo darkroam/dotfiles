@@ -546,27 +546,24 @@ def pair_check(var):
 
 def merge_check():
     root = Path(__file__).resolve().parents[2]
-    merge = root / "lib" / "merge.py"
+    sys.path.insert(0, str(root / "lib"))
+    from axs.config import write_override
+    from axs.core import gen_secret
+    from axs.subscription import build_file
+
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
         sub = folder / "sub.yaml"
         sub.write_text(subscription(9, False, 18095), encoding="utf-8")
-        subprocess.check_call(
-            ["python3", str(merge), "defaults", str(folder / "override.yaml"), "18093", "127.0.0.1:18094"],
-            stdout=subprocess.DEVNULL,
-        )
-        subprocess.check_call(
-            ["python3", str(merge), "gen-secret", str(folder / "secret")],
-            stdout=subprocess.DEVNULL,
-        )
+        write_override(folder / "override.yaml", "18093", "127.0.0.1:18094")
+        gen_secret(folder / "secret")
         (folder / "rules.list").write_text("DOMAIN target.test PROXY\n", encoding="utf-8")
-        subprocess.check_call(
-            [
-                "python3", str(merge), "build",
-                str(sub), str(folder / "override.yaml"), str(folder / "secret"),
-                str(folder / "rules.list"), str(folder / "config.yaml"),
-            ],
-            stdout=subprocess.DEVNULL,
+        build_file(
+            sub,
+            folder / "override.yaml",
+            folder / "secret",
+            folder / "rules.list",
+            folder / "config.yaml",
         )
         proc = subprocess.run(
             [mihomo_bin(), "-t", "-d", str(folder)],

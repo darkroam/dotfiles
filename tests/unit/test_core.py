@@ -11,13 +11,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
-import merge  # noqa: E402
 from axs.config import (  # noqa: E402
     DEFAULT_API,
     DEFAULT_DNS_LISTEN,
     DEFAULT_MIXED,
     api_address,
     proxy_mixed,
+    write_defaults,
     read_ports,
     status_ports,
 )
@@ -70,7 +70,7 @@ def check_ports(tmp):
     err = io.StringIO()
     try:
         with contextlib.redirect_stderr(err):
-            merge.write_defaults(run / "bad.yaml", 1, "10.0.0.1:1")
+            write_defaults(run / "bad.yaml", 1, "10.0.0.1:1")
     except SystemExit as exc:
         if exc.code != 1 or "回环" not in err.getvalue():
             raise SystemExit(f"loopback code {exc.code}") from exc

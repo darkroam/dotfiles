@@ -155,3 +155,43 @@ def mutate(run, op, running, api, args):
 
     gen_secret(run / SECRET)
     _apply_kept(run, api)
+
+
+def cmd_list(run):
+    path = Path(run) / RULES
+    if path.is_file():
+        sys.stdout.write(path.read_text(encoding="utf-8"))
+
+
+def _mutate_live(run, op, args):
+    from axs.config import read_ports
+    from axs.service import hold_lock, service_up
+
+    running, api = "0", ""
+    if service_up(run):
+        running = "1"
+        _mixed, api = read_ports(run)
+    check(run, op, running, api, args)
+    hold_lock(run)
+    mutate(run, op, running, api, args)
+
+
+def cmd_add(run, args):
+    from axs.render import die
+
+    kind = args[0] if args else ""
+    if kind == "via" and len(args) == 3:
+        _mutate_live(run, "add", ["via", args[1], args[2]])
+        return
+    if kind == "direct" and len(args) == 2:
+        _mutate_live(run, "add", ["direct", args[1]])
+        return
+    die(1, "用法")
+
+
+def cmd_del(run, args):
+    from axs.render import die
+
+    if len(args) != 1:
+        die(1, "用法")
+    _mutate_live(run, "del", [args[0]])

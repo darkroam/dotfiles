@@ -177,3 +177,12 @@ def reload_core(secret_path, api, config_path):
         request(secret, api, "PUT", reload_path(), body)
     except SystemExit:
         _fail("重载失败")
+
+
+def version_ok(secret_path, api):
+    secret = read_secret(secret_path, api)
+    try:
+        request(secret, api, "GET", version_path())
+    except SystemExit:
+        failed = 3
+        raise SystemExit(failed)

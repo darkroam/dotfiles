@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
-import merge  # noqa: E402
+from axs.config import write_defaults  # noqa: E402
 from axs.rules import check, mutate, rule_line, rules_add, rules_del  # noqa: E402
 
 FIXTURE = ROOT / "tests" / "fixtures" / "subscription.yaml"
@@ -101,7 +101,7 @@ def prepare_sub(run, reload_code):
     (run / "rules.list").write_text(KEPT, encoding="utf-8")
     (run / "config.yaml").write_text("SENTINEL-OLD\n", encoding="utf-8")
     (run / "secret").write_text("test-secret-value\n", encoding="utf-8")
-    merge.write_defaults(run / "override.yaml", 1, API)
+    write_defaults(run / "override.yaml", 1, API)
 
 
 def check_reload_fail(run):
@@ -165,15 +165,12 @@ def check_applied(run):
 
 
 def check_forward():
-    if merge.rules_add.__module__ != "axs.rules" or merge.has_group.__module__ != "axs.rules":
-        fail("merge does not forward rules")
-    source = (ROOT / "lib" / "merge.py").read_text(encoding="utf-8")
+    if (ROOT / "lib" / "merge.py").exists() or (ROOT / "lib" / "common.sh").exists():
+        fail("forwarding layer remains")
+    source = (ROOT / "lib" / "axs" / "rules.py").read_text(encoding="utf-8")
     for name in ("def has_group", "def parse_rule", "def rules_add", "def rules_del"):
-        if name in source:
-            fail("merge still defines " + name)
-    shell = (ROOT / "lib" / "common.sh").read_text(encoding="utf-8")
-    if "snapshot() {" in shell or "restore_snapshot() {" in shell:
-        fail("shell still defines snapshot")
+        if name not in source:
+            fail("rules lost " + name)
 
 
 

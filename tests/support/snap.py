@@ -74,6 +74,8 @@ def prepare(tmp, case):
         (run / "secret").write_text("test-secret-value\n", encoding="utf-8")
     if case.get("expired"):
         (run / "userinfo").write_text("expire=1\n", encoding="utf-8")
+    if case.get("session_flag"):
+        (run / "proxy-session.flag").write_text("", encoding="utf-8")
     return env, proc
 
 

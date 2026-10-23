@@ -1,7 +1,9 @@
 """Lock, atomic install, snapshot, and the systemd-mode cache."""
 import fcntl
 import os
+import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -122,3 +124,109 @@ def gen_secret(path):
     import secrets
 
     atomic_write(path, secrets.token_hex(16) + "\n")
+
+
+_MODE = SystemdCache()
+
+
+def run_systemctl(args, capture=False, quiet=False):
+    cmd = [os.environ.get("AXS_SYSTEMCTL") or "systemctl", "--user", *args]
+    stdout = stderr = None
+    if quiet:
+        stdout = stderr = subprocess.DEVNULL
+    elif capture:
+        stdout = subprocess.PIPE
+        stderr = subprocess.DEVNULL
+    return subprocess.run(cmd, stdout=stdout, stderr=stderr, text=True)
+
+
+def prime():
+    def show():
+        return run_systemctl(["show", "axs.service", "-p", "LoadState", "--value"], capture=True).stdout
+
+    _MODE.get(os.environ, show)
+
+
+def systemd_on():
+    if _MODE.mode is None:
+        prime()
+    return _MODE.mode == "1"
+
+
+def active():
+    return run_systemctl(["is-active", "axs.service"], quiet=True).returncode == 0
+
+
+def unix_now():
+    proc = subprocess.run(["date", "+%s"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    stamp = proc.stdout.strip()
+    return int(stamp) if stamp.isdigit() else 0
+
+
+def clock(stamp):
+    proc = subprocess.run(["date", "-d", str(stamp), "+%H:%M"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    return proc.stdout.strip() if proc.returncode == 0 else ""
+
+
+def format_span(secs, suffix):
+    if secs < 60:
+        return f"{secs} 秒{suffix}"
+    if secs < 3600:
+        return f"{secs // 60} 分钟{suffix}"
+    if secs < 86400:
+        return f"{secs // 3600} 小时{suffix}"
+    return f"{secs // 86400} 天{suffix}"
+
+
+def manual_etime(pid):
+    proc = subprocess.run(["ps", "-o", "etimes=", "-p", str(pid)], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    text = "".join(proc.stdout.split())
+    if not text.isdigit():
+        return "-"
+    return format_span(int(text), "")
+
+
+def systemd_etime():
+    stamp = run_systemctl(["show", "axs.service", "-p", "ActiveEnterTimestamp", "--value"], capture=True).stdout.strip()
+    if stamp in ("", "n/a", "N/A"):
+        return "-"
+    proc = subprocess.run(["date", "-d", stamp, "+%s"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    start = proc.stdout.strip()
+    if not start.isdigit():
+        return "-"
+    return format_span(max(0, unix_now() - int(start)), "")
+
+
+def _first_usec(raw, key):
+    pattern = re.compile(rf'.*"{re.escape(key)}"\s*:\s*([0-9]+)')
+    for line in raw.splitlines():
+        found = pattern.search(line)
+        if not found:
+            continue
+        if found.group(1) == "0":
+            return None
+        return int(found.group(1))
+    return None
+
+
+def next_refresh():
+    raw = run_systemctl(["list-timers", "--output=json", "axs-refresh.timer"], capture=True).stdout
+    nxt = _first_usec(raw, "next")
+    left = _first_usec(raw, "left")
+    if nxt is None or left is None:
+        return "-"
+    delta = max(0, (left // 1000000) - unix_now())
+    hm = clock(f"@{(nxt // 1000000)}")
+    if not hm:
+        return "-"
+    return f"下次 {hm}（{format_span(delta, '后')}）"
+
+
+def write_cache(run, name, result):
+    directory = Path(run) / "cache"
+    directory.mkdir(parents=True, exist_ok=True)
+    os.chmod(directory, 0o700)
+    tmp = directory / f".{name}.{os.getpid()}"
+    tmp.write_text(f"ts={unix_now()}\nresult={result}\n", encoding="utf-8")
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, directory / name)

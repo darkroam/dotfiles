@@ -7,7 +7,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
-import merge  # noqa: E402
 from axs.nodes import resolve_switch_name, write_node_cache  # noqa: E402
 
 
@@ -16,22 +15,21 @@ def fail(message):
 
 
 def check_forward():
-    if merge.show_nodes.__module__ != "axs.nodes" or merge.group_names.__module__ != "axs.mihomo":
-        fail("forward module")
-    if merge.reload_core.__module__ != "axs.mihomo" or merge.gen_secret.__module__ != "axs.core":
+    if (ROOT / "lib" / "merge.py").exists():
+        fail("merge remains")
+    from axs.core import gen_secret
+    from axs.mihomo import group_names, reload_core
+    from axs.net import egress, net_precheck
+    from axs.nodes import show_nodes
+    if show_nodes.__module__ != "axs.nodes" or group_names.__module__ != "axs.mihomo":
+        fail("module")
+    if reload_core.__module__ != "axs.mihomo" or gen_secret.__module__ != "axs.core":
         fail("debt module")
-    source = (ROOT / "lib" / "merge.py").read_text(encoding="utf-8")
-    for name in ("def show_nodes", "def select_proxy", "def group_names", "def delay", "def reload_core"):
-        if name in source:
-            fail("merge still defines " + name)
+    if net_precheck.__module__ != "axs.net" or egress.__module__ != "axs.net":
+        fail("net module")
     rules = (ROOT / "lib" / "axs" / "rules.py").read_text(encoding="utf-8")
     if "import merge" in rules or "merge." in rules:
         fail("rules still depends on merge")
-    if merge.net_precheck.__module__ != "axs.net" or merge.egress.__module__ != "axs.net":
-        fail("net forward")
-    for name in ("def net_precheck", "def net_run", "def egress", "def net_targets"):
-        if name in source:
-            fail("merge still defines " + name)
     for name in ("mihomo.py", "subscription.py"):
         body = (ROOT / "lib" / "axs" / name).read_text(encoding="utf-8")
         if "import merge" in body or "merge." in body:

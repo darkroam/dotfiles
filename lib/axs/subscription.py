@@ -313,3 +313,53 @@ def clear_fetch(run):
     snap = run / SNAP
     for name in (CONFIG, SUBSCRIPTION):
         (snap / name).unlink(missing_ok=True)
+
+
+def refresh_run(run):
+    import subprocess
+
+    from axs.config import CONFIG_NEW, OVERRIDE, RULES, SECRET, ensure_override, read_ports
+    from axs.core import gen_secret
+    from axs.mihomo import reload_core
+    from axs.render import die
+    from axs.service import hold_lock, service_up
+
+    runp = Path(run)
+    hold_lock(run)
+    url = runp / URL
+    if not url.is_file():
+        die(3, "没有订阅")
+    os.chmod(url, 0o600)
+    check_url(url)
+    body = str(runp / FETCH_BODY)
+    hdr = str(runp / FETCH_HEADER)
+    helper = os.environ.get("AXS_FETCH")
+    if helper:
+        if subprocess.run([helper, str(url), body, hdr]).returncode != 0:
+            die(3, "拉取失败")
+    else:
+        try:
+            fetch(str(url), body, hdr)
+        except SystemExit:
+            die(3, "拉取失败")
+    check_fetched(body, hdr)
+    ensure_override(run)
+    gen_secret(runp / SECRET)
+    _mixed, api = read_ports(run)
+    snapshot(runp)
+    try:
+        build_file(body, runp / OVERRIDE, runp / SECRET, runp / RULES, runp / CONFIG_NEW)
+    except SystemExit:
+        restore_snapshot(runp)
+        die(3, "校验失败")
+    install_file(runp / CONFIG_NEW, runp / CONFIG)
+    if Path(body) != runp / SUBSCRIPTION:
+        install_file(body, runp / SUBSCRIPTION)
+    if service_up(run):
+        try:
+            reload_core(runp / SECRET, api, runp / CONFIG)
+        except SystemExit:
+            restore_snapshot(runp)
+            die(3, "重载失败")
+    write_userinfo(hdr, runp / USERINFO)
+    clear_fetch(run)

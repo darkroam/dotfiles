@@ -59,6 +59,20 @@ def emph(code, text):
     return tone(f"1;{code}", text)
 
 
+def die(code, message):
+    previous = os.environ.get("AXS_PAINT_FD")
+    os.environ["AXS_PAINT_FD"] = "2"
+    try:
+        text = bad(message)
+    finally:
+        if previous is None:
+            os.environ.pop("AXS_PAINT_FD", None)
+        else:
+            os.environ["AXS_PAINT_FD"] = previous
+    sys.stderr.write(text + "\n")
+    raise SystemExit(code)
+
+
 
 def pad(text, width):
     # printf '%-Ns' counts bytes. A character pad would shift the Chinese header.

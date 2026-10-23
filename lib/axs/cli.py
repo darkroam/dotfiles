@@ -1,5 +1,7 @@
 """Command words, aliases, and the help text they print."""
-from axs.render import bold, dim, ident, pad
+import sys
+
+from axs.render import bold, die, dim, ident, pad
 
 
 class ResolveError(Exception):
@@ -127,3 +129,151 @@ def help_text():
 
 def usage_text():
     return USAGE
+
+
+def _usage():
+    sys.stderr.write(usage_text())
+    code = 1
+    raise SystemExit(code)
+
+
+def _take(group, argv):
+    if not argv:
+        _usage()
+    words, aliases = GROUPS[group]
+    try:
+        name = resolve_token(argv[0], words, aliases)
+    except ResolveError as exc:
+        if exc.code == 1 and exc.message:
+            sys.stderr.write(exc.message + "\n")
+            code = 1
+            raise SystemExit(code)
+        _usage()
+    return name, argv[1:]
+
+
+def _node(run, kind, args):
+    from pathlib import Path
+
+    from axs.config import SECRET, api_address, read_ports
+    from axs.nodes import DELAY_URL, default_group, delay, select_proxy, show_groups, show_nodes, write_node_cache
+    from axs.service import captured, service_up, write_cache
+    import os
+    if kind == "switch" and len(args) != 2:
+        die(1, "用法")
+    if kind == "list":
+        full = False
+        for arg in args:
+            if arg in ("--full", "-l"):
+                full = True
+            else:
+                die(1, "用法")
+    if kind == "test":
+        if not service_up(run):
+            die(2, "服务：未运行")
+        _mixed, api = read_ports(run)
+        group = args[0] if args else ""
+        if not group:
+            code, out = captured(default_group, Path(run) / SECRET, api)
+            if code:
+                raise SystemExit(code)
+            group = out.strip("\n")
+        if not group:
+            die(3, "组名不存在")
+        url = os.environ.get("AXS_DELAY_URL") or DELAY_URL
+        code, out = captured(delay, Path(run) / SECRET, api, group, url)
+        sys.stdout.write(out)
+        if code == 0:
+            write_node_cache(Path(run) / "cache" / "node-test", group, out.splitlines())
+            return
+        write_cache(run, "node-test", "fail")
+        raise SystemExit(code)
+    if not service_up(run):
+        die(2, "服务：未运行")
+    api = api_address(run)
+    if not api:
+        die(3, "控制器")
+    secret = Path(run) / SECRET
+    if kind == "groups":
+        show_groups(secret, api)
+    elif kind == "list":
+        show_nodes(secret, api, "--full" if full else str(run))
+    else:
+        select_proxy(secret, api, args[0], args[1], str(run))
+
+
+def main(argv):
+    from axs.net import net_ip, net_test
+    from axs.proxy import proxy_session, proxy_system, proxy_user
+    from axs.rules import cmd_add, cmd_del, cmd_list
+    from axs.service import boot, clean, ensure, health, prime, restart, run_dir, start, status, stop
+    from axs.subscription import refresh_run as _refresh, show_userinfo
+    from axs.core import unix_now
+    from axs.config import USERINFO
+    from pathlib import Path
+
+    prime()
+    if not argv:
+        _usage()
+    cmd, rest = _take("top", argv)
+    run = run_dir()
+    if cmd == "help":
+        if rest:
+            _usage()
+        sys.stdout.write(help_text())
+        return
+    if cmd == "start":
+        start(run)
+    elif cmd == "stop":
+        stop(run)
+    elif cmd == "restart":
+        restart(run)
+    elif cmd == "status":
+        status(run)
+    elif cmd == "health":
+        health(run)
+    elif cmd == "ensure":
+        ensure(run, rest)
+    elif cmd == "clean":
+        clean(run, "config", rest)
+    elif cmd == "service":
+        op, extra = _take("service", rest)
+        if extra:
+            die(1, "用法")
+        boot(run, op)
+    elif cmd == "sub":
+        op, extra = _take("sub", rest)
+        if op == "get":
+            show_userinfo(Path(run) / USERINFO, unix_now())
+        elif op == "refresh":
+            _refresh(run)
+        elif op == "clean":
+            clean(run, "sub", extra)
+        else:
+            _usage()
+    elif cmd == "rule":
+        op, extra = _take("rule", rest)
+        if op == "list":
+            cmd_list(run)
+        elif op == "add":
+            cmd_add(run, extra)
+        elif op == "del":
+            cmd_del(run, extra)
+        else:
+            _usage()
+    elif cmd == "node":
+        op, extra = _take("node", rest)
+        _node(run, op, extra)
+    elif cmd == "net":
+        op, extra = _take("net", rest)
+        if op == "test":
+            net_test(run, extra)
+        elif op == "ip":
+            net_ip(run, extra)
+        else:
+            _usage()
+    elif cmd == "proxy":
+        op, extra = _take("proxy", rest)
+        {"user": proxy_user, "system": proxy_system, "session": proxy_session}[op](run, extra)
+    else:
+        _usage()
