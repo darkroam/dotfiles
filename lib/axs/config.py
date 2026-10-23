@@ -21,6 +21,15 @@ PREPEND = (
     "DOMAIN-SUFFIX,ghproxy.com,DIRECT",
     "DOMAIN-SUFFIX,gh-proxy.com,DIRECT",
 )
+CIDRS = [
+    "IP-CIDR,127.0.0.0/8,DIRECT,no-resolve",
+    "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
+    "IP-CIDR,172.16.0.0/12,DIRECT,no-resolve",
+    "IP-CIDR,192.168.0.0/16,DIRECT,no-resolve",
+    "IP-CIDR6," + next(host for host in LOOPBACK_HOSTS if ":" in host) + "/128,DIRECT,no-resolve",
+    "IP-CIDR6,fc00::/7,DIRECT,no-resolve",
+    "IP-CIDR6,fe80::/10,DIRECT,no-resolve",
+]
 OVERRIDE = "override.yaml"
 CONFIG = "config.yaml"
 SUBSCRIPTION = "subscription.yaml"
@@ -84,11 +93,24 @@ def override_body(mixed, api):
     }
 
 
+def atomic_write(path, text):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    os.chmod(path.parent, 0o700)
+    tmp = path.with_name(path.name + ".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        os.write(fd, text.encode("utf-8"))
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    os.replace(tmp, path)
+    os.chmod(path, 0o600)
+
+
 def write_override(path, mixed, api):
     if not str(api).startswith(LOOPBACK + ":"):
         raise ValueError("控制器必须在本机回环")
-    from axs.core import atomic_write
-
     text = yaml.safe_dump(override_body(mixed, api), allow_unicode=True, sort_keys=False)
     atomic_write(path, text)
 
@@ -156,12 +178,3 @@ def api_address(run, env=None):
 
 def proxy_mixed(run, env=None):
     return read_ports(run, env)[0]
-
-
-def write_defaults(path, mixed, api):
-    try:
-        write_override(path, mixed, api)
-    except ValueError as exc:
-        from axs.core import fail
-
-        fail(str(exc))

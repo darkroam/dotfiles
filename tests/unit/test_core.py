@@ -17,7 +17,6 @@ from axs.config import (  # noqa: E402
     DEFAULT_MIXED,
     api_address,
     proxy_mixed,
-    write_defaults,
     read_ports,
     status_ports,
 )
@@ -30,6 +29,7 @@ from axs.core import (  # noqa: E402
     lock,
     restore_snapshot,
     snapshot,
+    write_defaults,
 )
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Only cli may import the service orchestrator. Primitives stay in one module."""
+"""Import graph is a layered DAG. Primitives stay in one module."""
 import ast
 import sys
 from pathlib import Path
@@ -7,6 +7,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 LIB = ROOT / "lib" / "axs"
+
+# Lower index is a lower layer. A module may import a strictly lower layer.
+LAYERS = (
+    ("config", "codes"),
+    ("core", "render", "mihomo"),
+    ("net", "nodes"),
+    ("subscription", "rules", "proxy"),
+    ("tree", "service"),
+    ("cli",),
+    ("__main__",),
+)
+# Same-layer logic edge. render is off this chain and is not listed here.
+APPROVED = {("rules", "subscription")}
 
 
 def fail(message):
@@ -31,14 +44,89 @@ def locations():
     for name in ("hold_lock", "read_pid", "alive", "service_up", "_HELD"):
         if name not in core:
             fail("core missing " + name)
-    if "mihomo_path" not in defined(LIB / "config.py"):
+    config = defined(LIB / "config.py")
+    if "mihomo_path" not in config:
         fail("config missing mihomo_path")
+    if "CIDRS" not in config:
+        fail("config missing CIDRS")
     if "port_open" not in defined(LIB / "net.py"):
         fail("net missing port_open")
+    for name in ("subscription.py", "mihomo.py"):
+        if "CIDRS" in defined(LIB / name):
+            fail(name + " still defines CIDRS")
     service = defined(LIB / "service.py")
     for name in ("hold_lock", "read_pid", "alive", "service_up", "port_open", "mihomo_path", "_HELD"):
         if name in service:
             fail("service still defines " + name)
+
+
+def module_name(node):
+    if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("axs."):
+        return node.module.split(".", 1)[1]
+    return None
+
+
+def edges():
+    found = []
+    for path in sorted(LIB.glob("*.py")):
+        src = path.stem
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            dst = module_name(node)
+            if dst is None and isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name.startswith("axs."):
+                        found.append((src, alias.name.split(".", 1)[1], node.lineno))
+                continue
+            if dst:
+                found.append((src, dst, node.lineno))
+    return found
+
+
+def ranks():
+    table = {}
+    for index, layer in enumerate(LAYERS):
+        for name in layer:
+            table[name] = index
+    return table
+
+
+def graph():
+    rank = ranks()
+    found = edges()
+    allowed_pairs = set()
+    for src, dst, line in found:
+        if src not in rank or dst not in rank:
+            fail(f"unlayered {src}:{line} -> {dst}")
+        if dst == "render":
+            continue
+        if rank[dst] < rank[src]:
+            allowed_pairs.add((src, dst))
+            continue
+        if rank[dst] == rank[src] and (src, dst) in APPROVED:
+            allowed_pairs.add((src, dst))
+            continue
+        fail(f"layer {src}:{line} -> {dst}")
+    if ("rules", "subscription") not in allowed_pairs:
+        fail("approved edge missing")
+    seen = {}
+    for src, dst, _line in found:
+        seen.setdefault(src, set()).add(dst)
+    color = {}
+
+    def walk(node, stack):
+        color[node] = 1
+        for nxt in sorted(seen.get(node, ())):
+            state = color.get(nxt, 0)
+            if state == 1:
+                fail("cycle " + " -> ".join(stack + [node, nxt]))
+            if state == 0:
+                walk(nxt, stack + [node])
+        color[node] = 2
+
+    for node in sorted(seen):
+        if color.get(node, 0) == 0:
+            walk(node, [])
 
 
 def service_imports():
@@ -82,6 +170,7 @@ def auto_set():
 def main():
     locations()
     service_imports()
+    graph()
     auto_set()
     print("deps")
     return 0

@@ -235,6 +235,18 @@ def _list_flags(args):
     return mode, depth
 
 
+def _show_tree(secret, api, mode, depth):
+    from axs.nodes import load_proxies
+    from axs.tree import render_tree
+
+    try:
+        proxies = load_proxies(secret, api)
+    except SystemExit as exc:
+        code = exc.code if isinstance(exc.code, int) else USAGE
+        raise SystemExit(FAIL if code == USAGE else code)
+    sys.stdout.write(render_tree(proxies, depth, mode=mode, origin=secret))
+
+
 def _node(run, kind, args):
     from pathlib import Path
 
@@ -280,7 +292,7 @@ def _node(run, kind, args):
         show_groups(secret, api)
     elif kind == "list":
         if list_mode in ("full", "select"):
-            show_nodes(secret, api, list_mode, depth)
+            _show_tree(secret, api, list_mode, depth)
         elif list_mode == "flat":
             show_nodes(secret, api, "flat")
         else:

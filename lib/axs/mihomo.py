@@ -1,16 +1,15 @@
 """Controller client. Rollback and rule meaning stay with the caller."""
 
 from axs.codes import USAGE
-from axs.config import LOOPBACK, OVERRIDE, RULES
+from axs.config import CIDRS, LOOPBACK, OVERRIDE, RULES
 import yaml
 import json
 import os
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-
-from axs.subscription import CIDRS
 
 PROXIES = "/proxies"
 VERSION = "/version"
@@ -47,9 +46,8 @@ def delay_path(group, url, timeout="5000"):
 
 
 def _fail(message):
-    from axs.core import fail
-
-    fail(message)
+    sys.stderr.write(message + "\n")
+    raise SystemExit(USAGE)
 
 
 def read_secret(secret_path, api):

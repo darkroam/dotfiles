@@ -19,30 +19,32 @@ bin/axs  bin/mihomo-run
     |
    cli
     |
- service
+ tree     service
     |
- subscription  rules  nodes  net  proxy
+ subscription  rules  proxy
     |
-   core ---------------- mihomo
-    |                      |
- config                  config
+  net      nodes
+    |
+ core ---------------- mihomo
+    |
+ config              codes
 ```
 
-`render` 不在这条链上。cli 和各命令模块为了输出才调用它。`service` 是编排，可以调用它下面的模块。命令模块不调用 `service`。
+`render` 不在这条链上。为了输出调用它，不算斜边。`service` 是编排，可以调用它下面的模块。命令模块不调用 `service`。`tree` 只被 `cli` 调用。
 
-已批准斜边只有一条：
+斜边台账：
 
 | 从 | 到 | 原因 |
 | --- | --- | --- |
 | rules | subscription | 合并后的安装复用订阅模块 |
 
-反向不行。不另批同层斜边。锁、持锁和进程存活只来自 `core`。入站端口是否打开只来自 `net`。内核路径只来自 `config`。重载请求只来自 `mihomo`。
+反向不行。import 只能指向更下层，或台账里的这一条。锁、持锁和进程存活只来自 `core`。入站端口是否打开只来自 `net`。内核路径、内置网段和原子写只来自 `config`。重载请求只来自 `mihomo`。
 
 | 模块 | 拥有 | 不拥有 |
 | --- | --- | --- |
-| config | 路径、`run/` 文件名、默认值、端口、控制器地址、内核路径 | 网络、颜色 |
+| config | 路径、`run/` 文件名、默认值、端口、控制器地址、内核路径、内置网段、原子写 | 网络、颜色 |
 | render | 颜色、对齐、帮助和 status 的排版 | 订阅、控制器 |
-| core | 锁、持锁、进程存活、原子安装、快照与回滚、systemd 探测、会话 environ | 订阅正文、命令模块、端口探测 |
+| core | 锁、持锁、进程存活、安装、快照与回滚、systemd 探测、会话 environ | 订阅正文、命令模块、端口探测、原子写 |
 | mihomo | 控制器 HTTP、探活、重载请求 | 回滚、规则语义 |
 | service | 启停、health、清理、status 编排 | 订阅解析、锁、进程探测、端口探测 |
 | subscription | 拉取、校验、合并、流量与到期 | status 排版 |
@@ -86,7 +88,7 @@ run/                         运行时。不入库
 | `lib/axs/codes.py` | 退出码常量 | 20 行 |
 | `lib/axs/cli.py` | 命令表、别名、前缀、分发 | 400 行 |
 | `lib/axs/render.py` | 颜色和对齐 | 300 行 |
-| `lib/axs/config.py` | 默认值、路径、端口、内核路径 | 200 行 |
+| `lib/axs/config.py` | 默认值、路径、端口、内核路径、内置网段、原子写 | 200 行 |
 | `lib/axs/core.py` | 锁、持锁、进程存活、安装、快照、systemd、会话探测 | 400 行 |
 | `lib/axs/mihomo.py` | 控制器 HTTP，规则类型词和来源表。不是内核二进制 | 300 行 |
 | `lib/axs/service.py` | 启停、ensure、health、清理、status | 400 行 |

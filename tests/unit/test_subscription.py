@@ -9,12 +9,12 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 from axs.config import (  # noqa: E402
+    CIDRS,
     CONFIG,
     CONFIG_BAK,
     DEFAULT_API,
     DEFAULT_DNS_LISTEN,
     DEFAULT_MIXED,
-    write_defaults,
     FETCH_BODY,
     FETCH_HEADER,
     PID,
@@ -23,6 +23,7 @@ from axs.config import (  # noqa: E402
     URL,
     USERINFO,
 )
+from axs.core import write_defaults  # noqa: E402
 from axs.subscription import (  # noqa: E402
     build_file,
     check_url,
@@ -32,16 +33,6 @@ from axs.subscription import (  # noqa: E402
     rollback,
     take_snapshot,
 )
-
-CIDRS = [
-    "IP-CIDR,127.0.0.0/8,DIRECT,no-resolve",
-    "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
-    "IP-CIDR,172.16.0.0/12,DIRECT,no-resolve",
-    "IP-CIDR,192.168.0.0/16,DIRECT,no-resolve",
-    "IP-CIDR6,::1/128,DIRECT,no-resolve",
-    "IP-CIDR6,fc00::/7,DIRECT,no-resolve",
-    "IP-CIDR6,fe80::/10,DIRECT,no-resolve",
-]
 
 
 def fail(message):

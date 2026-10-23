@@ -14,9 +14,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
-from axs.config import write_defaults  # noqa: E402
+from axs.config import CIDRS  # noqa: E402
+from axs.core import write_defaults  # noqa: E402
 from axs.rules import check, cmd_list, mutate, rule_line, rules_add, rules_del  # noqa: E402
-from axs.subscription import CIDRS  # noqa: E402
 
 FIXTURE = ROOT / "tests" / "fixtures" / "subscription.yaml"
 API = "127.0.0.1:9"

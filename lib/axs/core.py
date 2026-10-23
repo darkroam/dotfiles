@@ -8,26 +8,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from axs.config import CONFIG, LOCK, PID, SNAP, SNAP_NAMES, mihomo_path
+from axs.config import CONFIG, LOCK, PID, SNAP, SNAP_NAMES, atomic_write, mihomo_path, write_override
 
 
 class LockBusy(Exception):
     pass
-
-
-def atomic_write(path, text):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    os.chmod(path.parent, 0o700)
-    tmp = path.with_name(path.name + ".tmp")
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    try:
-        os.write(fd, text.encode("utf-8"))
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-    os.replace(tmp, path)
-    os.chmod(path, 0o600)
 
 
 def install_file(src, dest):
@@ -162,6 +147,13 @@ class SystemdCache:
 def fail(message):
     sys.stderr.write(message + "\n")
     raise SystemExit(USAGE)
+
+
+def write_defaults(path, mixed, api):
+    try:
+        write_override(path, mixed, api)
+    except ValueError as exc:
+        fail(str(exc))
 
 
 def gen_secret(path):
