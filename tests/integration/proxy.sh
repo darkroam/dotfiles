@@ -104,7 +104,8 @@ assert_code 'alias sub refresh' 3 su r
 grep -q '没有订阅' "$RUN/err" || fail "alias sub refresh: $(cat "$RUN/err")"
 assert_code 'alias sub clean' 1 su c
 grep -q '需要 --yes' "$RUN/err" || fail "alias sub clean: $(cat "$RUN/err")"
-assert_code 'alias rule list' 0 r l
+assert_code 'alias rule list' 2 r l
+grep -q '服务：未运行' "$RUN/err" || fail "alias rule list: $(cat "$RUN/err")"
 assert_code 'alias rule add' 1 r a
 test "$(grep -c . "$RUN/err")" -eq 1 || fail "alias rule add: $(cat "$RUN/err")"
 assert_code 'alias rule del' 0 r d example.com

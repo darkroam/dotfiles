@@ -78,12 +78,12 @@ run/                         运行时。不入库
 | `lib/axs/render.py` | 颜色和对齐 | 300 行 |
 | `lib/axs/config.py` | 默认值、路径、端口的唯一读取 | 200 行 |
 | `lib/axs/core.py` | 锁、安装、快照、systemd、会话探测 | 400 行 |
-| `lib/axs/mihomo.py` | 控制器 HTTP。不是内核二进制 | 300 行 |
+| `lib/axs/mihomo.py` | 控制器 HTTP，规则类型词和来源表。不是内核二进制 | 300 行 |
 | `lib/axs/service.py` | 启停、ensure、health、清理、status | 400 行 |
 | `lib/axs/subscription.py` | 拉取、校验、合并、流量与到期 | 400 行 |
-| `lib/axs/rules.py` | 规则增删和安装回滚 | 250 行 |
+| `lib/axs/rules.py` | 规则增删、安装回滚、list 入口 | 250 行 |
 | `lib/axs/nodes.py` | 组、列表、延迟、切换 | 400 行 |
-| `lib/axs/tree.py` | `node list --full` 的树。编号仍问 nodes | 250 行 |
+| `lib/axs/tree.py` | `node list --full` / `--select` 的树。编号仍问 nodes | 250 行 |
 | `lib/axs/net.py` | 连通与出口 | 250 行 |
 | `lib/axs/proxy.py` | 三层开关和状态词 | 300 行 |
 | `units/*` | 已安装单元的模板。外部行为不改 | 各 40 行 |
@@ -124,6 +124,7 @@ run/                         运行时。不入库
 - 步 14：帮助分节标题改为「中文（命令 / 别名）」。只重打 help--default，行内列宽不变。
 - 步 15：组表改为编号、箭头和显示宽度对齐；switch/test 接受组号。重打 help--default 与 node-groups。
 - 步 16：`node list --full` 改为树，原表改为 `--flat`。新增 node-list--tree，并重打 help 与 usage。
+- 步 17：`rule list` 默认读运行时规则并标来源；`--local` 仍是本地文件。`node list --select` 是规则可达的可选树。重打 help 与 usage，并新增 rule-list 与 node-list--select。
 
 快照和夹具不写真实订阅、密钥、节点名。测试用的运行目录放系统临时目录或 `tests/lab/var/`，不入库。
 

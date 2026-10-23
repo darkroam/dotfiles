@@ -1,0 +1,7 @@
+exit: 0
+--- stdout
+当前出口：主代理 → 自动（自动，url-test）→ 隐藏
+G2 主代理 [Selector]
+├─ G4 自动 [URLTest] * 自动·成员不可选
+└─ N1 甲 [Shadowsocks]
+--- stderr

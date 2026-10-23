@@ -130,5 +130,42 @@
       "status"
     ],
     "session_flag": true
+  },
+  {
+    "name": "rule-list--runtime.txt",
+    "argv": [
+      "rule",
+      "list"
+    ],
+    "up": true,
+    "files": {
+      "run/rules.list": "DOMAIN mine.example PROXY\n",
+      "run/override.yaml": "prepend-rules:\n  - DOMAIN-SUFFIX,local,DIRECT\n",
+      "run/fake/rules.json": "{\"rules\": [{\"type\": \"IPCIDR\", \"payload\": \"10.0.0.0/8\", \"proxy\": \"DIRECT\"}, {\"type\": \"DomainSuffix\", \"payload\": \"local\", \"proxy\": \"DIRECT\"}, {\"type\": \"Domain\", \"payload\": \"mine.example\", \"proxy\": \"PROXY\"}, {\"type\": \"GeoSite\", \"payload\": \"ads\", \"proxy\": \"REJECT\"}, {\"type\": \"Match\", \"payload\": \"\", \"proxy\": \"PROXY\"}]}"
+    }
+  },
+  {
+    "name": "rule-list--local.txt",
+    "argv": [
+      "rule",
+      "list",
+      "--local"
+    ],
+    "files": {
+      "run/rules.list": "DOMAIN mine.example PROXY\n# keep\n"
+    }
+  },
+  {
+    "name": "node-list--select.txt",
+    "argv": [
+      "node",
+      "list",
+      "--select"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"GLOBAL\": {\"type\": \"Selector\", \"now\": \"主代理\", \"all\": [\"主代理\", \"旁路\"]}, \"旁路\": {\"type\": \"Selector\", \"all\": [\"甲\"]}, \"主代理\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\", \"甲\", \"GONE\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"隐藏\", \"all\": [\"隐藏\", \"甲\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"隐藏\": {\"type\": \"Shadowsocks\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - DOMAIN,a.example,主代理\n  - DOMAIN,b.example,DIRECT\n  - MATCH,主代理\n"
+    }
   }
 ]

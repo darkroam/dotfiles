@@ -262,9 +262,9 @@ def show_nodes(secret_path, api, mode="", depth=None):
     if mode == "flat":
         _show_nodes_full(proxies)
         return
-    if mode == "full":
+    if mode in ("full", "select"):
         from axs.tree import render_tree
-        return sys.stdout.write(render_tree(proxies, depth))
+        return sys.stdout.write(render_tree(proxies, depth, mode=mode, origin=secret_path))
     numbers = node_numbers(proxies)
     head, star = current_selection(proxies, numbers)
     delays = load_delays(mode)

@@ -2,17 +2,21 @@
 """Rule lines, install/reload rollback, and the merge forwarders."""
 import contextlib
 import io
+import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
 from axs.config import write_defaults  # noqa: E402
-from axs.rules import check, mutate, rule_line, rules_add, rules_del  # noqa: E402
+from axs.rules import check, cmd_list, mutate, rule_line, rules_add, rules_del  # noqa: E402
+from axs.subscription import CIDRS  # noqa: E402
 
 FIXTURE = ROOT / "tests" / "fixtures" / "subscription.yaml"
 API = "127.0.0.1:9"
@@ -189,6 +193,85 @@ def check_one_query(run):
     if "DOMAIN example.com PROXY" not in (run / "rules.list").read_text(encoding="utf-8"):
         fail("via rule missing")
 
+
+def check_list():
+    os.environ["AXS_COLOR"] = "never"
+    v6 = next(item for item in CIDRS if item.startswith("IP-CIDR6,"))
+    _kind, payload, policy, *_rest = v6.split(",")
+    v6_body = f"IP-CIDR,{payload},{policy}"
+    want = (
+        "1 prepend  IP-CIDR,10.0.0.0/8,DIRECT\n"
+        f"2 prepend  {v6_body}\n"
+        "3 prepend  DOMAIN-SUFFIX,local,DIRECT\n"
+        "4 local    DOMAIN,mine.example,PROXY\n"
+        "5 provider GEOSITE,ads,REJECT\n"
+        "6 provider MATCH,PROXY\n"
+    )
+    with tempfile.TemporaryDirectory(prefix="axs-rule-list-") as tmp:
+        run = Path(tmp)
+        code, out, err = invoke(cmd_list, run)
+        if code != 2 or out or err != "服务：未运行\n":
+            fail(f"list down {code} {out!r} {err!r}")
+        (run / "rules.list").write_text("DOMAIN mine.example PROXY\n# keep\n", encoding="utf-8")
+        code, out, err = invoke(cmd_list, run, True)
+        if code != 0 or out != "DOMAIN mine.example PROXY\n# keep\n" or err:
+            fail(f"local {code} {out!r} {err!r}")
+        (run / "override.yaml").write_text("prepend-rules:\n  - DOMAIN-SUFFIX,local,DIRECT\n", encoding="utf-8")
+        (run / "config.yaml").write_text(
+            "rules:\n"
+            "  - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve\n"
+            f"  - {v6}\n"
+            "  - DOMAIN-SUFFIX,local,DIRECT\n"
+            "  - DOMAIN,mine.example,PROXY\n"
+            "  - GEOSITE,ads,REJECT\n"
+            "  - MATCH,PROXY\n",
+            encoding="utf-8",
+        )
+        code, out, err = invoke(cmd_list, run, False)
+        if code != 0 or out != want or err:
+            fail(f"config list {code} {out!r} {err!r}")
+        fake = run / "fake"
+        fake.mkdir()
+        (run / "secret").write_text("test-secret-value\n", encoding="utf-8")
+        os.environ["AXS_FAKE_DIR"] = str(fake)
+        os.environ["AXS_API"] = API
+        mihomo = ROOT / "tests" / "fixtures" / "fake-mihomo"
+        os.environ["AXS_MIHOMO"] = str(mihomo)
+        proc = subprocess.Popen([str(mihomo)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            (run / "mihomo.pid").write_text(f"{proc.pid}\n", encoding="utf-8")
+            from axs.service import service_up
+            for _ in range(20):
+                if service_up(run):
+                    break
+                time.sleep(0.05)
+            else:
+                fail("fake core did not stay up")
+            code, out, err = invoke(cmd_list, run)
+            if code != 3 or out or err != "控制器失败\n":
+                fail(f"api down {code} {out!r} {err!r}")
+            (fake / "rules.json").write_text(json.dumps({"rules": [
+                {"type": "IPCIDR", "payload": "10.0.0.0/8", "proxy": "DIRECT", "size": -1},
+                {"type": "IPCIDR", "payload": payload, "proxy": "DIRECT"},
+                {"type": "DomainSuffix", "payload": "local", "proxy": "DIRECT"},
+                {"type": "Domain", "payload": "mine.example", "proxy": "PROXY", "extra": {"disabled": False}},
+                {"type": "GeoSite", "payload": "ads", "proxy": "REJECT"},
+                {"type": "Match", "payload": "", "proxy": "PROXY"},
+            ]}), encoding="utf-8")
+            code, out, err = invoke(cmd_list, run)
+            if code != 0 or out != want or err:
+                fail(f"api list {code} {out!r} {err!r}")
+            code, out, err = invoke(cmd_list, run, True)
+            if code != 0 or not out.startswith("DOMAIN mine.example PROXY\n"):
+                fail(f"local while up {code} {out!r}")
+        finally:
+            proc.kill()
+            proc.wait()
+            os.environ.pop("AXS_FAKE_DIR", None)
+            os.environ.pop("AXS_API", None)
+            os.environ.pop("AXS_MIHOMO", None)
+
+
 def main():
     check_forward()
     with tempfile.TemporaryDirectory(prefix="axs-rules-") as tmp:
@@ -220,6 +303,7 @@ def main():
             check_one_query(Path(tmp))
         finally:
             os.environ.pop("AXS_FAKE_DIR", None)
+    check_list()
     print("rules ok")
     return 0
 

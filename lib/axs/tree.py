@@ -1,7 +1,14 @@
-"""Tree rendering for node list --full. Numbers come from nodes.py."""
+"""Tree rendering for node list --full and --select. Numbers come from nodes.py."""
 
+from pathlib import Path
+
+import yaml
+
+from axs.config import CONFIG
 from axs.nodes import _is_group, follow_leaf, group_numbers, node_numbers, selection_parts
 from axs.render import display_width, term_cols
+
+AUTO = {"URLTest", "Fallback", "LoadBalance"}
 
 
 def exit_line(proxies):
@@ -16,6 +23,35 @@ def exit_line(proxies):
     now = item.get("now") if isinstance(item.get("now"), str) and item.get("now") else ""
     leaf = follow_leaf(proxies, now) if now else None
     return f"当前出口：GLOBAL → {leaf or now or '-'}"
+
+
+def select_roots(proxies, origin):
+    from axs.mihomo import rule_parts
+
+    if origin is None:
+        return []
+    path = Path(origin).parent / CONFIG
+    if not path.is_file():
+        return []
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError:
+        return []
+    rules = data.get("rules") if isinstance(data, dict) else None
+    if not isinstance(rules, list):
+        return []
+    names = []
+    seen = set()
+    for item in rules:
+        parsed = rule_parts(item)
+        if not parsed:
+            continue
+        name = parsed[2]
+        if not name or name in seen or not _is_group(proxies.get(name)):
+            continue
+        seen.add(name)
+        names.append(name)
+    return names
 
 
 def tree_roots(proxies):
@@ -36,15 +72,17 @@ def tree_roots(proxies):
     return sorted(groups)
 
 
-def render_tree(proxies, depth=None, width=None):
+def render_tree(proxies, depth=None, width=None, mode="full", origin=None):
     if width is None:
         width = term_cols()
     gnums = group_numbers(proxies)
     nnums = node_numbers(proxies)
+    select = mode == "select"
 
     def group_line(name, prefix, mark):
         kind = str(proxies[name].get("type") or "-")
-        return f"{prefix}G{gnums[name]} {name} [{kind}]{mark}"
+        note = " 自动·成员不可选" if select and kind in AUTO else ""
+        return f"{prefix}G{gnums[name]} {name} [{kind}]{mark}{note}"
 
     def leaf_text(parent, name):
         item = proxies.get(name)
@@ -82,9 +120,12 @@ def render_tree(proxies, depth=None, width=None):
                 leaves = []
 
         for member in members:
-            if _is_group(proxies.get(member)):
+            item = proxies.get(member)
+            if _is_group(item):
                 flush()
                 grouped.append(member)
+            elif select and not isinstance(item, dict):
+                continue
             else:
                 leaves.append(member)
         flush()
@@ -107,6 +148,8 @@ def render_tree(proxies, depth=None, width=None):
 
     def expand(name, line_prefix, child_base, level, stack, mark):
         lines = [group_line(name, line_prefix, mark)]
+        if select and str(proxies[name].get("type") or "") in AUTO:
+            return lines
         if depth is not None and level >= depth:
             return lines
         members = proxies[name].get("all")
@@ -115,6 +158,7 @@ def render_tree(proxies, depth=None, width=None):
         return lines + blocks(name, members, child_base, level, stack + [name])
 
     lines = [exit_line(proxies)]
-    for name in tree_roots(proxies):
+    roots = select_roots(proxies, origin) if select else tree_roots(proxies)
+    for name in roots:
         lines.extend(expand(name, "", "", 1, [], ""))
     return "\n".join(lines) + "\n"

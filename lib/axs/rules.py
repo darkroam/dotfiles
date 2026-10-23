@@ -1,8 +1,10 @@
 """Rule lines, then the merge-install-reload-rollback chain."""
 
-from axs.codes import USAGE, FAIL
+from axs.codes import DOWN, USAGE, FAIL
 import sys
 from pathlib import Path
+
+import yaml
 
 from axs.config import CONFIG, CONFIG_NEW, OVERRIDE, RULES, SECRET, SUBSCRIPTION
 from axs.core import atomic_write, install_file, restore_snapshot, snapshot
@@ -159,10 +161,59 @@ def mutate(run, op, running, api, args):
     _apply_kept(run, api)
 
 
-def cmd_list(run):
-    path = Path(run) / RULES
-    if path.is_file():
-        sys.stdout.write(path.read_text(encoding="utf-8"))
+def _configured(run):
+    from axs.mihomo import rule_parts, rule_table
+
+    path = Path(run) / CONFIG
+    if not path.is_file():
+        return None
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError:
+        return None
+    rules = data.get("rules") if isinstance(data, dict) else None
+    if not isinstance(rules, list):
+        return None
+    triples = [item for item in (rule_parts(line) for line in rules if isinstance(line, str)) if item]
+    return rule_table(run, triples)
+
+
+def _controlled(run):
+    from axs.mihomo import load_rules, rule_table
+    from axs.config import api_address
+
+    api = api_address(run)
+    if not api:
+        _exit3("控制器失败")
+    try:
+        payload = load_rules(Path(run) / SECRET, api)
+    except SystemExit as exc:
+        if getattr(exc, "code", None) != FAIL:
+            _exit3()
+        raise
+    triples = []
+    for rule in payload:
+        if not isinstance(rule, dict):
+            _exit3("控制器失败")
+        triples.append((rule.get("type"), rule.get("payload"), rule.get("proxy")))
+    return rule_table(run, triples)
+
+
+def cmd_list(run, local=False):
+    if local:
+        path = Path(run) / RULES
+        sys.stdout.write(path.read_text(encoding="utf-8") if path.is_file() else "")
+        return
+    from axs.render import die
+    from axs.service import service_up
+
+    if service_up(run):
+        sys.stdout.write(_controlled(run))
+        return
+    text = _configured(run)
+    if text is None:
+        die(DOWN, "服务：未运行")
+    sys.stdout.write(text)
 
 
 def _mutate_live(run, op, args):

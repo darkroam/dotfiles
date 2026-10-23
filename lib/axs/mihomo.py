@@ -1,7 +1,8 @@
 """Controller client. Rollback and rule meaning stay with the caller."""
 
 from axs.codes import USAGE
-from axs.config import LOOPBACK
+from axs.config import LOOPBACK, OVERRIDE, RULES
+import yaml
 import json
 import os
 import urllib.error
@@ -9,11 +10,14 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from axs.subscription import CIDRS
+
 PROXIES = "/proxies"
 VERSION = "/version"
 RELOAD = "/configs?force=true"
 GROUP = "/group/"
 DELAY = "/delay"
+RULES_PATH = "/rules"
 
 
 def proxies_path():
@@ -30,6 +34,10 @@ def reload_path():
 
 def select_path(name):
     return PROXIES + "/" + urllib.parse.quote(name, safe="")
+
+
+def rules_path():
+    return RULES_PATH
 
 
 def delay_path(group, url, timeout="5000"):
@@ -97,6 +105,10 @@ def _fake_exchange(method, path, secret, body=None):
         name = urllib.parse.unquote(pure[len(GROUP) : -len(DELAY)])
         delay = int((directory / "delay").read_text(encoding="utf-8").strip() or "0")
         return json.dumps({name: delay}).encode()
+    if method == "GET" and pure == RULES_PATH:
+        ready = directory / "rules.json"
+        if ready.is_file():
+            return ready.read_bytes()
     _fail("控制器失败")
 
 
@@ -189,3 +201,97 @@ def version_ok(secret_path, api):
     except SystemExit:
         failed = 3
         raise SystemExit(failed)
+
+
+_RULE_WORDS = dict(
+    pair.split()
+    for pair in (
+        "Domain DOMAIN|DomainSuffix DOMAIN-SUFFIX|DomainKeyword DOMAIN-KEYWORD|"
+        "DomainRegex DOMAIN-REGEX|DomainWildcard DOMAIN-WILDCARD|GeoSite GEOSITE|"
+        "GeoIP GEOIP|SrcGeoIP SRC-GEOIP|IPASN IP-ASN|SrcIPASN SRC-IP-ASN|"
+        "IPCIDR IP-CIDR|SrcIPCIDR SRC-IP-CIDR|IPSuffix IP-SUFFIX|SrcIPSuffix SRC-IP-SUFFIX|"
+        "SrcPort SRC-PORT|DstPort DST-PORT|InPort IN-PORT|DSCP DSCP|InUser IN-USER|"
+        "InName IN-NAME|InType IN-TYPE|ProcessName PROCESS-NAME|ProcessPath PROCESS-PATH|"
+        "ProcessNameRegex PROCESS-NAME-REGEX|ProcessPathRegex PROCESS-PATH-REGEX|"
+        "ProcessNameWildcard PROCESS-NAME-WILDCARD|ProcessPathWildcard PROCESS-PATH-WILDCARD|"
+        "RuleSet RULE-SET|Network NETWORK|Uid UID|SubRules SUB-RULE|Match MATCH|"
+        "AND AND|OR OR|NOT NOT"
+    ).split("|")
+)
+
+
+def rule_word(kind):
+    text = "" if kind is None else str(kind)
+    return _RULE_WORDS.get(text, text.upper())
+
+
+def load_rules(secret_path, api):
+    secret = read_secret(secret_path, api)
+    raw = request(secret, api, "GET", rules_path())
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError):
+        _fail("控制器失败")
+    rules = payload.get("rules") if isinstance(payload, dict) else None
+    if not isinstance(rules, list):
+        _fail("控制器失败")
+    return rules
+
+
+def _rule_key(kind, payload, policy):
+    word = rule_word("" if kind is None else str(kind))
+    if word == "IP-CIDR6":
+        word = "IP-CIDR"
+    return word, "" if payload is None else str(payload), "" if policy is None else str(policy)
+
+
+def rule_parts(text):
+    if not isinstance(text, str) or not text.strip() or text.lstrip().startswith("#"):
+        return None
+    bits = [bit.strip() for bit in text.split(",")] if "," in text else text.split()
+    if len(bits) >= 3:
+        return bits[0], bits[1], bits[2]
+    if len(bits) == 2 and bits[0].upper() == "MATCH":
+        return bits[0], "", bits[1]
+    return None
+
+
+def _bag(lines):
+    found = set()
+    for line in lines:
+        if not isinstance(line, str):
+            continue
+        parsed = rule_parts(line)
+        if parsed:
+            found.add(_rule_key(*parsed))
+    return found
+
+
+def _sources(run):
+    run = Path(run)
+    lines = list(CIDRS)
+    path = run / OVERRIDE
+    data = None
+    if path.is_file():
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except yaml.YAMLError:
+            data = None
+    extra = data.get("prepend-rules") if isinstance(data, dict) else None
+    if isinstance(extra, list):
+        lines.extend(extra)
+    local = (run / RULES).read_text(encoding="utf-8").splitlines() if (run / RULES).is_file() else []
+    return _bag(lines), _bag(local)
+
+
+def rule_table(run, triples):
+    prepend, local = _sources(run)
+    rows = []
+    for index, triple in enumerate(triples, 1):
+        got = _rule_key(*triple)
+        source = "prepend" if got in prepend else "local" if got in local else "provider"
+        body = f"{got[0]},{got[2]}" if got[0] == "MATCH" and not got[1] else ",".join(got)
+        rows.append(f"{index} {source:<8} {body}")
+    return ("\n".join(rows) + "\n") if rows else ""
+
+

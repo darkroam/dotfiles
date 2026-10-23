@@ -63,14 +63,14 @@ SECTIONS = (
         ("axs sub clean", "c", "删除订阅缓存"),
     ), ()),
     ("规则（rule / r）", (
-        ("axs rule list", "l", "列出域名规则"),
+        ("axs rule list", "l", "运行时规则；--local 只看本地"),
         ("axs rule add via", "a", "域名 + 组"),
         ("axs rule add direct", "", "域名"),
         ("axs rule del", "d", "删除域名规则"),
     ), ()),
     ("节点（node / n）", (
         ("axs node groups", "g", "策略组与当前节点"),
-        ("axs node list", "l", "--full 树（--depth 层数），--flat 表"),
+        ("axs node list", "l", "--full|--select 树（--depth），--flat 表"),
         ("axs node test", "t", "测延迟，可接组号或组名"),
         ("axs node switch", "s", "组号或组名，再接节点"),
     ), ()),
@@ -160,7 +160,7 @@ def usage_text():
             "      axs " + _usage_word("service", "top") + " " + _pipes(["enable", "disable"], "service"),
             "      axs " + _usage_word("sub", "top") + " " + _pipes(["get", "refresh", "clean"], "sub"),
             "      axs " + _usage_word("rule", "top") + " " + _pipes(["list", "add", "del"], "rule"),
-            "      axs " + _usage_word("node", "top") + " " + _pipes(["groups", "list", "test", "switch"], "node") + " " + _usage_word("--full") + "|" + _usage_word("--flat") + " " + _usage_word("--depth") + " N",
+            "      axs " + _usage_word("node", "top") + " " + _pipes(["groups", "list", "test", "switch"], "node") + " " + _usage_word("--full") + "|" + _usage_word("--select") + "|" + _usage_word("--flat") + " " + _usage_word("--depth") + " N",
             "      axs " + _usage_word("net", "top") + " " + _usage_word("test", "net"),
             "      axs "
             + _usage_word("proxy", "top")
@@ -215,10 +215,10 @@ def _list_flags(args):
     index = 0
     while index < len(args):
         arg = args[index]
-        if arg in ("--full", "--flat", "-l"):
+        if arg in ("--full", "--flat", "-l", "--select"):
             if mode:
                 die(USAGE, "用法错误")
-            mode = "flat" if arg in ("--flat", "-l") else "full"
+            mode = "flat" if arg in ("--flat", "-l") else "select" if arg == "--select" else "full"
             index += 1
             continue
         if arg != "--depth":
@@ -230,7 +230,7 @@ def _list_flags(args):
             die(USAGE, "用法错误")
         depth = int(token)
         index += 2
-    if depth is not None and mode != "full":
+    if depth is not None and mode not in ("full", "select"):
         die(USAGE, "用法错误")
     return mode, depth
 
@@ -279,8 +279,8 @@ def _node(run, kind, args):
     if kind == "groups":
         show_groups(secret, api)
     elif kind == "list":
-        if list_mode == "full":
-            show_nodes(secret, api, "full", depth)
+        if list_mode in ("full", "select"):
+            show_nodes(secret, api, list_mode, depth)
         elif list_mode == "flat":
             show_nodes(secret, api, "flat")
         else:
@@ -341,7 +341,9 @@ def main(argv):
     elif cmd == "rule":
         op, extra = _take("rule", rest)
         if op == "list":
-            cmd_list(run)
+            if extra not in ([], ["--local"]):
+                die(USAGE, "用法错误")
+            cmd_list(run, extra == ["--local"])
         elif op == "add":
             cmd_add(run, extra)
         elif op == "del":

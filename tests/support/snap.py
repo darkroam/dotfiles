@@ -26,10 +26,7 @@ PROXIES = (
 
 
 def record(result):
-    return (
-        f"exit: {result.returncode}\n--- stdout\n{result.stdout}"
-        f"--- stderr\n{result.stderr}"
-    )
+    return f"exit: {result.returncode}\n--- stdout\n{result.stdout}--- stderr\n{result.stderr}"
 
 
 def prepare(tmp, case):
@@ -76,6 +73,10 @@ def prepare(tmp, case):
         (run / "userinfo").write_text("expire=1\n", encoding="utf-8")
     if case.get("session_flag"):
         (run / "proxy-session.flag").write_text("", encoding="utf-8")
+    for name, body in case.get("files", {}).items():
+        dest = base / name
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(body, encoding="utf-8")
     return env, proc
 
 
