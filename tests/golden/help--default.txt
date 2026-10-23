@@ -27,6 +27,7 @@ axs rule del            d       删除域名规则
 
 节点（node / n）
 axs node groups         g       策略组与当前节点
+axs node members        m       组成员：编号、类型、当前、延迟
 axs node list           l       --full|--select 树（--depth），--flat 表
 axs node test           t       测延迟，可接组号或组名
 axs node switch         s       组号或组名，再接节点

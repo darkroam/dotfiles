@@ -1,11 +1,22 @@
-"""Tree rendering for node list --full and --select. Numbers come from nodes.py."""
+"""Tree rendering for node list and node members. Numbers come from nodes.py."""
 
+import sys
 from pathlib import Path
 
 import yaml
 
+from axs.codes import FAIL
 from axs.config import CONFIG
-from axs.nodes import AUTO_TYPES, _is_group, follow_leaf, group_numbers, node_numbers, selection_parts
+from axs.nodes import (
+    AUTO_TYPES,
+    _is_group,
+    follow_leaf,
+    group_numbers,
+    load_delays,
+    node_numbers,
+    resolve_group_name,
+    selection_parts,
+)
 from axs.render import display_width, term_cols
 
 
@@ -160,3 +171,45 @@ def render_tree(proxies, depth=None, width=None, mode="full", origin=None):
     for name in roots:
         lines.extend(expand(name, "", "", 1, [], ""))
     return "\n".join(lines) + "\n"
+
+
+def render_members(proxies, group, delays):
+    item = proxies[group]
+    members = item.get("all") if isinstance(item.get("all"), list) else []
+    if not members:
+        return "（无成员）\n"
+    now = item.get("now") if isinstance(item.get("now"), str) else ""
+    if not isinstance(delays, dict):
+        delays = {}
+    gnums = group_numbers(proxies)
+    nnums = node_numbers(proxies)
+    rows = []
+    for name in members:
+        child = proxies.get(name)
+        if _is_group(child):
+            ident = f"G{gnums[name]}"
+            kind = str(child.get("type") or "-")
+        else:
+            number = nnums.get(name)
+            ident = f"N{number}" if number else "-"
+            kind = str(child.get("type") or "-") if isinstance(child, dict) else "-"
+        mark = "[*]" if name == now else ""
+        delay = delays.get(name, "-")
+        if delay is None or delay == "":
+            delay = "-"
+        rows.append((ident, str(name), kind, mark, str(delay)))
+    widths = [max(display_width(row[index]) for row in rows) for index in range(5)]
+    lines = []
+    for row in rows:
+        parts = [row[index] + " " * (widths[index] - display_width(row[index])) for index in range(4)]
+        parts.append(" " * (widths[4] - display_width(row[4])) + row[4])
+        lines.append("  ".join(parts))
+    return "\n".join(lines) + "\n"
+
+
+def show_members(proxies, token, run_dir):
+    name, err = resolve_group_name(proxies, token)
+    if err:
+        sys.stderr.write(err + "\n")
+        raise SystemExit(FAIL)
+    sys.stdout.write(render_members(proxies, name, load_delays(run_dir)))

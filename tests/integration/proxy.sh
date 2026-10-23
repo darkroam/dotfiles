@@ -43,6 +43,7 @@ want={
  "axs rule add via":"a",
  "axs rule del":"d",
  "axs node groups":"g",
+ "axs node members":"m",
  "axs node list":"l",
  "axs node test":"t",
  "axs node switch":"s",

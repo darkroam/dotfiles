@@ -30,7 +30,7 @@ bin/axs  bin/mihomo-run
  config              codes
 ```
 
-`render` 不在这条链上。为了输出调用它，不算斜边。`service` 是编排，可以调用它下面的模块。命令模块不调用 `service`。`tree` 只被 `cli` 调用。
+`render` 不在这条链上，也不得引用任何 axs 模块。为了输出调用它，不算斜边。`service` 是编排，可以调用它下面的模块。命令模块不调用 `service`。`tree` 只被 `cli` 调用。
 
 斜边台账：
 
@@ -43,7 +43,7 @@ bin/axs  bin/mihomo-run
 | 模块 | 拥有 | 不拥有 |
 | --- | --- | --- |
 | config | 路径、`run/` 文件名、默认值、端口、控制器地址、内核路径、内置网段、原子写 | 网络、颜色 |
-| render | 颜色、对齐、帮助和 status 的排版 | 订阅、控制器 |
+| render | 颜色、对齐、帮助和 status 的排版 | 任何 axs 模块 |
 | core | 锁、持锁、进程存活、安装、快照与回滚、systemd 探测、会话 environ | 订阅正文、命令模块、端口探测、原子写 |
 | mihomo | 控制器 HTTP、探活、重载请求 | 回滚、规则语义 |
 | service | 启停、health、清理、status 编排 | 订阅解析、锁、进程探测、端口探测 |
@@ -95,7 +95,7 @@ run/                         运行时。不入库
 | `lib/axs/subscription.py` | 拉取、校验、合并、流量与到期 | 400 行 |
 | `lib/axs/rules.py` | 规则增删、安装回滚、list 入口 | 250 行 |
 | `lib/axs/nodes.py` | 组、列表、延迟、切换 | 400 行 |
-| `lib/axs/tree.py` | `node list --full` / `--select` 的树。编号仍问 nodes | 250 行 |
+| `lib/axs/tree.py` | `node list` 的树，以及 `node members` 表。编号仍问 nodes | 250 行 |
 | `lib/axs/net.py` | 连通、出口、入站是否打开 | 250 行 |
 | `lib/axs/proxy.py` | 三层开关和状态词 | 300 行 |
 | `units/*` | 已安装单元的模板。外部行为不改 | 各 40 行 |
@@ -137,6 +137,7 @@ run/                         运行时。不入库
 - 步 15：组表改为编号、箭头和显示宽度对齐；switch/test 接受组号。重打 help--default 与 node-groups。
 - 步 16：`node list --full` 改为树，原表改为 `--flat`。新增 node-list--tree，并重打 help 与 usage。
 - 步 17：`rule list` 默认读运行时规则并标来源；`--local` 仍是本地文件。`node list --select` 是规则可达的可选树。重打 help 与 usage，并新增 rule-list 与 node-list--select。
+- 步 20：新增 `node members`，并统一 node 缺参。重打 help 与 usage，新增 node-members。
 
 快照和夹具不写真实订阅、密钥、节点名。测试用的运行目录放系统临时目录或 `tests/lab/var/`，不入库。
 

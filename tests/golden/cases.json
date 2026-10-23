@@ -167,5 +167,18 @@
     "files": {
       "run/config.yaml": "rules:\n  - DOMAIN,a.example,主代理\n  - DOMAIN,b.example,DIRECT\n  - MATCH,主代理\n"
     }
+  },
+  {
+    "name": "node-members--up.txt",
+    "argv": [
+      "node",
+      "members",
+      "主代理"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"GLOBAL\": {\"type\": \"Selector\", \"now\": \"主代理\", \"all\": [\"主代理\"]}, \"主代理\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\", \"甲\", \"乙\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"甲\", \"all\": [\"甲\"]}, \"空\": {\"type\": \"Selector\", \"all\": []}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}}}\n",
+    "files": {
+      "run/cache/node-test": "ts=1\nresult=ok\n{\"甲\": 42}\n"
+    }
   }
 ]

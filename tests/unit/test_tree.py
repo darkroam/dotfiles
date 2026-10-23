@@ -11,10 +11,10 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
 from axs.cli import _list_flags  # noqa: E402
-from axs.codes import USAGE  # noqa: E402
+from axs.codes import FAIL, USAGE  # noqa: E402
 from axs.nodes import _show_nodes_full, group_numbers, group_table, node_numbers  # noqa: E402
 from axs.render import display_width  # noqa: E402
-from axs.tree import render_tree, tree_roots  # noqa: E402
+from axs.tree import render_members, render_tree, show_members, tree_roots  # noqa: E402
 
 
 def fail(message):
@@ -206,12 +206,62 @@ def check_select():
             fail(f"flag accepted {args}")
 
 
+
+def _capture(func, *args):
+    out, err = io.StringIO(), io.StringIO()
+    code = 0
+    try:
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            func(*args)
+    except SystemExit as exc:
+        code = exc.code if isinstance(exc.code, int) else 1
+    return code, out.getvalue(), err.getvalue()
+
+
+def check_members():
+    proxies = {
+        "主": {"type": "Selector", "now": "子", "all": ["子", "甲", "乙", "GONE"]},
+        "子": {"type": "URLTest", "now": "甲", "all": ["甲"]},
+        "甲": {"type": "Shadowsocks"},
+        "乙": {"type": "Vless"},
+        "空": {"type": "Selector", "all": []},
+        "缺": {"type": "Selector"},
+    }
+    gnums = group_numbers(proxies)
+    nnums = node_numbers(proxies)
+    text = render_members(proxies, "主", {"甲": 42, "乙": ""})
+    want = [
+        "G2  子    URLTest      [*]   -",
+        "N2  甲    Shadowsocks       42",
+        "N1  乙    Vless              -",
+        "-   GONE  -                  -",
+    ]
+    if text.splitlines() != want or not text.endswith("\n") or "\t" in text:
+        fail("members\n" + text)
+    if f"G{gnums['子']}" != "G2" or f"N{nnums['甲']}" != "N2" or f"N{nnums['乙']}" != "N1":
+        fail("numbers moved")
+    if "[*]" in text.splitlines()[1]:
+        fail("mark leaked")
+    if render_members(proxies, "空", {}) != "（无成员）\n":
+        fail("empty")
+    if render_members(proxies, "缺", {}) != "（无成员）\n":
+        fail("missing all")
+    code, out, err = _capture(show_members, proxies, "1", "")
+    if code or err or out != render_members(proxies, "主", {}):
+        fail(f"index {code} {err!r}\n{out}")
+    for token, message in (("甲", "不是策略组"), ("nope", "组不存在"), ("02", "组不存在")):
+        code, out, err = _capture(show_members, proxies, token, "")
+        if code != FAIL or err != message + "\n" or out:
+            fail(f"members {token} {code} {err!r}")
+
+
 def main():
     check_roots()
     check_tree()
     check_columns()
     check_flat_and_flags()
     check_select()
+    check_members()
     print("tree ok")
     return 0
 

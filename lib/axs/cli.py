@@ -40,7 +40,7 @@ GROUPS = {
     "service": ("enable disable".split(), {"e": "enable", "d": "disable"}),
     "sub": ("get refresh clean".split(), {"g": "get", "r": "refresh", "c": "clean"}),
     "rule": ("list add del".split(), {"l": "list", "a": "add", "d": "del"}),
-    "node": ("groups list test switch".split(), {"g": "groups", "l": "list", "t": "test", "s": "switch"}),
+    "node": ("groups members list test switch".split(), {"g": "groups", "m": "members", "l": "list", "t": "test", "s": "switch"}),
     "net": ("test ip".split(), {"t": "test", "i": "ip"}),
     "proxy": ("user system session".split(), {"u": "user", "sy": "system", "se": "session"}),
 }
@@ -70,6 +70,7 @@ SECTIONS = (
     ), ()),
     ("节点（node / n）", (
         ("axs node groups", "g", "策略组与当前节点"),
+        ("axs node members", "m", "组成员：编号、类型、当前、延迟"),
         ("axs node list", "l", "--full|--select 树（--depth），--flat 表"),
         ("axs node test", "t", "测延迟，可接组号或组名"),
         ("axs node switch", "s", "组号或组名，再接节点"),
@@ -160,7 +161,7 @@ def usage_text():
             "      axs " + _usage_word("service", "top") + " " + _pipes(["enable", "disable"], "service"),
             "      axs " + _usage_word("sub", "top") + " " + _pipes(["get", "refresh", "clean"], "sub"),
             "      axs " + _usage_word("rule", "top") + " " + _pipes(["list", "add", "del"], "rule"),
-            "      axs " + _usage_word("node", "top") + " " + _pipes(["groups", "list", "test", "switch"], "node") + " " + _usage_word("--full") + "|" + _usage_word("--select") + "|" + _usage_word("--flat") + " " + _usage_word("--depth") + " N",
+            "      axs " + _usage_word("node", "top") + " " + _pipes(["groups", "members", "list", "test", "switch"], "node") + " " + _usage_word("--full") + "|" + _usage_word("--select") + "|" + _usage_word("--flat") + " " + _usage_word("--depth") + " N",
             "      axs " + _usage_word("net", "top") + " " + _usage_word("test", "net"),
             "      axs "
             + _usage_word("proxy", "top")
@@ -235,16 +236,20 @@ def _list_flags(args):
     return mode, depth
 
 
-def _show_tree(secret, api, mode, depth):
+def _proxies(secret, api):
     from axs.nodes import load_proxies
-    from axs.tree import render_tree
 
     try:
-        proxies = load_proxies(secret, api)
+        return load_proxies(secret, api)
     except SystemExit as exc:
         code = exc.code if isinstance(exc.code, int) else USAGE
         raise SystemExit(FAIL if code == USAGE else code)
-    sys.stdout.write(render_tree(proxies, depth, mode=mode, origin=secret))
+
+
+def _show_tree(secret, api, mode, depth):
+    from axs.tree import render_tree
+
+    sys.stdout.write(render_tree(_proxies(secret, api), depth, mode=mode, origin=secret))
 
 
 def _node(run, kind, args):
@@ -254,8 +259,14 @@ def _node(run, kind, args):
     from axs.nodes import DELAY_URL, default_group, delay, lookup_group, select_proxy, show_groups, show_nodes, write_node_cache
     from axs.service import captured, service_up, write_cache
     import os
-    if kind == "switch" and len(args) != 2:
+    if kind == "groups" and args:
         die(USAGE, "用法错误")
+    if kind == "members" and (len(args) != 1 or args[0].startswith("-")):
+        die(USAGE, "用法错误，先看 node groups" if not args else "用法错误")
+    if kind == "test" and len(args) > 1:
+        die(USAGE, "用法错误")
+    if kind == "switch" and len(args) != 2:
+        die(USAGE, "用法错误，用 node members 查看成员" if len(args) < 2 else "用法错误")
     list_mode, depth = "", None
     if kind == "list":
         list_mode, depth = _list_flags(args)
@@ -297,6 +308,10 @@ def _node(run, kind, args):
             show_nodes(secret, api, "flat")
         else:
             show_nodes(secret, api, str(run))
+    elif kind == "members":
+        from axs.tree import show_members
+
+        show_members(_proxies(secret, api), args[0], str(run))
     else:
         select_proxy(secret, api, args[0], args[1], str(run))
 

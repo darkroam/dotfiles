@@ -18,7 +18,7 @@ LAYERS = (
     ("cli",),
     ("__main__",),
 )
-# Same-layer logic edge. render is off this chain and is not listed here.
+# Same-layer logic edge. render is off this chain and must not import axs.
 APPROVED = {("rules", "subscription")}
 
 
@@ -96,6 +96,8 @@ def graph():
     found = edges()
     allowed_pairs = set()
     for src, dst, line in found:
+        if src == "render" and dst in rank:
+            fail(f"render import {line} -> {dst}")
         if src not in rank or dst not in rank:
             fail(f"unlayered {src}:{line} -> {dst}")
         if dst == "render":

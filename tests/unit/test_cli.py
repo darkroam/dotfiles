@@ -9,7 +9,7 @@ sys.path.insert(0, str(ROOT / "lib"))
 
 from axs.cli import (
     DOWN, EXPIRED, FAIL, GROUPS, LOCK, ResolveError, SECTIONS, USAGE,
-    _alias_marks, _usage_word, help_text, resolve_token, usage_text,
+    _alias_marks, _list_flags, _usage_word, help_text, main as cli_main, resolve_token, usage_text,
 )
 from axs.render import bad, bold, dim, display_width, emph, ident, label, ok, tone, use_color, warn
 
@@ -34,6 +34,8 @@ EXACT = (
     ("node", "top", "node"),
     ("g", "node", "groups"),
     ("gro", "node", "groups"),
+    ("m", "node", "members"),
+    ("mem", "node", "members"),
     ("sy", "proxy", "system"),
     ("se", "proxy", "session"),
     ("ge", "sub", "get"),
@@ -135,7 +137,7 @@ def check_usage_color(colored):
         1: ("se rvice", "e nable", "d isable"),
         2: ("su b", "g et", "r efresh", "c lean"),
         3: ("r ule", "l ist", "a dd", "d el"),
-        4: ("n ode", "g roups", "l ist", "t est", "s witch"),
+        4: ("n ode", "g roups", "m embers", "l ist", "t est", "s witch"),
         5: ("ne t", "t est"),
         6: ("p roxy", "u ser", "sy stem", "se ssion"),
     }
@@ -196,6 +198,52 @@ def check_help_heads(help_plain):
             continue
         if line[22:24] != "  " or line[30:32] != "  ":
             raise SystemExit("help columns " + line)
+
+
+
+def check_node_args():
+    import contextlib
+    import io
+    import tempfile
+
+    os.environ["AXS_COLOR"] = "never"
+    os.environ["AXS_SYSTEMD"] = "0"
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            _list_flags(["nope"])
+    except SystemExit as exc:
+        if exc.code != USAGE:
+            raise SystemExit("list unknown flag")
+    else:
+        raise SystemExit("list unknown accepted")
+    cases = (
+        (["node", "groups", "x"], USAGE, "用法错误\n"),
+        (["node", "list", "nope"], USAGE, "用法错误\n"),
+        (["node", "members"], USAGE, "用法错误，先看 node groups\n"),
+        (["node", "members", "a", "b"], USAGE, "用法错误\n"),
+        (["node", "members", "--x"], USAGE, "用法错误\n"),
+        (["node", "switch"], USAGE, "用法错误，用 node members 查看成员\n"),
+        (["node", "switch", "g"], USAGE, "用法错误，用 node members 查看成员\n"),
+        (["node", "switch", "g", "n", "x"], USAGE, "用法错误\n"),
+        (["node", "test", "g", "x"], USAGE, "用法错误\n"),
+        (["node", "groups"], DOWN, "服务：未运行\n"),
+        (["node", "members", "1"], DOWN, "服务：未运行\n"),
+        (["node", "list"], DOWN, "服务：未运行\n"),
+        (["node", "test"], DOWN, "服务：未运行\n"),
+        (["node", "switch", "g", "n"], DOWN, "服务：未运行\n"),
+    )
+    with tempfile.TemporaryDirectory(prefix="axs-node-args-") as tmp:
+        os.environ["AXS_RUN"] = tmp
+        for argv, want, err in cases:
+            out_buf, err_buf = io.StringIO(), io.StringIO()
+            code = 0
+            try:
+                with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
+                    cli_main(argv)
+            except SystemExit as exc:
+                code = exc.code if isinstance(exc.code, int) else 1
+            if code != want or err_buf.getvalue() != err or out_buf.getvalue():
+                raise SystemExit(f"{argv} -> {code} {err_buf.getvalue()!r} {out_buf.getvalue()!r}")
 
 
 def main():
@@ -260,6 +308,7 @@ def main():
     check_usage_color(colored)
     check_help_aliases()
     check_color()
+    check_node_args()
     saved_color = os.environ.get("AXS_COLOR")
     os.environ.pop("AXS_COLOR", None)
     os.environ.pop("NO_COLOR", None)
