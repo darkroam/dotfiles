@@ -110,7 +110,7 @@ def net_ip(run, args):
     from axs.service import port_open
 
     if args:
-        die(USAGE, "用法")
+        die(USAGE, "用法错误")
     mixed, _api = read_ports(run)
     if not port_open(mixed):
         die(DOWN, "入站：不通")
@@ -127,7 +127,7 @@ def net_test(run, args):
     except SystemExit as exc:
         code = exc.code if isinstance(exc.code, int) else USAGE
         if code == 1:
-            die(USAGE, "用法")
+            die(USAGE, "用法错误")
         die(FAIL, "禁止外网")
     mixed, _api = read_ports(run)
     if not port_open(mixed):

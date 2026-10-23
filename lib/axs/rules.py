@@ -41,9 +41,9 @@ def _die(message):
 
 def rule_line(kind, domain, group):
     if kind not in ("via", "direct"):
-        _fail("用法")
+        _fail("用法错误")
     if "://" in domain or any(ch in domain for ch in "/?#,* \t"):
-        _fail("用法")
+        _fail("用法错误")
     if domain.startswith("."):
         host = domain.lstrip(".")
         form = "DOMAIN-SUFFIX"
@@ -51,12 +51,12 @@ def rule_line(kind, domain, group):
         host = domain
         form = "DOMAIN"
     if not host or host.startswith("-") or ".." in host:
-        _fail("用法")
+        _fail("用法错误")
     if kind == "direct":
         policy = "DIRECT"
     else:
         if not group or any(ch in group for ch in " ,\t"):
-            _fail("用法")
+            _fail("用法错误")
         policy = group
     return f"{form} {host} {policy}"
 
@@ -68,7 +68,7 @@ def parse_rule(kind, domain, group):
 def rules_add(path, line):
     parts = line.split()
     if len(parts) != 3:
-        _fail("用法")
+        _fail("用法错误")
     path = Path(path)
     rows = []
     if path.is_file():
@@ -99,7 +99,7 @@ def has_group(secret_path, api, name):
     try:
         names = group_names(secret_path, api)
     except (SystemExit, OSError):
-        _exit3("控制器")
+        _exit3("控制器失败")
     if name not in names:
         _exit3("组名不存在")
 
@@ -188,12 +188,12 @@ def cmd_add(run, args):
     if kind == "direct" and len(args) == 2:
         _mutate_live(run, "add", ["direct", args[1]])
         return
-    die(USAGE, "用法")
+    die(USAGE, "用法错误")
 
 
 def cmd_del(run, args):
     from axs.render import die
 
     if len(args) != 1:
-        die(USAGE, "用法")
+        die(USAGE, "用法错误")
     _mutate_live(run, "del", [args[0]])

@@ -40,7 +40,7 @@ def prepare(tmp, case):
     date = bindir / "date"
     date.write_text(DATE, encoding="utf-8")
     date.chmod(0o755)
-    os.symlink(ROOT / "tests" / "fake-gsettings", bindir / "gsettings")
+    os.symlink(ROOT / "tests" / "fixtures" / "fake-gsettings", bindir / "gsettings")
     env = {
         "PATH": f"{bindir}:{os.environ.get('PATH', '/usr/bin')}",
         "HOME": str(home),
@@ -61,15 +61,15 @@ def prepare(tmp, case):
     (base / "gs").mkdir()
     proc = None
     if case.get("systemd"):
-        env["AXS_SYSTEMCTL"] = str(ROOT / "tests" / "fake-systemctl")
+        env["AXS_SYSTEMCTL"] = str(ROOT / "tests" / "fixtures" / "fake-systemctl")
     if case.get("up"):
         proc = subprocess.Popen(
-            [str(ROOT / "tests" / "fake-mihomo")],
+            [str(ROOT / "tests" / "fixtures" / "fake-mihomo")],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
         (run / "mihomo.pid").write_text(f"{proc.pid}\n", encoding="utf-8")
-        env["AXS_MIHOMO"] = str(ROOT / "tests" / "fake-mihomo")
+        env["AXS_MIHOMO"] = str(ROOT / "tests" / "fixtures" / "fake-mihomo")
         (fake / "proxies.json").write_text(PROXIES, encoding="utf-8")
         (run / "secret").write_text("test-secret-value\n", encoding="utf-8")
     if case.get("expired"):

@@ -45,7 +45,8 @@ GROUPS = {
     "proxy": ("user system session".split(), {"u": "user", "sy": "system", "se": "session"}),
 }
 
-INTRO = "别名精确优先；未命中则唯一前缀。多个候选退出 1 并列出。h 与 ? 是这份帮助"
+INTRO = "单字符优先；冲突用两字母；前缀亦可"
+EXAMPLE = '示例：axs s · axs n l · axs p sy on · eval "$(axs p u on)"'
 SECTIONS = (
     ("服务", (
         ("axs start", "sta", "启动服务"),
@@ -55,41 +56,36 @@ SECTIONS = (
         ("axs ensure", "e", "保证服务在跑"),
         ("axs service enable", "e", "打开开机自启"),
         ("axs service disable", "d", "关闭开机自启"),
-    ), ("例：axs status",)),
+    ), ()),
     ("订阅", (
         ("axs sub get", "g", "查看订阅剩余"),
         ("axs sub refresh", "r", "拉取并重载"),
         ("axs sub clean", "c", "删除订阅缓存"),
-    ), ("例：axs sub get",)),
+    ), ()),
     ("规则", (
         ("axs rule list", "l", "列出域名规则"),
-        ("axs rule add via", "a", "经策略组，后接域名和组"),
-        ("axs rule add direct", "", "直连，后接域名"),
+        ("axs rule add via", "a", "域名 + 组"),
+        ("axs rule add direct", "", "域名"),
         ("axs rule del", "d", "删除域名规则"),
-    ), ("例：axs rule list",)),
+    ), ()),
     ("节点", (
         ("axs node groups", "g", "策略组与当前节点"),
         ("axs node list", "l", "节点列表"),
         ("axs node test", "t", "测延迟，可接组名"),
         ("axs node switch", "s", "切换节点，后接组和节点"),
-    ), ("例：axs node list",)),
+    ), ()),
     ("网络", (
         ("axs net test", "t", "测连通，可接网址"),
         ("axs net ip", "i", "经代理查出口 IP"),
-    ), ("例：axs net test",)),
+    ), ()),
     ("代理", (
         ("axs proxy user", "u", "当前 shell 环境（on|off|status）"),
         ("axs proxy system", "sy", "运行时 on|off；持久 enable|disable"),
         ("axs proxy session", "se", "登录持久 enable|disable|status"),
-    ), (
-        '例：eval "$(axs proxy user on)"',
-    )),
+    ), ()),
     ("清理", (
         ("axs clean", "c", "删除本地配置，可加 --yes"),
-    ), (
-        "例：axs clean --yes",
-        "颜色只是增强，管道或 NO_COLOR 下信息仍完整",
-    )),
+    ), ()),
 )
 
 
@@ -117,6 +113,7 @@ def help_text():
         lines.append(bold(title))
         lines.extend(row(cmd, alias, desc) for cmd, alias, desc in rows)
         lines.extend(dim(note) for note in notes)
+    lines.append(dim(EXAMPLE))
     return "\n".join(lines) + "\n"
 
 
@@ -224,14 +221,14 @@ def _node(run, kind, args):
     from axs.service import captured, service_up, write_cache
     import os
     if kind == "switch" and len(args) != 2:
-        die(USAGE, "用法")
+        die(USAGE, "用法错误")
     if kind == "list":
         full = False
         for arg in args:
             if arg in ("--full", "-l"):
                 full = True
             else:
-                die(USAGE, "用法")
+                die(USAGE, "用法错误")
     if kind == "test":
         if not service_up(run):
             die(DOWN, "服务：未运行")
@@ -256,7 +253,7 @@ def _node(run, kind, args):
         die(DOWN, "服务：未运行")
     api = api_address(run)
     if not api:
-        die(FAIL, "控制器")
+        die(FAIL, "控制器失败")
     secret = Path(run) / SECRET
     if kind == "groups":
         show_groups(secret, api)
@@ -303,7 +300,7 @@ def main(argv):
     elif cmd == "service":
         op, extra = _take("service", rest)
         if extra:
-            die(USAGE, "用法")
+            die(USAGE, "用法错误")
         boot(run, op)
     elif cmd == "sub":
         op, extra = _take("sub", rest)

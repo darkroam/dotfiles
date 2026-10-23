@@ -8,9 +8,12 @@ import sys
 from pathlib import Path
 
 from axs.config import (
+    BYPASS,
     LEGACY_SESSION_FLAG,
     LEGACY_SYSTEM_FLAG,
+    LOOPBACK,
     SESSION_FLAG,
+    SOCKS5,
     SYSTEM_FLAG,
     proxy_mixed,
 )
@@ -42,7 +45,7 @@ def _line(text):
 
 def _need_one(args):
     if len(args) != 1:
-        _quit(USAGE, "用法")
+        _quit(USAGE, "用法错误")
     return args[0]
 
 
@@ -51,7 +54,15 @@ def _port(run):
 
 
 def _want(port):
-    return f"http://127.0.0.1:{port}"
+    return f"http://{LOOPBACK}:{port}"
+
+
+def _socks(port):
+    return f"{SOCKS5}{LOOPBACK}:{port}"
+
+
+def _ignore_hosts():
+    return "[" + ",".join("'" + host + "'" for host in BYPASS.split(",")) + "]"
 
 
 def _user_current():
@@ -143,7 +154,7 @@ def _gs_get(schema, key):
 
 def _need_gsettings():
     if shutil.which("gsettings") is None:
-        _quit(FAIL, "没有 gsettings")
+        _quit(FAIL, "没有 gsettings 命令")
 
 
 def proxy_user(run, args):
@@ -154,12 +165,12 @@ def proxy_user(run, args):
         for line in (
             f"export http_proxy={_want(port)}",
             f"export https_proxy={_want(port)}",
-            f"export all_proxy=socks5://127.0.0.1:{port}",
-            "export no_proxy=localhost,127.0.0.1,::1",
+            f"export all_proxy={_socks(port)}",
+            f"export no_proxy={BYPASS}",
             f"export HTTP_PROXY={_want(port)}",
             f"export HTTPS_PROXY={_want(port)}",
-            f"export ALL_PROXY=socks5://127.0.0.1:{port}",
-            "export NO_PROXY=localhost,127.0.0.1,::1",
+            f"export ALL_PROXY={_socks(port)}",
+            f"export NO_PROXY={BYPASS}",
         ):
             _line(line)
         return
@@ -173,7 +184,7 @@ def proxy_user(run, args):
             return
         _line(f"user: {dim('off')} ({cur or 'unset'})")
         _quit(USAGE)
-    _quit(USAGE, "用法")
+    _quit(USAGE, "用法错误")
 
 
 def proxy_system(run, args):
@@ -185,12 +196,12 @@ def proxy_system(run, args):
     if sub == "on":
         port = _port(run)
         _gs_set(GS, "mode", "manual")
-        _gs_set(GS + ".http", "host", "127.0.0.1")
+        _gs_set(GS + ".http", "host", LOOPBACK)
         _gs_set(GS + ".http", "port", port)
-        _gs_set(GS + ".https", "host", "127.0.0.1")
+        _gs_set(GS + ".https", "host", LOOPBACK)
         _gs_set(GS + ".https", "port", port)
-        _gs_set(GS, "ignore-hosts", "['localhost','127.0.0.1','::1']")
-        _line(f"system：{ok('on')}（127.0.0.1:{port}）")
+        _gs_set(GS, "ignore-hosts", _ignore_hosts())
+        _line(f"system：{ok('on')}（{LOOPBACK}:{port}）")
         return
     if sub == "off":
         _gs_set(GS, "mode", "none")
@@ -206,12 +217,12 @@ def proxy_system(run, args):
         _line(f"system：{bad('disabled')}")
         return
     if sub != "status":
-        _quit(USAGE, "用法")
+        _quit(USAGE, "用法错误")
     port = _port(run)
     mode = _gs_get(GS, "mode")
     host = _gs_get(GS + ".http", "host")
     sport = _gs_get(GS + ".http", "port")
-    if mode == "manual" and host == "127.0.0.1" and sport == port:
+    if mode == "manual" and host == LOOPBACK and sport == port:
         _line(f"system: {ok('on')} (mode={mode} host={host} port={sport})")
         code = 0
     else:
@@ -248,7 +259,7 @@ def proxy_session(run, args):
         _line(f"session：{bad('disabled')}")
         return
     if sub != "status":
-        _quit(USAGE, "用法")
+        _quit(USAGE, "用法错误")
     port = _port(run)
     if not flag.is_file():
         _line(f"session: persist {dim('disabled')} · effect {dim('-')}")
@@ -283,7 +294,7 @@ def status_summary(run, port):
         mode = _gs_get(GS, "mode")
         host = _gs_get(GS + ".http", "host")
         sport = _gs_get(GS + ".http", "port")
-        if mode == "manual" and host == "127.0.0.1" and sport == str(port):
+        if mode == "manual" and host == LOOPBACK and sport == str(port):
             system = "on"
     system_flag = "enabled" if (Path(run) / SYSTEM_FLAG).is_file() else "disabled"
     session_flag = "enabled" if (Path(run) / SESSION_FLAG).is_file() else "disabled"

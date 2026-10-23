@@ -7,6 +7,9 @@ import yaml
 DEFAULT_MIXED = 7897
 DEFAULT_API = "127.0.0.1:9097"
 DEFAULT_DNS_LISTEN = "127.0.0.1:1053"
+LOOPBACK = "127.0.0.1"
+BYPASS = "localhost,127.0.0.1,::1"
+SOCKS5 = "socks5://"
 PREPEND = (
     "DOMAIN-SUFFIX,localhost,DIRECT",
     "DOMAIN-SUFFIX,local,DIRECT",

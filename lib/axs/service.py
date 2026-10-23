@@ -288,7 +288,7 @@ def restart(run):
 
 def ensure(run, args):
     if args:
-        die(USAGE, "用法")
+        die(USAGE, "用法错误")
     manual = not systemd_on()
     if not manual and active():
         return
@@ -331,11 +331,11 @@ def _prompt():
 
 def clean(run, kind, args):
     if len(args) > 1:
-        die(USAGE, "用法")
+        die(USAGE, "用法错误")
     yes = False
     if args:
         if args[0] != "--yes":
-            die(USAGE, "用法")
+            die(USAGE, "用法错误")
         yes = True
     if service_up(run):
         die(DOWN, "服务在运行，先 axs stop")
@@ -343,13 +343,13 @@ def clean(run, kind, args):
     paths = []
     for name in clean_names(kind):
         if "/" in name or ".." in name:
-            die(FAIL, "越界")
+            die(FAIL, "路径越界")
         path = Path(run) / name
         if not (path.is_symlink() or path.exists()):
             continue
         resolved = os.path.realpath(path)
         if root and not resolved.startswith(root + os.sep):
-            die(FAIL, "越界")
+            die(FAIL, "路径越界")
         paths.append(path)
     if not yes:
         if paths:

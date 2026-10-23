@@ -341,9 +341,9 @@ def delay(secret_path, api, group, url):
     try:
         payload = json.loads(raw.decode("utf-8"))
     except json.JSONDecodeError:
-        _fail("控制器")
+        _fail("控制器失败")
     if not isinstance(payload, dict):
-        _fail("控制器")
+        _fail("控制器失败")
     for name, value in payload.items():
         try:
             shown = str(int(value))

@@ -51,7 +51,7 @@ TUN 评估：现二进制带 `with_gvisor`，具备用户态栈条件。启用�
 - 内核：本机已有的自编译二进制 `~/.local/bin/mihomo`。用户口径是 v1.19.21。阶段一 `mihomo -v` 只打出 Mihomo Meta、go1.27.1，没有打出该版本标签。实现就用这个文件，文档不把未印出的标签写成已证实事实。
 - 订阅：用户写入运行目录里的地址文件，由本子系统下载。不读 Verge，不依赖它的数据目录，Verge 可卸。
 - v1 只有一条订阅。
-- 控制面只走 mihomo 控制器 API。不另存节点凭据。日志、文档、规则文件不写地址、密钥、节点名。操作者自己的终端可以显示组名、节点名、延迟和 `net test` 的目标网址，因为操作者要看。这些输出不另存文件。测试缓存只记时间戳和 `ok`/`fail`，不记组名、网址、凭据。
+- 控制面只走 mihomo 控制器 API。不另存节点凭据。日志、文档、规则文件不写地址、密钥、节点名。操作者自己的终端可以显示组名、节点名、延迟和 `net test` 的目标网址，因为操作者要看。这些输出不另存文件。测试缓存记时间戳和 `ok`/`fail`。`node-test` 成功时再记节点名到延迟，不记组名、地址、密钥。
 
 ## 4. 目录与脚本
 
@@ -84,7 +84,7 @@ TUN 评估：现二进制带 `with_gvisor`，具备用户态栈条件。启用�
 
 阶段二把运行目录放在 `~/.config/mihomo`。那个目录主仓库没有忽略。v1 改到已经全局忽略的本树 `run/`，避免订阅被宽 glob 扫进公开仓库。
 
-用户单元模板在 `units/`。`axs.service` 只启动 `bin/mihomo-run`。脚本校验并原子写下自己的数字 PID，再 exec `mihomo -d <run>`。单元里不写进程号，systemd 会先展开。`axs-refresh.timer` 每 12 小时跑 `axs sub refresh`。复制到 `~/.config/systemd/user/` 后 enable。没有合格 `config.yaml` 之前不 enable。登录后由用户会话拉起，不另加 `xprofile`。`axs.service` 的 LoadState 为 loaded 时，`start` / `stop` / `restart` / `ensure` 委派 `systemctl --user`。`AXS_SYSTEMD=0` 强制直接管进程，`AXS_SYSTEMD=1` 强制委派。未设置时入口只探测一次 `LoadState`，结果放在 `AXS_SYSTEMD_MODE`。`use_systemd` 只读它，不写其它全局。已 active 的 `start` 与 `ensure` 不再 start。没有配置时 `ensure` 仍先 refresh，再 `systemctl start`。刷新前若地址含反斜杠或空白（单独的行尾换行不算），退出 3，提示去掉反斜杠。空正文，或 Content-Type 不是 YAML 类（`text/html` 等），退出 3，并带上 HTTP 状态和类型。
+用户单元模板在 `units/`。`axs.service` 只启动 `bin/mihomo-run`。脚本校验并原子写下自己的数字 PID，再 exec `mihomo -d <run>`。单元里不写进程号，systemd 会先展开。`axs-refresh.timer` 每 12 小时跑 `axs sub refresh`。复制到 `~/.config/systemd/user/` 后 enable。没有合格 `config.yaml` 之前不 enable。登录后由用户会话拉起。代理的登录脚本见后文。`axs.service` 的 LoadState 为 loaded 时，`start` / `stop` / `restart` / `ensure` 委派 `systemctl --user`。`AXS_SYSTEMD=0` 强制直接管进程，`AXS_SYSTEMD=1` 强制委派。未设置时入口只探测一次 `LoadState`，结果放在 `AXS_SYSTEMD_MODE`。`use_systemd` 只读它，不写其它全局。已 active 的 `start` 与 `ensure` 不再 start。没有配置时 `ensure` 仍先 refresh，再 `systemctl start`。刷新前若地址含反斜杠或空白（单独的行尾换行不算），退出 3，提示去掉反斜杠。空正文，或 Content-Type 不是 YAML 类（`text/html` 等），退出 3，并带上 HTTP 状态和类型。
 
 ## 5. 子命令与退出码
 
@@ -131,7 +131,7 @@ axs sub clean [--yes]
 
 域名规则：无方案、无路径、无问号。前缀 `.` 表示后缀（`DOMAIN-SUFFIX`），否则是整域（`DOMAIN`）。`via` 的策略组必须由调用者写明，不猜测「主组」。
 
-`rule add via` 在服务运行时先向控制器查询组名。组不存在，或这次查询失败，则退出 3，不写 `rules.list`，也不重载。服务未运行时控制器不可用，仍只把规则记下来，启动时再生效。mihomo 遇到未知组会拒绝加载：配置测试报 `proxy [NOTAGROUP] not found`，退出码 1（2026-10-15，真内核实测）。via 把流量送进策略组。这条链已验证（仿真，2026-10-15）：官方 check 的 c 段经由节点，direct 覆盖后走直连。真实订阅和系统单元还没测。运行中重载未知组时，内核经 API 拒绝，HTTP 400，进程仍在（同一次 check）。
+`rule add via` 在服务运行时先向控制器查询组名。组不存在，或这次查询失败，则退出 3，不写 `rules.list`，也不重载。服务未运行时控制器不可用，仍只把规则记下来，启动时再生效。mihomo 遇到未知组会拒绝加载：配置测试报 `proxy [NOTAGROUP] not found`，退出码 1（2026-10-15，真内核实测）。via 把流量送进策略组。这条链已验证（仿真，2026-10-15）：官方 check 的 c 段经由节点，direct 覆盖后走直连。运行中重载未知组时，内核经 API 拒绝，HTTP 400，进程仍在（同一次 check）。
 
 退出码：
 
@@ -210,7 +210,7 @@ axs sub clean [--yes]
 
 ## 9. 测试策略
 
-先有失败测试，再写实现。每个 bug 先加一条能复现它的测试，修完保持为回归。改 `refresh` 或校验顺序的提交，必须跑普通终端 `tests/env/run.sh check`。只跑离线套件不算过。
+先有失败测试，再写实现。每个 bug 先加一条能复现它的测试，修完保持为回归。改 `refresh` 或校验顺序的提交，必须跑普通终端 `tests/lab/run.sh check`。只跑离线套件不算过。
 
 夹具输出必须复刻真实命令格式，不得按实现方便编。systemd 夹具同此，与错题本 P7 同族。
 
@@ -222,15 +222,15 @@ v1 基线（不连真实订阅、不启真实进程）：
 | 假订阅合并 | 模式、入站、DNS 监听、tun 关闭、前置规则只出现一次、密钥来自文件而不是订阅正文 |
 | 规则增删 | 服务未运行只改列表；服务在跑且组名不存在时退出 3、列表不变、不重载；其它重载失败时列表与配置都回到改前 |
 | 并发锁 | 两路刷新，一路成功，另一路退出 4 |
-| 健康样本 | 端口不通为 2；端口通但控制器不通为 3；已过期为 5；三天内到期仍为 0 且输出含警告 |
+| 健康样本 | 端口不通为 2；端口通但控制器不通为 3；已过期为 5；三天内到期仍为 0 且无输出。警告只属于 status |
 | v1.1 节点列表 | 假 `/proxies`：选中行有 `*`，未选中没有；服务未运行退出 2；控制器失败退出 3；不把节点名写入 `run/` |
-| v1.1 当前选择 | `groups` 每行含 `now`。实现时同步旧断言：`tests/env/run.sh` 的 `grep -x PROXY` 会失败；`tests/run.sh` 的 `grep -q PROXY` 子串仍能过，要改成第一列是组名、第三列是 `now` |
+| v1.1 当前选择 | `groups` 每行含 `now`。实现时同步旧断言：`tests/lab/run.sh` 的 `grep -x PROXY` 会失败；`tests/run.sh` 的 `grep -q PROXY` 子串仍能过，要改成第一列是组名、第三列是 `now` |
 | v1.1 手动切换 | 「组不存在」「节点不存在」与「不是策略组」文案分开，都退出 3，且没有 PUT；两者都在则 PUT select；服务未运行退出 2 |
 | v1.1 两条仿真 | ① switch→stop→start→`now`。② switch→`rule add via`（现有夹具会重载）→`now`。都只记录，不断言必须保持 |
 | v1.1 连通性 | lab 三态：全通退出 0，一部分不通退出 3，全不通退出 3。`AXS_FORBID_NET=1` 先验全表，有一条违规就整体退出 3，一行不测 |
 | v1.1 ensure | 已在跑退出 0 且 pid 不变；无配置且无地址退出 3 且不启动；端口占用退出 2 且不刷新；无配置有地址则先刷新再启动，成功为 0 |
 
-假订阅放在 `tests/fixtures/`，里面没有真实地址。基线能重复跑通之前，跟踪文档若被允许引用，名称写作「访问子系统（孵化中）」。本阶段不改跟踪文档。
+假订阅放在 `tests/fixtures/`，里面没有真实地址。
 
 ## 10. v1.1 节点与连通性
 
@@ -394,10 +394,10 @@ v1 基线（不连真实订阅、不启真实进程）：
 2026-10-20 已实现。两条仿真测完再把结果写回上面，未测之前仍是未实测。
 
 - `node list`、`node groups`（带 `now`）、`node switch`、`net test`、`ensure`
-- `tests/env/lab.py` 增加第二个假节点。回环另一端口，或端口 9 空壳。`switch` 只验选择，不向该节点拨号
-- 同步 `groups` 旧断言：`tests/env/run.sh` 的 `grep -x PROXY`，以及 `tests/run.sh` 里只查子串 `PROXY` 的那条
+- `tests/lab/lab.py` 增加第二个假节点。回环另一端口，或端口 9 空壳。`switch` 只验选择，不向该节点拨号
+- 同步 `groups` 旧断言：`tests/lab/run.sh` 的 `grep -x PROXY`，以及 `tests/run.sh` 里只查子串 `PROXY` 的那条
 - 两条仿真只记录：switch → stop → start → `now`；switch → `rule add via` → `now`
-- 改 `refresh` 或校验顺序必跑普通终端 `tests/env/run.sh check`。只跑离线套件不算过
+- 改 `refresh` 或校验顺序必跑普通终端 `tests/lab/run.sh check`。只跑离线套件不算过
 
 ## 11. 三层代理接入
 

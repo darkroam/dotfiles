@@ -48,10 +48,10 @@ def read_secret(secret_path, api):
         _fail("控制器必须在本机回环")
     path = Path(secret_path)
     if not path.is_file():
-        _fail("控制器")
+        _fail("控制器失败")
     secret = path.read_text(encoding="utf-8").strip()
     if len(secret) < 8:
-        _fail("控制器")
+        _fail("控制器失败")
     return secret
 
 
@@ -64,18 +64,18 @@ def _fake_exchange(method, path, secret, body=None):
     with (directory / "log").open("a", encoding="utf-8") as handle:
         handle.write(f"{method} {path} auth={flag}{extra}\n")
     if (directory / "down").is_file():
-        _fail("控制器")
+        _fail("控制器失败")
     pure = path.split("?", 1)[0]
     if method == "PUT" and pure.startswith(PROXIES + "/"):
         code_path = directory / "select"
         code = int(code_path.read_text(encoding="utf-8").strip() or "204") if code_path.is_file() else 204
         if code >= 300:
-            _fail("控制器")
+            _fail("控制器失败")
         return b""
     if method == "PUT":
         code = int((directory / "reload").read_text(encoding="utf-8").strip() or "204")
         if code >= 300:
-            _fail("控制器")
+            _fail("控制器失败")
         return b""
     if pure == VERSION:
         return b'{"version":"fake"}'
@@ -96,7 +96,7 @@ def _fake_exchange(method, path, secret, body=None):
         name = urllib.parse.unquote(pure[len(GROUP) : -len(DELAY)])
         delay = int((directory / "delay").read_text(encoding="utf-8").strip() or "0")
         return json.dumps({name: delay}).encode()
-    _fail("控制器")
+    _fail("控制器失败")
 
 
 def request(secret, api, method, path, body=None):
@@ -115,14 +115,14 @@ def request(secret, api, method, path, body=None):
         with urllib.request.urlopen(req, timeout=5) as resp:
             raw = resp.read()
             if resp.status >= 300:
-                _fail("控制器")
+                _fail("控制器失败")
             return raw
     except urllib.error.HTTPError as exc:
         if exc.code >= 300:
-            _fail("控制器")
+            _fail("控制器失败")
         raise
     except (urllib.error.URLError, TimeoutError, OSError):
-        _fail("控制器")
+        _fail("控制器失败")
 
 
 def probe(host, port):
@@ -156,10 +156,10 @@ def load_proxies(secret_path, api):
     try:
         payload = json.loads(raw.decode("utf-8"))
     except json.JSONDecodeError:
-        _fail("控制器")
+        _fail("控制器失败")
     proxies = payload.get("proxies") if isinstance(payload, dict) else None
     if not isinstance(proxies, dict):
-        _fail("控制器")
+        _fail("控制器失败")
     return proxies
 
 

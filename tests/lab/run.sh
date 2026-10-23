@@ -2,9 +2,9 @@
 # Loopback stand-in. No systemd and no names outside the allow list.
 set -eu
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-LAB=$ROOT/tests/env/lab.py
+LAB=$ROOT/tests/lab/lab.py
 AXS=$ROOT/bin/axs
-VAR=$ROOT/tests/env/var
+VAR=$ROOT/tests/lab/var
 HTTP=18091
 PROXY=18092
 MIXED=18093
@@ -187,7 +187,7 @@ clean_cases() {
     rm -f "$outside" "$AXS_RUN/config.yaml"
     printf '%s\n' drop >"$AXS_RUN/config.yaml"
     printf '%s\n' url >"$AXS_RUN/subscription.url"
-    export AXS_MIHOMO="$ROOT/tests/fake-mihomo"
+    export AXS_MIHOMO="$ROOT/tests/fixtures/fake-mihomo"
     "$AXS_MIHOMO" &
     printf '%s\n' "$!" >"$AXS_RUN/mihomo.pid"
     code_of clean --yes

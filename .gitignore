@@ -1,4 +1,4 @@
 run/
 __pycache__/
 *.pyc
-tests/env/var/
+tests/lab/var/

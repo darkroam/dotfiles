@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -63,21 +64,27 @@ def check_effects():
         os.environ["AXS_SESSION_PID"] = "2147483001"
         if session_value("http_proxy")[0] != 2:
             fail("missing pid")
-        empty = subprocess.Popen(["/bin/sleep", "30"])
-        procs.append(empty)
-        os.environ["AXS_SESSION_PID"] = str(empty.pid)
-        rc, value = session_value("http_proxy")
-        if rc != 1 or value:
-            fail(f"empty env {rc} {value!r}")
-        live = subprocess.Popen(
-            ["/bin/sleep", "30"],
-            env={"PATH": os.environ.get("PATH", "/usr/bin"), "http_proxy": "http://127.0.0.1:9"},
-        )
-        procs.append(live)
-        os.environ["AXS_SESSION_PID"] = str(live.pid)
-        rc, value = session_value("http_proxy")
-        if rc != 0 or value != "http://127.0.0.1:9":
-            fail(f"live {rc} {value!r}")
+        def spawn(env, ready):
+            proc = subprocess.Popen(["/bin/sleep", "30"], env=env)
+            procs.append(proc)
+            os.environ["AXS_SESSION_PID"] = str(proc.pid)
+            deadline = time.monotonic() + 2
+            last = None
+            while time.monotonic() < deadline:
+                if proc.poll() is not None:
+                    fail("sleep exited before environ")
+                try:
+                    last = session_value("http_proxy")
+                except OSError:
+                    last = None
+                if ready(last):
+                    return
+                time.sleep(0.02)
+            fail(f"environ {last}")
+
+        minimal = {"PATH": "/usr/bin"}
+        spawn(minimal, lambda got: got == (1, ""))
+        spawn({**minimal, "http_proxy": "http://127.0.0.1:9"}, lambda got: got == (0, "http://127.0.0.1:9"))
     finally:
         for proc in procs:
             proc.kill()

@@ -39,10 +39,10 @@ def check_lines(tmp):
     if rule_line("direct", "example.com", "") != "DOMAIN example.com DIRECT":
         fail("direct line")
     code, _out, err = invoke(rule_line, "via", "http://example.com", "PROXY")
-    if code != 1 or err != "用法\n":
+    if code != 1 or err != "用法错误\n":
         fail(f"bad domain {code} {err!r}")
     code, _out, err = invoke(rule_line, "via", "example.com", "")
-    if code != 1 or err != "用法\n":
+    if code != 1 or err != "用法错误\n":
         fail(f"empty group {code} {err!r}")
     path = Path(tmp) / "rules.list"
     rules_add(path, "DOMAIN example.com DIRECT")
@@ -84,7 +84,7 @@ def check_rejected(run):
         fail("unknown group took a snapshot")
     (fake / "down").write_text("", encoding="utf-8")
     code, _out, err = invoke(check, run, "add", "1", API, ["via", "example.com", "PROXY"])
-    if code != 3 or err != "控制器\n控制器\n":
+    if code != 3 or err != "控制器失败\n控制器失败\n":
         fail(f"api down {code} {err!r}")
     if (run / "rules.list").read_text(encoding="utf-8") != before:
         fail("api down wrote rules")
@@ -107,7 +107,7 @@ def prepare_sub(run, reload_code):
 def check_reload_fail(run):
     prepare_sub(run, 500)
     code, out, err = invoke(mutate, run, "add", "1", API, ["direct", "new.example"])
-    if code != 3 or out or err != "控制器\n重载失败\n重载失败\n":
+    if code != 3 or out or err != "控制器失败\n重载失败\n重载失败\n":
         fail(f"reload fail {code} {out!r} {err!r}")
     if (run / "rules.list").read_text(encoding="utf-8") != KEPT:
         fail("reload fail kept the edit")
