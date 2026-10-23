@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT / "lib"))
 from axs.cli import _list_flags  # noqa: E402
 from axs.codes import FAIL, USAGE  # noqa: E402
 from axs.nodes import _show_nodes_full, group_numbers, group_table, node_numbers  # noqa: E402
-from axs.render import display_width  # noqa: E402
+from axs.render import display_width, emph, tone  # noqa: E402
 from axs.tree import render_members, render_tree, show_members, tree_roots  # noqa: E402
 
 
@@ -246,6 +246,26 @@ def check_members():
         fail("empty")
     if render_members(proxies, "缺", {}) != "（无成员）\n":
         fail("missing all")
+    os.environ["AXS_COLOR"] = "always"
+    mark = emph("32", "[*]")
+    painted_name = emph("32", "子")
+    fast, mid, slow, dash = tone("32", "42"), tone("33", "150"), tone("31", "300"), tone("90", "-")
+    colored = render_members(proxies, "主", {"甲": 42, "乙": 150, "GONE": 300})
+    os.environ["AXS_COLOR"] = "never"
+    plain = render_members(proxies, "主", {"甲": 42, "乙": 150, "GONE": 300})
+    if "\033" in plain or "\033" not in colored:
+        fail("color gate")
+    stripped = colored
+    while "\033[" in stripped:
+        start = stripped.find("\033[")
+        end = stripped.find("m", start)
+        stripped = stripped[:start] + stripped[end + 1 :]
+    if stripped != plain:
+        fail("color changed plain\n" + stripped)
+    if mark not in colored or fast not in colored or mid not in colored or slow not in colored or dash not in colored:
+        fail("member colors\n" + colored)
+    if painted_name in colored:
+        fail("name should stay plain")
     code, out, err = _capture(show_members, proxies, "1", "")
     if code or err or out != render_members(proxies, "主", {}):
         fail(f"index {code} {err!r}\n{out}")

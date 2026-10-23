@@ -20,6 +20,7 @@ python3 是全部命令的硬依赖。没有它，`axs` 不能启动。还需要
 - `axs e`：保证服务在跑
 - `axs su r`：拉取订阅
 - `axs n l`：节点列表
+- `axs n m`：一个组的成员
 - `axs p u on`：打印当前 shell 的代理变量，需要 eval 才会生效
 - `axs h` 或 `axs ?`：帮助
 

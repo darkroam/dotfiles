@@ -12,12 +12,13 @@ from axs.nodes import (
     _is_group,
     follow_leaf,
     group_numbers,
+    delay_code,
     load_delays,
     node_numbers,
     resolve_group_name,
     selection_parts,
 )
-from axs.render import display_width, term_cols
+from axs.render import display_width, emph, term_cols, tone, use_color
 
 
 def exit_line(proxies):
@@ -199,10 +200,16 @@ def render_members(proxies, group, delays):
             delay = "-"
         rows.append((ident, str(name), kind, mark, str(delay)))
     widths = [max(display_width(row[index]) for row in rows) for index in range(5)]
+    color = use_color()
     lines = []
     for row in rows:
-        parts = [row[index] + " " * (widths[index] - display_width(row[index])) for index in range(4)]
-        parts.append(" " * (widths[4] - display_width(row[4])) + row[4])
+        parts = []
+        for index in range(4):
+            shown = emph("32", row[index]) if color and index == 3 and row[index] == "[*]" else row[index]
+            parts.append(shown + " " * (widths[index] - display_width(row[index])))
+        delay = row[4]
+        shown = tone(delay_code(delay), delay) if color else delay
+        parts.append(" " * (widths[4] - display_width(delay)) + shown)
         lines.append("  ".join(parts))
     return "\n".join(lines) + "\n"
 

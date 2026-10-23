@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT / "lib"))
 from axs.cli import SECTIONS  # noqa: E402
 
 DOCS = ROOT / "docs"
-BANNED = ("未跟踪", "孵化中")
+BANNED = ("未跟踪", "孵化中", "还没测")
 PY_SENTENCE = "python3 是全部命令的硬依赖"
 
 
@@ -86,6 +86,24 @@ def main():
     readme = (DOCS / "README.md").read_text(encoding="utf-8")
     if PY_SENTENCE not in readme:
         fail("readme missing the python3 sentence")
+    if "`axs n m`" not in readme:
+        fail("readme missing members")
+    for word in ("池", "成员", "引用", "编号"):
+        if word not in design:
+            fail("design missing " + word)
+    if "| 动作 | 缺参 |" not in design:
+        fail("design missing the arg matrix")
+    arch = (DOCS / "architecture.md").read_text(encoding="utf-8")
+    if "tree     service" not in arch:
+        fail("layer diagram lost tree")
+    if "| rules | subscription |" not in arch:
+        fail("ledger")
+    if "不得引用任何 axs 模块" not in arch:
+        fail("render sink")
+    if "`lib/axs/tree.py`" not in arch:
+        fail("tree file row")
+    if "阶段 2 记录" in arch or "步 13" in arch:
+        fail("process narrative")
     print("docs")
     return 0
 

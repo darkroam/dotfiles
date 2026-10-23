@@ -132,15 +132,5 @@ run/                         运行时。不入库
 - golden：`AXS_COLOR=never` 的纯文本，逐字节比对。例外只存在于当时的提交说明，不在这里再开一张过程表。
 - lab：能 bind 的环境里跑真内核。不进 `tests/run.sh`。
 - 离线套件里的裸数字退出只减不增。
-- 步 13：用法别名着色范围修正。别名整段着色，组内子命令也着色。纯文本 golden 不变。
-- 步 14：帮助分节标题改为「中文（命令 / 别名）」。只重打 help--default，行内列宽不变。
-- 步 15：组表改为编号、箭头和显示宽度对齐；switch/test 接受组号。重打 help--default 与 node-groups。
-- 步 16：`node list --full` 改为树，原表改为 `--flat`。新增 node-list--tree，并重打 help 与 usage。
-- 步 17：`rule list` 默认读运行时规则并标来源；`--local` 仍是本地文件。`node list --select` 是规则可达的可选树。重打 help 与 usage，并新增 rule-list 与 node-list--select。
-- 步 20：新增 `node members`，并统一 node 缺参。重打 help 与 usage，新增 node-members。
 
 快照和夹具不写真实订阅、密钥、节点名。测试用的运行目录放系统临时目录或 `tests/lab/var/`，不入库。
-
-## 阶段 2 记录
-
-2026-10 把当时的 shell 与合并脚本拆进 `lib/axs/`，并删掉转发层。过程已经收口，步骤不在本文保留。
