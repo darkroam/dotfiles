@@ -1,4 +1,6 @@
 """Connectivity and egress."""
+
+from axs.codes import USAGE, DOWN, FAIL
 import http.client
 import os
 import sys
@@ -40,9 +42,9 @@ def net_precheck(urls_path, given):
         if os.environ.get("AXS_FORBID_NET") == "1" and parsed.hostname not in LOOPBACK:
             forbid = True
     if bad:
-        raise SystemExit(1)
+        raise SystemExit(USAGE)
     if forbid:
-        raise SystemExit(3)
+        raise SystemExit(FAIL)
 
 
 def _one_try(url, proxy, timeout):
@@ -84,13 +86,13 @@ def net_run(urls_path, proxy, timeout_ms, given):
             sys.stdout.write(f"不通\t-\t{url}\n")
         else:
             sys.stdout.write(f"通\t{delay}\t{url}\n")
-    raise SystemExit(3 if failed else 0)
+    raise SystemExit(FAIL if failed else 0)
 
 
 def egress(proxy, url):
     if os.environ.get("AXS_FORBID_NET") == "1":
         sys.stderr.write("出口查询失败\n")
-        raise SystemExit(3)
+        raise SystemExit(FAIL)
     handler = urllib.request.ProxyHandler({"http": proxy, "https": proxy})
     opener = urllib.request.build_opener(handler)
     try:
@@ -98,7 +100,7 @@ def egress(proxy, url):
             text = resp.read(200).decode("utf-8", "replace").strip()
     except Exception:
         sys.stderr.write("出口查询失败\n")
-        raise SystemExit(3)
+        raise SystemExit(FAIL)
     print(text)
 
 
@@ -108,10 +110,10 @@ def net_ip(run, args):
     from axs.service import port_open
 
     if args:
-        die(1, "用法")
+        die(USAGE, "用法")
     mixed, _api = read_ports(run)
     if not port_open(mixed):
-        die(2, "入站：不通")
+        die(DOWN, "入站：不通")
     egress(f"http://127.0.0.1:{mixed}", "https://ipinfo.io/ip")
 
 
@@ -123,18 +125,18 @@ def net_test(run, args):
     try:
         net_precheck(Path(run) / URLS, list(args))
     except SystemExit as exc:
-        code = exc.code if isinstance(exc.code, int) else 1
+        code = exc.code if isinstance(exc.code, int) else USAGE
         if code == 1:
-            die(1, "用法")
-        die(3, "禁止外网")
+            die(USAGE, "用法")
+        die(FAIL, "禁止外网")
     mixed, _api = read_ports(run)
     if not port_open(mixed):
-        die(2, "入站：不通")
+        die(DOWN, "入站：不通")
     timeout = os.environ.get("AXS_NET_TIMEOUT_MS") or "5000"
     try:
         net_run(Path(run) / URLS, f"http://127.0.0.1:{mixed}", timeout, list(args))
     except SystemExit as exc:
-        code = exc.code if isinstance(exc.code, int) else 1
+        code = exc.code if isinstance(exc.code, int) else USAGE
     else:
         code = 0
     write_cache(run, "net-test", "ok" if code == 0 else "fail")

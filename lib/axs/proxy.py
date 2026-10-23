@@ -1,4 +1,6 @@
 """Three proxy layers."""
+
+from axs.codes import USAGE, FAIL
 import os
 import shutil
 import subprocess
@@ -40,7 +42,7 @@ def _line(text):
 
 def _need_one(args):
     if len(args) != 1:
-        _quit(1, "用法")
+        _quit(USAGE, "用法")
     return args[0]
 
 
@@ -125,7 +127,7 @@ def _gnome(value):
 def _gs_set(schema, key, value):
     result = subprocess.run(["gsettings", "set", schema, key, value])
     if result.returncode != 0:
-        _quit(3, "gsettings 失败")
+        _quit(FAIL, "gsettings 失败")
 
 
 def _gs_get(schema, key):
@@ -141,7 +143,7 @@ def _gs_get(schema, key):
 
 def _need_gsettings():
     if shutil.which("gsettings") is None:
-        _quit(3, "没有 gsettings")
+        _quit(FAIL, "没有 gsettings")
 
 
 def proxy_user(run, args):
@@ -170,8 +172,8 @@ def proxy_user(run, args):
             _line(f"user: {ok('on')} ({cur})")
             return
         _line(f"user: {dim('off')} ({cur or 'unset'})")
-        _quit(1)
-    _quit(1, "用法")
+        _quit(USAGE)
+    _quit(USAGE, "用法")
 
 
 def proxy_system(run, args):
@@ -204,7 +206,7 @@ def proxy_system(run, args):
         _line(f"system：{bad('disabled')}")
         return
     if sub != "status":
-        _quit(1, "用法")
+        _quit(USAGE, "用法")
     port = _port(run)
     mode = _gs_get(GS, "mode")
     host = _gs_get(GS + ".http", "host")
@@ -214,7 +216,7 @@ def proxy_system(run, args):
         code = 0
     else:
         _line(f"system: {dim('off')} (mode={mode} host={host} port={sport})")
-        code = 1
+        code = USAGE
     if flag.is_file() and _hook_missing(profile, SYSTEM_HOOK):
         _line(f"persist: {ok('enabled')} (xprofile hook missing)")
     elif flag.is_file():
@@ -246,23 +248,23 @@ def proxy_session(run, args):
         _line(f"session：{bad('disabled')}")
         return
     if sub != "status":
-        _quit(1, "用法")
+        _quit(USAGE, "用法")
     port = _port(run)
     if not flag.is_file():
         _line(f"session: persist {dim('disabled')} · effect {dim('-')}")
-        _quit(1)
+        _quit(USAGE)
     if _hook_missing(profile, SESSION_HOOK):
         _line(f"session: persist {ok('enabled')} (xprofile hook missing)")
-        _quit(1)
+        _quit(USAGE)
     rc, live = session_value("http_proxy")
     if rc == 2:
         _line(f"session: persist {ok('enabled')} · effect {dim('no-x-session')}")
-        _quit(1)
+        _quit(USAGE)
     if rc == 0 and live == _want(port):
         _line(f"session: persist {ok('enabled')} · effect {ok('active')}")
         return
     _line(f"session: persist {ok('enabled')} · effect {dim('pending')}")
-    _quit(1)
+    _quit(USAGE)
 
 
 def _word(text):

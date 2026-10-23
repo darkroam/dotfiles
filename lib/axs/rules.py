@@ -1,4 +1,6 @@
 """Rule lines, then the merge-install-reload-rollback chain."""
+
+from axs.codes import USAGE, FAIL
 import sys
 from pathlib import Path
 
@@ -16,7 +18,7 @@ def _fail(message):
 def _exit3(message=None):
     if message:
         sys.stderr.write(message + "\n")
-    raise SystemExit(3)
+    raise SystemExit(FAIL)
 
 
 def _die(message):
@@ -186,12 +188,12 @@ def cmd_add(run, args):
     if kind == "direct" and len(args) == 2:
         _mutate_live(run, "add", ["direct", args[1]])
         return
-    die(1, "用法")
+    die(USAGE, "用法")
 
 
 def cmd_del(run, args):
     from axs.render import die
 
     if len(args) != 1:
-        die(1, "用法")
+        die(USAGE, "用法")
     _mutate_live(run, "del", [args[0]])

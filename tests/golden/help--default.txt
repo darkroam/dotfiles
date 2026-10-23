@@ -2,12 +2,12 @@ exit: 0
 --- stdout
 用法
 命令                  别名
-单字符精确优先；未命中则唯一前缀。多个候选退出 1 并列出。h 与 ? 是这份帮助
+别名精确优先；未命中则唯一前缀。多个候选退出 1 并列出。h 与 ? 是这份帮助
 
 服务
-axs start               x       启动服务
-axs stop                o       停止服务
-axs restart             -       重启服务
+axs start               sta     启动服务
+axs stop                sto     停止服务
+axs restart             re      重启服务
 axs status              s       查看状态
 axs ensure              e       保证服务在跑
 axs service enable      e       打开开机自启
@@ -41,8 +41,8 @@ axs net ip              i       经代理查出口 IP
 
 代理
 axs proxy user          u       当前 shell 环境（on|off|status）
-axs proxy system        s       运行时 on|off；持久 enable|disable
-axs proxy session       e       登录持久 enable|disable|status
+axs proxy system        sy      运行时 on|off；持久 enable|disable
+axs proxy session       se      登录持久 enable|disable|status
 例：eval "$(axs proxy user on)"
 
 清理

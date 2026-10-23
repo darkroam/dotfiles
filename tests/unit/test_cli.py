@@ -7,20 +7,24 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
-from axs.cli import GROUPS, ResolveError, help_text, resolve_token, usage_text
-from axs.render import bad, bold, dim, emph, ident, label, ok, tone, use_color, warn
+from axs.cli import DOWN, EXPIRED, FAIL, GROUPS, LOCK, ResolveError, USAGE, help_text, resolve_token, usage_text
+from axs.render import bad, bold, dim, display_width, emph, ident, label, ok, tone, use_color, warn
 
 GOLDEN = ROOT / "tests" / "golden"
 EXACT = (
     ("s", "top", "status"),
     ("status", "top", "status"),
-    ("k", "top", "health"),
+    ("sta", "top", "start"),
+    ("sto", "top", "stop"),
+    ("su", "top", "sub"),
+    ("se", "top", "service"),
+    ("he", "top", "health"),
     ("h", "top", "help"),
     ("?", "top", "help"),
     ("--help", "top", "help"),
     ("-h", "top", "help"),
-    ("x", "top", "start"),
-    ("o", "top", "stop"),
+    ("ne", "top", "net"),
+    ("re", "top", "restart"),
     ("ens", "top", "ensure"),
     ("stat", "top", "status"),
     ("n", "top", "node"),
@@ -28,16 +32,19 @@ EXACT = (
     ("g", "node", "groups"),
     ("gro", "node", "groups"),
     ("sy", "proxy", "system"),
+    ("se", "proxy", "session"),
     ("ge", "sub", "get"),
-    ("s", "proxy", "system"),
 )
 AMBIGUOUS = (
-    ("sta", "top", "候选：start status"),
     ("st", "top", "候选：start stop status"),
-    ("he", "top", "候选：health help"),
+    ("s", "proxy", "候选：system session"),
 )
 UNKNOWN = (
     ("nope", "top"),
+    ("x", "top"),
+    ("o", "top"),
+    ("k", "top"),
+    ("u", "top"),
     ("st", "proxy"),
 )
 
@@ -154,12 +161,20 @@ def main():
     stripped = re.sub(r"\033\[[0-9;]*m", "", colored)
     if stripped != plain or plain.count("\n") != 7:
         raise SystemExit("usage highlight changed the plain text")
-    if "\033[36m[x]\033[0m" not in colored:
+    if (USAGE, DOWN, FAIL, LOCK, EXPIRED) != (1, 2, 3, 4, 5):
+        raise SystemExit("exit codes")
+    if display_width("a中") != 3:
+        raise SystemExit("display width")
+    if "\033[36m[x]\033[0m" in colored:
         raise SystemExit("start marker")
-    if "\033[1mst\033[0m\033[1;36mo\033[0m\033[1mp\033[0m" not in colored:
-        raise SystemExit("stop letter")
+    if "\033[1ms\033[0m\033[1;36mta\033[0m\033[1mrt\033[0m" not in colored:
+        raise SystemExit("start alias")
+    if "\033[1ms\033[0m\033[1;36mto\033[0m\033[1mp\033[0m" not in colored:
+        raise SystemExit("stop alias")
     if "\033[1;36ms\033[0m\033[1mtatus\033[0m" not in colored:
         raise SystemExit("status letter")
+    if "\033[1;36m" in colored.split("roxy", 1)[1]:
+        raise SystemExit("proxy line marked a command alias")
     check_color()
     print(f"alias matrix {len(EXACT) + len(AMBIGUOUS) + len(UNKNOWN)}; help golden 3")
     return 0

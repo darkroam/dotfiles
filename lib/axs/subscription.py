@@ -1,4 +1,6 @@
 """Fetch, check, merge, install, roll back, and clean a subscription."""
+
+from axs.codes import FAIL
 import os
 import sys
 import urllib.error
@@ -130,7 +132,7 @@ def check_url(path):
     url = raw.strip("\r\n")
     if url != url.strip() or any(ch.isspace() for ch in url) or "\\" in url:
         sys.stderr.write("链接含转义字符（如 \\?），请去掉反斜杠\n")
-        raise SystemExit(3)
+        raise SystemExit(FAIL)
 
 def _header_field(text, name):
     prefix = name.lower() + ":"
@@ -161,7 +163,7 @@ def check_fetched(body_path, header_path):
     sys.stderr.write(
         f"订阅返回空内容/非 YAML（HTTP {status}, {shown}），请检查链接\n"
     )
-    raise SystemExit(3)
+    raise SystemExit(FAIL)
 
 def fetch(urlfile, body_path, header_path):
     if os.environ.get("AXS_FORBID_NET") == "1":
@@ -328,7 +330,7 @@ def refresh_run(run):
     hold_lock(run)
     url = runp / URL
     if not url.is_file():
-        die(3, "没有订阅")
+        die(FAIL, "没有订阅")
     os.chmod(url, 0o600)
     check_url(url)
     body = str(runp / FETCH_BODY)
@@ -336,12 +338,12 @@ def refresh_run(run):
     helper = os.environ.get("AXS_FETCH")
     if helper:
         if subprocess.run([helper, str(url), body, hdr]).returncode != 0:
-            die(3, "拉取失败")
+            die(FAIL, "拉取失败")
     else:
         try:
             fetch(str(url), body, hdr)
         except SystemExit:
-            die(3, "拉取失败")
+            die(FAIL, "拉取失败")
     check_fetched(body, hdr)
     ensure_override(run)
     gen_secret(runp / SECRET)
@@ -351,7 +353,7 @@ def refresh_run(run):
         build_file(body, runp / OVERRIDE, runp / SECRET, runp / RULES, runp / CONFIG_NEW)
     except SystemExit:
         restore_snapshot(runp)
-        die(3, "校验失败")
+        die(FAIL, "校验失败")
     install_file(runp / CONFIG_NEW, runp / CONFIG)
     if Path(body) != runp / SUBSCRIPTION:
         install_file(body, runp / SUBSCRIPTION)
@@ -360,6 +362,6 @@ def refresh_run(run):
             reload_core(runp / SECRET, api, runp / CONFIG)
         except SystemExit:
             restore_snapshot(runp)
-            die(3, "重载失败")
+            die(FAIL, "重载失败")
     write_userinfo(hdr, runp / USERINFO)
     clear_fetch(run)

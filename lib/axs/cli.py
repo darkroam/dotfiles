@@ -1,4 +1,6 @@
 """Command words, aliases, and the help text they print."""
+
+from axs.codes import DOWN, EXPIRED, FAIL, LOCK, USAGE
 import os
 import sys
 
@@ -15,17 +17,20 @@ TOP = (
     "start stop status restart health ensure clean help service sub rule node net proxy".split(),
     {
         "s": "status",
-        "n": "node",
-        "p": "proxy",
-        "r": "rule",
-        "u": "sub",
-        "c": "clean",
+        "su": "sub",
+        "se": "service",
+        "sta": "start",
+        "sto": "stop",
         "e": "ensure",
         "h": "help",
         "?": "help",
-        "k": "health",
-        "x": "start",
-        "o": "stop",
+        "n": "node",
+        "ne": "net",
+        "p": "proxy",
+        "r": "rule",
+        "re": "restart",
+        "c": "clean",
+        "he": "health",
         "--help": "help",
         "-h": "help",
     },
@@ -37,15 +42,15 @@ GROUPS = {
     "rule": ("list add del".split(), {"l": "list", "a": "add", "d": "del"}),
     "node": ("groups list test switch".split(), {"g": "groups", "l": "list", "t": "test", "s": "switch"}),
     "net": ("test ip".split(), {"t": "test", "i": "ip"}),
-    "proxy": ("user system session".split(), {"u": "user", "s": "system", "e": "session"}),
+    "proxy": ("user system session".split(), {"u": "user", "sy": "system", "se": "session"}),
 }
 
-INTRO = "单字符精确优先；未命中则唯一前缀。多个候选退出 1 并列出。h 与 ? 是这份帮助"
+INTRO = "别名精确优先；未命中则唯一前缀。多个候选退出 1 并列出。h 与 ? 是这份帮助"
 SECTIONS = (
     ("服务", (
-        ("axs start", "x", "启动服务"),
-        ("axs stop", "o", "停止服务"),
-        ("axs restart", "-", "重启服务"),
+        ("axs start", "sta", "启动服务"),
+        ("axs stop", "sto", "停止服务"),
+        ("axs restart", "re", "重启服务"),
         ("axs status", "s", "查看状态"),
         ("axs ensure", "e", "保证服务在跑"),
         ("axs service enable", "e", "打开开机自启"),
@@ -74,8 +79,8 @@ SECTIONS = (
     ), ("例：axs net test",)),
     ("代理", (
         ("axs proxy user", "u", "当前 shell 环境（on|off|status）"),
-        ("axs proxy system", "s", "运行时 on|off；持久 enable|disable"),
-        ("axs proxy session", "e", "登录持久 enable|disable|status"),
+        ("axs proxy system", "sy", "运行时 on|off；持久 enable|disable"),
+        ("axs proxy session", "se", "登录持久 enable|disable|status"),
     ), (
         '例：eval "$(axs proxy user on)"',
     )),
@@ -115,37 +120,37 @@ def help_text():
     return "\n".join(lines) + "\n"
 
 
-_USAGE_LETTER = {
-    "stop": "o",
-    "status": "s",
-    "ensure": "e",
-    "clean": "c",
-    "sub": "u",
-    "rule": "r",
-    "node": "n",
-    "proxy": "p",
-}
+def _alias_marks(aliases):
+    marks = {}
+    for alias, command in aliases.items():
+        if alias.isalnum() and alias in command and len(alias) > len(marks.get(command, "")):
+            marks[command] = alias
+    return marks
 
 
-def _paint_marked(word, letter=None):
-    if not letter or letter not in word:
+_USAGE_MARK = _alias_marks(TOP[1])
+
+
+def _paint_marked(word, alias=None):
+    if not alias or alias not in word:
         return bold(word)
-    index = word.index(letter)
+    start = word.index(alias)
+    end = start + len(alias)
+    # A multi-letter prefix keeps the first letter command-bold: s**ta**rt, not **sta**rt.
+    if len(alias) > 1 and start == 0:
+        start = 1
     chunks = []
-    if index:
-        chunks.append(bold(word[:index]))
-    chunks.append(emph("36", letter))
-    tail = word[index + 1 :]
-    if tail:
-        chunks.append(bold(tail))
+    if start:
+        chunks.append(bold(word[:start]))
+    chunks.append(emph("36", word[start:end]))
+    if end < len(word):
+        chunks.append(bold(word[end:]))
     return "".join(chunks)
 
 
 def _usage_word(word, mark=True):
-    if word == "start":
-        return bold(word) + " " + ident("[x]")
     if mark:
-        return _paint_marked(word, _USAGE_LETTER.get(word))
+        return _paint_marked(word, _USAGE_MARK.get(word))
     return bold(word)
 
 
@@ -160,11 +165,11 @@ def usage_text():
     try:
         lines = [
             "用法：axs " + _pipes(["start", "stop", "status", "restart", "ensure", "clean"]),
-            "      axs " + _usage_word("service", False) + " " + _pipes(["enable", "disable"], False),
+            "      axs " + _usage_word("service") + " " + _pipes(["enable", "disable"], False),
             "      axs " + _usage_word("sub") + " " + _pipes(["get", "refresh", "clean"]),
             "      axs " + _usage_word("rule") + " " + _pipes(["list", "add", "del"], False),
             "      axs " + _usage_word("node") + " " + _pipes(["groups", "list", "test", "switch"], False),
-            "      axs " + _usage_word("net", False) + " " + _usage_word("test", False),
+            "      axs " + _usage_word("net") + " " + _usage_word("test", False),
             "      axs "
             + _usage_word("proxy")
             + " "
@@ -192,7 +197,7 @@ def usage_text():
 
 def _usage():
     sys.stderr.write(usage_text())
-    code = 1
+    code = USAGE
     raise SystemExit(code)
 
 
@@ -205,7 +210,7 @@ def _take(group, argv):
     except ResolveError as exc:
         if exc.code == 1 and exc.message:
             sys.stderr.write(exc.message + "\n")
-            code = 1
+            code = USAGE
             raise SystemExit(code)
         _usage()
     return name, argv[1:]
@@ -219,17 +224,17 @@ def _node(run, kind, args):
     from axs.service import captured, service_up, write_cache
     import os
     if kind == "switch" and len(args) != 2:
-        die(1, "用法")
+        die(USAGE, "用法")
     if kind == "list":
         full = False
         for arg in args:
             if arg in ("--full", "-l"):
                 full = True
             else:
-                die(1, "用法")
+                die(USAGE, "用法")
     if kind == "test":
         if not service_up(run):
-            die(2, "服务：未运行")
+            die(DOWN, "服务：未运行")
         _mixed, api = read_ports(run)
         group = args[0] if args else ""
         if not group:
@@ -238,7 +243,7 @@ def _node(run, kind, args):
                 raise SystemExit(code)
             group = out.strip("\n")
         if not group:
-            die(3, "组名不存在")
+            die(FAIL, "组名不存在")
         url = os.environ.get("AXS_DELAY_URL") or DELAY_URL
         code, out = captured(delay, Path(run) / SECRET, api, group, url)
         sys.stdout.write(out)
@@ -248,10 +253,10 @@ def _node(run, kind, args):
         write_cache(run, "node-test", "fail")
         raise SystemExit(code)
     if not service_up(run):
-        die(2, "服务：未运行")
+        die(DOWN, "服务：未运行")
     api = api_address(run)
     if not api:
-        die(3, "控制器")
+        die(FAIL, "控制器")
     secret = Path(run) / SECRET
     if kind == "groups":
         show_groups(secret, api)
@@ -298,7 +303,7 @@ def main(argv):
     elif cmd == "service":
         op, extra = _take("service", rest)
         if extra:
-            die(1, "用法")
+            die(USAGE, "用法")
         boot(run, op)
     elif cmd == "sub":
         op, extra = _take("sub", rest)

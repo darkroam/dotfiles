@@ -1,4 +1,5 @@
 """Lock, atomic install, snapshot, and the systemd-mode cache."""
+from axs.codes import USAGE
 import fcntl
 import os
 import re
@@ -113,7 +114,7 @@ class SystemdCache:
 
 def fail(message):
     sys.stderr.write(message + "\n")
-    raise SystemExit(1)
+    raise SystemExit(USAGE)
 
 
 def gen_secret(path):

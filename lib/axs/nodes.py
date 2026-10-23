@@ -1,4 +1,6 @@
 """Groups, node list, delay, switch, and the speed cache."""
+
+from axs.codes import USAGE, FAIL
 import json
 import os
 import sys
@@ -23,8 +25,8 @@ def _ansi(code, text):
 
 
 def _as_exit3(exc):
-    code = exc.code if isinstance(exc.code, int) else 1
-    raise SystemExit(3 if code == 1 else code)
+    code = exc.code if isinstance(exc.code, int) else USAGE
+    raise SystemExit(FAIL if code == USAGE else code)
 
 def _now(item):
     now = item.get("now") if isinstance(item, dict) else None
@@ -152,7 +154,7 @@ def default_group(secret_path, api):
     sys.stderr.write("没有可测组\n")
     for name in listed:
         sys.stderr.write(name + "\n")
-    raise SystemExit(3)
+    raise SystemExit(FAIL)
 
 def delay_code(value):
     try:
@@ -277,18 +279,18 @@ def select_proxy(secret_path, api, group, token, run_dir=""):
         _as_exit3(exc)
     if group not in proxies:
         sys.stderr.write("组不存在\n")
-        raise SystemExit(3)
+        raise SystemExit(FAIL)
     item = proxies[group]
     if not isinstance(item, dict) or item.get("type") not in GROUP_TYPES:
         sys.stderr.write("不是策略组\n")
-        raise SystemExit(3)
+        raise SystemExit(FAIL)
     members = item.get("all") if isinstance(item, dict) else None
     if not isinstance(members, list):
         members = []
     node = resolve_switch_name(proxies, members, token)
     if node is None:
         sys.stderr.write("节点不存在\n")
-        raise SystemExit(3)
+        raise SystemExit(FAIL)
     secret = read_secret(secret_path, api)
     body = json.dumps({"name": node}).encode()
     try:
@@ -335,7 +337,7 @@ def delay(secret_path, api, group, url):
     try:
         raw = request(secret, api, "GET", delay_path(group, url))
     except SystemExit:
-        raise SystemExit(3)
+        raise SystemExit(FAIL)
     try:
         payload = json.loads(raw.decode("utf-8"))
     except json.JSONDecodeError:

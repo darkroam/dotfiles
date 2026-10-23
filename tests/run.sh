@@ -91,7 +91,7 @@ shellcheck "$ROOT/bin/axs" "$ROOT/bin/mihomo-run" "$ROOT/tests/run.sh" \
     "$ROOT/tests/fake-fetch-empty" \
     "$ROOT/tests/fake-mihomo" "$ROOT/tests/env/run.sh"
 python3 -m py_compile "$ROOT/tests/prep_run.py" \
-    "$ROOT/lib/axs/__init__.py" "$ROOT/lib/axs/render.py" "$ROOT/lib/axs/cli.py" \
+    "$ROOT/lib/axs/__init__.py" "$ROOT/lib/axs/codes.py" "$ROOT/lib/axs/render.py" "$ROOT/lib/axs/cli.py" \
     "$ROOT/lib/axs/config.py" "$ROOT/lib/axs/core.py" "$ROOT/lib/axs/mihomo.py" \
     "$ROOT/lib/axs/subscription.py" "$ROOT/lib/axs/rules.py" "$ROOT/lib/axs/nodes.py" \
     "$ROOT/lib/axs/net.py" \
@@ -1215,8 +1215,8 @@ assert_code 'service usage' 1 service start
 export AXS_COLOR=always
 assert_code 'bare help color' 1
 test "$(grep -c . "$RUN/err")" -eq 7 || fail "bare lines: $(cat "$RUN/err")"
-grep -F -q "${ESC}[36m[x]${ESC}[0m" "$RUN/err" || fail "start marker: $(cat "$RUN/err")"
-grep -F -q "${ESC}[1;36mo${ESC}[0m" "$RUN/err" || fail "stop letter: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36mta${ESC}[0m" "$RUN/err" || fail "start alias: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36mto${ESC}[0m" "$RUN/err" || fail "stop alias: $(cat "$RUN/err")"
 grep -F -q "${ESC}[1;36ms${ESC}[0m" "$RUN/err" || fail "status letter: $(cat "$RUN/err")"
 if ! grep -q "$ESC" "$RUN/err"; then
     fail "bare help not colored"
@@ -1252,7 +1252,7 @@ assert_code 'help flag extra' 1 -h extra
 test "$(grep -c . "$RUN/err")" -eq 7 || fail "flag extra: $(cat "$RUN/err")"
 export AXS_COLOR=never
 assert_code 'bare help plain' 1
-grep -F -q '用法：axs start [x]|stop|status|restart|ensure|clean' "$RUN/err" || fail "bare plain: $(cat "$RUN/err")"
+grep -F -q '用法：axs start|stop|status|restart|ensure|clean' "$RUN/err" || fail "bare plain: $(cat "$RUN/err")"
 grep -q 'axs net test' "$RUN/err" || fail "bare last: $(cat "$RUN/err")"
 grep -q 'session enable|disable|status' "$RUN/err" || fail "usage session: $(cat "$RUN/err")"
 if grep -q 'session on|off' "$RUN/err"; then
@@ -1277,13 +1277,13 @@ fi
 new_run
 assert_code 'alias status' 2 s
 grep -q '未运行（手动）' "$RUN/out" || fail "alias status: $(cat "$RUN/out")"
-assert_code 'alias health' 2 k
+assert_code 'alias health' 2 he
 grep -q '未运行' "$RUN/err" || fail "alias health: $(cat "$RUN/err")"
 if grep -q '状态' "$RUN/out"; then
     fail 'health alias printed status'
 fi
-assert_code 'alias stop' 0 o
-assert_code 'alias start' 3 x
+assert_code 'alias stop' 0 sto
+assert_code 'alias start' 3 sta
 grep -q '没有配置' "$RUN/err" || fail "alias start: $(cat "$RUN/err")"
 assert_code 'alias ensure' 3 e
 grep -q '没有订阅' "$RUN/err" || fail "alias ensure: $(cat "$RUN/err")"
@@ -1298,9 +1298,9 @@ esc=re.compile("\033\\[[0-9;]*m")
 rows=[esc.sub("", line) for line in open(os.environ["AXS_RUN"]+"/out",encoding="utf-8") if esc.sub("", line).startswith("axs ")]
 want={
  "axs status":"s",
- "axs start":"x",
- "axs stop":"o",
- "axs restart":"-",
+ "axs start":"sta",
+ "axs stop":"sto",
+ "axs restart":"re",
  "axs ensure":"e",
  "axs service enable":"e",
  "axs service disable":"d",
@@ -1317,8 +1317,8 @@ want={
  "axs net test":"t",
  "axs net ip":"i",
  "axs proxy user":"u",
- "axs proxy system":"s",
- "axs proxy session":"e",
+ "axs proxy system":"sy",
+ "axs proxy session":"se",
  "axs clean":"c",
 }
 got={}
@@ -1355,20 +1355,22 @@ set -e
 test "$code" -eq 1 || fail "alias proxy user want 1 got $code" "$(cat "$RUN/out")"
 grep -q 'user:' "$RUN/out" || fail "alias proxy user: $(cat "$RUN/out")"
 PASS=$((PASS + 1))
-assert_code 'alias proxy system' 0 p s enable
+assert_code 'alias proxy ambiguous' 1 p s
+grep -q '候选：system session' "$RUN/err" || fail "proxy s: $(cat "$RUN/err")"
+assert_code 'alias proxy system' 0 p sy enable
 grep -q 'system：' "$RUN/out" || fail "alias proxy system: $(cat "$RUN/out")"
 grep -q 'enabled' "$RUN/out" || fail "alias proxy system enabled: $(cat "$RUN/out")"
 assert_code 'prefix proxy system' 0 p sy disable
 grep -q 'disabled' "$RUN/out" || fail "prefix proxy system: $(cat "$RUN/out")"
-assert_code 'alias proxy session' 1 p e status
+assert_code 'alias proxy session' 1 p se status
 grep -q 'session: persist' "$RUN/out" || fail "alias proxy session: $(cat "$RUN/out")"
 now=$(date +%s)
 printf 'upload=1\nexpire=%s\n' "$((now + 40 * 86400))" >"$RUN/userinfo"
-assert_code 'alias sub get' 0 u g
+assert_code 'alias sub get' 0 su g
 grep -q '上传' "$RUN/out" || fail "alias sub get: $(cat "$RUN/out")"
-assert_code 'alias sub refresh' 3 u r
+assert_code 'alias sub refresh' 3 su r
 grep -q '没有订阅' "$RUN/err" || fail "alias sub refresh: $(cat "$RUN/err")"
-assert_code 'alias sub clean' 1 u c
+assert_code 'alias sub clean' 1 su c
 grep -q '需要 --yes' "$RUN/err" || fail "alias sub clean: $(cat "$RUN/err")"
 assert_code 'alias rule list' 0 r l
 assert_code 'alias rule add' 1 r a
@@ -1392,10 +1394,15 @@ test ! -f "$RUN/mihomo.pid" || fail "prefix restart left the process up"
 assert_code 'prefix ambiguous' 1 st
 grep -q '候选：start stop status' "$RUN/err" || fail "ambiguous: $(cat "$RUN/err")"
 test "$(grep -c . "$RUN/err")" -eq 1 || fail "ambiguous lines: $(cat "$RUN/err")"
-assert_code 'prefix sta ambiguous' 1 sta
-grep -q '候选：start status' "$RUN/err" || fail "sta: $(cat "$RUN/err")"
-assert_code 'prefix help ambiguous' 1 he
-grep -q '候选：health help' "$RUN/err" || fail "he: $(cat "$RUN/err")"
+assert_code 'alias sta' 3 sta
+grep -q '没有配置' "$RUN/err" || fail "sta: $(cat "$RUN/err")"
+assert_code 'alias he' 2 he
+grep -q '未运行' "$RUN/err" || fail "he: $(cat "$RUN/err")"
+assert_code 'retired x' 1 x
+test "$(grep -c . "$RUN/err")" -eq 7 || fail "retired x: $(cat "$RUN/err")"
+assert_code 'retired o' 1 o
+assert_code 'retired k' 1 k
+assert_code 'retired u' 1 u
 assert_code 'alias unknown' 1 zz
 test "$(grep -c . "$RUN/err")" -eq 7 || fail "unknown lines: $(cat "$RUN/err")"
 if grep -q '候选：' "$RUN/err"; then

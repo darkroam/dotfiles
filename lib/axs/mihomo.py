@@ -1,4 +1,6 @@
 """Controller client. Rollback and rule meaning stay with the caller."""
+
+from axs.codes import USAGE
 import json
 import os
 import urllib.error
@@ -131,7 +133,7 @@ def probe(host, port):
         if path.is_file():
             listed = path.read_text(encoding="utf-8")
         if str(port) not in listed.split():
-            raise SystemExit(1)
+            raise SystemExit(USAGE)
         return
     import socket
 
@@ -140,7 +142,7 @@ def probe(host, port):
     try:
         sock.connect((host, int(port)))
     except OSError:
-        raise SystemExit(1)
+        raise SystemExit(USAGE)
     finally:
         sock.close()
 

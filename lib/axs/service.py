@@ -1,4 +1,6 @@
 """Service lifecycle, status, and the command bodies that used to live in shell."""
+
+from axs.codes import USAGE, DOWN, FAIL, LOCK, EXPIRED
 import contextlib
 import io
 import os
@@ -46,7 +48,7 @@ def hold_lock(run):
     try:
         _HELD.append(lock(run))
     except LockBusy as exc:
-        die(4, str(exc))
+        die(LOCK, str(exc))
 
 def read_pid(run):
     text = (Path(run) / PID).read_text(encoding="utf-8")
@@ -128,7 +130,7 @@ def captured(func, *args):
         with contextlib.redirect_stdout(buf):
             func(*args)
     except SystemExit as exc:
-        code = exc.code if isinstance(exc.code, int) else 1
+        code = exc.code if isinstance(exc.code, int) else USAGE
         return code, buf.getvalue()
     return 0, buf.getvalue()
 
@@ -190,11 +192,11 @@ def status(run):
     row("node    ", cache_value(run, "node-test"))
     status_summary(run, mixed)
     if running == 0 or not port_ok:
-        code = 2
+        code = DOWN
     elif not api_ok:
-        code = 3
+        code = FAIL
     elif kind == "expired":
-        code = 5
+        code = EXPIRED
     else:
         code = 0
     if code:
@@ -207,20 +209,20 @@ def plain(code, text):
 def health(run):
     if systemd_on():
         if not active():
-            plain(2, "未运行")
+            plain(DOWN, "未运行")
     elif not service_up(run, quiet=True):
-        plain(2, "未运行")
+        plain(DOWN, "未运行")
     mixed, api = status_ports(run)
     if not port_open(mixed):
-        plain(2, "端口不通")
+        plain(DOWN, "端口不通")
     if not controller_ok(run, api):
-        plain(3, "控制器不通")
+        plain(FAIL, "控制器不通")
     try:
         kind, _days = classify(Path(run) / USERINFO, unix_now())
     except (OSError, ValueError):
         kind = ""
     if kind == "expired":
-        plain(5, "订阅过期")
+        plain(EXPIRED, "订阅过期")
 
 def launch(run):
     argv = [mihomo_path(), "-d", str(run)]
@@ -236,25 +238,25 @@ def start(run):
         if active():
             return
         if run_systemctl(["start", "axs.service"]).returncode != 0:
-            die(3, "启动失败")
+            die(FAIL, "启动失败")
         return
     if service_up(run):
         return
     mixed, _api = read_ports(run)
     if port_open(mixed):
-        die(2, "端口已被占用")
+        die(DOWN, "端口已被占用")
     if not (Path(run) / CONFIG).is_file():
-        die(3, "没有配置")
+        die(FAIL, "没有配置")
     gen_secret(Path(run) / SECRET)
     launch(run)
     time.sleep(0.1)
     if not service_up(run):
-        die(3, "启动失败")
+        die(FAIL, "启动失败")
 
 def stop(run):
     if systemd_on():
         if run_systemctl(["stop", "axs.service"]).returncode != 0:
-            die(3, "停止失败")
+            die(FAIL, "停止失败")
         return
     pidfile = Path(run) / PID
     if not service_up(run):
@@ -279,14 +281,14 @@ def stop(run):
 def restart(run):
     if systemd_on():
         if run_systemctl(["restart", "axs.service"]).returncode != 0:
-            die(3, "启动失败")
+            die(FAIL, "启动失败")
         return
     stop(run)
     start(run)
 
 def ensure(run, args):
     if args:
-        die(1, "用法")
+        die(USAGE, "用法")
     manual = not systemd_on()
     if not manual and active():
         return
@@ -294,23 +296,23 @@ def ensure(run, args):
         return
     mixed, _api = read_ports(run)
     if port_open(mixed):
-        die(2, "端口已被占用")
+        die(DOWN, "端口已被占用")
     if not (Path(run) / CONFIG).is_file():
         if not (Path(run) / URL).is_file():
-            die(3, "没有订阅")
+            die(FAIL, "没有订阅")
         refresh_run(run)
     if manual:
         start(run)
         return
     if run_systemctl(["start", "axs.service"]).returncode != 0:
-        die(3, "启动失败")
+        die(FAIL, "启动失败")
 
 def boot(run, op):
     del run
     if not systemd_on():
-        die(3, "没有 systemd")
+        die(FAIL, "没有 systemd")
     if run_systemctl([op, "axs.service", "axs-refresh.timer"]).returncode != 0:
-        die(3, "自启失败")
+        die(FAIL, "自启失败")
     word = ok("enabled") if op == "enable" else bad("disabled")
     sys.stdout.write(label("开机自启：") + word + "\n")
 
@@ -329,45 +331,45 @@ def _prompt():
 
 def clean(run, kind, args):
     if len(args) > 1:
-        die(1, "用法")
+        die(USAGE, "用法")
     yes = False
     if args:
         if args[0] != "--yes":
-            die(1, "用法")
+            die(USAGE, "用法")
         yes = True
     if service_up(run):
-        die(2, "服务在运行，先 axs stop")
+        die(DOWN, "服务在运行，先 axs stop")
     root = os.path.realpath(run) if Path(run).is_dir() else ""
     paths = []
     for name in clean_names(kind):
         if "/" in name or ".." in name:
-            die(3, "越界")
+            die(FAIL, "越界")
         path = Path(run) / name
         if not (path.is_symlink() or path.exists()):
             continue
         resolved = os.path.realpath(path)
         if root and not resolved.startswith(root + os.sep):
-            die(3, "越界")
+            die(FAIL, "越界")
         paths.append(path)
     if not yes:
         if paths:
             shown = "".join(f"{path}\n" for path in paths)
             sys.stdout.write(dim(shown).rstrip("\n"))
         if not sys.stdin.isatty():
-            die(1, "需要 --yes")
+            die(USAGE, "需要 --yes")
         _prompt()
         answer = sys.stdin.readline()
         if answer.endswith("\n"):
             answer = answer[:-1]
         if answer not in ("y", "Y", "yes", "YES"):
-            die(1, "需要 --yes")
+            die(USAGE, "需要 --yes")
     deleted = False
     for path in paths:
         if path.is_symlink() or path.exists():
             try:
                 path.unlink()
             except OSError:
-                die(3, "删除失败")
+                die(FAIL, "删除失败")
             deleted = True
     if deleted:
         sys.stdout.write(ok("已删除") + "\n")
