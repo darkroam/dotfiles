@@ -12,6 +12,7 @@ axs status              s       查看状态
 axs ensure              e       保证服务在跑
 axs service enable      e       打开开机自启
 axs service disable     d       关闭开机自启
+本节 start/stop 等是一级命令；se 只进 service enable|disable
 
 订阅（sub / su）
 axs sub get             g       查看订阅剩余
@@ -27,8 +28,8 @@ axs rule del            d       删除域名规则
 节点（node / n）
 axs node groups         g       策略组与当前节点
 axs node list           l       节点列表
-axs node test           t       测延迟，可接组名
-axs node switch         s       切换节点，后接组和节点
+axs node test           t       测延迟，可接组号或组名
+axs node switch         s       组号或组名，再接节点
 
 网络（net / ne）
 axs net test            t       测连通，可接网址

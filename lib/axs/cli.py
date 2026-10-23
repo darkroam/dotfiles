@@ -56,7 +56,7 @@ SECTIONS = (
         ("axs ensure", "e", "保证服务在跑"),
         ("axs service enable", "e", "打开开机自启"),
         ("axs service disable", "d", "关闭开机自启"),
-    ), ()),
+    ), ("本节 start/stop 等是一级命令；se 只进 service enable|disable",)),
     ("订阅（sub / su）", (
         ("axs sub get", "g", "查看订阅剩余"),
         ("axs sub refresh", "r", "拉取并重载"),
@@ -71,8 +71,8 @@ SECTIONS = (
     ("节点（node / n）", (
         ("axs node groups", "g", "策略组与当前节点"),
         ("axs node list", "l", "节点列表"),
-        ("axs node test", "t", "测延迟，可接组名"),
-        ("axs node switch", "s", "切换节点，后接组和节点"),
+        ("axs node test", "t", "测延迟，可接组号或组名"),
+        ("axs node switch", "s", "组号或组名，再接节点"),
     ), ()),
     ("网络（net / ne）", (
         ("axs net test", "t", "测连通，可接网址"),
@@ -212,7 +212,7 @@ def _node(run, kind, args):
     from pathlib import Path
 
     from axs.config import SECRET, api_address, read_ports
-    from axs.nodes import DELAY_URL, default_group, delay, select_proxy, show_groups, show_nodes, write_node_cache
+    from axs.nodes import DELAY_URL, default_group, delay, lookup_group, select_proxy, show_groups, show_nodes, write_node_cache
     from axs.service import captured, service_up, write_cache
     import os
     if kind == "switch" and len(args) != 2:
@@ -228,12 +228,15 @@ def _node(run, kind, args):
         if not service_up(run):
             die(DOWN, "服务：未运行")
         _mixed, api = read_ports(run)
+        secret_path = Path(run) / SECRET
         group = args[0] if args else ""
-        if not group:
-            code, out = captured(default_group, Path(run) / SECRET, api)
-            if code:
-                raise SystemExit(code)
-            group = out.strip("\n")
+        if group:
+            code, out = captured(lookup_group, secret_path, api, group)
+        else:
+            code, out = captured(default_group, secret_path, api)
+        if code:
+            raise SystemExit(code)
+        group = out.strip("\n")
         if not group:
             die(FAIL, "组名不存在")
         url = os.environ.get("AXS_DELAY_URL") or DELAY_URL

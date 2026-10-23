@@ -1,4 +1,4 @@
 exit: 0
 --- stdout
-主代理	Selector	a
+1  主代理  Selector  → a
 --- stderr

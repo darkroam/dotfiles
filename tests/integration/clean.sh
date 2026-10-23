@@ -238,6 +238,7 @@ assert_code 'groups tone' 0 node groups
 grep -F -q "${ESC}[36m主代理" "$RUN/out" || fail "group cyan: $(cat "$RUN/out")"
 grep -F -q "${ESC}[90mSelector" "$RUN/out" || fail "type gray: $(cat "$RUN/out")"
 grep -F -q "${ESC}[1;32ma" "$RUN/out" || fail "now green: $(cat "$RUN/out")"
+grep -F -q "→ ${ESC}[1;32ma" "$RUN/out" || fail "now arrow: $(cat "$RUN/out")"
 export AXS_COLOR=never
 assert_code 'color never' 0 node list
 if grep -q "$ESC" "$RUN/out"; then

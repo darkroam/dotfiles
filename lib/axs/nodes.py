@@ -34,21 +34,49 @@ def _now(item):
         return "-"
     return now
 
-def show_groups(secret_path, api):
+def _proxies(secret_path, api):
     try:
-        proxies = load_proxies(secret_path, api)
+        return load_proxies(secret_path, api)
     except SystemExit as exc:
         _as_exit3(exc)
-    rows = []
-    for name in sorted(proxies):
-        item = proxies[name]
-        if not isinstance(item, dict) or item.get("type") not in GROUP_TYPES:
-            continue
-        now = _now(item)
-        shown = dim(now) if now == "-" else emph("32", now)
-        rows.append(f"{ident(name)}\t{dim(str(item.get('type')))}\t{shown}")
-    if rows:
-        sys.stdout.write("\n".join(rows) + "\n")
+
+def group_numbers(proxies):
+    names = sorted(name for name, item in proxies.items() if _is_group(item))
+    return {name: index for index, name in enumerate(names, 1)}
+
+def resolve_group_name(proxies, token):
+    if token in proxies:
+        return (token, "") if _is_group(proxies[token]) else (None, "不是策略组")
+    digits = token.isascii() and token.isdigit() and str(int(token)) == token
+    wanted = int(token) if digits else None
+    for name, number in group_numbers(proxies).items():
+        if number == wanted:
+            return name, ""
+    return None, "组不存在"
+
+def lookup_group(secret_path, api, token):
+    name, err = resolve_group_name(_proxies(secret_path, api), token)
+    if err:
+        sys.stderr.write(err + "\n")
+        raise SystemExit(FAIL)
+    sys.stdout.write(name + "\n")
+
+def group_table(proxies):
+    numbers = group_numbers(proxies)
+    rows = [(str(numbers[n]), n, str(proxies[n].get("type")), _now(proxies[n])) for n in sorted(numbers, key=numbers.get)]
+    if not rows:
+        return ""
+    widths = [max(display_width(row[i]) for row in rows) for i in range(3)]
+    lines = []
+    for num, name, kind, now in rows:
+        plain = (num.rjust(widths[0]), name, kind)
+        shown = (plain[0], ident(name), dim(kind))
+        body = "  ".join(c + " " * (w - display_width(t)) for c, t, w in zip(shown, plain, widths))
+        lines.append(body + "  " + (dim("-") if now == "-" else "→ " + emph("32", now)))
+    return "\n".join(lines) + "\n"
+
+def show_groups(secret_path, api):
+    sys.stdout.write(group_table(_proxies(secret_path, api)))
 
 AUTO_LABEL = {
     "URLTest": "url-test",
@@ -273,20 +301,13 @@ def resolve_switch_name(proxies, members, token):
     return None
 
 def select_proxy(secret_path, api, group, token, run_dir=""):
-    try:
-        proxies = load_proxies(secret_path, api)
-    except SystemExit as exc:
-        _as_exit3(exc)
-    if group not in proxies:
-        sys.stderr.write("组不存在\n")
+    proxies = _proxies(secret_path, api)
+    group, err = resolve_group_name(proxies, group)
+    if err:
+        sys.stderr.write(err + "\n")
         raise SystemExit(FAIL)
     item = proxies[group]
-    if not isinstance(item, dict) or item.get("type") not in GROUP_TYPES:
-        sys.stderr.write("不是策略组\n")
-        raise SystemExit(FAIL)
-    members = item.get("all") if isinstance(item, dict) else None
-    if not isinstance(members, list):
-        members = []
+    members = item.get("all") if isinstance(item.get("all"), list) else []
     node = resolve_switch_name(proxies, members, token)
     if node is None:
         sys.stderr.write("节点不存在\n")

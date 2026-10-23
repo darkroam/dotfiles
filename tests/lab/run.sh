@@ -221,7 +221,7 @@ check() {
     say "a kernel-reject"
     up
     groups=$("$AXS" node groups)
-    printf '%s\n' "$groups" | grep -x "$(printf 'PROXY\tSelector\tlocal')" >/dev/null || {
+    printf '%s\n' "$groups" | grep -E -x '[0-9]+ +PROXY +Selector +→ local' >/dev/null || {
         say "FAIL groups"
         printf '%s\n' "$groups" >&2
         return 1

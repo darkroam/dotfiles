@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Node commands forward into axs.nodes. Switch and cache stay numeric."""
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -7,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
-from axs.nodes import resolve_switch_name, write_node_cache  # noqa: E402
+from axs.nodes import group_table, resolve_group_name, resolve_switch_name, write_node_cache  # noqa: E402
 
 
 def fail(message):
@@ -34,6 +35,55 @@ def check_forward():
         body = (ROOT / "lib" / "axs" / name).read_text(encoding="utf-8")
         if "import merge" in body or "merge." in body:
             fail(name + " still depends on merge")
+
+
+
+def check_groups():
+    os.environ["AXS_COLOR"] = "never"
+    proxies = {
+        "PROXY": {"type": "Selector", "now": "a", "all": ["a"]},
+        "主代理": {"type": "Selector", "now": "甲", "all": ["甲"]},
+        "空组": {"type": "URLTest", "all": ["甲"]},
+        "甲": {"type": "Shadowsocks"},
+        "a": {"type": "Shadowsocks"},
+        "2": {"type": "Selector", "now": "a", "all": ["a"]},
+    }
+    if resolve_group_name(proxies, "2") != ("2", ""):
+        fail("group name 2")
+    blocked = {"2": {"type": "Shadowsocks"}, "PROXY": {"type": "Selector", "now": "a"}}
+    if resolve_group_name(blocked, "2")[1] != "不是策略组":
+        fail("node name blocks index")
+    del proxies["2"]
+    got = group_table(proxies)
+    if "\t" in got:
+        fail("tab")
+    want = [
+        "1  PROXY   Selector  → a",
+        "2  主代理  Selector  → 甲",
+        "3  空组    URLTest   -",
+    ]
+    if got.splitlines() != want:
+        fail("table\n" + got)
+    if resolve_group_name(proxies, "1")[0] != "PROXY":
+        fail("index 1")
+    if resolve_group_name(proxies, "主代理")[0] != "主代理":
+        fail("exact")
+    if resolve_group_name(proxies, "9")[1] != "组不存在":
+        fail("missing index")
+    if resolve_group_name(proxies, "甲")[1] != "不是策略组":
+        fail("leaf")
+    if resolve_group_name(proxies, "02")[1] != "组不存在":
+        fail("padded index")
+    many = {f"g{i:02d}": {"type": "Selector", "now": "a"} for i in range(1, 11)}
+    many["a"] = {"type": "Shadowsocks"}
+    lines = group_table(many).splitlines()
+    if not lines[0].startswith(" 1  g01") or not lines[-1].startswith("10  g10"):
+        fail("wide numbers\n" + lines[0] + "\n" + lines[-1])
+    os.environ["AXS_COLOR"] = "always"
+    colored = group_table(proxies)
+    if "→ \033[1;32m甲" not in colored or "\033[90m-" not in colored:
+        fail("color " + colored)
+    os.environ["AXS_COLOR"] = "never"
 
 
 def check_switch():
@@ -64,6 +114,7 @@ def check_cache(tmp):
 
 def main():
     check_forward()
+    check_groups()
     check_switch()
     with tempfile.TemporaryDirectory(prefix="axs-nodes-") as tmp:
         check_cache(tmp)

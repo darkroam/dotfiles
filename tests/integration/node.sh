@@ -59,7 +59,7 @@ if grep -F 'test-secret-value' "$RUN/fake/log" "$RUN/out" "$RUN/err" >/dev/null 
     fail 'secret reached the log or output'
 fi
 assert_code 'groups' 0 node groups
-test "$(cat "$RUN/out")" = "$(printf 'PROXY\tSelector\ta')" || fail "groups columns: $(cat "$RUN/out")"
+test "$(cat "$RUN/out")" = "1  PROXY  Selector  → a" || fail "groups columns: $(cat "$RUN/out")"
 
 new_run
 mark_up
@@ -129,9 +129,9 @@ list_want=$(printf '%s\n' \
 test "$(cat "$RUN/out")" = "$list_want" || fail "list columns: $(cat "$RUN/out")"
 assert_code 'groups columns' 0 node groups
 groups_want=$(printf '%s\n' \
-    "$(printf 'AUTO\tURLTest\tb')" \
-    "$(printf 'PROXY\tSelector\ta')" \
-    "$(printf 'RELAY\tRelay\t-')")
+    '1  AUTO   URLTest   → b' \
+    '2  PROXY  Selector  → a' \
+    '3  RELAY  Relay     -')
 test "$(cat "$RUN/out")" = "$groups_want" || fail "groups now: $(cat "$RUN/out")"
 
 new_run
@@ -244,6 +244,20 @@ assert_code 'switch number range' 3 node switch PROXY 9
 if grep -q 'PUT /proxies' "$RUN/fake/log"; then
     fail 'out of range sent select'
 fi
+: >"$RUN/fake/log"
+assert_code 'switch group number' 0 node switch 1 b
+grep -q 'PUT /proxies/OTHER' "$RUN/fake/log" || fail "group number path: $(cat "$RUN/fake/log")"
+grep -q '{"name": "b"}' "$RUN/fake/log" || fail "group number body: $(cat "$RUN/fake/log")"
+test "$(cat "$RUN/out")" = "$(printf 'OTHER\tb\t-')" || fail "group number out: $(cat "$RUN/out")"
+: >"$RUN/fake/log"
+assert_code 'switch group name wins' 3 node switch 2 a
+grep -qx '不是策略组' "$RUN/err" || fail "group name wins: $(cat "$RUN/err")"
+if grep -q 'PUT /proxies' "$RUN/fake/log"; then
+    fail 'node named 2 sent select'
+fi
+: >"$RUN/fake/log"
+assert_code 'test group number' 0 node test 1
+grep -q '/group/OTHER/delay' "$RUN/fake/log" || fail "group number delay: $(cat "$RUN/fake/log")"
 assert_code 'list bad flag' 1 node list --nope
 
 new_run
