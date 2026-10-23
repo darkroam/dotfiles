@@ -13,6 +13,8 @@ from axs.config import (  # noqa: E402
     DEFAULT_MIXED,
     LEGACY_SESSION_FLAG,
     LEGACY_SYSTEM_FLAG,
+    LOOPBACK,
+    LOOPBACK_HOSTS,
     RUN_FILES,
     SNAP,
 )
@@ -43,8 +45,15 @@ def pin_defaults():
         if "7897" in body or DEFAULT_API in body:
             fail(path.name + " repeats a default")
     config = (ROOT / "lib" / "axs" / "config.py").read_text(encoding="utf-8")
-    if str(DEFAULT_MIXED) not in config or DEFAULT_API not in config:
+    if str(DEFAULT_MIXED) not in config or LOOPBACK not in config or ":9097" not in config:
         fail("config lost the defaults")
+    for path in sorted((ROOT / "lib" / "axs").glob("*.py")):
+        if path.name == "config.py":
+            continue
+        body = path.read_text(encoding="utf-8")
+        hit = [mark for mark in LOOPBACK_HOSTS if mark in body]
+        if hit:
+            fail(path.name + " has loopback literal")
 
 
 def pin_routes(text):

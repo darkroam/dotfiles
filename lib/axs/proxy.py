@@ -17,6 +17,7 @@ from axs.config import (
     SYSTEM_FLAG,
     proxy_mixed,
 )
+from axs.core import session_value
 from axs.render import bad, bold, dim, label, ok
 
 GS = "org.gnome.system.proxy"
@@ -100,35 +101,6 @@ def _flag(run, name):
 
 def _unlink(path):
     Path(path).unlink(missing_ok=True)
-
-
-def _session_pid():
-    pid = os.environ.get("AXS_SESSION_PID", "")
-    if pid:
-        return pid
-    try:
-        result = subprocess.run(
-            ["pgrep", "-x", "dwm"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-        )
-    except OSError:
-        return ""
-    lines = [line for line in result.stdout.splitlines() if line]
-    return lines[0] if lines else ""
-
-
-def session_value(key):
-    pid = _session_pid()
-    path = Path(f"/proc/{pid}/environ") if pid else None
-    if path is None or not path.is_file() or not os.access(path, os.R_OK):
-        return 2, ""
-    prefix = f"{key}=".encode()
-    for item in path.read_bytes().split(b"\0"):
-        if item.startswith(prefix):
-            return 0, item[len(prefix) :].decode("utf-8", "replace")
-    return 1, ""
 
 
 def _gnome(value):

@@ -13,7 +13,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
 from axs.config import LEGACY_SESSION_FLAG, LEGACY_SYSTEM_FLAG, SESSION_FLAG, SYSTEM_FLAG  # noqa: E402
-from axs.proxy import proxy_session, proxy_system, session_value  # noqa: E402
+from axs.core import session_value  # noqa: E402
+from axs.proxy import proxy_session, proxy_system  # noqa: E402
 
 
 def fail(message):
@@ -98,10 +99,13 @@ def check_effects():
 def check_status_source():
     source = (ROOT / "lib" / "axs" / "service.py").read_text(encoding="utf-8")
     proxy = (ROOT / "lib" / "axs" / "proxy.py").read_text(encoding="utf-8")
+    core = (ROOT / "lib" / "axs" / "core.py").read_text(encoding="utf-8")
     if "session_env" in source or "pgrep" in source:
         fail("service still reads the session itself")
-    if "status_summary" not in source or "def session_value" not in proxy:
+    if "status_summary" not in source or "session_value(" not in proxy:
         fail("status does not use session_value")
+    if "def session_value" not in core:
+        fail("session probe left proxy")
 
 
 def main():

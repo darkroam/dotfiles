@@ -1,6 +1,7 @@
 """Connectivity and egress."""
 
 from axs.codes import USAGE, DOWN, FAIL
+from axs.config import LOOPBACK, LOOPBACK_HOSTS
 import http.client
 import os
 import sys
@@ -15,7 +16,6 @@ DEFAULT_URLS = (
     "https://www.google.com",
     "https://www.youtube.com",
 )
-LOOPBACK = {"127.0.0.1", "localhost", "::1"}
 
 
 def net_targets(urls_path, given):
@@ -39,7 +39,7 @@ def net_precheck(urls_path, given):
         if parsed.scheme not in ("http", "https") or not parsed.hostname:
             bad = True
             continue
-        if os.environ.get("AXS_FORBID_NET") == "1" and parsed.hostname not in LOOPBACK:
+        if os.environ.get("AXS_FORBID_NET") == "1" and parsed.hostname not in LOOPBACK_HOSTS:
             forbid = True
     if bad:
         raise SystemExit(USAGE)
@@ -114,7 +114,7 @@ def net_ip(run, args):
     mixed, _api = read_ports(run)
     if not port_open(mixed):
         die(DOWN, "入站：不通")
-    egress(f"http://127.0.0.1:{mixed}", "https://ipinfo.io/ip")
+    egress(f"http://{LOOPBACK}:{mixed}", "https://ipinfo.io/ip")
 
 
 def net_test(run, args):
@@ -134,7 +134,7 @@ def net_test(run, args):
         die(DOWN, "入站：不通")
     timeout = os.environ.get("AXS_NET_TIMEOUT_MS") or "5000"
     try:
-        net_run(Path(run) / URLS, f"http://127.0.0.1:{mixed}", timeout, list(args))
+        net_run(Path(run) / URLS, f"http://{LOOPBACK}:{mixed}", timeout, list(args))
     except SystemExit as exc:
         code = exc.code if isinstance(exc.code, int) else USAGE
     else:

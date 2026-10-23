@@ -1,6 +1,7 @@
 """Controller client. Rollback and rule meaning stay with the caller."""
 
 from axs.codes import USAGE
+from axs.config import LOOPBACK
 import json
 import os
 import urllib.error
@@ -44,7 +45,7 @@ def _fail(message):
 
 
 def read_secret(secret_path, api):
-    if not str(api).startswith("127.0.0.1:"):
+    if not str(api).startswith(LOOPBACK + ":"):
         _fail("控制器必须在本机回环")
     path = Path(secret_path)
     if not path.is_file():

@@ -17,6 +17,8 @@ from axs.config import (
     PID,
     SNAP,
     SUBSCRIPTION,
+    LOOPBACK,
+    LOOPBACK_HOSTS,
     URL,
     USERINFO,
 )
@@ -34,7 +36,7 @@ CIDRS = [
     "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
     "IP-CIDR,172.16.0.0/12,DIRECT,no-resolve",
     "IP-CIDR,192.168.0.0/16,DIRECT,no-resolve",
-    "IP-CIDR6,::1/128,DIRECT,no-resolve",
+    "IP-CIDR6," + next(host for host in LOOPBACK_HOSTS if ":" in host) + "/128,DIRECT,no-resolve",
     "IP-CIDR6,fc00::/7,DIRECT,no-resolve",
     "IP-CIDR6,fe80::/10,DIRECT,no-resolve",
 ]
@@ -101,7 +103,7 @@ def build_file(sub_path, override_path, secret_path, rules_path, out_path):
         fail("校验失败")
     merged = merge_dict(sub, over)
     controller = merged.get("external-controller")
-    if not isinstance(controller, str) or not controller.startswith("127.0.0.1:"):
+    if not isinstance(controller, str) or not controller.startswith(LOOPBACK + ":"):
         fail("校验失败")
     extra = over.get("prepend-rules") or []
     if not isinstance(extra, list):

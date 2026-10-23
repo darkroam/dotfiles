@@ -11,7 +11,7 @@ import sys
 import time
 from pathlib import Path
 
-from axs.config import CONFIG, PID, SECRET, URL, USERINFO, read_ports, status_ports
+from axs.config import CONFIG, LOOPBACK, PID, SECRET, URL, USERINFO, read_ports, status_ports
 from axs.core import (
     LockBusy,
     active,
@@ -83,7 +83,7 @@ def service_up(run, quiet=False):
 
 def port_open(port):
     try:
-        probe("127.0.0.1", port)
+        probe(LOOPBACK, port)
     except SystemExit:
         return False
     return True

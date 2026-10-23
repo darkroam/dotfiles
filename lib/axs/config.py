@@ -5,10 +5,14 @@ from pathlib import Path
 import yaml
 
 DEFAULT_MIXED = 7897
-DEFAULT_API = "127.0.0.1:9097"
-DEFAULT_DNS_LISTEN = "127.0.0.1:1053"
+# IPv4 host written into URLs and controller checks. Not the whole allow-list.
 LOOPBACK = "127.0.0.1"
-BYPASS = "localhost,127.0.0.1,::1"
+_BYPASS_HOSTS = ("localhost", LOOPBACK, "::1")
+# Names treated as on-box. Membership test, not an address string.
+LOOPBACK_HOSTS = frozenset(_BYPASS_HOSTS)
+BYPASS = ",".join(_BYPASS_HOSTS)
+DEFAULT_API = LOOPBACK + ":9097"
+DEFAULT_DNS_LISTEN = LOOPBACK + ":1053"
 SOCKS5 = "socks5://"
 PREPEND = (
     "DOMAIN-SUFFIX,localhost,DIRECT",
@@ -77,7 +81,7 @@ def override_body(mixed, api):
 
 
 def write_override(path, mixed, api):
-    if not str(api).startswith("127.0.0.1:"):
+    if not str(api).startswith(LOOPBACK + ":"):
         raise ValueError("控制器必须在本机回环")
     from axs.core import atomic_write
 

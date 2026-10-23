@@ -230,6 +230,8 @@ run/                         运行时。不入库
 
 `tests/check_merge.py` 并入 `tests/unit/test_subscription.py` 后删除。`lab.py` 里的第二份合并自检一并删除，不进 `audit.py`。
 
+步 12：`lab.py` 只留回环替身；内核场景和套接字审计在 `audit.py`，否则替身单独超过 400。会话环境探测放进 `core`（已有 pid/proc），`proxy.py` 只留三层开关。
+
 ### 10.3 命名
 
 - 包内文件名就是模块名，不加前缀。
