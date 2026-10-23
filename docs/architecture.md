@@ -291,6 +291,17 @@ run/                         运行时。不入库
 
 每步先让该步的 golden 和单元断言对着旧行为变红或锁住，再搬。不把两步并进一个提交。
 
+步 5 留下的四条 `rules` → `merge` 依赖，步 6 清掉，不进步 7。
+
+| 调用 | 现在 |
+| --- | --- |
+| `rules._fail` | `core.fail` |
+| `rules.has_group` | `mihomo.group_names` |
+| `rules._apply_kept` 的重载 | `mihomo.reload_core` |
+| `rules.mutate` 的密钥 | `core.gen_secret` |
+| via 组名 | 只在 `check` 查一次。`mutate` 不再查 |
+
+
 ### 10.7 文档子树
 
 位置都在 `docs/`，不新建目录。阶段 1 的四份边界仍然有效。

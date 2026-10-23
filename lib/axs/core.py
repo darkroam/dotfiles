@@ -106,3 +106,20 @@ class SystemdCache:
         if self.mode is None:
             self.mode = detect_systemd(env, show)
         return self.mode
+
+
+def fail(message):
+    import sys
+
+    sys.stderr.write(message + "\n")
+    raise SystemExit(1)
+
+
+def gen_secret(path):
+    path = Path(path)
+    if path.is_file() and len(path.read_text(encoding="utf-8").strip()) >= 8:
+        os.chmod(path, 0o600)
+        return
+    import secrets
+
+    atomic_write(path, secrets.token_hex(16) + "\n")

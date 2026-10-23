@@ -8,9 +8,9 @@ from axs.subscription import build_file
 
 
 def _fail(message):
-    import merge
+    from axs.core import fail
 
-    merge.fail(message)
+    fail(message)
 
 
 def _exit3(message=None):
@@ -92,10 +92,10 @@ def rules_del(path, domain):
 
 
 def has_group(secret_path, api, name):
-    import merge
+    from axs.mihomo import group_names
 
     try:
-        names = merge.group_names(secret_path, api)
+        names = group_names(secret_path, api)
     except (SystemExit, OSError):
         _exit3("控制器")
     if name not in names:
@@ -110,10 +110,10 @@ def _apply_kept(run, api):
         restore_snapshot(run)
         _die("校验失败")
     install_file(staged, run / CONFIG)
-    import merge
+    from axs.mihomo import reload_core
 
     try:
-        merge.reload_core(run / SECRET, api, run / CONFIG)
+        reload_core(run / SECRET, api, run / CONFIG)
     except SystemExit:
         restore_snapshot(run)
         _die("重载失败")
@@ -137,10 +137,9 @@ def check(run, op, running, api, args):
 
 
 def mutate(run, op, running, api, args):
-    line, domain, group = _checked(op, args)
+    # group lookup stays in check(); the shell calls that before the lock
+    line, domain, _group = _checked(op, args)
     run = Path(run)
-    if running == "1" and op == "add" and args[0] == "via":
-        has_group(run / SECRET, api, group)
     snapshot(run)
     if op == "add":
         rules_add(run / RULES, line)
@@ -152,7 +151,7 @@ def mutate(run, op, running, api, args):
     if not (run / SUBSCRIPTION).is_file():
         restore_snapshot(run)
         _die("没有订阅")
-    import merge
+    from axs.core import gen_secret
 
-    merge.gen_secret(run / SECRET)
+    gen_secret(run / SECRET)
     _apply_kept(run, api)

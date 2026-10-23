@@ -93,12 +93,13 @@ shellcheck "$ROOT/bin/axs" "$ROOT/bin/mihomo-run" "$ROOT/lib/common.sh" "$ROOT/t
 python3 -m py_compile "$ROOT/lib/merge.py" "$ROOT/tests/prep_run.py" \
     "$ROOT/lib/axs/__init__.py" "$ROOT/lib/axs/render.py" "$ROOT/lib/axs/cli.py" \
     "$ROOT/lib/axs/config.py" "$ROOT/lib/axs/core.py" "$ROOT/lib/axs/mihomo.py" \
-    "$ROOT/lib/axs/subscription.py" "$ROOT/lib/axs/rules.py" \
+    "$ROOT/lib/axs/subscription.py" "$ROOT/lib/axs/rules.py" "$ROOT/lib/axs/nodes.py" \
     "$ROOT/tests/env/lab.py" "$ROOT/tests/support/snap.py" \
     "$ROOT/tests/unit/test_cli.py" "$ROOT/tests/unit/test_bare_exit.py" \
     "$ROOT/tests/unit/test_core.py" "$ROOT/tests/unit/test_pin.py" \
     "$ROOT/tests/unit/test_mihomo.py" \
-    "$ROOT/tests/unit/test_subscription.py" "$ROOT/tests/unit/test_rules.py"
+    "$ROOT/tests/unit/test_subscription.py" "$ROOT/tests/unit/test_rules.py" \
+    "$ROOT/tests/unit/test_nodes.py"
 python3 "$ROOT/tests/unit/test_cli.py"
 python3 "$ROOT/tests/unit/test_bare_exit.py"
 python3 "$ROOT/tests/unit/test_core.py"
@@ -106,8 +107,9 @@ python3 "$ROOT/tests/unit/test_pin.py"
 python3 "$ROOT/tests/unit/test_mihomo.py"
 python3 "$ROOT/tests/unit/test_subscription.py"
 python3 "$ROOT/tests/unit/test_rules.py"
+python3 "$ROOT/tests/unit/test_nodes.py"
 python3 "$ROOT/tests/support/snap.py" check
-PASS=$((PASS + 9))
+PASS=$((PASS + 10))
 
 new_run
 assert_code usage 1
@@ -316,7 +318,7 @@ fi
 if [ -f "$RUN/fake/log" ] && grep -q 'PUT /configs' "$RUN/fake/log"; then
     fail 'unknown group reloaded'
 fi
-grep -q 'GET /proxies' "$RUN/fake/log" || fail 'group was not queried'
+test "$(grep -c 'GET /proxies' "$RUN/fake/log")" -eq 1 || fail "group queries: $(cat "$RUN/fake/log")"
 
 new_run
 mark_up
@@ -329,6 +331,20 @@ assert_code 'via api down' 3 rule add via example.com PROXY
 if ! cmp -s "$RUN/rules.before" "$RUN/rules.list"; then
     fail 'api failure wrote rules.list'
 fi
+
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081"
+arm_api PROXY 204 0
+printf '%s\n' 'DOMAIN kept.example DIRECT' >"$RUN/rules.list"
+cp "$RUN/rules.list" "$RUN/rules.before"
+: >"$RUN/fake/log"
+assert_code 'via one query' 3 rule add via example.com PROXY
+if ! cmp -s "$RUN/rules.before" "$RUN/rules.list"; then
+    fail 'via one query wrote rules'
+fi
+grep -q '没有订阅' "$RUN/err" || fail "via one query text: $(cat "$RUN/err")"
+test "$(grep -c 'GET /proxies' "$RUN/fake/log")" -eq 1 || fail "via queries: $(cat "$RUN/fake/log")"
 
 new_run
 printf '%s\n' "$CANARY" >"$RUN/subscription.url"

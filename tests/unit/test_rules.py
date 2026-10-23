@@ -83,7 +83,7 @@ def check_rejected(run):
     if (run / ".snap").exists():
         fail("unknown group took a snapshot")
     (fake / "down").write_text("", encoding="utf-8")
-    code, _out, err = invoke(mutate, run, "add", "1", API, ["via", "example.com", "PROXY"])
+    code, _out, err = invoke(check, run, "add", "1", API, ["via", "example.com", "PROXY"])
     if code != 3 or err != "控制器\n控制器\n":
         fail(f"api down {code} {err!r}")
     if (run / "rules.list").read_text(encoding="utf-8") != before:
@@ -176,6 +176,22 @@ def check_forward():
         fail("shell still defines snapshot")
 
 
+
+def check_one_query(run):
+    prepare_sub(run, 204)
+    log = run / "fake" / "log"
+    log.write_text("", encoding="utf-8")
+    code, out, err = invoke(check, run, "add", "1", API, ["via", "example.com", "PROXY"])
+    if code != 0 or out or err:
+        fail(f"via check {code} {out!r} {err!r}")
+    code, out, err = invoke(mutate, run, "add", "1", API, ["via", "example.com", "PROXY"])
+    if code != 0 or err:
+        fail(f"via mutate {code} {out!r} {err!r}")
+    if log.read_text(encoding="utf-8").count("GET /proxies") != 1:
+        fail("via queried twice")
+    if "DOMAIN example.com PROXY" not in (run / "rules.list").read_text(encoding="utf-8"):
+        fail("via rule missing")
+
 def main():
     check_forward()
     with tempfile.TemporaryDirectory(prefix="axs-rules-") as tmp:
@@ -200,6 +216,11 @@ def main():
     with tempfile.TemporaryDirectory(prefix="axs-rules-") as tmp:
         try:
             check_applied(Path(tmp))
+        finally:
+            os.environ.pop("AXS_FAKE_DIR", None)
+    with tempfile.TemporaryDirectory(prefix="axs-rules-") as tmp:
+        try:
+            check_one_query(Path(tmp))
         finally:
             os.environ.pop("AXS_FAKE_DIR", None)
     print("rules ok")

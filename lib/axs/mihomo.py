@@ -143,3 +143,37 @@ def probe(host, port):
         raise SystemExit(1)
     finally:
         sock.close()
+
+
+GROUP_TYPES = {"Selector", "URLTest", "Fallback", "LoadBalance", "Relay"}
+
+
+def load_proxies(secret_path, api):
+    secret = read_secret(secret_path, api)
+    raw = request(secret, api, "GET", proxies_path())
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError:
+        _fail("控制器")
+    proxies = payload.get("proxies") if isinstance(payload, dict) else None
+    if not isinstance(proxies, dict):
+        _fail("控制器")
+    return proxies
+
+
+def group_names(secret_path, api):
+    proxies = load_proxies(secret_path, api)
+    names = []
+    for name, item in proxies.items():
+        if isinstance(item, dict) and item.get("type") in GROUP_TYPES:
+            names.append(name)
+    return names
+
+
+def reload_core(secret_path, api, config_path):
+    secret = read_secret(secret_path, api)
+    body = json.dumps({"path": str(config_path), "payload": ""}).encode()
+    try:
+        request(secret, api, "PUT", reload_path(), body)
+    except SystemExit:
+        _fail("重载失败")
