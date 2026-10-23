@@ -125,17 +125,11 @@ def _alias_marks(aliases):
     return marks
 
 
-_USAGE_MARK = _alias_marks(TOP[1])
-
-
 def _paint_marked(word, alias=None):
     if not alias or alias not in word:
         return bold(word)
     start = word.index(alias)
     end = start + len(alias)
-    # A multi-letter prefix keeps the first letter command-bold: s**ta**rt, not **sta**rt.
-    if len(alias) > 1 and start == 0:
-        start = 1
     chunks = []
     if start:
         chunks.append(bold(word[:start]))
@@ -145,14 +139,15 @@ def _paint_marked(word, alias=None):
     return "".join(chunks)
 
 
-def _usage_word(word, mark=True):
-    if mark:
-        return _paint_marked(word, _USAGE_MARK.get(word))
-    return bold(word)
+def _usage_word(word, group=None):
+    alias = None
+    if group:
+        alias = _alias_marks(GROUPS[group][1]).get(word)
+    return _paint_marked(word, alias)
 
 
-def _pipes(words, mark=True):
-    return "|".join(_usage_word(word, mark) for word in words)
+def _pipes(words, group=None):
+    return "|".join(_usage_word(word, group) for word in words)
 
 
 def usage_text():
@@ -161,26 +156,26 @@ def usage_text():
     os.environ["AXS_PAINT_FD"] = "2"
     try:
         lines = [
-            "用法：axs " + _pipes(["start", "stop", "status", "restart", "ensure", "clean"]),
-            "      axs " + _usage_word("service") + " " + _pipes(["enable", "disable"], False),
-            "      axs " + _usage_word("sub") + " " + _pipes(["get", "refresh", "clean"]),
-            "      axs " + _usage_word("rule") + " " + _pipes(["list", "add", "del"], False),
-            "      axs " + _usage_word("node") + " " + _pipes(["groups", "list", "test", "switch"], False),
-            "      axs " + _usage_word("net") + " " + _usage_word("test", False),
+            "用法：axs " + _pipes(["start", "stop", "status", "restart", "ensure", "clean"], "top"),
+            "      axs " + _usage_word("service", "top") + " " + _pipes(["enable", "disable"], "service"),
+            "      axs " + _usage_word("sub", "top") + " " + _pipes(["get", "refresh", "clean"], "sub"),
+            "      axs " + _usage_word("rule", "top") + " " + _pipes(["list", "add", "del"], "rule"),
+            "      axs " + _usage_word("node", "top") + " " + _pipes(["groups", "list", "test", "switch"], "node"),
+            "      axs " + _usage_word("net", "top") + " " + _usage_word("test", "net"),
             "      axs "
-            + _usage_word("proxy")
+            + _usage_word("proxy", "top")
             + " "
-            + _usage_word("user", False)
+            + _usage_word("user", "proxy")
             + " "
-            + _pipes(["on", "off", "status"], False)
+            + _pipes(["on", "off", "status"])
             + "; "
-            + _usage_word("system", False)
+            + _usage_word("system", "proxy")
             + " "
-            + _pipes(["on", "off", "enable", "disable", "status"], False)
+            + _pipes(["on", "off", "enable", "disable", "status"])
             + "; "
-            + _usage_word("session", False)
+            + _usage_word("session", "proxy")
             + " "
-            + _pipes(["enable", "disable", "status"], False),
+            + _pipes(["enable", "disable", "status"]),
         ]
     finally:
         if previous is None:

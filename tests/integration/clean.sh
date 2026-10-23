@@ -301,9 +301,21 @@ assert_code 'service usage' 1 service start
 export AXS_COLOR=always
 assert_code 'bare help color' 1
 test "$(grep -c . "$RUN/err")" -eq 7 || fail "bare lines: $(cat "$RUN/err")"
-grep -F -q "${ESC}[1;36mta${ESC}[0m" "$RUN/err" || fail "start alias: $(cat "$RUN/err")"
-grep -F -q "${ESC}[1;36mto${ESC}[0m" "$RUN/err" || fail "stop alias: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36msta${ESC}[0m" "$RUN/err" || fail "start alias: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36msto${ESC}[0m" "$RUN/err" || fail "stop alias: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36msu${ESC}[0m" "$RUN/err" || fail "sub alias: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36mse${ESC}[0m" "$RUN/err" || fail "service alias: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36mne${ESC}[0m" "$RUN/err" || fail "net alias: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36mre${ESC}[0m" "$RUN/err" || fail "restart alias: $(cat "$RUN/err")"
 grep -F -q "${ESC}[1;36ms${ESC}[0m" "$RUN/err" || fail "status letter: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36ml${ESC}[0m" "$RUN/err" || fail "list alias: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36ma${ESC}[0m" "$RUN/err" || fail "add alias: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36mg${ESC}[0m${ESC}[1mroups${ESC}[0m" "$RUN/err" || fail "groups alias: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36ms${ESC}[0m${ESC}[1mwitch${ESC}[0m" "$RUN/err" || fail "switch alias: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36me${ESC}[0m${ESC}[1mnable${ESC}[0m" "$RUN/err" || fail "enable alias: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36mr${ESC}[0m${ESC}[1mefresh${ESC}[0m" "$RUN/err" || fail "refresh alias: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36msy${ESC}[0m" "$RUN/err" || fail "system alias: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36mse${ESC}[0m${ESC}[1mssion${ESC}[0m" "$RUN/err" || fail "session alias: $(cat "$RUN/err")"
 if ! grep -q "$ESC" "$RUN/err"; then
     fail "bare help not colored"
 fi

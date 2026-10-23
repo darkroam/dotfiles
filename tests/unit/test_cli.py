@@ -7,7 +7,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
-from axs.cli import DOWN, EXPIRED, FAIL, GROUPS, LOCK, ResolveError, USAGE, help_text, resolve_token, usage_text
+from axs.cli import (
+    DOWN, EXPIRED, FAIL, GROUPS, LOCK, ResolveError, SECTIONS, USAGE,
+    _alias_marks, _usage_word, help_text, resolve_token, usage_text,
+)
 from axs.render import bad, bold, dim, display_width, emph, ident, label, ok, tone, use_color, warn
 
 GOLDEN = ROOT / "tests" / "golden"
@@ -117,6 +120,58 @@ def check_color():
                 os.environ[key] = value
 
 
+
+def marked(alias, rest):
+    return emph("36", alias) + (bold(rest) if rest else "")
+
+
+def check_usage_color(colored):
+    os.environ["AXS_COLOR"] = "always"
+    lines = colored.splitlines()
+    if len(lines) != 7:
+        raise SystemExit("usage lines")
+    expect = {
+        0: ("sta rt", "sto p", "s tatus", "re start", "e nsure", "c lean"),
+        1: ("se rvice", "e nable", "d isable"),
+        2: ("su b", "g et", "r efresh", "c lean"),
+        3: ("r ule", "l ist", "a dd", "d el"),
+        4: ("n ode", "g roups", "l ist", "t est", "s witch"),
+        5: ("ne t", "t est"),
+        6: ("p roxy", "u ser", "sy stem", "se ssion"),
+    }
+    for index, pairs in expect.items():
+        for pair in pairs:
+            alias, rest = pair.split(" ", 1)
+            if marked(alias, rest) not in lines[index]:
+                raise SystemExit(f"line {index} missing {alias}")
+    health = _usage_word("health", "top")
+    help_word = _usage_word("help", "top")
+    if health != marked("he", "alth") or help_word != marked("h", "elp"):
+        raise SystemExit("quiet top alias")
+    actions = bold("on") + "|" + bold("off") + "|" + bold("status")
+    if actions not in lines[6] or marked("s", "tatus") in lines[6]:
+        raise SystemExit("proxy actions")
+    if bold("enable") not in lines[6]:
+        raise SystemExit("system enable should stay bold")
+
+
+def check_help_aliases():
+    shown = {}
+    for _title, rows, _notes in SECTIONS:
+        for cmd, alias, _desc in rows:
+            parts = cmd.split()
+            group, word = ("top", parts[1]) if len(parts) == 2 else (parts[1], parts[2])
+            shown.setdefault((group, word), set()).add(alias)
+    for key, aliases in shown.items():
+        group, word = key
+        expect = _alias_marks(GROUPS[group][1]).get(word, "")
+        nonempty = {item for item in aliases if item}
+        if expect and nonempty != {expect}:
+            raise SystemExit(f"help alias {group} {word}")
+        if not expect and nonempty:
+            raise SystemExit(f"help extra alias {group} {word}")
+
+
 def main():
     for word, group, want in EXACT:
         got = resolve(word, group)
@@ -173,15 +228,22 @@ def main():
         raise SystemExit("display width")
     if "\033[36m[x]\033[0m" in colored:
         raise SystemExit("start marker")
-    if "\033[1ms\033[0m\033[1;36mta\033[0m\033[1mrt\033[0m" not in colored:
-        raise SystemExit("start alias")
-    if "\033[1ms\033[0m\033[1;36mto\033[0m\033[1mp\033[0m" not in colored:
-        raise SystemExit("stop alias")
-    if "\033[1;36ms\033[0m\033[1mtatus\033[0m" not in colored:
-        raise SystemExit("status letter")
-    if "\033[1;36m" in colored.split("roxy", 1)[1]:
-        raise SystemExit("proxy line marked a command alias")
+    if "\033" in plain:
+        raise SystemExit("never still has ansi")
+    check_usage_color(colored)
+    check_help_aliases()
     check_color()
+    saved_color = os.environ.get("AXS_COLOR")
+    os.environ.pop("AXS_COLOR", None)
+    os.environ.pop("NO_COLOR", None)
+    os.environ["AXS_TTY_ERR"] = "0"
+    if "\033" in usage_text():
+        raise SystemExit("non-tty usage has ansi")
+    if saved_color is None:
+        os.environ.pop("AXS_COLOR", None)
+    else:
+        os.environ["AXS_COLOR"] = saved_color
+    os.environ.pop("AXS_TTY_ERR", None)
     print(f"alias matrix {len(EXACT) + len(AMBIGUOUS) + len(UNKNOWN)}; help golden 3")
     return 0
 
