@@ -87,7 +87,7 @@ def captured(func, *args):
         return code, buf.getvalue()
     return 0, buf.getvalue()
 
-def status(run):
+def service_section(run):
     running = 0
     if systemd_on():
         if active():
@@ -120,11 +120,24 @@ def status(run):
     row("状态    ", state)
     row("端口    ", f"{port_bit} · 控制器 {api_bit}")
     row("自启    ", boot)
+    return running, port_ok, api_ok, api, mixed
+
+
+def service_status(run):
+    running, port_ok, api_ok, _api, _mixed = service_section(run)
+    if running == 0 or not port_ok:
+        raise SystemExit(DOWN)
+    if not api_ok:
+        raise SystemExit(FAIL)
+
+
+def status(run):
+    running, port_ok, api_ok, api, mixed = service_section(run)
     node_mid = f"→ {dim('-')}"
     node_g = dim("-")
     if port_ok and api_ok:
-        _code, text = captured(status_nodes, Path(run) / SECRET, api)
-        lines = text.splitlines()
+        _code, block = captured(status_nodes, Path(run) / SECRET, api)
+        lines = block.splitlines()
         if lines and lines[0]:
             node_mid = lines[0]
         if len(lines) > 1 and lines[1]:
@@ -132,8 +145,8 @@ def status(run):
     head("节点")
     row("主代理  ", node_mid)
     row("GLOBAL  ", node_g)
-    code, text = captured(status_sub, Path(run) / USERINFO, unix_now())
-    lines = text.splitlines()
+    code, block = captured(status_sub, Path(run) / USERINFO, unix_now())
+    lines = block.splitlines()
     if code or len(lines) < 2:
         sub_value, kind = dim("未知"), "unknown"
     else:
@@ -154,6 +167,7 @@ def status(run):
         code = 0
     if code:
         raise SystemExit(code)
+
 
 def plain(code, text):
     sys.stderr.write(text + "\n")
@@ -291,7 +305,7 @@ def clean(run, kind, args):
             die(USAGE, "用法错误")
         yes = True
     if service_up(run):
-        die(DOWN, "服务在运行，先 axs stop")
+        die(DOWN, "服务在运行，先 axs service stop")
     root = os.path.realpath(run) if Path(run).is_dir() else ""
     paths = []
     for name in clean_names(kind):

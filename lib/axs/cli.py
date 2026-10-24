@@ -14,70 +14,81 @@ class ResolveError(Exception):
 
 
 TOP = (
-    "start stop status restart health ensure clean help service sub rule node net proxy".split(),
+    "status service node group rule subscription network proxy clean help".split(),
     {
         "s": "status",
-        "su": "sub",
         "se": "service",
-        "sta": "start",
-        "sto": "stop",
-        "e": "ensure",
+        "n": "node",
+        "g": "group",
+        "r": "rule",
+        "su": "subscription",
+        "p": "proxy",
+        "c": "clean",
         "h": "help",
         "?": "help",
-        "n": "node",
-        "ne": "net",
-        "p": "proxy",
-        "r": "rule",
-        "re": "restart",
-        "c": "clean",
-        "he": "health",
         "--help": "help",
         "-h": "help",
     },
 )
 GROUPS = {
     "top": TOP,
-    "service": ("enable disable".split(), {"e": "enable", "d": "disable"}),
-    "sub": ("get refresh clean".split(), {"g": "get", "r": "refresh", "c": "clean"}),
-    "rule": ("list add del".split(), {"l": "list", "a": "add", "d": "del"}),
-    "node": ("groups members list test switch".split(), {"g": "groups", "m": "members", "l": "list", "t": "test", "s": "switch"}),
-    "net": ("test ip".split(), {"t": "test", "i": "ip"}),
+    "service": (
+        "status start stop restart ensure enable disable health".split(),
+        {
+            "s": "status",
+            "sta": "start",
+            "sto": "stop",
+            "re": "restart",
+            "e": "ensure",
+            "en": "enable",
+            "di": "disable",
+            "he": "health",
+        },
+    ),
+    "node": ("show".split(), {"s": "show"}),
+    "group": ("show members switch test".split(), {"s": "show", "sw": "switch", "m": "members", "t": "test"}),
+    "rule": ("show add del".split(), {"s": "show", "a": "add", "d": "del"}),
+    "subscription": ("show refresh clean".split(), {"s": "show", "r": "refresh", "c": "clean"}),
+    "network": ("test ip".split(), {"t": "test", "i": "ip"}),
     "proxy": ("user system session".split(), {"u": "user", "sy": "system", "se": "session"}),
 }
 
 INTRO = "单字符优先；冲突用两字母；前缀亦可"
-EXAMPLE = '示例：axs s · axs n l · axs p sy on · eval "$(axs p u on)"'
+EXAMPLE = '示例：axs s · axs n s · axs p sy on · eval "$(axs p u on)"'
 SECTIONS = (
     ("服务（service / se）", (
-        ("axs start", "sta", "启动服务"),
-        ("axs stop", "sto", "停止服务"),
-        ("axs restart", "re", "重启服务"),
-        ("axs status", "s", "查看状态"),
-        ("axs ensure", "e", "保证服务在跑"),
-        ("axs service enable", "e", "打开开机自启"),
-        ("axs service disable", "d", "关闭开机自启"),
-    ), ("本节 start/stop 等是一级命令；se 只进 service enable|disable",)),
-    ("订阅（sub / su）", (
-        ("axs sub get", "g", "查看订阅剩余"),
-        ("axs sub refresh", "r", "拉取并重载"),
-        ("axs sub clean", "c", "删除订阅缓存"),
+        ("axs status", "s", "查看全部状态"),
+        ("axs service status", "s", "状态、自启、端口、控制器"),
+        ("axs service start", "sta", "启动服务"),
+        ("axs service stop", "sto", "停止服务"),
+        ("axs service restart", "re", "重启服务"),
+        ("axs service ensure", "e", "保证服务在跑"),
+        ("axs service enable", "en", "打开开机自启"),
+        ("axs service disable", "di", "关闭开机自启"),
+    ), ()),
+    ("订阅（subscription / su）", (
+        ("axs subscription show", "s", "查看订阅剩余"),
+        ("axs subscription refresh", "r", "拉取并重载"),
+        ("axs subscription clean", "c", "删除订阅缓存"),
     ), ()),
     ("规则（rule / r）", (
-        ("axs rule list", "l", "运行时规则；--local 只看本地"),
+        ("axs rule show", "s", "运行时规则；--local 只看本地"),
         ("axs rule add via", "a", "域名 + 组"),
         ("axs rule add direct", "", "域名"),
         ("axs rule del", "d", "删除域名规则"),
     ), ()),
     ("节点（node / n）", (
-        ("axs node groups", "g", "策略组与当前节点"),
-        ("axs node members", "m", "组成员：编号、类型、当前、延迟"),
-        ("axs node list", "l", "--full|--select 树（--depth），--flat 表"),
-        ("axs node test", "t", "测延迟，可接组号或组名"),
-        ("axs node switch", "s", "组号或组名，再接节点"),
+        ("axs node show", "s", "--full|--select 树（--depth），--flat 表"),
     ), ()),
-    ("网络（net / ne）", (
-        ("axs net test", "t", "测连通，可接网址"),
-        ("axs net ip", "i", "经代理查出口 IP"),
+    ("组（group / g）", (
+        ("axs group show", "s", "策略组与当前节点"),
+        ("axs group members", "m", "组成员：编号、类型、当前、延迟"),
+        ("axs group switch", "sw", "组号或组名，再接节点"),
+        ("axs group test", "t", "测延迟，可接组号或组名"),
+    ), ()),
+    ("网络（network）", (
+        ("axs network test", "t", "测连通，可接网址"),
+        ("axs network ip", "i", "经代理查出口 IP"),
     ), ()),
     ("代理（proxy / p）", (
         ("axs proxy user", "u", "当前 shell 环境（on|off|status）"),
@@ -104,11 +115,11 @@ def resolve_token(word, words, aliases):
 
 
 def row(cmd, alias, desc):
-    return f"{ident(pad(cmd, 22))}  {dim(pad(alias, 6))}  {dim(desc)}"
+    return f"{ident(pad(cmd, 24))}  {dim(pad(alias, 6))}  {dim(desc)}"
 
 
 def help_text():
-    lines = [bold("用法"), bold(pad("命令", 22) + "  别名"), dim(INTRO)]
+    lines = [bold("用法"), bold(pad("命令", 24) + "  别名"), dim(INTRO)]
     for title, rows, notes in SECTIONS:
         lines.append("")
         lines.append(bold(title))
@@ -156,13 +167,15 @@ def usage_text():
     previous = os.environ.get("AXS_PAINT_FD")
     os.environ["AXS_PAINT_FD"] = "2"
     try:
+        flags = "|".join(_usage_word(flag) for flag in ("--full", "--select", "--flat"))
         lines = [
-            "用法：axs " + _pipes(["start", "stop", "status", "restart", "ensure", "clean"], "top"),
-            "      axs " + _usage_word("service", "top") + " " + _pipes(["enable", "disable"], "service"),
-            "      axs " + _usage_word("sub", "top") + " " + _pipes(["get", "refresh", "clean"], "sub"),
-            "      axs " + _usage_word("rule", "top") + " " + _pipes(["list", "add", "del"], "rule"),
-            "      axs " + _usage_word("node", "top") + " " + _pipes(["groups", "members", "list", "test", "switch"], "node") + " " + _usage_word("--full") + "|" + _usage_word("--select") + "|" + _usage_word("--flat") + " " + _usage_word("--depth") + " N",
-            "      axs " + _usage_word("net", "top") + " " + _usage_word("test", "net"),
+            "用法：axs " + _pipes(["status", "clean", "help"], "top"),
+            "      axs " + _usage_word("service", "top") + " " + _pipes(["status", "start", "stop", "restart", "ensure", "enable", "disable"], "service"),
+            "      axs " + _usage_word("subscription", "top") + " " + _pipes(["show", "refresh", "clean"], "subscription"),
+            "      axs " + _usage_word("rule", "top") + " " + _pipes(["show", "add", "del"], "rule"),
+            "      axs " + _usage_word("node", "top") + " " + _usage_word("show", "node") + " " + flags + " " + _usage_word("--depth") + " N",
+            "      axs " + _usage_word("group", "top") + " " + _pipes(["show", "members", "switch", "test"], "group"),
+            "      axs " + _usage_word("network", "top") + " " + _pipes(["test", "ip"], "network"),
             "      axs "
             + _usage_word("proxy", "top")
             + " "
@@ -184,8 +197,6 @@ def usage_text():
         else:
             os.environ["AXS_PAINT_FD"] = previous
     return "\n".join(lines) + "\n"
-
-
 
 
 def _usage():
@@ -262,11 +273,11 @@ def _node(run, kind, args):
     if kind == "groups" and args:
         die(USAGE, "用法错误")
     if kind == "members" and (len(args) != 1 or args[0].startswith("-")):
-        die(USAGE, "用法错误，先看 node groups" if not args else "用法错误")
+        die(USAGE, "用法错误，先看 group show" if not args else "用法错误")
     if kind == "test" and len(args) > 1:
         die(USAGE, "用法错误")
     if kind == "switch" and len(args) != 2:
-        die(USAGE, "用法错误，用 node members 查看成员" if len(args) < 2 else "用法错误")
+        die(USAGE, "用法错误，用 group members 查看成员" if len(args) < 2 else "用法错误")
     list_mode, depth = "", None
     if kind == "list":
         list_mode, depth = _list_flags(args)
@@ -320,7 +331,7 @@ def main(argv):
     from axs.net import net_ip, net_test
     from axs.proxy import proxy_session, proxy_system, proxy_user
     from axs.rules import cmd_add, cmd_del, cmd_list
-    from axs.service import boot, clean, ensure, health, prime, restart, run_dir, start, status, stop
+    from axs.service import boot, clean, ensure, health, prime, restart, run_dir, service_status, start, status, stop
     from axs.subscription import refresh_run as _refresh, show_userinfo
     from axs.core import unix_now
     from axs.config import USERINFO
@@ -336,28 +347,31 @@ def main(argv):
             _usage()
         sys.stdout.write(help_text())
         return
-    if cmd == "start":
-        start(run)
-    elif cmd == "stop":
-        stop(run)
-    elif cmd == "restart":
-        restart(run)
-    elif cmd == "status":
+    if cmd == "status":
         status(run)
-    elif cmd == "health":
-        health(run)
-    elif cmd == "ensure":
-        ensure(run, rest)
     elif cmd == "clean":
         clean(run, "config", rest)
     elif cmd == "service":
         op, extra = _take("service", rest)
-        if extra:
+        if op == "ensure":
+            ensure(run, extra)
+        elif extra:
             die(USAGE, "用法错误")
-        boot(run, op)
-    elif cmd == "sub":
-        op, extra = _take("sub", rest)
-        if op == "get":
+        elif op == "status":
+            service_status(run)
+        elif op == "start":
+            start(run)
+        elif op == "stop":
+            stop(run)
+        elif op == "restart":
+            restart(run)
+        elif op == "health":
+            health(run)
+        else:
+            boot(run, op)
+    elif cmd == "subscription":
+        op, extra = _take("subscription", rest)
+        if op == "show":
             show_userinfo(Path(run) / USERINFO, unix_now())
         elif op == "refresh":
             _refresh(run)
@@ -367,7 +381,7 @@ def main(argv):
             _usage()
     elif cmd == "rule":
         op, extra = _take("rule", rest)
-        if op == "list":
+        if op == "show":
             if extra not in ([], ["--local"]):
                 die(USAGE, "用法错误")
             cmd_list(run, extra == ["--local"])
@@ -378,10 +392,17 @@ def main(argv):
         else:
             _usage()
     elif cmd == "node":
-        op, extra = _take("node", rest)
-        _node(run, op, extra)
-    elif cmd == "net":
-        op, extra = _take("net", rest)
+        if not rest:
+            _node(run, "list", [])
+        else:
+            _op, extra = _take("node", rest)
+            _node(run, "list", extra)
+    elif cmd == "group":
+        op, extra = _take("group", rest)
+        kind = {"show": "groups", "members": "members", "switch": "switch", "test": "test"}[op]
+        _node(run, kind, extra)
+    elif cmd == "network":
+        op, extra = _take("network", rest)
         if op == "test":
             net_test(run, extra)
         elif op == "ip":

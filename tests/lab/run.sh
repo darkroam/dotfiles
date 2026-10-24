@@ -47,7 +47,7 @@ stop_lab() {
 
 down() {
     if [ -x "$AXS" ]; then
-        "$AXS" stop >/dev/null 2>&1 || true
+        "$AXS" service stop >/dev/null 2>&1 || true
     fi
     stop_lab
 }
@@ -110,12 +110,12 @@ up() {
     fi
     printf '%s\n' "http://127.0.0.1:$HTTP/sub" >"$AXS_RUN/subscription.url"
     chmod 600 "$AXS_RUN/subscription.url"
-    if ! "$AXS" sub refresh >"$VAR/out" 2>"$VAR/err"; then
+    if ! "$AXS" subscription refresh >"$VAR/out" 2>"$VAR/err"; then
         say "FAIL refresh"
         cat "$VAR/err" >&2
         return 1
     fi
-    if ! "$AXS" start >"$VAR/out" 2>"$VAR/err"; then
+    if ! "$AXS" service start >"$VAR/out" 2>"$VAR/err"; then
         say "FAIL start"
         cat "$VAR/err" >&2
         return 1
@@ -206,9 +206,9 @@ clean_cases() {
         return 1
     fi
     printf '%s\n' sentinel >"$AXS_RUN/config.yaml"
-    code_of sub clean --yes
+    code_of subscription clean --yes
     if [ "$CODE" -ne 0 ] || [ -e "$AXS_RUN/subscription.url" ] || [ -e "$AXS_RUN/subscription.yaml" ] || [ "$(cat "$AXS_RUN/config.yaml")" != sentinel ]; then
-        say "FAIL lab sub clean"
+        say "FAIL lab subscription clean"
         restore
         return 1
     fi
@@ -220,30 +220,30 @@ check() {
     static
     say "a kernel-reject"
     up
-    groups=$("$AXS" node groups)
+    groups=$("$AXS" group show)
     printf '%s\n' "$groups" | grep -E -x '[0-9]+ +PROXY +Selector +→ local' >/dev/null || {
         say "FAIL groups"
         printf '%s\n' "$groups" >&2
         return 1
     }
-    listed=$("$AXS" node list)
+    listed=$("$AXS" node show)
     printf '%s\n' "$listed" | grep -F spare >/dev/null || {
         say "FAIL spare missing"
         return 1
     }
-    delay=$("$AXS" node test PROXY)
+    delay=$("$AXS" group test PROXY)
     case $delay in
         *' '[1-9]*) ;;
         *) say "FAIL delay"; printf '%s\n' "$delay" >&2; return 1 ;;
     esac
     say "b groups-delay"
     export AXS_NET_TIMEOUT_MS=1000
-    need 0 "net all" net test "http://127.0.0.1:$HTTP/204" || return 1
+    need 0 "net all" network test "http://127.0.0.1:$HTTP/204" || return 1
     grep -q '^通' "$VAR/out" || { say "FAIL net pass line"; return 1; }
-    need 3 "net some" net test "http://127.0.0.1:$HTTP/204" "http://127.0.0.1:18099/" || return 1
+    need 3 "net some" network test "http://127.0.0.1:$HTTP/204" "http://127.0.0.1:18099/" || return 1
     grep -q '^通' "$VAR/out" || { say "FAIL net some pass"; return 1; }
     grep -q '^不通' "$VAR/out" || { say "FAIL net some fail"; return 1; }
-    need 3 "net none" net test "http://127.0.0.1:18099/" || return 1
+    need 3 "net none" network test "http://127.0.0.1:18099/" || return 1
     if grep -q '^通' "$VAR/out"; then
         say "FAIL net none marked up"
         return 1
@@ -264,7 +264,7 @@ check() {
     rm -f "$VAR/tripwire"
     [ "$(has_rule "$AXS_RUN/config.yaml" "$MARK")" = "no" ] || { say "FAIL marker already present"; return 1; }
     : >"$VAR/marker"
-    "$AXS" sub refresh >/dev/null
+    "$AXS" subscription refresh >/dev/null
     [ "$(has_rule "$AXS_RUN/config.yaml" "$MARK")" = "yes" ] || { say "FAIL marker missing"; return 1; }
     [ -f "$AXS_RUN/config.yaml.bak" ] || { say "FAIL bak missing"; return 1; }
     [ "$(has_rule "$AXS_RUN/config.yaml.bak" "$MARK")" = "no" ] || { say "FAIL bak has marker"; return 1; }
@@ -272,7 +272,7 @@ check() {
     cp -p "$AXS_RUN/subscription.yaml" "$VAR/good-sub"
     cp -p "$AXS_RUN/config.yaml.bak" "$VAR/bak-before"
     : >"$VAR/bad"
-    need 3 "bad refresh" sub refresh || return 1
+    need 3 "bad refresh" subscription refresh || return 1
     cmp -s "$AXS_RUN/config.yaml" "$VAR/good-config" || { say "FAIL config replaced"; return 1; }
     cmp -s "$AXS_RUN/subscription.yaml" "$VAR/good-sub" || { say "FAIL body replaced"; return 1; }
     cmp -s "$AXS_RUN/config.yaml.bak" "$VAR/bak-before" || { say "FAIL bak changed on precheck"; return 1; }
@@ -287,20 +287,20 @@ check() {
         i=$((i + 1))
         sleep 0.05
     done
-    need 4 "lock" sub refresh || return 1
+    need 4 "lock" subscription refresh || return 1
     grep -q '锁' "$VAR/err" || { say "FAIL lock text"; return 1; }
     wait "$lockpid" || true
     say "d refresh-rollback-lock"
     printf '%s\n' past >"$VAR/expire"
-    "$AXS" sub refresh >/dev/null
+    "$AXS" subscription refresh >/dev/null
     need 5 "expired" status || return 1
     grep -q '已过期' "$VAR/out" || { say "FAIL expired text"; return 1; }
     printf '%s\n' soon >"$VAR/expire"
-    "$AXS" sub refresh >/dev/null
+    "$AXS" subscription refresh >/dev/null
     need 0 "soon" status || return 1
     grep -q '警告' "$VAR/out" || { say "FAIL soon text"; return 1; }
     printf '%s\n' ok >"$VAR/expire"
-    "$AXS" sub refresh >/dev/null
+    "$AXS" subscription refresh >/dev/null
     need 0 "valid" status || return 1
     grep -q '剩余' "$VAR/out" || { say "FAIL valid text"; return 1; }
     say "e status"
@@ -338,22 +338,22 @@ check() {
 
 record_sims() {
     say "sim switch-restart"
-    before=$("$AXS" node groups 2>/dev/null || true)
+    before=$("$AXS" group show 2>/dev/null || true)
     say "sim before-stop $before"
-    code_of node switch PROXY spare || true
+    code_of group switch PROXY spare || true
     say "sim switch-spare code=$CODE"
-    "$AXS" stop >/dev/null 2>&1 || true
-    "$AXS" start >/dev/null 2>&1 || true
-    after=$("$AXS" node groups 2>/dev/null || true)
+    "$AXS" service stop >/dev/null 2>&1 || true
+    "$AXS" service start >/dev/null 2>&1 || true
+    after=$("$AXS" group show 2>/dev/null || true)
     say "sim after-restart $after"
     say "sim switch-reload"
-    code_of node switch PROXY local || true
+    code_of group switch PROXY local || true
     say "sim switch-local code=$CODE"
-    before=$("$AXS" node groups 2>/dev/null || true)
+    before=$("$AXS" group show 2>/dev/null || true)
     say "sim before-reload $before"
     code_of rule add via sim.test PROXY || true
     say "sim rule code=$CODE"
-    after=$("$AXS" node groups 2>/dev/null || true)
+    after=$("$AXS" group show 2>/dev/null || true)
     say "sim after-reload $after"
 }
 

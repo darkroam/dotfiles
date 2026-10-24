@@ -1,10 +1,11 @@
 exit: 1
 --- stdout
 --- stderr
-用法：axs start|stop|status|restart|ensure|clean
-      axs service enable|disable
-      axs sub get|refresh|clean
-      axs rule list|add|del
-      axs node groups|members|list|test|switch --full|--select|--flat --depth N
-      axs net test
+用法：axs status|clean|help
+      axs service status|start|stop|restart|ensure|enable|disable
+      axs subscription show|refresh|clean
+      axs rule show|add|del
+      axs node show --full|--select|--flat --depth N
+      axs group show|members|switch|test
+      axs network test|ip
       axs proxy user on|off|status; system on|off|enable|disable|status; session enable|disable|status

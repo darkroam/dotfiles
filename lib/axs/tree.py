@@ -1,4 +1,4 @@
-"""Tree rendering for node list and node members. Numbers come from nodes.py."""
+"""Tree rendering for node show and group members. Numbers come from nodes.py."""
 
 import sys
 from pathlib import Path

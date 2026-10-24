@@ -1,4 +1,4 @@
-"""Groups, node list, delay, switch, and the speed cache."""
+"""Groups, node show, delay, switch, and the speed cache."""
 
 from axs.codes import USAGE, FAIL
 import json
@@ -318,7 +318,7 @@ def select_proxy(secret_path, api, group, token, run_dir=""):
     sys.stdout.write(f"{group}\t{node}\t{cached_delay(run_dir, node)}\n")
 
 def _plain(text):
-    # node test colors stdout; the cache must stay numeric
+    # group test colors stdout; the cache must stay numeric
     while "\033[" in text:
         start = text.find("\033[")
         end = text.find("m", start + 2)

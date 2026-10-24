@@ -29,64 +29,64 @@
     "systemd": true
   },
   {
-    "name": "node-list--down.txt",
+    "name": "node-show--down.txt",
     "argv": [
       "node",
-      "list"
+      "show"
     ]
   },
   {
-    "name": "node-groups--down.txt",
+    "name": "group-show--down.txt",
     "argv": [
-      "node",
-      "groups"
+      "group",
+      "show"
     ]
   },
   {
-    "name": "node-list--up.txt",
+    "name": "node-show--up.txt",
     "argv": [
       "node",
-      "list"
+      "show"
     ],
     "up": true
   },
   {
-    "name": "node-list--tree.txt",
+    "name": "node-show--tree.txt",
     "argv": [
       "node",
-      "list",
+      "show",
       "--full"
     ],
     "up": true,
     "proxies": "{\"proxies\": {\"GLOBAL\": {\"type\": \"Selector\", \"now\": \"主代理\", \"all\": [\"主代理\"]}, \"主代理\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\", \"甲\", \"乙\", \"丙\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"甲\", \"all\": [\"甲\", \"乙\", \"主代理\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Shadowsocks\"}, \"丙\": {\"type\": \"Vless\"}}}\n"
   },
   {
-    "name": "node-groups--up.txt",
+    "name": "group-show--up.txt",
     "argv": [
-      "node",
-      "groups"
+      "group",
+      "show"
     ],
     "up": true
   },
   {
-    "name": "sub-get--missing.txt",
+    "name": "subscription-show--missing.txt",
     "argv": [
-      "sub",
-      "get"
+      "subscription",
+      "show"
     ]
   },
   {
-    "name": "sub-get--expired.txt",
+    "name": "subscription-show--expired.txt",
     "argv": [
-      "sub",
-      "get"
+      "subscription",
+      "show"
     ],
     "expired": true
   },
   {
-    "name": "net-test--forbid.txt",
+    "name": "network-test--forbid.txt",
     "argv": [
-      "net",
+      "network",
       "test"
     ]
   },
@@ -132,10 +132,10 @@
     "session_flag": true
   },
   {
-    "name": "rule-list--runtime.txt",
+    "name": "rule-show--runtime.txt",
     "argv": [
       "rule",
-      "list"
+      "show"
     ],
     "up": true,
     "files": {
@@ -145,10 +145,10 @@
     }
   },
   {
-    "name": "rule-list--local.txt",
+    "name": "rule-show--local.txt",
     "argv": [
       "rule",
-      "list",
+      "show",
       "--local"
     ],
     "files": {
@@ -156,10 +156,10 @@
     }
   },
   {
-    "name": "node-list--select.txt",
+    "name": "node-show--select.txt",
     "argv": [
       "node",
-      "list",
+      "show",
       "--select"
     ],
     "up": true,
@@ -169,9 +169,9 @@
     }
   },
   {
-    "name": "node-members--up.txt",
+    "name": "group-members--up.txt",
     "argv": [
-      "node",
+      "group",
       "members",
       "主代理"
     ],
@@ -179,6 +179,24 @@
     "proxies": "{\"proxies\": {\"GLOBAL\": {\"type\": \"Selector\", \"now\": \"主代理\", \"all\": [\"主代理\"]}, \"主代理\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\", \"甲\", \"乙\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"甲\", \"all\": [\"甲\"]}, \"空\": {\"type\": \"Selector\", \"all\": []}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}}}\n",
     "files": {
       "run/cache/node-test": "ts=1\nresult=ok\n{\"甲\": 42}\n"
+    }
+  },
+  {
+    "name": "service-status--stopped.txt",
+    "argv": [
+      "service",
+      "status"
+    ]
+  },
+  {
+    "name": "service-status--running.txt",
+    "argv": [
+      "service",
+      "status"
+    ],
+    "systemd": true,
+    "files": {
+      "run/systemctl.active": "active\n"
     }
   }
 ]
