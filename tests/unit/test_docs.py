@@ -76,6 +76,9 @@ def main():
             if word in text:
                 fail(path.name + " has a banned word")
         check_links(path, text)
+        slugs = [slug(title) for title in titles(text)]
+        if len(slugs) != len(set(slugs)):
+            fail(path.name + " has a repeated heading slug")
     design = (DOCS / "design.md").read_text(encoding="utf-8")
     if re.search(r"\|[^\n]*命令[^\n]*\|[^\n]*别名", design):
         fail("design copies the command table")
@@ -107,9 +110,13 @@ def main():
     heads = titles(design)
     if "模型与术语" not in heads or heads.index("模型与术语") > heads.index("解析"):
         fail("model chapter")
-    for name in ("术语表", "规则", "选择与出口", "视图与编号", "运维"):
+    for name in ("术语表", "规则与匹配顺序", "选择与出口", "视图与编号", "运维"):
         if name not in heads:
             fail("missing section " + name)
+    if "不占 `N#`" in design or "内置策略和悬空名没有编号" in design:
+        fail("builtin still unnumbered")
+    if "但占 `N#`" not in design or "`N#` 覆盖全部叶子端点" not in design:
+        fail("builtin number")
     if design.count("池") != 1 or "load_proxies" not in design or "不另造 pool" not in design:
         fail("pool")
     if design.count("悬空名不是成员") != 1:
