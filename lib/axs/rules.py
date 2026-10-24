@@ -56,7 +56,7 @@ def rule_line(kind, domain, group):
         _fail("用法错误")
     if any(ch in group for ch in " ,\t"):
         if kind == "node":
-            _exit3("节点名不能含空格或逗号")
+            _fail("节点名不能含空白或逗号")
         _fail("用法错误")
     return f"{form} {host} {group}"
 
