@@ -1,0 +1,4 @@
+exit: 0
+--- stdout
+已写入，启动时生效
+--- stderr

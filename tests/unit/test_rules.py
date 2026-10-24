@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "lib"))
 
 from axs.config import CIDRS  # noqa: E402
 from axs.core import write_defaults  # noqa: E402
-from axs.rules import check, cmd_list, mutate, rule_line, rules_add, rules_del  # noqa: E402
+from axs.rules import check, cmd_add, cmd_list, mutate, rule_line, rules_add, rules_del  # noqa: E402
 
 FIXTURE = ROOT / "tests" / "fixtures" / "subscription.yaml"
 API = "127.0.0.1:9"
@@ -168,6 +168,73 @@ def check_applied(run):
         fail("apply bak")
 
 
+
+def check_node(run):
+    if rule_line("node", ".example.com", "leaf") != "DOMAIN-SUFFIX example.com leaf":
+        fail("node suffix")
+    if rule_line("node", "example.com", "DIRECT") != "DOMAIN example.com DIRECT":
+        fail("node builtin line")
+    code, _out, err = invoke(rule_line, "node", "example.com", "bad name")
+    if code != 3 or err != "节点名不能含空格或逗号\n":
+        fail(f"node space {code} {err!r}")
+    code, _out, err = invoke(rule_line, "node", "example.com", "a,b")
+    if code != 3 or err != "节点名不能含空格或逗号\n":
+        fail(f"node comma {code} {err!r}")
+    code, _out, err = invoke(rule_line, "node", "example.com", "bad\tname")
+    if code != 3 or err != "节点名不能含空格或逗号\n":
+        fail(f"node tab {code} {err!r}")
+    code, _out, err = invoke(rule_line, "node", "example.com", "")
+    if code != 1 or err != "用法错误\n":
+        fail(f"node empty {code} {err!r}")
+    code, _out, err = invoke(rule_line, "via", "example.com", "bad name")
+    if code != 1 or err != "用法错误\n":
+        fail(f"via space {code} {err!r}")
+    fake = run / "fake"
+    fake.mkdir()
+    (fake / "proxies.json").write_text(
+        json.dumps({"proxies": {"PROXY": {"type": "Selector"}, "auto": {"type": "URLTest"}, "leaf": {"type": "Shadowsocks"}}}),
+        encoding="utf-8",
+    )
+    (run / "secret").write_text("test-secret-value\n", encoding="utf-8")
+    os.environ["AXS_FAKE_DIR"] = str(fake)
+    code, _out, err = invoke(check, run, "add", "1", API, ["node", "example.com", "leaf"])
+    if code or err:
+        fail(f"node ok {code} {err!r}")
+    code, _out, err = invoke(check, run, "add", "1", API, ["node", "example.com", "PROXY"])
+    if code != 3 or err != "不是节点\n":
+        fail(f"node group {code} {err!r}")
+    code, _out, err = invoke(check, run, "add", "1", API, ["node", "example.com", "auto"])
+    if code != 3 or err != "不是节点\n":
+        fail(f"node auto {code} {err!r}")
+    code, _out, err = invoke(check, run, "add", "1", API, ["node", "example.com", "gone"])
+    if code != 3 or err != "节点不存在\n":
+        fail(f"node missing {code} {err!r}")
+    for name in ("DIRECT", "REJECT"):
+        code, _out, err = invoke(check, run, "add", "1", API, ["node", "example.com", name])
+        if code or err:
+            fail(f"node {name} {code} {err!r}")
+    (fake / "down").write_text("", encoding="utf-8")
+    code, _out, err = invoke(check, run, "add", "1", API, ["node", "example.com", "leaf"])
+    if code != 3 or err != "控制器失败\n控制器失败\n":
+        fail(f"node api {code} {err!r}")
+    (fake / "down").unlink()
+    code, out, err = invoke(mutate, run, "add", "0", "", ["node", "down.example", "gone"])
+    if code or out != "已写入，启动时生效\n" or err:
+        fail(f"node down {code} {out!r} {err!r}")
+    if "DOMAIN down.example gone" not in (run / "rules.list").read_text(encoding="utf-8"):
+        fail("node down did not write")
+    before = (run / "rules.list").read_text(encoding="utf-8")
+    code, _out, err = invoke(mutate, run, "add", "0", "", ["node", "example.com", "bad name"])
+    if code != 3 or err != "节点名不能含空格或逗号\n" or (run / "rules.list").read_text(encoding="utf-8") != before:
+        fail(f"node space kept {code} {err!r}")
+    code, out, err = invoke(cmd_add, run, ["n", ".alias.example", "leaf"])
+    if code or "DOMAIN-SUFFIX alias.example leaf" not in (run / "rules.list").read_text(encoding="utf-8"):
+        fail(f"alias n {code} {out!r} {err!r}")
+    code, _out, err = invoke(cmd_add, run, ["nope", "example.com", "leaf"])
+    if code != 1 or err != "用法错误\n":
+        fail(f"alias nope {code} {err!r}")
+
+
 def check_forward():
     if (ROOT / "lib" / "merge.py").exists() or (ROOT / "lib" / "common.sh").exists():
         fail("forwarding layer remains")
@@ -276,6 +343,10 @@ def main():
     check_forward()
     with tempfile.TemporaryDirectory(prefix="axs-rules-") as tmp:
         check_lines(tmp)
+        try:
+            check_node(Path(tmp))
+        finally:
+            os.environ.pop("AXS_FAKE_DIR", None)
     os.environ.pop("AXS_FAKE_DIR", None)
     with tempfile.TemporaryDirectory(prefix="axs-rules-") as tmp:
         check_down(Path(tmp))

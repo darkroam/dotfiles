@@ -200,15 +200,22 @@ def check_usage_color(colored):
 
 
 def check_help_aliases():
+    from axs.rules import ADD
+
+    sub = {name: short for short, name in ADD.items() if short != name}
     shown = {}
     for _title, rows, _notes in SECTIONS:
         for cmd, alias, _desc in rows:
             parts = cmd.split()
-            group, word = ("top", parts[1]) if len(parts) == 2 else (parts[1], parts[2])
-            shown.setdefault((group, word), set()).add(alias)
-    for key, aliases in shown.items():
-        group, word = key
-        expect = _alias_marks(GROUPS[group][1]).get(word, "")
+            if len(parts) > 3:
+                key = (parts[1] + " " + parts[2], parts[3])
+            elif len(parts) == 2:
+                key = ("top", parts[1])
+            else:
+                key = (parts[1], parts[2])
+            shown.setdefault(key, set()).add(alias)
+    for (group, word), aliases in shown.items():
+        expect = sub[word] if " " in group else _alias_marks(GROUPS[group][1]).get(word, "")
         nonempty = {item for item in aliases if item}
         if expect and nonempty != {expect}:
             raise SystemExit(f"help alias {group} {word}")
