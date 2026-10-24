@@ -169,6 +169,32 @@
     }
   },
   {
+    "name": "node-show--select-auto-root.txt",
+    "argv": [
+      "node",
+      "show",
+      "--select"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"负载\", \"all\": [\"自动\", \"负载\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"甲\", \"all\": [\"甲\", \"乙\"]}, \"负载\": {\"type\": \"LoadBalance\", \"all\": [\"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Shadowsocks\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - DOMAIN,a.example,自动\n  - MATCH,负载\n"
+    }
+  },
+  {
+    "name": "node-show--select-ref.txt",
+    "argv": [
+      "node",
+      "show",
+      "--select"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"甲\", \"all\": [\"甲\", \"手动\"]}, \"手动\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - MATCH,主代理\n"
+    }
+  },
+  {
     "name": "group-members--up.txt",
     "argv": [
       "group",

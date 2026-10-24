@@ -1,0 +1,7 @@
+exit: 0
+--- stdout
+当前出口：主代理 → 负载（自动，load-balance）→ -
+规则入口
+G2 自动 [URLTest] 自动·手动切换会被覆盖
+G3 负载 [LoadBalance] 自动·手动切换会被覆盖
+--- stderr

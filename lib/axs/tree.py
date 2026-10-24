@@ -38,10 +38,8 @@ def exit_line(proxies):
 def select_roots(proxies, origin):
     from axs.mihomo import rule_parts
 
-    if origin is None:
-        return []
-    path = Path(origin).parent / CONFIG
-    if not path.is_file():
+    path = None if origin is None else Path(origin).parent / CONFIG
+    if path is None or not path.is_file():
         return []
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -50,17 +48,13 @@ def select_roots(proxies, origin):
     rules = data.get("rules") if isinstance(data, dict) else None
     if not isinstance(rules, list):
         return []
-    names = []
-    seen = set()
+    names, seen = [], set()
     for item in rules:
         parsed = rule_parts(item)
-        if not parsed:
-            continue
-        name = parsed[2]
-        if not name or name in seen or not _is_group(proxies.get(name)):
-            continue
-        seen.add(name)
-        names.append(name)
+        name = parsed[2] if parsed else ""
+        if name and name not in seen and _is_group(proxies.get(name)):
+            seen.add(name)
+            names.append(name)
     return names
 
 
@@ -91,7 +85,7 @@ def render_tree(proxies, depth=None, width=None, mode="full", origin=None):
 
     def group_line(name, prefix, mark):
         kind = str(proxies[name].get("type") or "-")
-        note = " 自动·手选会被覆盖" if select and kind in AUTO_TYPES else ""
+        note = " 自动·手动切换会被覆盖" if select and kind in AUTO_TYPES else ""
         return f"{prefix}G{gnums[name]} {name} [{kind}]{mark}{note}"
 
     def leaf_text(parent, name):
@@ -119,7 +113,7 @@ def render_tree(proxies, depth=None, width=None, mode="full", origin=None):
             rows.append("  ".join(parts))
         return rows
 
-    def blocks(parent, members, base, level, stack):
+    def blocks(parent, members, base, level, stack, section):
         grouped = []
         leaves = []
 
@@ -152,25 +146,54 @@ def render_tree(proxies, depth=None, width=None, mode="full", origin=None):
             if block in stack:
                 lines.append(f"{branch}↩ G{gnums[block]} {block}（回到上层）")
                 continue
+            if select and (block in home or block in lower_set):
+                lines.append(point(block, branch))
+                continue
             mark = " *" if proxies[parent].get("now") == block else ""
-            lines.extend(expand(block, branch, cont, level + 1, stack, mark))
+            lines.extend(expand(block, branch, cont, level + 1, stack, mark, section))
         return lines
 
-    def expand(name, line_prefix, child_base, level, stack, mark):
+    def expand(name, line_prefix, child_base, level, stack, mark, section):
         lines = [group_line(name, line_prefix, mark)]
         if select and str(proxies[name].get("type") or "") in AUTO_TYPES:
             return lines
+        if select:
+            home[name] = section
         if depth is not None and level >= depth:
             return lines
         members = proxies[name].get("all")
         if not isinstance(members, list):
             return lines
-        return lines + blocks(name, members, child_base, level, stack + [name])
+        return lines + blocks(name, members, child_base, level, stack + [name], section)
 
-    lines = [exit_line(proxies)]
+    def point(name, prefix):
+        word = "上方" if home.get(name) == "上" else "下方"
+        return f"{prefix}→ 见 G{gnums[name]} {name}（{word}）"
+
+    lines, home, lower_set = [exit_line(proxies)], {}, set()
     roots = select_roots(proxies, origin) if select else tree_roots(proxies)
+    lower = []
+    if select:
+        seen = set(roots)
+        for item in proxies.values():
+            members = item.get("all") if _is_group(item) else None
+            if not isinstance(members, list):
+                continue
+            for name in members:
+                child = proxies.get(name)
+                if name in seen or not _is_group(child) or child.get("type") != "Selector":
+                    continue
+                seen.add(name)
+                lower.append(name)
+        lower.sort(key=gnums.get)
+        lower_set.update(lower)
+        lines.append("规则入口")
     for name in roots:
-        lines.extend(expand(name, "", "", 1, [], ""))
+        lines.extend(expand(name, "", "", 1, [], "", "上" if select else ""))
+    if lower:
+        lines.append("成员引用")
+        for name in lower:
+            lines.extend([point(name, "")] if name in home else expand(name, "", "", 1, [], "", "下"))
     return "\n".join(lines) + "\n"
 
 

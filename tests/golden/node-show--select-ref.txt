@@ -1,0 +1,11 @@
+exit: 0
+--- stdout
+当前出口：主代理 → 甲（手动）→ 甲
+规则入口
+G1 主代理 [Selector]
+├─ N2 甲 [Shadowsocks] [*]
+└─ → 见 G2 手动（下方）
+成员引用
+G2 手动 [Selector]
+└─ N1 乙 [Vless] [*]
+--- stderr

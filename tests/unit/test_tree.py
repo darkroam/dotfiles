@@ -133,8 +133,21 @@ def check_flat_and_flags():
 
 
 
+def _select(proxies, rules, depth=None):
+    with tempfile.TemporaryDirectory(prefix="axs-select-") as tmp:
+        root = Path(tmp)
+        (root / "config.yaml").write_text(rules, encoding="utf-8")
+        return render_tree(proxies, depth=depth, width=80, mode="select", origin=root / "secret")
+
+
+def _once(text, token):
+    if text.count(token) != 1:
+        fail(f"once {token}\n{text}")
+
+
 def check_select():
     os.environ["AXS_COLOR"] = "never"
+    note = "自动·手动切换会被覆盖"
     proxies = {
         "GLOBAL": {"type": "Selector", "now": "主代理", "all": ["主代理", "旁路"]},
         "旁路": {"type": "Selector", "all": ["甲"]},
@@ -149,50 +162,139 @@ def check_select():
         "丙": {"type": "Vless"},
         "隐藏": {"type": "Vless"},
     }
-    with tempfile.TemporaryDirectory(prefix="axs-select-") as tmp:
-        root = Path(tmp)
-        (root / "config.yaml").write_text(
-            "rules:\n"
-            "  - DOMAIN,a.example,主代理\n"
-            "  - DOMAIN,b.example,DIRECT\n"
-            "  - DOMAIN,c.example,国内直连\n"
-            "  - IP-CIDR,1.0.0.0/8,负载,no-resolve\n"
-            "  - MATCH,国内直连\n",
-            encoding="utf-8",
-        )
-        origin = root / "secret"
-        select = render_tree(proxies, width=80, mode="select", origin=origin)
-        full = render_tree(proxies, width=80)
-        shallow = "\n".join(render_tree(proxies, depth=1, width=80, mode="select", origin=origin).splitlines()[1:])
-        mid = "\n".join(render_tree(proxies, depth=2, width=80, mode="select", origin=origin).splitlines()[1:])
-    if not select.endswith("\n") or "\t" in select:
-        fail("select shape")
+    rules = (
+        "rules:\n"
+        "  - DOMAIN,a.example,主代理\n"
+        "  - DOMAIN,b.example,DIRECT\n"
+        "  - DOMAIN,c.example,国内直连\n"
+        "  - IP-CIDR,1.0.0.0/8,负载,no-resolve\n"
+        "  - MATCH,国内直连\n"
+    )
+    select = _select(proxies, rules)
+    full = render_tree(proxies, width=80)
+    shallow = _select(proxies, rules, 1)
+    mid = _select(proxies, rules, 2)
+    if select != (
+        "当前出口：主代理 → 自动（自动，url-test）→ 隐藏\n"
+        "规则入口\n"
+        "G3 主代理 [Selector]\n"
+        f"├─ G7 自动 [URLTest] * {note}\n"
+        "├─ N3 甲 [Shadowsocks]\n"
+        "└─ G2 中继 [Relay]\n"
+        "   └─ N3 甲 [Shadowsocks] [*]\n"
+        "G5 国内直连 [Selector]\n"
+        "├─ N1 丙 [Vless] [*]\n"
+        f"└─ G4 回退 [Fallback] {note}\n"
+        f"G8 负载 [LoadBalance] {note}\n"
+        "成员引用\n"
+        "G6 旁路 [Selector]\n"
+        "└─ N3 甲 [Shadowsocks]\n"
+    ):
+        fail("select\n" + select)
+    if shallow.splitlines()[1:] != [
+        "规则入口",
+        "G3 主代理 [Selector]",
+        "G5 国内直连 [Selector]",
+        f"G8 负载 [LoadBalance] {note}",
+        "成员引用",
+        "G6 旁路 [Selector]",
+    ]:
+        fail("select depth 1\n" + shallow)
+    if mid != (
+        "当前出口：主代理 → 自动（自动，url-test）→ 隐藏\n"
+        "规则入口\n"
+        "G3 主代理 [Selector]\n"
+        f"├─ G7 自动 [URLTest] * {note}\n"
+        "├─ N3 甲 [Shadowsocks]\n"
+        "└─ G2 中继 [Relay]\n"
+        "G5 国内直连 [Selector]\n"
+        "├─ N1 丙 [Vless] [*]\n"
+        f"└─ G4 回退 [Fallback] {note}\n"
+        f"G8 负载 [LoadBalance] {note}\n"
+        "成员引用\n"
+        "G6 旁路 [Selector]\n"
+        "└─ N3 甲 [Shadowsocks]\n"
+    ):
+        fail("select depth 2\n" + mid)
     gnums = group_numbers(proxies)
     nnums = node_numbers(proxies)
-    for name in ("主代理", "国内直连", "负载", "自动", "回退", "中继"):
-        token = f"G{gnums[name]} {name}"
-        if token not in select or token not in full:
-            fail(f"number {name}\n{select}")
-    if f"G{gnums['GLOBAL']}" in select or f"G{gnums['旁路']}" in select or "GLOBAL" in select:
+    if f"G{gnums['GLOBAL']}" in select or "GLOBAL" in select or "GONE" in select:
         fail("unreachable\n" + select)
+    if f"N{nnums['隐藏']}" in select or f"N{nnums['乙']}" in select:
+        fail("hidden member\n" + select)
     if "GLOBAL" not in full or "隐藏" not in full:
         fail("full lost a node")
-    if f"N{nnums['隐藏']}" in select or f"N{nnums['乙']}" in select or "GONE" in select:
-        fail("hidden member\n" + select)
-    if f"N{nnums['甲']}" not in select or f"N{nnums['丙']}" not in select:
-        fail("leaf missing\n" + select)
-    if select.count("甲") != 2:
-        fail(f"relay/auto {select.count('甲')}\n{select}")
-    if "[URLTest] * 自动·手选会被覆盖" not in select:
-        fail("urltest note\n" + select)
-    if "[Fallback] 自动·手选会被覆盖" not in select or "[LoadBalance] 自动·手选会被覆盖" not in select:
-        fail("auto note\n" + select)
-    if "隐藏" in select.split("[URLTest]", 1)[-1].split("[Relay]", 1)[0]:
-        fail("urltest expanded")
-    if "甲" in shallow or "[URLTest]" in shallow or "隐藏" in shallow or "[LoadBalance] 自动·手选会被覆盖" not in shallow:
-        fail("select depth 1\n" + shallow)
-    if "隐藏" in mid or "[URLTest] * 自动·手选会被覆盖" not in mid or "甲" not in mid:
-        fail("select depth 2\n" + mid)
+    for name in ("主代理", "国内直连", "负载", "自动", "回退", "中继", "旁路"):
+        _once(select, f"G{gnums[name]} {name} [")
+    zones = {
+        "入口": {"type": "Selector", "now": "甲", "all": ["甲", "共享", "中继"]},
+        "另一": {"type": "Selector", "now": "共享", "all": ["共享", "中继"]},
+        "共享": {"type": "Selector", "now": "乙", "all": ["乙", "入口"]},
+        "中继": {"type": "Relay", "now": "甲", "all": ["甲", "入口"]},
+        "甲": {"type": "Shadowsocks"},
+        "乙": {"type": "Vless"},
+    }
+    zrules = "rules:\n  - DOMAIN,a.example,入口\n  - MATCH,另一\n"
+    zoned = _select(zones, zrules)
+    if zoned != (
+        "当前出口：-\n"
+        "规则入口\n"
+        "G2 入口 [Selector]\n"
+        "├─ N2 甲 [Shadowsocks] [*]\n"
+        "├─ → 见 G3 共享（下方）\n"
+        "└─ G1 中继 [Relay]\n"
+        "   ├─ N2 甲 [Shadowsocks] [*]\n"
+        "   └─ ↩ G2 入口（回到上层）\n"
+        "G4 另一 [Selector]\n"
+        "├─ → 见 G3 共享（下方）\n"
+        "└─ → 见 G1 中继（上方）\n"
+        "成员引用\n"
+        "G3 共享 [Selector]\n"
+        "├─ N1 乙 [Vless] [*]\n"
+        "└─ → 见 G2 入口（上方）\n"
+    ):
+        fail("zones\n" + zoned)
+    if zoned.count("N2 甲") != 2:
+        fail("shared leaf")
+    z1 = "\n".join(_select(zones, zrules, 1).splitlines()[1:])
+    z2 = _select(zones, zrules, 2)
+    if z1 != "规则入口\nG2 入口 [Selector]\nG4 另一 [Selector]\n成员引用\nG3 共享 [Selector]":
+        fail("zone depth 1\n" + z1)
+    if z2.count("G1 中继 [") != 1 or "回到上层" in z2 or "见 G1 中继（上方）" not in z2 or "见 G3 共享（下方）" not in z2:
+        fail("zone depth 2\n" + z2)
+    auto = {
+        "主代理": {"type": "Selector", "now": "负载", "all": ["自动", "负载"]},
+        "自动": {"type": "URLTest", "now": "甲", "all": ["甲", "乙"]},
+        "负载": {"type": "LoadBalance", "all": ["乙"]},
+        "甲": {"type": "Shadowsocks"},
+        "乙": {"type": "Shadowsocks"},
+    }
+    shown = _select(auto, "rules:\n  - DOMAIN,a.example,自动\n  - MATCH,负载\n")
+    if shown != (
+        "当前出口：主代理 → 负载（自动，load-balance）→ -\n"
+        "规则入口\n"
+        f"G2 自动 [URLTest] {note}\n"
+        f"G3 负载 [LoadBalance] {note}\n"
+    ) or "成员引用" in shown or "甲" in shown.split("规则入口", 1)[-1]:
+        fail("auto root\n" + shown)
+    ref = {
+        "主代理": {"type": "Selector", "now": "甲", "all": ["甲", "手动"]},
+        "手动": {"type": "Selector", "now": "乙", "all": ["乙"]},
+        "甲": {"type": "Shadowsocks"},
+        "乙": {"type": "Vless"},
+    }
+    cited = _select(ref, "rules:\n  - MATCH,主代理\n")
+    if cited != (
+        "当前出口：主代理 → 甲（手动）→ 甲\n"
+        "规则入口\n"
+        "G1 主代理 [Selector]\n"
+        "├─ N2 甲 [Shadowsocks] [*]\n"
+        "└─ → 见 G2 手动（下方）\n"
+        "成员引用\n"
+        "G2 手动 [Selector]\n"
+        "└─ N1 乙 [Vless] [*]\n"
+    ):
+        fail("referenced\n" + cited)
     if _list_flags(["--select"]) != ("select", None) or _list_flags(["--depth", "2", "--select"]) != ("select", 2):
         fail("select flags")
     for args in (["--select", "--full"], ["--depth", "1", "--flat"]):
@@ -204,7 +306,6 @@ def check_select():
                 fail(f"flag code {args}")
         else:
             fail(f"flag accepted {args}")
-
 
 
 def _capture(func, *args):
