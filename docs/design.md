@@ -56,7 +56,7 @@
 
 #### 语法与类型
 
-本地添加只写 `DOMAIN` 或 `DOMAIN-SUFFIX`（`rule_line`：以 `.` 开头的是后缀）。内置网段是 `IP-CIDR` 和 `IP-CIDR6`（`CIDRS`）。控制器类型由 `rule_word` 转成这些词：`DOMAIN`、`DOMAIN-SUFFIX`、`DOMAIN-KEYWORD`、`DOMAIN-REGEX`、`DOMAIN-WILDCARD`、`GEOSITE`、`GEOIP`、`SRC-GEOIP`、`IP-ASN`、`SRC-IP-ASN`、`IP-CIDR`、`SRC-IP-CIDR`、`IP-SUFFIX`、`SRC-IP-SUFFIX`、`SRC-PORT`、`DST-PORT`、`IN-PORT`、`DSCP`、`IN-USER`、`IN-NAME`、`IN-TYPE`、`PROCESS-NAME`、`PROCESS-PATH`、`PROCESS-NAME-REGEX`、`PROCESS-PATH-REGEX`、`PROCESS-NAME-WILDCARD`、`PROCESS-PATH-WILDCARD`、`RULE-SET`、`NETWORK`、`UID`、`SUB-RULE`、`MATCH`、`AND`、`OR`、`NOT`。不在其中的按原样大写。`MATCH` 可以没有匹配对象。比较时 `IP-CIDR6` 与控制器的 `IPCIDR` 都收成 `IP-CIDR`（`_rule_key`）。
+本地添加只写 `DOMAIN` 或 `DOMAIN-SUFFIX`（`rule_line`：以 `.` 开头的是后缀）。内置网段是 `IP-CIDR` 和 `IP-CIDR6`（`CIDRS`）。控制器类型由 `rule_word` 转成这些词。这是 `rule_word` 的转换词表，列出的是可转换的范围；不保证本订阅会出现这些类型，也不保证内核都用到。词表：`DOMAIN`、`DOMAIN-SUFFIX`、`DOMAIN-KEYWORD`、`DOMAIN-REGEX`、`DOMAIN-WILDCARD`、`GEOSITE`、`GEOIP`、`SRC-GEOIP`、`IP-ASN`、`SRC-IP-ASN`、`IP-CIDR`、`SRC-IP-CIDR`、`IP-SUFFIX`、`SRC-IP-SUFFIX`、`SRC-PORT`、`DST-PORT`、`IN-PORT`、`DSCP`、`IN-USER`、`IN-NAME`、`IN-TYPE`、`PROCESS-NAME`、`PROCESS-PATH`、`PROCESS-NAME-REGEX`、`PROCESS-PATH-REGEX`、`PROCESS-NAME-WILDCARD`、`PROCESS-PATH-WILDCARD`、`RULE-SET`、`NETWORK`、`UID`、`SUB-RULE`、`MATCH`、`AND`、`OR`、`NOT`。不在其中的按原样大写。`MATCH` 可以没有匹配对象。比较时 `IP-CIDR6` 与控制器的 `IPCIDR` 都收成 `IP-CIDR`（`_rule_key`）。
 
 #### 匹配顺序
 
@@ -64,7 +64,7 @@
 
 #### 规则目标
 
-规则目标是策略组或内置策略。是策略组时，它就是规则目标组。本地 `direct` 写成 `DIRECT`。`REJECT` 只来自订阅或控制器。节点能否作为规则目标尚未定。服务在跑时，`via` 必须是已有策略组（`group_names`），否则失败；未跑时不查。对不上策略组、也不是内置策略的名字不是成员；悬空名只出现在成员名单里，不指规则目标。
+规则目标是策略组或内置策略。是策略组时，它就是规则目标组。本地 `direct` 写成 `DIRECT`。`REJECT` 只来自订阅或控制器。节点能否作为规则目标尚未定。当前 `rule add via` 只接受策略组；给节点名会按『组名不存在』失败（退出 3）。是否允许节点目标，留到命令层重梳时定。这次检查在服务运行时做（`group_names`）；未跑时不查。对不上策略组、也不是内置策略的名字不是成员；悬空名只出现在成员名单里，不指规则目标。
 
 #### 来源与合并
 

@@ -127,7 +127,16 @@ def main():
     body = start[1].split("### 选择与出口", 1)[0]
     if len(body.splitlines()) > 80:
         fail("rules section too long")
-    for phrase in ("首个命中", "no-resolve", "rules.list", "behavior", "mrs", "DOMAIN-SUFFIX,example.com"):
+    for phrase in (
+        "首个命中",
+        "no-resolve",
+        "rules.list",
+        "behavior",
+        "mrs",
+        "DOMAIN-SUFFIX,example.com",
+        "不保证本订阅会出现这些类型",
+        "组名不存在",
+    ):
         if phrase not in body:
             fail("rules section missing " + phrase)
     ref = "design.md#模型与术语"
