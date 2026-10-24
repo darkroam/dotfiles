@@ -1,0 +1,14 @@
+exit: 0
+--- stdout
+当前出口：-
+规则入口
+G3 左 [Selector]
+├─ → 见 G1 共享（下方）
+└─ N3 甲 [Shadowsocks] [*]
+G2 右 [Selector]
+├─ → 见 G1 共享（下方）
+└─ N2 乙 [Shadowsocks] [*]
+成员引用
+G1 共享 [Selector]
+└─ N1 丙 [Vless] [*]
+--- stderr

@@ -186,18 +186,15 @@ def check_select():
         "├─ N1 丙 [Vless] [*]\n"
         f"└─ G4 回退 [Fallback] {note}\n"
         f"G8 负载 [LoadBalance] {note}\n"
-        "成员引用\n"
-        "G6 旁路 [Selector]\n"
-        "└─ N3 甲 [Shadowsocks]\n"
     ):
         fail("select\n" + select)
+    if "成员引用" in select or "旁路" in select:
+        fail("global member\n" + select)
     if shallow.splitlines()[1:] != [
         "规则入口",
         "G3 主代理 [Selector]",
         "G5 国内直连 [Selector]",
         f"G8 负载 [LoadBalance] {note}",
-        "成员引用",
-        "G6 旁路 [Selector]",
     ]:
         fail("select depth 1\n" + shallow)
     if mid != (
@@ -211,9 +208,6 @@ def check_select():
         "├─ N1 丙 [Vless] [*]\n"
         f"└─ G4 回退 [Fallback] {note}\n"
         f"G8 负载 [LoadBalance] {note}\n"
-        "成员引用\n"
-        "G6 旁路 [Selector]\n"
-        "└─ N3 甲 [Shadowsocks]\n"
     ):
         fail("select depth 2\n" + mid)
     gnums = group_numbers(proxies)
@@ -224,7 +218,7 @@ def check_select():
         fail("hidden member\n" + select)
     if "GLOBAL" not in full or "隐藏" not in full:
         fail("full lost a node")
-    for name in ("主代理", "国内直连", "负载", "自动", "回退", "中继", "旁路"):
+    for name in ("主代理", "国内直连", "负载", "自动", "回退", "中继"):
         _once(select, f"G{gnums[name]} {name} [")
     zones = {
         "入口": {"type": "Selector", "now": "甲", "all": ["甲", "共享", "中继"]},
@@ -254,7 +248,7 @@ def check_select():
         "└─ → 见 G2 入口（上方）\n"
     ):
         fail("zones\n" + zoned)
-    if zoned.count("N2 甲") != 2:
+    if zoned.count("N2 甲") != 2 or zoned.count("→ 见 G3 共享（下方）") != 2 or zoned.count("G3 共享 [") != 1:
         fail("shared leaf")
     z1 = "\n".join(_select(zones, zrules, 1).splitlines()[1:])
     z2 = _select(zones, zrules, 2)
@@ -295,6 +289,18 @@ def check_select():
         "└─ N1 乙 [Vless] [*]\n"
     ):
         fail("referenced\n" + cited)
+    buried = _select(
+        {
+            "主代理": {"type": "Selector", "now": "自动", "all": ["自动"]},
+            "自动": {"type": "URLTest", "now": "甲", "all": ["甲", "手动"]},
+            "手动": {"type": "Selector", "all": ["乙"]},
+            "甲": {"type": "Shadowsocks"},
+            "乙": {"type": "Vless"},
+        },
+        "rules:\n  - MATCH,自动\n",
+    )
+    if "成员引用" in buried or "手动 [" in buried:
+        fail("auto member\n" + buried)
     if _list_flags(["--select"]) != ("select", None) or _list_flags(["--depth", "2", "--select"]) != ("select", 2):
         fail("select flags")
     for args in (["--select", "--full"], ["--depth", "1", "--flat"]):

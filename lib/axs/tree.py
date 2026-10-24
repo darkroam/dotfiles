@@ -175,8 +175,11 @@ def render_tree(proxies, depth=None, width=None, mode="full", origin=None):
     lower = []
     if select:
         seen = set(roots)
-        for item in proxies.values():
-            members = item.get("all") if _is_group(item) else None
+        for root_name in roots:
+            item = proxies.get(root_name)
+            if not _is_group(item) or item.get("type") != "Selector":
+                continue
+            members = item.get("all")
             if not isinstance(members, list):
                 continue
             for name in members:

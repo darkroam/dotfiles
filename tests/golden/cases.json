@@ -195,6 +195,32 @@
     }
   },
   {
+    "name": "node-show--select-two-roots.txt",
+    "argv": [
+      "node",
+      "show",
+      "--select"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"左\": {\"type\": \"Selector\", \"now\": \"甲\", \"all\": [\"共享\", \"甲\"]}, \"右\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"共享\", \"乙\"]}, \"共享\": {\"type\": \"Selector\", \"now\": \"丙\", \"all\": [\"丙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Shadowsocks\"}, \"丙\": {\"type\": \"Vless\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - DOMAIN,a.example,左\n  - MATCH,右\n"
+    }
+  },
+  {
+    "name": "node-show--select-auto-member.txt",
+    "argv": [
+      "node",
+      "show",
+      "--select"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"甲\", \"all\": [\"甲\", \"手动\"]}, \"手动\": {\"type\": \"Selector\", \"all\": [\"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - MATCH,自动\n"
+    }
+  },
+  {
     "name": "group-members--up.txt",
     "argv": [
       "group",
