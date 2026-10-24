@@ -17,31 +17,66 @@ GOLDEN = ROOT / "tests" / "golden"
 EXACT = (
     ("s", "top", "status"),
     ("status", "top", "status"),
-    ("sta", "top", "start"),
-    ("sto", "top", "stop"),
-    ("su", "top", "sub"),
+    ("sta", "top", "status"),
+    ("stat", "top", "status"),
     ("se", "top", "service"),
-    ("he", "top", "health"),
+    ("service", "top", "service"),
+    ("n", "top", "node"),
+    ("node", "top", "node"),
+    ("g", "top", "group"),
+    ("group", "top", "group"),
+    ("r", "top", "rule"),
+    ("rule", "top", "rule"),
+    ("su", "top", "subscription"),
+    ("sub", "top", "subscription"),
+    ("subscription", "top", "subscription"),
+    ("ne", "top", "network"),
+    ("net", "top", "network"),
+    ("network", "top", "network"),
+    ("p", "top", "proxy"),
+    ("proxy", "top", "proxy"),
+    ("c", "top", "clean"),
+    ("clean", "top", "clean"),
     ("h", "top", "help"),
+    ("he", "top", "help"),
     ("?", "top", "help"),
     ("--help", "top", "help"),
     ("-h", "top", "help"),
-    ("ne", "top", "net"),
-    ("re", "top", "restart"),
-    ("ens", "top", "ensure"),
-    ("stat", "top", "status"),
-    ("n", "top", "node"),
-    ("node", "top", "node"),
-    ("g", "node", "groups"),
-    ("gro", "node", "groups"),
-    ("m", "node", "members"),
-    ("mem", "node", "members"),
+    ("s", "service", "status"),
+    ("sta", "service", "start"),
+    ("sto", "service", "stop"),
+    ("re", "service", "restart"),
+    ("e", "service", "ensure"),
+    ("en", "service", "enable"),
+    ("di", "service", "disable"),
+    ("he", "service", "health"),
+    ("health", "service", "health"),
+    ("s", "node", "show"),
+    ("show", "node", "show"),
+    ("sh", "node", "show"),
+    ("s", "group", "show"),
+    ("sw", "group", "switch"),
+    ("m", "group", "members"),
+    ("t", "group", "test"),
+    ("mem", "group", "members"),
+    ("s", "rule", "show"),
+    ("a", "rule", "add"),
+    ("d", "rule", "del"),
+    ("show", "rule", "show"),
+    ("s", "subscription", "show"),
+    ("r", "subscription", "refresh"),
+    ("c", "subscription", "clean"),
+    ("ref", "subscription", "refresh"),
+    ("t", "network", "test"),
+    ("i", "network", "ip"),
+    ("test", "network", "test"),
+    ("u", "proxy", "user"),
     ("sy", "proxy", "system"),
     ("se", "proxy", "session"),
-    ("ge", "sub", "get"),
+    ("user", "proxy", "user"),
 )
 AMBIGUOUS = (
-    ("st", "top", "候选：start stop status"),
+    ("st", "service", "候选：status start stop"),
     ("s", "proxy", "候选：system session"),
 )
 UNKNOWN = (
@@ -50,7 +85,13 @@ UNKNOWN = (
     ("o", "top"),
     ("k", "top"),
     ("u", "top"),
+    ("nw", "top"),
+    ("sto", "top"),
+    ("re", "top"),
+    ("e", "top"),
     ("st", "proxy"),
+    ("l", "node"),
+    ("g", "subscription"),
 )
 
 
@@ -130,30 +171,31 @@ def marked(alias, rest):
 def check_usage_color(colored):
     os.environ["AXS_COLOR"] = "always"
     lines = colored.splitlines()
-    if len(lines) != 7:
+    if len(lines) != 8:
         raise SystemExit("usage lines")
     expect = {
-        0: ("sta rt", "sto p", "s tatus", "re start", "e nsure", "c lean"),
-        1: ("se rvice", "e nable", "d isable"),
-        2: ("su b", "g et", "r efresh", "c lean"),
-        3: ("r ule", "l ist", "a dd", "d el"),
-        4: ("n ode", "g roups", "m embers", "l ist", "t est", "s witch"),
-        5: ("ne t", "t est"),
-        6: ("p roxy", "u ser", "sy stem", "se ssion"),
+        0: ("s tatus", "c lean", "h elp"),
+        1: ("se rvice", "s tatus", "sta rt", "sto p", "re start", "e nsure", "en able", "di sable"),
+        2: ("su bscription", "s how", "r efresh", "c lean"),
+        3: ("r ule", "s how", "a dd", "d el"),
+        4: ("n ode", "s how"),
+        5: ("g roup", "s how", "m embers", "sw itch", "t est"),
+        6: ("t est", "i p"),
+        7: ("p roxy", "u ser", "sy stem", "se ssion"),
     }
     for index, pairs in expect.items():
         for pair in pairs:
             alias, rest = pair.split(" ", 1)
             if marked(alias, rest) not in lines[index]:
                 raise SystemExit(f"line {index} missing {alias}")
-    health = _usage_word("health", "top")
+    health = _usage_word("health", "service")
     help_word = _usage_word("help", "top")
     if health != marked("he", "alth") or help_word != marked("h", "elp"):
         raise SystemExit("quiet top alias")
     actions = bold("on") + "|" + bold("off") + "|" + bold("status")
-    if actions not in lines[6] or marked("s", "tatus") in lines[6]:
+    if actions not in lines[7] or marked("s", "tatus") in lines[7]:
         raise SystemExit("proxy actions")
-    if bold("enable") not in lines[6]:
+    if bold("enable") not in lines[7]:
         raise SystemExit("system enable should stay bold")
 
 
@@ -178,10 +220,11 @@ def check_help_aliases():
 def check_help_heads(help_plain):
     heads = (
         ("服务", "service"),
-        ("订阅", "sub"),
+        ("订阅", "subscription"),
         ("规则", "rule"),
         ("节点", "node"),
-        ("网络", "net"),
+        ("组", "group"),
+        ("网络", "network"),
         ("代理", "proxy"),
         ("清理", "clean"),
     )
@@ -190,13 +233,14 @@ def check_help_heads(help_plain):
     if len(titles) != len(heads):
         raise SystemExit("help section count")
     for (zh, command), title in zip(heads, titles):
-        want = f"{zh}（{command} / {marks[command]}）"
+        alias = marks.get(command)
+        want = f"{zh}（{command} / {alias}）" if alias else f"{zh}（{command}）"
         if title != want or title not in help_plain.splitlines():
             raise SystemExit("help head " + want)
     for line in help_plain.splitlines():
         if not line.startswith("axs "):
             continue
-        if line[22:24] != "  " or line[30:32] != "  ":
+        if line[24:26] != "  " or line[32:34] != "  ":
             raise SystemExit("help columns " + line)
 
 
@@ -217,20 +261,21 @@ def check_node_args():
     else:
         raise SystemExit("list unknown accepted")
     cases = (
-        (["node", "groups", "x"], USAGE, "用法错误\n"),
-        (["node", "list", "nope"], USAGE, "用法错误\n"),
-        (["node", "members"], USAGE, "用法错误，先看 node groups\n"),
-        (["node", "members", "a", "b"], USAGE, "用法错误\n"),
-        (["node", "members", "--x"], USAGE, "用法错误\n"),
-        (["node", "switch"], USAGE, "用法错误，用 node members 查看成员\n"),
-        (["node", "switch", "g"], USAGE, "用法错误，用 node members 查看成员\n"),
-        (["node", "switch", "g", "n", "x"], USAGE, "用法错误\n"),
-        (["node", "test", "g", "x"], USAGE, "用法错误\n"),
-        (["node", "groups"], DOWN, "服务：未运行\n"),
-        (["node", "members", "1"], DOWN, "服务：未运行\n"),
-        (["node", "list"], DOWN, "服务：未运行\n"),
-        (["node", "test"], DOWN, "服务：未运行\n"),
-        (["node", "switch", "g", "n"], DOWN, "服务：未运行\n"),
+        (["group", "show", "x"], USAGE, "用法错误\n"),
+        (["node", "show", "nope"], USAGE, "用法错误\n"),
+        (["group", "members"], USAGE, "用法错误，先看 group show\n"),
+        (["group", "members", "a", "b"], USAGE, "用法错误\n"),
+        (["group", "members", "--x"], USAGE, "用法错误\n"),
+        (["group", "switch"], USAGE, "用法错误，用 group members 查看成员\n"),
+        (["group", "switch", "g"], USAGE, "用法错误，用 group members 查看成员\n"),
+        (["group", "switch", "g", "n", "x"], USAGE, "用法错误\n"),
+        (["group", "test", "g", "x"], USAGE, "用法错误\n"),
+        (["group", "show"], DOWN, "服务：未运行\n"),
+        (["group", "members", "1"], DOWN, "服务：未运行\n"),
+        (["node"], DOWN, "服务：未运行\n"),
+        (["node", "show"], DOWN, "服务：未运行\n"),
+        (["group", "test"], DOWN, "服务：未运行\n"),
+        (["group", "switch", "g", "n"], DOWN, "服务：未运行\n"),
     )
     with tempfile.TemporaryDirectory(prefix="axs-node-args-") as tmp:
         os.environ["AXS_RUN"] = tmp
@@ -287,7 +332,7 @@ def main():
     if "单字符优先；冲突用两字母；前缀亦可" not in help_plain:
         raise SystemExit("help intro")
     check_help_heads(help_plain)
-    if '示例：axs s · axs n l · axs p sy on' not in help_plain:
+    if '示例：axs s · axs n s · axs p sy on' not in help_plain:
         raise SystemExit("help example")
     os.environ["AXS_COLOR"] = "always"
     colored = usage_text()
@@ -295,7 +340,7 @@ def main():
     plain = usage_text()
     import re
     stripped = re.sub(r"\033\[[0-9;]*m", "", colored)
-    if stripped != plain or plain.count("\n") != 7:
+    if stripped != plain or plain.count("\n") != 8:
         raise SystemExit("usage highlight changed the plain text")
     if (USAGE, DOWN, FAIL, LOCK, EXPIRED) != (1, 2, 3, 4, 5):
         raise SystemExit("exit codes")

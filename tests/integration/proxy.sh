@@ -9,15 +9,15 @@ fi
 new_run
 assert_code 'alias status' 2 s
 grep -q '未运行（手动）' "$RUN/out" || fail "alias status: $(cat "$RUN/out")"
-assert_code 'alias health' 2 he
+assert_code 'alias health' 2 service he
 grep -q '未运行' "$RUN/err" || fail "alias health: $(cat "$RUN/err")"
 if grep -q '状态' "$RUN/out"; then
     fail 'health alias printed status'
 fi
-assert_code 'alias stop' 0 sto
-assert_code 'alias start' 3 sta
+assert_code 'alias stop' 0 service sto
+assert_code 'alias start' 3 service sta
 grep -q '没有配置' "$RUN/err" || fail "alias start: $(cat "$RUN/err")"
-assert_code 'alias ensure' 3 e
+assert_code 'alias ensure' 3 service e
 grep -q '没有订阅' "$RUN/err" || fail "alias ensure: $(cat "$RUN/err")"
 assert_code 'alias clean' 1 c
 grep -q '需要 --yes' "$RUN/err" || fail "alias clean: $(cat "$RUN/err")"
@@ -30,25 +30,26 @@ esc=re.compile("\033\\[[0-9;]*m")
 rows=[esc.sub("", line) for line in open(os.environ["AXS_RUN"]+"/out",encoding="utf-8") if esc.sub("", line).startswith("axs ")]
 want={
  "axs status":"s",
- "axs start":"sta",
- "axs stop":"sto",
- "axs restart":"re",
- "axs ensure":"e",
- "axs service enable":"e",
- "axs service disable":"d",
- "axs sub get":"g",
- "axs sub refresh":"r",
- "axs sub clean":"c",
- "axs rule list":"l",
+ "axs service status":"s",
+ "axs service start":"sta",
+ "axs service stop":"sto",
+ "axs service restart":"re",
+ "axs service ensure":"e",
+ "axs service enable":"en",
+ "axs service disable":"di",
+ "axs subscription show":"s",
+ "axs subscription refresh":"r",
+ "axs subscription clean":"c",
+ "axs rule show":"s",
  "axs rule add via":"a",
  "axs rule del":"d",
- "axs node groups":"g",
- "axs node members":"m",
- "axs node list":"l",
- "axs node test":"t",
- "axs node switch":"s",
- "axs net test":"t",
- "axs net ip":"i",
+ "axs node show":"s",
+ "axs group show":"s",
+ "axs group members":"m",
+ "axs group switch":"sw",
+ "axs group test":"t",
+ "axs network test":"t",
+ "axs network ip":"i",
  "axs proxy user":"u",
  "axs proxy system":"sy",
  "axs proxy session":"se",
@@ -56,29 +57,29 @@ want={
 }
 got={}
 for line in rows:
-    if len(line)<30 or line[22:24]!="  ":
+    if len(line)<32 or line[24:26]!="  ":
         sys.stderr.write(line+"\n")
         raise SystemExit(1)
-    name=line[:22].rstrip()
-    alias=line[24:30].rstrip()
+    name=line[:24].rstrip()
+    alias=line[26:32].rstrip()
     got[name]=alias
 missing=[k for k,v in want.items() if got.get(k)!=v]
 if missing:
     sys.stderr.write(str(missing)+"\n"+str(got))
     raise SystemExit(1)
 '
-assert_code 'alias node groups' 2 n g
+assert_code 'alias group show' 2 g s
 grep -q '服务：未运行' "$RUN/err" || fail "alias groups: $(cat "$RUN/err")"
-assert_code 'alias node list' 2 n l
+assert_code 'alias node show' 2 n s
 grep -q '服务：未运行' "$RUN/err" || fail "alias list: $(cat "$RUN/err")"
-assert_code 'alias node test' 2 n t
-grep -q '服务：未运行' "$RUN/err" || fail "alias node test: $(cat "$RUN/err")"
-assert_code 'alias node switch' 1 n s
+assert_code 'alias group test' 2 g t
+grep -q '服务：未运行' "$RUN/err" || fail "alias group test: $(cat "$RUN/err")"
+assert_code 'alias group switch' 1 g sw
 test "$(grep -c . "$RUN/err")" -eq 1 || fail "alias switch: $(cat "$RUN/err")"
 grep -q '用法' "$RUN/err" || fail "alias switch usage: $(cat "$RUN/err")"
-assert_code 'alias node bare' 1 n
-test "$(grep -c . "$RUN/err")" -eq 7 || fail "bare node: $(cat "$RUN/err")"
-assert_code 'prefix node list' 2 node li
+assert_code 'alias node bare' 2 n
+grep -q '服务：未运行' "$RUN/err" || fail "bare node: $(cat "$RUN/err")"
+assert_code 'prefix node show' 2 node sh
 grep -q '服务：未运行' "$RUN/err" || fail "prefix list: $(cat "$RUN/err")"
 set +e
 env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u all_proxy -u ALL_PROXY \
@@ -99,46 +100,46 @@ assert_code 'alias proxy session' 1 p se status
 grep -q 'session: persist' "$RUN/out" || fail "alias proxy session: $(cat "$RUN/out")"
 now=$(date +%s)
 printf 'upload=1\nexpire=%s\n' "$((now + 40 * 86400))" >"$RUN/userinfo"
-assert_code 'alias sub get' 0 su g
-grep -q '上传' "$RUN/out" || fail "alias sub get: $(cat "$RUN/out")"
-assert_code 'alias sub refresh' 3 su r
-grep -q '没有订阅' "$RUN/err" || fail "alias sub refresh: $(cat "$RUN/err")"
-assert_code 'alias sub clean' 1 su c
-grep -q '需要 --yes' "$RUN/err" || fail "alias sub clean: $(cat "$RUN/err")"
-assert_code 'alias rule list' 2 r l
-grep -q '服务：未运行' "$RUN/err" || fail "alias rule list: $(cat "$RUN/err")"
+assert_code 'alias subscription show' 0 su s
+grep -q '上传' "$RUN/out" || fail "alias subscription show: $(cat "$RUN/out")"
+assert_code 'alias subscription refresh' 3 su r
+grep -q '没有订阅' "$RUN/err" || fail "alias subscription refresh: $(cat "$RUN/err")"
+assert_code 'alias subscription clean' 1 su c
+grep -q '需要 --yes' "$RUN/err" || fail "alias subscription clean: $(cat "$RUN/err")"
+assert_code 'alias rule show' 2 r s
+grep -q '服务：未运行' "$RUN/err" || fail "alias rule show: $(cat "$RUN/err")"
 assert_code 'alias rule add' 1 r a
 test "$(grep -c . "$RUN/err")" -eq 1 || fail "alias rule add: $(cat "$RUN/err")"
 assert_code 'alias rule del' 0 r d example.com
 grep -q '已写入，启动时生效' "$RUN/out" || fail "alias rule del: $(cat "$RUN/out")"
-assert_code 'alias net test' 3 net t
-grep -q '禁止外网' "$RUN/err" || fail "alias net test: $(cat "$RUN/err")"
-assert_code 'prefix net ip' 2 ne i
-grep -q '入站：不通' "$RUN/err" || fail "prefix net ip: $(cat "$RUN/err")"
-assert_code 'alias service enable' 3 service e
+assert_code 'alias network test' 3 network t
+grep -q '禁止外网' "$RUN/err" || fail "alias network test: $(cat "$RUN/err")"
+assert_code 'prefix network ip' 2 ne i
+grep -q '入站：不通' "$RUN/err" || fail "prefix network ip: $(cat "$RUN/err")"
+assert_code 'alias service enable' 3 service en
 grep -q '没有 systemd' "$RUN/err" || fail "alias service enable: $(cat "$RUN/err")"
-assert_code 'alias service disable' 3 se d
+assert_code 'alias service disable' 3 se di
 grep -q '没有 systemd' "$RUN/err" || fail "prefix service disable: $(cat "$RUN/err")"
 assert_code 'prefix status' 2 stat
 grep -q '未运行（手动）' "$RUN/out" || fail "prefix status: $(cat "$RUN/out")"
 mark_up
-assert_code 'prefix restart' 3 re
+assert_code 'prefix restart' 3 service re
 grep -q '没有配置' "$RUN/err" || fail "prefix restart: $(cat "$RUN/err")"
 test ! -f "$RUN/mihomo.pid" || fail "prefix restart left the process up"
-assert_code 'prefix ambiguous' 1 st
-grep -q '候选：start stop status' "$RUN/err" || fail "ambiguous: $(cat "$RUN/err")"
+assert_code 'prefix ambiguous' 1 service st
+grep -q '候选：status start stop' "$RUN/err" || fail "ambiguous: $(cat "$RUN/err")"
 test "$(grep -c . "$RUN/err")" -eq 1 || fail "ambiguous lines: $(cat "$RUN/err")"
-assert_code 'alias sta' 3 sta
+assert_code 'alias sta' 3 service sta
 grep -q '没有配置' "$RUN/err" || fail "sta: $(cat "$RUN/err")"
-assert_code 'alias he' 2 he
+assert_code 'alias he' 2 service he
 grep -q '未运行' "$RUN/err" || fail "he: $(cat "$RUN/err")"
 assert_code 'retired x' 1 x
-test "$(grep -c . "$RUN/err")" -eq 7 || fail "retired x: $(cat "$RUN/err")"
+test "$(grep -c . "$RUN/err")" -eq 8 || fail "retired x: $(cat "$RUN/err")"
 assert_code 'retired o' 1 o
 assert_code 'retired k' 1 k
 assert_code 'retired u' 1 u
 assert_code 'alias unknown' 1 zz
-test "$(grep -c . "$RUN/err")" -eq 7 || fail "unknown lines: $(cat "$RUN/err")"
+test "$(grep -c . "$RUN/err")" -eq 8 || fail "unknown lines: $(cat "$RUN/err")"
 if grep -q '候选：' "$RUN/err"; then
     fail "unknown listed candidates: $(cat "$RUN/err")"
 fi
@@ -146,12 +147,12 @@ fi
 export AXS_COLOR=always
 now=$(date +%s)
 printf 'upload=1\nexpire=%s\n' "$((now + 40 * 86400))" >"$RUN/userinfo"
-assert_code 'sub color' 0 sub get
+assert_code 'sub color' 0 subscription show
 grep -F -q "${ESC}[90m上传:" "$RUN/out" || fail "sub label: $(cat "$RUN/out")"
 grep -F -q "${ESC}[1;32m" "$RUN/out" || fail "sub days: $(cat "$RUN/out")"
 grep -q '1.0B' "$RUN/out" || fail "sub bytes: $(cat "$RUN/out")"
 export AXS_COLOR=never
-assert_code 'sub plain' 0 sub get
+assert_code 'sub plain' 0 subscription show
 if grep -q "$ESC" "$RUN/out"; then
     fail 'sub never colored'
 fi
@@ -219,11 +220,11 @@ grep -q '^unset http_proxy' "$RUN/out" || fail 'proxy user off unset'
 assert_code 'proxy user bogus' 1 proxy user bogus
 
 new_run
-assert_code 'net ip down' 2 net ip
+assert_code 'network ip down' 2 network ip
 open_mixed 7897
-assert_code 'net ip forbid' 3 net ip
-[ ! -s "$RUN/out" ] || fail "net ip forbid stdout: $(cat "$RUN/out")"
-grep -q '出口查询失败' "$RUN/err" || fail "net ip forbid stderr"
+assert_code 'network ip forbid' 3 network ip
+[ ! -s "$RUN/out" ] || fail "network ip forbid stdout: $(cat "$RUN/out")"
+grep -q '出口查询失败' "$RUN/err" || fail "network ip forbid stderr"
 proxy_status_on || fail 'proxy user status on'
 grep -q 'user: on' "$RUN/out" || fail "user status on: $(cat "$RUN/out")"
 if proxy_status_off; then fail 'proxy user status off code'; fi

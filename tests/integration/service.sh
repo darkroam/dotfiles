@@ -49,15 +49,15 @@ grep -q 'node    1 小时前' "$RUN/out" || fail "cache node: $(cat "$RUN/out")"
 
 new_run
 export AXS_SYSTEMD=1 AXS_SYSTEMCTL="$ROOT/tests/fixtures/fake-systemctl"
-assert_code 'systemd start' 0 start
+assert_code 'systemd start' 0 service start
 grep -q 'start axs.service' "$RUN/systemctl.log" || fail "start log: $(cat "$RUN/systemctl.log" 2>/dev/null)"
-assert_code 'systemd stop' 0 stop
+assert_code 'systemd stop' 0 service stop
 grep -q 'stop axs.service' "$RUN/systemctl.log" || fail "stop log: $(cat "$RUN/systemctl.log")"
-assert_code 'systemd restart' 0 restart
+assert_code 'systemd restart' 0 service restart
 grep -q 'restart axs.service' "$RUN/systemctl.log" || fail "restart log: $(cat "$RUN/systemctl.log")"
 : >"$RUN/systemctl.log"
 printf '%s\n' active >"$RUN/systemctl.active"
-assert_code 'systemd ensure active' 0 ensure
+assert_code 'systemd ensure active' 0 service ensure
 if grep -q 'start axs.service' "$RUN/systemctl.log"; then
     fail "active ensure started: $(cat "$RUN/systemctl.log")"
 fi
@@ -173,7 +173,7 @@ new_run
 export AXS_MIXED_PORT=18080
 printf '%s\n' 'placeholder: true' >"$RUN/config.yaml"
 open_mixed 18080
-assert_code 'start busy' 2 start
+assert_code 'start busy' 2 service start
 grep -q '端口已被占用' "$RUN/err" || fail 'busy text'
 if [ -f "$RUN/mihomo.pid" ]; then
     fail 'start launched while port was busy'
@@ -182,12 +182,12 @@ fi
 new_run
 export AXS_MIHOMO="$ROOT/tests/fixtures/fake-mihomo" AXS_MIXED_PORT=18080
 printf '%s\n' 'placeholder: true' >"$RUN/config.yaml"
-assert_code 'start' 0 start
+assert_code 'start' 0 service start
 cat "$RUN/mihomo.pid" >>"$PIDS"
-assert_code 'start again' 0 start
+assert_code 'start again' 0 service start
 kill "$(cat "$RUN/mihomo.pid")" 2>/dev/null || true
-assert_code 'stop' 0 stop
-assert_code 'stop again' 0 stop
+assert_code 'stop' 0 service stop
+assert_code 'stop again' 0 service stop
 
 new_run
 printf '%s\n' 'DOMAIN kept.example DIRECT' >"$RUN/rules.list"
@@ -241,7 +241,7 @@ new_run
 printf '%s\n' "$CANARY" >"$RUN/subscription.url"
 chmod 600 "$RUN/subscription.url"
 export AXS_FETCH="$ROOT/tests/fixtures/fake-fetch" FIXTURE_SUB="$FIX"
-assert_code 'refresh down' 0 sub refresh
+assert_code 'refresh down' 0 subscription refresh
 no_secret_text 'refresh down'
 if grep -F "$CANARY" "$RUN/config.yaml" >/dev/null 2>&1; then
     fail 'canary stored in config'
@@ -249,19 +249,19 @@ fi
 test -f "$RUN/config.yaml.bak" && fail 'bak created when there was no previous config'
 mode=$(python3 -c 'import sys,yaml; print(yaml.safe_load(open(sys.argv[1], encoding="utf-8"))["mode"])' "$RUN/config.yaml")
 test "$mode" = rule || fail "mode $mode"
-assert_code 'sub get' 0 sub get
+assert_code 'subscription show' 0 subscription show
 if grep -q '未知' "$RUN/out"; then
     fail 'userinfo missing'
 fi
 grep -q '剩余' "$RUN/out" || fail 'remaining life not shown'
-no_secret_text 'sub get'
+no_secret_text 'subscription show'
 
 new_run
 printf '%s\n' "$CANARY" >"$RUN/subscription.url"
 printf '%s\n' 'SENTINEL-OLD' >"$RUN/config.yaml"
 printf '%s\n' 'SENTINEL-SUB' >"$RUN/subscription.yaml"
 export AXS_FETCH="$ROOT/tests/fixtures/fake-fetch-html" FIXTURE_SUB="$FIX"
-assert_code 'refresh reject' 3 sub refresh
+assert_code 'refresh reject' 3 subscription refresh
 test "$(cat "$RUN/config.yaml")" = "SENTINEL-OLD" || fail 'bad fetch replaced config'
 test "$(cat "$RUN/subscription.yaml")" = "SENTINEL-SUB" || fail 'bad fetch replaced body'
 no_secret_text 'refresh reject'
@@ -269,25 +269,25 @@ no_secret_text 'refresh reject'
 new_run
 printf '%s\n' "$CANARY" >"$RUN/subscription.url"
 export AXS_FETCH="$ROOT/tests/fixtures/fake-fetch-fail"
-assert_code 'refresh transport' 3 sub refresh
+assert_code 'refresh transport' 3 subscription refresh
 test ! -f "$RUN/config.yaml" || fail 'transport failure left a config'
 
 new_run
 printf '%s\n' 'https://example.invalid/link/\?clash\=1' >"$RUN/subscription.url"
-assert_code 'refresh backslash' 3 sub refresh
+assert_code 'refresh backslash' 3 subscription refresh
 grep -q -F '链接含转义字符（如 \?），请去掉反斜杠' "$RUN/err" || fail "backslash text: $(cat "$RUN/err")"
 test ! -f "$RUN/config.yaml" || fail 'backslash left a config'
 
 new_run
 printf '%s\n' 'https://example.invalid/has space' >"$RUN/subscription.url"
-assert_code 'refresh space' 3 sub refresh
+assert_code 'refresh space' 3 subscription refresh
 grep -q -F '链接含转义字符（如 \?），请去掉反斜杠' "$RUN/err" || fail "space text: $(cat "$RUN/err")"
 test ! -f "$RUN/config.yaml" || fail 'space left a config'
 
 new_run
 printf '%s\n' 'https://example.invalid/sub' >"$RUN/subscription.url"
 export AXS_FETCH="$ROOT/tests/fixtures/fake-fetch-empty"
-assert_code 'refresh empty' 3 sub refresh
+assert_code 'refresh empty' 3 subscription refresh
 grep -q -F '订阅返回空内容/非 YAML（HTTP 200, text/html），请检查链接' "$RUN/err" || fail "empty text: $(cat "$RUN/err")"
 test ! -f "$RUN/config.yaml" || fail 'empty left a config'
 
@@ -296,7 +296,7 @@ printf '%s\n' 'https://example.invalid/sub' >"$RUN/subscription.url"
 printf '%s\n' 'SENTINEL-OLD' >"$RUN/config.yaml"
 printf '%s\n' 'OLD-BAK' >"$RUN/config.yaml.bak"
 export AXS_FETCH="$ROOT/tests/fixtures/fake-fetch-html"
-assert_code 'refresh html' 3 sub refresh
+assert_code 'refresh html' 3 subscription refresh
 grep -q -F '订阅返回空内容/非 YAML（HTTP 200, text/html），请检查链接' "$RUN/err" || fail "html text: $(cat "$RUN/err")"
 test "$(cat "$RUN/config.yaml")" = "SENTINEL-OLD" || fail 'html replaced config'
 test "$(cat "$RUN/config.yaml.bak")" = "OLD-BAK" || fail 'precheck rewrote bak'
@@ -310,7 +310,7 @@ printf '%s\n' 'SENTINEL-OLD' >"$RUN/config.yaml"
 printf '%s\n' 'SENTINEL-SUB' >"$RUN/subscription.yaml"
 printf '%s\n' 'DOMAIN kept.example DIRECT' >"$RUN/rules.list"
 export AXS_FETCH="$ROOT/tests/fixtures/fake-fetch" FIXTURE_SUB="$FIX"
-assert_code 'reload rollback' 3 sub refresh
+assert_code 'reload rollback' 3 subscription refresh
 test "$(cat "$RUN/config.yaml")" = "SENTINEL-OLD" || fail 'reload failure kept new config'
 test "$(cat "$RUN/subscription.yaml")" = "SENTINEL-SUB" || fail 'reload failure kept new body'
 test "$(cat "$RUN/rules.list")" = "DOMAIN kept.example DIRECT" || fail 'reload failure changed rules'
@@ -346,7 +346,7 @@ if flock -n "$RUN/refresh.lock" -c true; then
 fi
 printf '%s\n' "$CANARY" >"$RUN/subscription.url"
 export AXS_FETCH="$ROOT/tests/fixtures/fake-fetch" FIXTURE_SUB="$FIX"
-assert_code 'lock busy' 4 sub refresh
+assert_code 'lock busy' 4 subscription refresh
 grep -q '锁' "$RUN/err" || fail 'lock text'
 
 
@@ -377,7 +377,7 @@ prepare_health 18083
 assert_code 'status api down' 3 status
 
 new_run
-assert_code 'health down' 2 health
+assert_code 'health down' 2 service health
 test ! -s "$RUN/out" || fail "health down stdout: $(cat "$RUN/out")"
 grep -qx '未运行' "$RUN/err" || fail "health down: $(cat "$RUN/err")"
 
