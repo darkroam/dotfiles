@@ -261,6 +261,32 @@ check() {
     fi
     python3 "$LAB" poke "$PROXY" "$VAR"
     say "c via-direct"
+    if ! "$AXS" rule add node example.com spare >"$VAR/out" 2>"$VAR/err"; then
+        say "FAIL node add"
+        cat "$VAR/err" >&2
+        return 1
+    fi
+    shown=$("$AXS" rule show 2>"$VAR/err") || {
+        say "FAIL node show"
+        cat "$VAR/err" >&2
+        return 1
+    }
+    hit=$(printf '%s\n' "$shown" | grep -E '^[0-9]+ local +DOMAIN,example.com,spare$') || {
+        say "FAIL node target"
+        printf '%s\n' "$shown" >&2
+        return 1
+    }
+    say "node-target $hit"
+    if ! "$AXS" rule del example.com >"$VAR/out" 2>"$VAR/err"; then
+        say "FAIL node del"
+        cat "$VAR/err" >&2
+        return 1
+    fi
+    if "$AXS" rule show | grep -q example.com; then
+        say "FAIL node del left example.com"
+        return 1
+    fi
+    say "node-target cleared"
     rm -f "$VAR/tripwire"
     [ "$(has_rule "$AXS_RUN/config.yaml" "$MARK")" = "no" ] || { say "FAIL marker already present"; return 1; }
     : >"$VAR/marker"

@@ -15,19 +15,19 @@ axs service enable        en      打开开机自启
 axs service disable       di      关闭开机自启
 
 订阅（subscription / su）
-axs subscription show     s       查看订阅剩余
+axs subscription show     s       流量与到期
 axs subscription refresh  r       拉取并重载
 axs subscription clean    c       删除订阅缓存
 
 规则（rule / r）
-axs rule show             s       运行时规则；--local 只看本地
+axs rule show             s       按顺序编号；来源 prepend/local/provider；--local 只看本地
 axs rule add via          v       域名 + 组
 axs rule add direct       d       域名
 axs rule add node         n       域名 + 节点
 axs rule del              d       删除域名规则
 
 节点（node / n）
-axs node show             s       --full|--select 树（--depth），--flat 表
+axs node show             s       --full 树；--select 规则入口/成员引用，每组一次，自动组为终端；--flat；--depth
 
 组（group / g）
 axs group show            s       策略组与当前节点

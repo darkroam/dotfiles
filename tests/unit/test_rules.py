@@ -175,13 +175,13 @@ def check_node(run):
     if rule_line("node", "example.com", "DIRECT") != "DOMAIN example.com DIRECT":
         fail("node builtin line")
     code, _out, err = invoke(rule_line, "node", "example.com", "bad name")
-    if code != 3 or err != "节点名不能含空格或逗号\n":
+    if code != 1 or err != "节点名不能含空白或逗号\n":
         fail(f"node space {code} {err!r}")
     code, _out, err = invoke(rule_line, "node", "example.com", "a,b")
-    if code != 3 or err != "节点名不能含空格或逗号\n":
+    if code != 1 or err != "节点名不能含空白或逗号\n":
         fail(f"node comma {code} {err!r}")
     code, _out, err = invoke(rule_line, "node", "example.com", "bad\tname")
-    if code != 3 or err != "节点名不能含空格或逗号\n":
+    if code != 1 or err != "节点名不能含空白或逗号\n":
         fail(f"node tab {code} {err!r}")
     code, _out, err = invoke(rule_line, "node", "example.com", "")
     if code != 1 or err != "用法错误\n":
@@ -225,7 +225,7 @@ def check_node(run):
         fail("node down did not write")
     before = (run / "rules.list").read_text(encoding="utf-8")
     code, _out, err = invoke(mutate, run, "add", "0", "", ["node", "example.com", "bad name"])
-    if code != 3 or err != "节点名不能含空格或逗号\n" or (run / "rules.list").read_text(encoding="utf-8") != before:
+    if code != 1 or err != "节点名不能含空白或逗号\n" or (run / "rules.list").read_text(encoding="utf-8") != before:
         fail(f"node space kept {code} {err!r}")
     code, out, err = invoke(cmd_add, run, ["n", ".alias.example", "leaf"])
     if code or "DOMAIN-SUFFIX alias.example leaf" not in (run / "rules.list").read_text(encoding="utf-8"):
