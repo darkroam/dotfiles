@@ -1,0 +1,6 @@
+exit: 0
+--- stdout
+当前出口：主代理 → 自动（自动，url-test）→ 甲
+规则入口
+G3 自动 [URLTest] 自动·手动切换会被覆盖
+--- stderr
