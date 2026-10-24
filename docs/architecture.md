@@ -1,6 +1,6 @@
 # 访问子系统 · 文件结构
 
-本文是文件怎么摆的唯一说明。行为在 [design.md](design.md)。命令表在 `axs help`。
+本文是文件怎么摆的唯一说明。行为在 [design.md](design.md)。术语与规则见 [design.md](design.md#模型与术语)。命令表在 `axs help`。
 
 ## 形态
 

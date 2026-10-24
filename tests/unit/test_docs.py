@@ -104,6 +104,23 @@ def main():
         fail("tree file row")
     if "阶段 2 记录" in arch or "步 13" in arch:
         fail("process narrative")
+    heads = titles(design)
+    if "模型与术语" not in heads or heads.index("模型与术语") > heads.index("解析"):
+        fail("model chapter")
+    for name in ("术语表", "规则", "选择与出口", "视图与编号", "运维"):
+        if name not in heads:
+            fail("missing section " + name)
+    if design.count("池") != 1 or "load_proxies" not in design or "不另造 pool" not in design:
+        fail("pool")
+    if design.count("悬空名不是成员") != 1:
+        fail("dangling")
+    ref = "design.md#模型与术语"
+    for name in ("README.md", "constraints.md", "roadmap.md", "architecture.md"):
+        other = (DOCS / name).read_text(encoding="utf-8")
+        if ref not in other:
+            fail(name + " missing the term link")
+        if "术语表" in other or "悬空名不是成员" in other:
+            fail(name + " redefines terms")
     print("docs")
     return 0
 

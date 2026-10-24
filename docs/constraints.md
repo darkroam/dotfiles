@@ -1,6 +1,6 @@
 # 访问子系统 · 约束
 
-行为、开关和 health 的口径见 [design.md](design.md)。本文只写边界。
+行为、开关和 health 的口径见 [design.md](design.md)。术语与规则见 [design.md](design.md#模型与术语)。本文只写边界。
 
 ## 隐私
 

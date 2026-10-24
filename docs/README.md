@@ -36,4 +36,4 @@ sh tests/run.sh
 
 ## 契约
 
-行为见 [design.md](design.md)。约束见 [constraints.md](constraints.md)。文件怎么摆见 [architecture.md](architecture.md)。还没授权的事见 [roadmap.md](roadmap.md)。健康检查的口径见 [design.md](design.md#健康)。
+行为见 [design.md](design.md)。术语与规则见 [design.md](design.md#模型与术语)。约束见 [constraints.md](constraints.md)。文件怎么摆见 [architecture.md](architecture.md)。还没授权的事见 [roadmap.md](roadmap.md)。健康检查的口径见 [design.md](design.md#健康)。
