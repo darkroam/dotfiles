@@ -54,13 +54,46 @@
 
 ### 规则与匹配顺序
 
-本子系统写入本地规则时用 `DOMAIN-SUFFIX`。运行时列表里还有 `IP-CIDR`、`RULE-SET`、`MATCH`。`IP-CIDR6` 与控制器返回的 `IPCIDR` 算同一类。
+#### 语法与类型
 
-匹配从合并后的列表由上到下，首个命中生效。规则目标可以是策略组或内置策略。是策略组时，它就是规则目标组。
+本地添加只写 `DOMAIN` 或 `DOMAIN-SUFFIX`（`rule_line`：以 `.` 开头的是后缀）。内置网段是 `IP-CIDR` 和 `IP-CIDR6`（`CIDRS`）。控制器类型由 `rule_word` 转成这些词：`DOMAIN`、`DOMAIN-SUFFIX`、`DOMAIN-KEYWORD`、`DOMAIN-REGEX`、`DOMAIN-WILDCARD`、`GEOSITE`、`GEOIP`、`SRC-GEOIP`、`IP-ASN`、`SRC-IP-ASN`、`IP-CIDR`、`SRC-IP-CIDR`、`IP-SUFFIX`、`SRC-IP-SUFFIX`、`SRC-PORT`、`DST-PORT`、`IN-PORT`、`DSCP`、`IN-USER`、`IN-NAME`、`IN-TYPE`、`PROCESS-NAME`、`PROCESS-PATH`、`PROCESS-NAME-REGEX`、`PROCESS-PATH-REGEX`、`PROCESS-NAME-WILDCARD`、`PROCESS-PATH-WILDCARD`、`RULE-SET`、`NETWORK`、`UID`、`SUB-RULE`、`MATCH`、`AND`、`OR`、`NOT`。不在其中的按原样大写。`MATCH` 可以没有匹配对象。比较时 `IP-CIDR6` 与控制器的 `IPCIDR` 都收成 `IP-CIDR`（`_rule_key`）。
 
-来源值：`prepend` 是内置网段和覆盖文件里的前置规则，`local` 是本地规则文件，`provider` 是其余，主要来自订阅。`provider` 不是规则提供者。合并顺序是 `prepend`，然后 `local`，然后订阅。
+#### 匹配顺序
 
-`rule list` 读控制器 `GET /rules`。服务未运行时改读已合并配置。`--local` 只读本地规则文件。规则决定规则目标组。切换只改组内的当前选择。
+`build_file` 的顺序是 `CIDRS`、覆盖文件里的 `PREPEND`、`rules.list`、订阅正文的 `rules`。`dedupe` 保留先出现的一条。覆盖文件把模式设为 `rule`。按这个顺序从上到下，首个命中生效，命中即停。
+
+#### 规则目标
+
+规则目标是策略组或内置策略。是策略组时，它就是规则目标组。本地 `direct` 写成 `DIRECT`。`REJECT` 只来自订阅或控制器。节点能否作为规则目标尚未定。服务在跑时，`via` 必须是已有策略组（`group_names`），否则失败；未跑时不查。对不上策略组、也不是内置策略的名字不是成员；悬空名只出现在成员名单里，不指规则目标。
+
+#### 来源与合并
+
+来源 `prepend` 是 `CIDRS` 加上 `PREPEND`。`CIDRS` 排在前面，是这段的子集。`local` 是 `rules.list`。两处都对不上的记为 `provider`（`rule_table`）。这个 `provider` 不是规则提供者。
+
+#### 运行时读取
+
+服务在跑时，`rule list` 读控制器 `GET /rules`（`load_rules`）。未跑则读 `config.yaml` 里的 `rules`，没有这份列表就是未运行。控制器失败不改去读文件。`--local` 只输出 `rules.list` 原文。
+
+#### 与切换的关系
+
+规则决定规则目标组。切换只改该组的当前选择，不改规则行。规则目标是内置策略时，切换不影响这条规则的命中，也不改变它的出口。
+
+#### 规则集
+
+`RULE-SET` 点名一个规则集。规则集由订阅里的规则提供者给出。`merge_dict` 不改规则提供者，刷新后条数随订阅变，这里不写死。本程序不解释 `behavior` 和格式；订阅里的 `domain`、`ipcidr`、`mrs` 原样留给内核。
+
+#### 增删
+
+`add` 和 `del` 只改 `rules.list`（`rules_add`、`rules_del`）。合并后位于来源 `prepend` 之后、订阅规则之前。不改订阅，也不改规则集。同一匹配对象再添加，替换本地旧行。服务未跑时只写入，并说明启动时生效。
+
+`CIDRS` 的地址规则带 `no-resolve`：不为命中它去解析域名。`rule_parts` 只留类型、匹配对象和规则目标，这个附加字段不参与来源比较。
+
+| 规则 | 规则目标 | 切换 |
+| --- | --- | --- |
+| `DOMAIN-SUFFIX,example.com,某策略组` | 规则目标组 | 影响该组的当前选择 |
+| `IP-CIDR,*,DIRECT,no-resolve` | 内置策略 | 不影响 |
+| `RULE-SET,某规则集,某策略组` | 规则目标组 | 影响该组的当前选择 |
+| `MATCH,某策略组` | 规则目标组 | 影响该组的当前选择 |
 
 ### 选择与出口
 

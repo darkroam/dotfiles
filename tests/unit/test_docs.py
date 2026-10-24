@@ -121,6 +121,15 @@ def main():
         fail("pool")
     if design.count("悬空名不是成员") != 1:
         fail("dangling")
+    start = design.split("### 规则与匹配顺序", 1)
+    if len(start) != 2:
+        fail("rules section")
+    body = start[1].split("### 选择与出口", 1)[0]
+    if len(body.splitlines()) > 80:
+        fail("rules section too long")
+    for phrase in ("首个命中", "no-resolve", "rules.list", "behavior", "mrs", "DOMAIN-SUFFIX,example.com"):
+        if phrase not in body:
+            fail("rules section missing " + phrase)
     ref = "design.md#模型与术语"
     for name in ("README.md", "constraints.md", "roadmap.md", "architecture.md"):
         other = (DOCS / name).read_text(encoding="utf-8")
