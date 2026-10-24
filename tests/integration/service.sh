@@ -381,3 +381,20 @@ assert_code 'health down' 2 service health
 test ! -s "$RUN/out" || fail "health down stdout: $(cat "$RUN/out")"
 grep -qx '未运行' "$RUN/err" || fail "health down: $(cat "$RUN/err")"
 
+
+new_run
+mark_up
+export AXS_API="127.0.0.1:18081"
+arm_api PROXY 204 0
+python3 -c 'import json,sys; json.dump({"proxies":{"PROXY":{"type":"Selector"},"leaf":{"type":"Shadowsocks"}}}, open(sys.argv[1],"w",encoding="utf-8"))' "$RUN/fake/proxies.json"
+printf '%s\n' 'DOMAIN kept.example DIRECT' >"$RUN/rules.list"
+assert_code 'node is group' 3 rule add node leaf.example PROXY
+grep -qx '不是节点' "$RUN/err" || fail "node group: $(cat "$RUN/err")"
+test "$(cat "$RUN/rules.list")" = "DOMAIN kept.example DIRECT" || fail 'node group wrote'
+assert_code 'node missing' 3 rule add node leaf.example gone
+grep -qx '节点不存在' "$RUN/err" || fail "node missing: $(cat "$RUN/err")"
+test "$(cat "$RUN/rules.list")" = "DOMAIN kept.example DIRECT" || fail 'node missing wrote'
+cp "$FIX" "$RUN/subscription.yaml"
+python3 "$ROOT/tests/support/prep.py" "$ROOT" "$RUN" 18080 "$AXS_API"
+assert_code 'node add' 0 rule add n .leaf.example leaf
+grep -q 'DOMAIN-SUFFIX leaf.example leaf' "$RUN/rules.list" || fail 'node rule missing'

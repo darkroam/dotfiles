@@ -42,25 +42,23 @@ def _die(message):
 
 
 def rule_line(kind, domain, group):
-    if kind not in ("via", "direct"):
+    if kind not in ("via", "direct", "node"):
         _fail("用法错误")
     if "://" in domain or any(ch in domain for ch in "/?#,* \t"):
         _fail("用法错误")
-    if domain.startswith("."):
-        host = domain.lstrip(".")
-        form = "DOMAIN-SUFFIX"
-    else:
-        host = domain
-        form = "DOMAIN"
+    host = domain.lstrip(".") if domain.startswith(".") else domain
     if not host or host.startswith("-") or ".." in host:
         _fail("用法错误")
+    form = "DOMAIN-SUFFIX" if domain.startswith(".") else "DOMAIN"
     if kind == "direct":
-        policy = "DIRECT"
-    else:
-        if not group or any(ch in group for ch in " ,\t"):
-            _fail("用法错误")
-        policy = group
-    return f"{form} {host} {policy}"
+        return f"{form} {host} DIRECT"
+    if not group:
+        _fail("用法错误")
+    if any(ch in group for ch in " ,\t"):
+        if kind == "node":
+            _exit3("节点名不能含空格或逗号")
+        _fail("用法错误")
+    return f"{form} {host} {group}"
 
 
 def parse_rule(kind, domain, group):
@@ -72,10 +70,8 @@ def rules_add(path, line):
     if len(parts) != 3:
         _fail("用法错误")
     path = Path(path)
-    rows = []
-    if path.is_file():
-        rows = [item for item in path.read_text(encoding="utf-8").splitlines() if item.strip()]
-    rows = [item for item in rows if item.split()[1:2] != [parts[1]]]
+    rows = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
+    rows = [item for item in rows if item.strip() and item.split()[1:2] != [parts[1]]]
     rows.append(line.strip())
     atomic_write(path, "\n".join(rows) + "\n")
 
@@ -134,10 +130,32 @@ def _checked(op, args):
     return "", domain, ""
 
 
+ADD = {"d": "direct", "direct": "direct", "v": "via", "via": "via", "n": "node", "node": "node"}
+
+
+def _leaf(secret_path, api, name):
+    if name in ("DIRECT", "REJECT"):
+        return
+    from axs.mihomo import GROUP_TYPES, load_proxies
+
+    try:
+        item = load_proxies(secret_path, api).get(name)
+    except (SystemExit, OSError):
+        _exit3("控制器失败")
+    if not isinstance(item, dict):
+        _exit3("节点不存在")
+    if item.get("type") in GROUP_TYPES:
+        _exit3("不是节点")
+
+
 def check(run, op, running, api, args):
     _checked(op, args)
-    if running == "1" and op == "add" and args[0] == "via":
-        has_group(Path(run) / SECRET, api, args[2])
+    if running == "1" and op == "add" and len(args) > 2:
+        path = Path(run) / SECRET
+        if args[0] == "via":
+            has_group(path, api, args[2])
+        elif args[0] == "node":
+            _leaf(path, api, args[2])
 
 
 def mutate(run, op, running, api, args):
@@ -220,10 +238,7 @@ def _mutate_live(run, op, args):
     from axs.config import read_ports
     from axs.core import hold_lock, service_up
 
-    running, api = "0", ""
-    if service_up(run):
-        running = "1"
-        _mixed, api = read_ports(run)
+    running, api = ("1", read_ports(run)[1]) if service_up(run) else ("0", "")
     check(run, op, running, api, args)
     hold_lock(run)
     mutate(run, op, running, api, args)
@@ -232,12 +247,9 @@ def _mutate_live(run, op, args):
 def cmd_add(run, args):
     from axs.render import die
 
-    kind = args[0] if args else ""
-    if kind == "via" and len(args) == 3:
-        _mutate_live(run, "add", ["via", args[1], args[2]])
-        return
-    if kind == "direct" and len(args) == 2:
-        _mutate_live(run, "add", ["direct", args[1]])
+    kind = ADD.get(args[0]) if args else None
+    if (kind == "direct" and len(args) == 2) or (kind in ("via", "node") and len(args) == 3):
+        _mutate_live(run, "add", [kind, *args[1:]])
         return
     die(USAGE, "用法错误")
 

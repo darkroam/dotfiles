@@ -93,7 +93,7 @@ run/                         运行时。不入库
 | `lib/axs/mihomo.py` | 控制器 HTTP，规则类型词和来源表。不是内核二进制 | 300 行 |
 | `lib/axs/service.py` | 启停、ensure、health、清理、status | 400 行 |
 | `lib/axs/subscription.py` | 拉取、校验、合并、流量与到期 | 400 行 |
-| `lib/axs/rules.py` | 规则增删、安装回滚、list 入口 | 250 行 |
+| `lib/axs/rules.py` | 规则增删、安装回滚、list 入口 | 270 行 |
 | `lib/axs/nodes.py` | 组、列表、延迟、切换 | 400 行 |
 | `lib/axs/tree.py` | `node list` 的树，以及 `node members` 表。编号仍问 nodes | 250 行 |
 | `lib/axs/net.py` | 连通、出口、入站是否打开 | 250 行 |

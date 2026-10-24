@@ -250,5 +250,27 @@
     "files": {
       "run/systemctl.active": "active\n"
     }
+  },
+  {
+    "name": "rule-add-node--ok.txt",
+    "argv": [
+      "rule",
+      "add",
+      "node",
+      "leaf.example",
+      "leaf"
+    ]
+  },
+  {
+    "name": "rule-show--node.txt",
+    "argv": [
+      "rule",
+      "show"
+    ],
+    "up": true,
+    "files": {
+      "run/rules.list": "DOMAIN leaf.example leaf\n",
+      "run/fake/rules.json": "{\"rules\": [{\"type\": \"Domain\", \"payload\": \"leaf.example\", \"proxy\": \"leaf\"}, {\"type\": \"Match\", \"payload\": \"\", \"proxy\": \"DIRECT\"}]}"
+    }
   }
 ]
