@@ -1,6 +1,8 @@
 """Rule lines, then the merge-install-reload-rollback chain."""
 
 from axs.codes import DOWN, USAGE, FAIL
+import hashlib
+import re
 import sys
 from pathlib import Path
 
@@ -9,6 +11,8 @@ import yaml
 from axs.config import CONFIG, CONFIG_NEW, OVERRIDE, RULES, SECRET, SUBSCRIPTION
 from axs.core import atomic_write, install_file, restore_snapshot, snapshot
 from axs.subscription import build_file
+
+_RID = re.compile(r"^R[0-9a-f]{6}$")
 
 
 def _fail(message):
@@ -189,7 +193,18 @@ def _kept_lines(path):
     return kept
 
 
-def _show_lines(run, lines, source=None):
+def rule_id(source, line):
+    basis = line
+    if source == "local":
+        from axs.mihomo import rule_parts
+
+        parsed = rule_parts(line)
+        if parsed is not None:
+            basis = parsed[1]
+    return "R" + hashlib.sha256(basis.encode()).hexdigest()[:6]
+
+
+def _classify(run, lines, source=None):
     from axs.mihomo import _rule_key, _sources, rule_parts
 
     prepend, local = (set(), set()) if source else _sources(run)
@@ -207,14 +222,22 @@ def _show_lines(run, lines, source=None):
         else:
             kind = "provider"
         labeled.append((kind, line))
+    return labeled
+
+
+def _show_lines(run, lines, source=None):
+    labeled = _classify(run, lines, source)
     if not labeled:
         return ""
-    width = len(f"R{len(labeled)}")
-    rows = [f"{f'R{index}':>{width}}  {kind:<8}  {line}" for index, (kind, line) in enumerate(labeled, 1)]
+    width = len(str(len(labeled)))
+    rows = [
+        f"{index:>{width}}  {rule_id(kind, line)}  {kind:<8}  {line}"
+        for index, (kind, line) in enumerate(labeled, 1)
+    ]
     return "\n".join(rows) + "\n"
 
 
-def _installed(run):
+def _config_lines(run):
     path = Path(run) / CONFIG
     if not path.is_file():
         return None
@@ -225,7 +248,39 @@ def _installed(run):
     rules = data.get("rules") if isinstance(data, dict) else None
     if not isinstance(rules, list):
         return None
-    return _show_lines(run, [item for item in rules if isinstance(item, str)])
+    return [item for item in rules if isinstance(item, str)]
+
+
+def _installed(run):
+    lines = _config_lines(run)
+    if lines is None:
+        return None
+    return _show_lines(run, lines)
+
+
+def _local_target(run, token, by_id):
+    from axs.mihomo import rule_parts
+    from axs.render import die
+
+    run = Path(run)
+    hits = []
+    config = _config_lines(run)
+    for kind, line in _classify(run, config or []):
+        matched = rule_id(kind, line) == token if by_id else line == token
+        if matched:
+            hits.append((kind, line))
+    for line in _kept_lines(run / RULES):
+        matched = rule_id("local", line) == token if by_id else line == token
+        if matched:
+            hits.append(("local", line))
+    if not hits:
+        die(FAIL, "规则不存在")
+    if any(kind != "local" for kind, _line in hits):
+        die(FAIL, "不是本地规则")
+    parsed = rule_parts(hits[0][1])
+    if not parsed or not parsed[1]:
+        die(FAIL, "规则不存在")
+    return parsed[1]
 
 
 def cmd_list(run, local=False):
@@ -266,4 +321,7 @@ def cmd_del(run, args):
 
     if len(args) != 1:
         die(USAGE, "用法错误")
-    _mutate_live(run, "del", [args[0]])
+    token = args[0]
+    if _RID.fullmatch(token) or "," in token:
+        token = _local_target(run, token, _RID.fullmatch(token) is not None)
+    _mutate_live(run, "del", [token])

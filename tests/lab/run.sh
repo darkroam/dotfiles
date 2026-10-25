@@ -271,7 +271,7 @@ check() {
         cat "$VAR/err" >&2
         return 1
     }
-    hit=$(printf '%s\n' "$shown" | grep -E '^ *R[0-9]+ +local +DOMAIN,example.com,spare$') || {
+    hit=$(printf '%s\n' "$shown" | grep -E '^ *[0-9]+ +R[0-9a-f]{6} +local +DOMAIN,example.com,spare$') || {
         say "FAIL node target"
         printf '%s\n' "$shown" >&2
         return 1

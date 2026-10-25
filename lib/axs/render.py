@@ -144,7 +144,7 @@ SECTIONS = (
         ("axs rule add via", "v", "域名 + 组"),
         ("axs rule add direct", "d", "域名"),
         ("axs rule add node", "n", "域名 + 节点"),
-        ("axs rule del", "d", "删除域名规则"),
+        ("axs rule del", "d", "<域名|RID|规则全文>"),
     ), ()),
     ("节点（node / n）", (
         ("axs node show", "s", "--full 树；--select 规则入口/成员引用，每组一次，自动组为终端；--flat；--depth"),
