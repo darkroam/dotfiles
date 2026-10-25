@@ -12,7 +12,7 @@ LIB = ROOT / "lib" / "axs"
 LAYERS = (
     ("config", "codes"),
     ("core", "render", "mihomo"),
-    ("net", "nodes"),
+    ("net", "nodes", "rulelist"),
     ("subscription", "rules", "proxy"),
     ("tree", "service"),
     ("cli",),

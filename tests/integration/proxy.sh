@@ -112,8 +112,8 @@ assert_code 'alias rule show' 2 r s
 grep -q '服务：未运行' "$RUN/err" || fail "alias rule show: $(cat "$RUN/err")"
 assert_code 'alias rule add' 1 r a
 test "$(grep -c . "$RUN/err")" -eq 1 || fail "alias rule add: $(cat "$RUN/err")"
-assert_code 'alias rule del' 0 r d example.com
-grep -q '已写入，启动时生效' "$RUN/out" || fail "alias rule del: $(cat "$RUN/out")"
+assert_code 'alias rule del' 3 r d example.com
+grep -q '规则不存在' "$RUN/err" || fail "alias rule del: $(cat "$RUN/err")"
 assert_code 'alias network test' 3 network t
 grep -q '禁止外网' "$RUN/err" || fail "alias network test: $(cat "$RUN/err")"
 assert_code 'prefix network ip' 2 ne i

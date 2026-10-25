@@ -310,5 +310,13 @@
       "run/rules.list": "DOMAIN mine.example PROXY\n",
       "run/config.yaml": "rules:\n  - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve\n  - DOMAIN,mine.example,PROXY\n"
     }
+  },
+  {
+    "name": "rule-del--missing.txt",
+    "argv": [
+      "rule",
+      "del",
+      "Rzzzzz"
+    ]
   }
 ]
