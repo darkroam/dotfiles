@@ -58,9 +58,9 @@ def check_groups():
     if "\t" in got:
         fail("tab")
     want = [
-        "1  PROXY   Selector  → a",
-        "2  主代理  Selector  → 甲",
-        "3  空组    URLTest   -",
+        "G1  PROXY   Selector  → a",
+        "G2  主代理  Selector  → 甲",
+        "G3  空组    URLTest   -",
     ]
     if got.splitlines() != want:
         fail("table\n" + got)
@@ -77,7 +77,7 @@ def check_groups():
     many = {f"g{i:02d}": {"type": "Selector", "now": "a"} for i in range(1, 11)}
     many["a"] = {"type": "Shadowsocks"}
     lines = group_table(many).splitlines()
-    if not lines[0].startswith(" 1  g01") or not lines[-1].startswith("10  g10"):
+    if not lines[0].startswith(" G1  g01") or not lines[-1].startswith("G10  g10"):
         fail("wide numbers\n" + lines[0] + "\n" + lines[-1])
     os.environ["AXS_COLOR"] = "always"
     colored = group_table(proxies)

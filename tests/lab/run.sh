@@ -221,7 +221,7 @@ check() {
     say "a kernel-reject"
     up
     groups=$("$AXS" group show)
-    printf '%s\n' "$groups" | grep -E -x '[0-9]+ +PROXY +Selector +→ local' >/dev/null || {
+    printf '%s\n' "$groups" | grep -E -x 'G[0-9]+ +PROXY +Selector +→ local' >/dev/null || {
         say "FAIL groups"
         printf '%s\n' "$groups" >&2
         return 1
@@ -271,7 +271,7 @@ check() {
         cat "$VAR/err" >&2
         return 1
     }
-    hit=$(printf '%s\n' "$shown" | grep -E '^[0-9]+ local +DOMAIN,example.com,spare$') || {
+    hit=$(printf '%s\n' "$shown" | grep -E '^ *R[0-9]+ +local +DOMAIN,example.com,spare$') || {
         say "FAIL node target"
         printf '%s\n' "$shown" >&2
         return 1

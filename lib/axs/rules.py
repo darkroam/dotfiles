@@ -179,9 +179,42 @@ def mutate(run, op, running, api, args):
     _apply_kept(run, api)
 
 
-def _configured(run):
-    from axs.mihomo import rule_parts, rule_table
+def _kept_lines(path):
+    if not path.is_file():
+        return []
+    kept = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        if raw.strip() and not raw.lstrip().startswith("#"):
+            kept.append(raw)
+    return kept
 
+
+def _show_lines(run, lines, source=None):
+    from axs.mihomo import _rule_key, _sources, rule_parts
+
+    prepend, local = (set(), set()) if source else _sources(run)
+    labeled = []
+    for line in lines:
+        if source:
+            labeled.append((source, line))
+            continue
+        parsed = rule_parts(line)
+        key = _rule_key(*parsed) if parsed else None
+        if key in prepend:
+            kind = "prepend"
+        elif key in local:
+            kind = "local"
+        else:
+            kind = "provider"
+        labeled.append((kind, line))
+    if not labeled:
+        return ""
+    width = len(f"R{len(labeled)}")
+    rows = [f"{f'R{index}':>{width}}  {kind:<8}  {line}" for index, (kind, line) in enumerate(labeled, 1)]
+    return "\n".join(rows) + "\n"
+
+
+def _installed(run):
     path = Path(run) / CONFIG
     if not path.is_file():
         return None
@@ -192,43 +225,17 @@ def _configured(run):
     rules = data.get("rules") if isinstance(data, dict) else None
     if not isinstance(rules, list):
         return None
-    triples = [item for item in (rule_parts(line) for line in rules if isinstance(line, str)) if item]
-    return rule_table(run, triples)
-
-
-def _controlled(run):
-    from axs.mihomo import load_rules, rule_table
-    from axs.config import api_address
-
-    api = api_address(run)
-    if not api:
-        _exit3("控制器失败")
-    try:
-        payload = load_rules(Path(run) / SECRET, api)
-    except SystemExit as exc:
-        if getattr(exc, "code", None) != FAIL:
-            _exit3()
-        raise
-    triples = []
-    for rule in payload:
-        if not isinstance(rule, dict):
-            _exit3("控制器失败")
-        triples.append((rule.get("type"), rule.get("payload"), rule.get("proxy")))
-    return rule_table(run, triples)
+    return _show_lines(run, [item for item in rules if isinstance(item, str)])
 
 
 def cmd_list(run, local=False):
+    run = Path(run)
     if local:
-        path = Path(run) / RULES
-        sys.stdout.write(path.read_text(encoding="utf-8") if path.is_file() else "")
+        sys.stdout.write(_show_lines(run, _kept_lines(run / RULES), "local"))
         return
     from axs.render import die
-    from axs.core import service_up
 
-    if service_up(run):
-        sys.stdout.write(_controlled(run))
-        return
-    text = _configured(run)
+    text = _installed(run)
     if text is None:
         die(DOWN, "服务：未运行")
     sys.stdout.write(text)

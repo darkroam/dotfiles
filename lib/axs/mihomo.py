@@ -280,16 +280,3 @@ def _sources(run):
         lines.extend(extra)
     local = (run / RULES).read_text(encoding="utf-8").splitlines() if (run / RULES).is_file() else []
     return _bag(lines), _bag(local)
-
-
-def rule_table(run, triples):
-    prepend, local = _sources(run)
-    rows = []
-    for index, triple in enumerate(triples, 1):
-        got = _rule_key(*triple)
-        source = "prepend" if got in prepend else "local" if got in local else "provider"
-        body = f"{got[0]},{got[2]}" if got[0] == "MATCH" and not got[1] else ",".join(got)
-        rows.append(f"{index} {source:<8} {body}")
-    return ("\n".join(rows) + "\n") if rows else ""
-
-

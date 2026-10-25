@@ -83,7 +83,7 @@ def check_tree():
     for name, number in gnums.items():
         if f"G{number} {name}" not in text:
             fail(f"tree number {name}")
-        if not any(line.split()[0] == str(number) for line in table.splitlines()):
+        if not any(line.split()[0] == f"G{number}" for line in table.splitlines()):
             fail(f"group table {name}\n{table}")
 
 

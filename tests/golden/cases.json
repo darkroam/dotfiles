@@ -141,7 +141,8 @@
     "files": {
       "run/rules.list": "DOMAIN mine.example PROXY\n",
       "run/override.yaml": "prepend-rules:\n  - DOMAIN-SUFFIX,local,DIRECT\n",
-      "run/fake/rules.json": "{\"rules\": [{\"type\": \"IPCIDR\", \"payload\": \"10.0.0.0/8\", \"proxy\": \"DIRECT\"}, {\"type\": \"DomainSuffix\", \"payload\": \"local\", \"proxy\": \"DIRECT\"}, {\"type\": \"Domain\", \"payload\": \"mine.example\", \"proxy\": \"PROXY\"}, {\"type\": \"GeoSite\", \"payload\": \"ads\", \"proxy\": \"REJECT\"}, {\"type\": \"Match\", \"payload\": \"\", \"proxy\": \"PROXY\"}]}"
+      "run/fake/rules.json": "{\"rules\": [{\"type\": \"IPCIDR\", \"payload\": \"10.0.0.0/8\", \"proxy\": \"DIRECT\"}, {\"type\": \"DomainSuffix\", \"payload\": \"local\", \"proxy\": \"DIRECT\"}, {\"type\": \"Domain\", \"payload\": \"mine.example\", \"proxy\": \"PROXY\"}, {\"type\": \"GeoSite\", \"payload\": \"ads\", \"proxy\": \"REJECT\"}, {\"type\": \"Match\", \"payload\": \"\", \"proxy\": \"PROXY\"}]}",
+      "run/config.yaml": "rules:\n  - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve\n  - DOMAIN-SUFFIX,local,DIRECT\n  - DOMAIN,mine.example,PROXY\n  - GEOSITE,ads,REJECT\n  - MATCH,PROXY\n"
     }
   },
   {
@@ -270,7 +271,8 @@
     "up": true,
     "files": {
       "run/rules.list": "DOMAIN leaf.example leaf\n",
-      "run/fake/rules.json": "{\"rules\": [{\"type\": \"Domain\", \"payload\": \"leaf.example\", \"proxy\": \"leaf\"}, {\"type\": \"Match\", \"payload\": \"\", \"proxy\": \"DIRECT\"}]}"
+      "run/fake/rules.json": "{\"rules\": [{\"type\": \"Domain\", \"payload\": \"leaf.example\", \"proxy\": \"leaf\"}, {\"type\": \"Match\", \"payload\": \"\", \"proxy\": \"DIRECT\"}]}",
+      "run/config.yaml": "rules:\n  - DOMAIN,leaf.example,leaf\n  - MATCH,DIRECT\n"
     }
   }
 ]

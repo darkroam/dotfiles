@@ -59,7 +59,7 @@ if grep -F 'test-secret-value' "$RUN/fake/log" "$RUN/out" "$RUN/err" >/dev/null 
     fail 'secret reached the log or output'
 fi
 assert_code 'groups' 0 group show
-test "$(cat "$RUN/out")" = "1  PROXY  Selector  → a" || fail "groups columns: $(cat "$RUN/out")"
+test "$(cat "$RUN/out")" = "G1  PROXY  Selector  → a" || fail "groups columns: $(cat "$RUN/out")"
 
 new_run
 mark_up
@@ -129,9 +129,9 @@ list_want=$(printf '%s\n' \
 test "$(cat "$RUN/out")" = "$list_want" || fail "list columns: $(cat "$RUN/out")"
 assert_code 'groups columns' 0 group show
 groups_want=$(printf '%s\n' \
-    '1  AUTO   URLTest   → b' \
-    '2  PROXY  Selector  → a' \
-    '3  RELAY  Relay     -')
+    'G1  AUTO   URLTest   → b' \
+    'G2  PROXY  Selector  → a' \
+    'G3  RELAY  Relay     -')
 test "$(cat "$RUN/out")" = "$groups_want" || fail "groups now: $(cat "$RUN/out")"
 
 new_run
@@ -142,7 +142,7 @@ python3 -c 'import json; json.dump({"proxies": {f"node-{i:02d}": {"type": "Shado
 assert_code 'list columns 40' 0 node show
 test "$(sed -n '1p' "$RUN/out")" = '当前：无' || fail "no selection: $(sed -n '1p' "$RUN/out")"
 test "$(sed -n '2p' "$RUN/out")" = '最近测速：-' || fail "no speed: $(sed -n '2p' "$RUN/out")"
-want40='    1 node-01 -      2 node-02 -'
+want40='    N1 node-01 -      N2 node-02 -'
 test "$(sed -n '3p' "$RUN/out")" = "$want40" || fail "cols 40: $(sed -n '3p' "$RUN/out")"
 if grep -F '[*]' "$RUN/out" >/dev/null; then
     fail 'unselected list showed [*]'
@@ -150,12 +150,13 @@ fi
 test ! -e "$RUN/cache" || fail 'compact list created cache'
 COLUMNS=80
 assert_code 'list columns 80' 0 node show
-want80='    1 node-01 -      2 node-02 -      3 node-03 -      4 node-04 -'
+want80='    N1 node-01 -      N2 node-02 -      N3 node-03 -      N4 node-04 -'
 test "$(sed -n '3p' "$RUN/out")" = "$want80" || fail "cols 80: $(sed -n '3p' "$RUN/out")"
 COLUMNS=120
 assert_code 'list columns 120' 0 node show
-want120='    1 node-01 -      2 node-02 -      3 node-03 -      4 node-04 -      5 node-05 -      6 node-06 -      7 node-07 -'
+want120='    N1 node-01 -      N2 node-02 -      N3 node-03 -      N4 node-04 -      N5 node-05 -      N6 node-06 -'
 test "$(sed -n '3p' "$RUN/out")" = "$want120" || fail "cols 120: $(sed -n '3p' "$RUN/out")"
+test "$(sed -n '4p' "$RUN/out")" = '    N7 node-07 -      N8 node-08 -' || fail "cols 120 wrap: $(sed -n '4p' "$RUN/out")"
 
 new_run
 mark_up
@@ -166,7 +167,7 @@ cat >"$RUN/fake/proxies.json" <<'EOF'
 EOF
 assert_code 'list manual' 0 node show
 test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → a（手动）→ a 第1个' || fail "manual head: $(sed -n '1p' "$RUN/out")"
-test "$(sed -n '3p' "$RUN/out")" = '[*] 1 a -      2 b -' || fail "manual cells: $(sed -n '3p' "$RUN/out")"
+test "$(sed -n '3p' "$RUN/out")" = '[*] N1 a -      N2 b -' || fail "manual cells: $(sed -n '3p' "$RUN/out")"
 python3 -c 'import json,os; p=os.environ["AXS_RUN"]+"/fake/proxies.json"; d=json.load(open(p)); d["proxies"]["主代理"].pop("now", None); json.dump(d, open(p,"w"))'
 assert_code 'list none' 0 node show
 test "$(sed -n '1p' "$RUN/out")" = '当前：无' || fail "cleared head: $(sed -n '1p' "$RUN/out")"
@@ -183,7 +184,7 @@ cat >"$RUN/fake/proxies.json" <<'EOF'
 EOF
 assert_code 'list auto' 0 node show
 test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → 自动选择（自动，url-test）→ b 第2个' || fail "auto head: $(sed -n '1p' "$RUN/out")"
-test "$(sed -n '3p' "$RUN/out")" = '    1 a -  [*] 2 b -' || fail "auto cells: $(sed -n '3p' "$RUN/out")"
+test "$(sed -n '3p' "$RUN/out")" = '    N1 a -  [*] N2 b -' || fail "auto cells: $(sed -n '3p' "$RUN/out")"
 python3 -c 'import json,os; p=os.environ["AXS_RUN"]+"/fake/proxies.json"; d=json.load(open(p)); d["proxies"]["自动选择"]["type"]="Fallback"; d["proxies"]["自动选择"].pop("now", None); json.dump(d, open(p,"w"))'
 assert_code 'list auto none' 0 node show
 test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → 自动选择（自动，fallback）→ -' || fail "auto none: $(sed -n '1p' "$RUN/out")"
@@ -199,7 +200,7 @@ cat >"$RUN/fake/proxies.json" <<'EOF'
 {"proxies":{"ab":{"type":"Shadowsocks"},"香港":{"type":"Shadowsocks"}}}
 EOF
 assert_code 'list width' 0 node show
-test "$(sed -n '3p' "$RUN/out")" = '    1 ab -        2 香港 -' || fail "cjk width: $(sed -n '3p' "$RUN/out")"
+test "$(sed -n '3p' "$RUN/out")" = '    N1 ab -        N2 香港 -' || fail "cjk width: $(sed -n '3p' "$RUN/out")"
 
 new_run
 mark_up
@@ -216,7 +217,7 @@ EOF
 assert_code 'list cache' 0 node show
 test "$(sed -n '1p' "$RUN/out")" = '当前：主代理 → a（手动）→ a 第1个' || fail "cache head: $(sed -n '1p' "$RUN/out")"
 test "$(sed -n '2p' "$RUN/out")" = '最近测速：3 分钟前' || fail "cache age: $(sed -n '2p' "$RUN/out")"
-test "$(sed -n '3p' "$RUN/out")" = '[*] 1 a 42      2 b  -' || fail "cache cells: $(sed -n '3p' "$RUN/out")"
+test "$(sed -n '3p' "$RUN/out")" = '[*] N1 a 42      N2 b  -' || fail "cache cells: $(sed -n '3p' "$RUN/out")"
 assert_code 'switch cache' 0 group switch PROXY a
 test "$(cat "$RUN/out")" = "$(printf 'PROXY\ta\t42')" || fail "switch delay: $(cat "$RUN/out")"
 

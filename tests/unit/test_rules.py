@@ -265,14 +265,15 @@ def check_list():
     os.environ["AXS_COLOR"] = "never"
     v6 = next(item for item in CIDRS if item.startswith("IP-CIDR6,"))
     _kind, payload, policy, *_rest = v6.split(",")
-    v6_body = f"IP-CIDR,{payload},{policy}"
+    logic = "AND,((DOMAIN,a.com),(DOMAIN,b.com)),PROXY"
     want = (
-        "1 prepend  IP-CIDR,10.0.0.0/8,DIRECT\n"
-        f"2 prepend  {v6_body}\n"
-        "3 prepend  DOMAIN-SUFFIX,local,DIRECT\n"
-        "4 local    DOMAIN,mine.example,PROXY\n"
-        "5 provider GEOSITE,ads,REJECT\n"
-        "6 provider MATCH,PROXY\n"
+        "R1  prepend   IP-CIDR,10.0.0.0/8,DIRECT,no-resolve\n"
+        f"R2  prepend   {v6}\n"
+        "R3  prepend   DOMAIN-SUFFIX,local,DIRECT\n"
+        "R4  local     DOMAIN,mine.example,PROXY\n"
+        "R5  provider  GEOSITE,ads,REJECT\n"
+        "R6  provider  MATCH,PROXY\n"
+        f"R7  provider  {logic}\n"
     )
     with tempfile.TemporaryDirectory(prefix="axs-rule-list-") as tmp:
         run = Path(tmp)
@@ -281,7 +282,7 @@ def check_list():
             fail(f"list down {code} {out!r} {err!r}")
         (run / "rules.list").write_text("DOMAIN mine.example PROXY\n# keep\n", encoding="utf-8")
         code, out, err = invoke(cmd_list, run, True)
-        if code != 0 or out != "DOMAIN mine.example PROXY\n# keep\n" or err:
+        if code != 0 or out != "R1  local     DOMAIN mine.example PROXY\n" or err:
             fail(f"local {code} {out!r} {err!r}")
         (run / "override.yaml").write_text("prepend-rules:\n  - DOMAIN-SUFFIX,local,DIRECT\n", encoding="utf-8")
         (run / "config.yaml").write_text(
@@ -291,7 +292,8 @@ def check_list():
             "  - DOMAIN-SUFFIX,local,DIRECT\n"
             "  - DOMAIN,mine.example,PROXY\n"
             "  - GEOSITE,ads,REJECT\n"
-            "  - MATCH,PROXY\n",
+            "  - MATCH,PROXY\n"
+            f"  - {logic}\n",
             encoding="utf-8",
         )
         code, out, err = invoke(cmd_list, run, False)
@@ -315,21 +317,17 @@ def check_list():
             else:
                 fail("fake core did not stay up")
             code, out, err = invoke(cmd_list, run)
-            if code != 3 or out or err != "控制器失败\n":
-                fail(f"api down {code} {out!r} {err!r}")
+            if code != 0 or out != want or "no-resolve" not in out or err:
+                fail(f"up ignores controller {code} {out!r} {err!r}")
             (fake / "rules.json").write_text(json.dumps({"rules": [
                 {"type": "IPCIDR", "payload": "10.0.0.0/8", "proxy": "DIRECT", "size": -1},
-                {"type": "IPCIDR", "payload": payload, "proxy": "DIRECT"},
-                {"type": "DomainSuffix", "payload": "local", "proxy": "DIRECT"},
-                {"type": "Domain", "payload": "mine.example", "proxy": "PROXY", "extra": {"disabled": False}},
-                {"type": "GeoSite", "payload": "ads", "proxy": "REJECT"},
                 {"type": "Match", "payload": "", "proxy": "PROXY"},
             ]}), encoding="utf-8")
             code, out, err = invoke(cmd_list, run)
-            if code != 0 or out != want or err:
-                fail(f"api list {code} {out!r} {err!r}")
+            if code != 0 or out != want or "no-resolve" not in out or logic not in out or err:
+                fail(f"controller ignored {code} {out!r} {err!r}")
             code, out, err = invoke(cmd_list, run, True)
-            if code != 0 or not out.startswith("DOMAIN mine.example PROXY\n"):
+            if code != 0 or out != "R1  local     DOMAIN mine.example PROXY\n" or err:
                 fail(f"local while up {code} {out!r}")
         finally:
             proc.kill()
