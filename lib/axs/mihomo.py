@@ -35,10 +35,6 @@ def select_path(name):
     return PROXIES + "/" + urllib.parse.quote(name, safe="")
 
 
-def rules_path():
-    return RULES_PATH
-
-
 def delay_path(group, url, timeout="5000"):
     quoted = urllib.parse.quote(group, safe="")
     query = urllib.parse.urlencode({"timeout": str(timeout), "url": url})
@@ -221,19 +217,6 @@ _RULE_WORDS = dict(
 def rule_word(kind):
     text = "" if kind is None else str(kind)
     return _RULE_WORDS.get(text, text.upper())
-
-
-def load_rules(secret_path, api):
-    secret = read_secret(secret_path, api)
-    raw = request(secret, api, "GET", rules_path())
-    try:
-        payload = json.loads(raw.decode("utf-8"))
-    except (UnicodeError, json.JSONDecodeError):
-        _fail("控制器失败")
-    rules = payload.get("rules") if isinstance(payload, dict) else None
-    if not isinstance(rules, list):
-        _fail("控制器失败")
-    return rules
 
 
 def _rule_key(kind, payload, policy):
