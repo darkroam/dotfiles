@@ -87,7 +87,7 @@ run/                         运行时。不入库
 | `lib/axs/__main__.py` | 记下真实终端，再调 cli | 40 行 |
 | `lib/axs/codes.py` | 退出码常量 | 20 行 |
 | `lib/axs/cli.py` | 命令表、别名、前缀、分发 | 400 行 |
-| `lib/axs/render.py` | 颜色和对齐 | 300 行 |
+| `lib/axs/render.py` | 颜色、对齐、帮助排版（`SECTIONS`/`help_text`） | 300 行 |
 | `lib/axs/config.py` | 默认值、路径、端口、内核路径、内置网段、原子写 | 200 行 |
 | `lib/axs/core.py` | 锁、持锁、进程存活、安装、快照、systemd、会话探测 | 400 行 |
 | `lib/axs/mihomo.py` | 控制器 HTTP，规则类型词和来源表。不是内核二进制 | 300 行 |
