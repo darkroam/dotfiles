@@ -93,14 +93,14 @@ run/                         运行时。不入库
 | `lib/axs/mihomo.py` | 控制器 HTTP，规则类型词和来源表。不是内核二进制 | 300 行 |
 | `lib/axs/service.py` | 启停、ensure、health、清理、status | 400 行 |
 | `lib/axs/subscription.py` | 拉取、校验、合并、流量与到期 | 400 行 |
-| `lib/axs/rules.py` | 规则增删、安装回滚、list 入口 | 270 行 |
+| `lib/axs/rules.py` | 规则增删、安装回滚、list 入口 | 330 行 |
 | `lib/axs/nodes.py` | 组、列表、延迟、切换 | 400 行 |
 | `lib/axs/tree.py` | `node list` 的树，以及 `node members` 表。编号仍问 nodes | 250 行 |
 | `lib/axs/net.py` | 连通、出口、入站是否打开 | 250 行 |
 | `lib/axs/proxy.py` | 三层开关和状态词 | 300 行 |
 | `units/*` | 已安装单元的模板。外部行为不改 | 各 40 行 |
 | `tests/run.sh` | 先单元，再集成。不含 lab | 40 行 |
-| `tests/unit/test_<模块>.py` | 该模块的 import 断言 | 各 400 行 |
+| `tests/unit/test_<模块>.py` | 该模块的 import 断言 | 各 400 行；`test_rules.py` 450 |
 | `tests/integration/<模块>.sh` | 该模块的假环境断言 | 各 400 行 |
 | `tests/lab/run.sh` | 真内核场景驱动 | 450 行 |
 | `tests/lab/lab.py` | 回环替身 | 400 行 |

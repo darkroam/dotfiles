@@ -1,4 +1,4 @@
 exit: 0
 --- stdout
-R1  local     DOMAIN mine.example PROXY
+1  R9e5c06  local     DOMAIN mine.example PROXY
 --- stderr

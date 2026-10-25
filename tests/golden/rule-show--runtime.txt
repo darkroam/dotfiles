@@ -1,8 +1,8 @@
 exit: 0
 --- stdout
-R1  prepend   IP-CIDR,10.0.0.0/8,DIRECT,no-resolve
-R2  prepend   DOMAIN-SUFFIX,local,DIRECT
-R3  local     DOMAIN,mine.example,PROXY
-R4  provider  GEOSITE,ads,REJECT
-R5  provider  MATCH,PROXY
+1  Rf4d722  prepend   IP-CIDR,10.0.0.0/8,DIRECT,no-resolve
+2  R2ed1e3  prepend   DOMAIN-SUFFIX,local,DIRECT
+3  R9e5c06  local     DOMAIN,mine.example,PROXY
+4  Re6bfc8  provider  GEOSITE,ads,REJECT
+5  R5a9a6b  provider  MATCH,PROXY
 --- stderr

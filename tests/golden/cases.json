@@ -274,5 +274,41 @@
       "run/fake/rules.json": "{\"rules\": [{\"type\": \"Domain\", \"payload\": \"leaf.example\", \"proxy\": \"leaf\"}, {\"type\": \"Match\", \"payload\": \"\", \"proxy\": \"DIRECT\"}]}",
       "run/config.yaml": "rules:\n  - DOMAIN,leaf.example,leaf\n  - MATCH,DIRECT\n"
     }
+  },
+  {
+    "name": "rule-del--by-id.txt",
+    "argv": [
+      "rule",
+      "del",
+      "R9e5c06"
+    ],
+    "files": {
+      "run/rules.list": "DOMAIN mine.example PROXY\nDOMAIN other.example DIRECT\n",
+      "run/config.yaml": "rules:\n  - DOMAIN,mine.example,PROXY\n  - DOMAIN,other.example,DIRECT\n"
+    }
+  },
+  {
+    "name": "rule-del--by-text.txt",
+    "argv": [
+      "rule",
+      "del",
+      "DOMAIN,mine.example,PROXY"
+    ],
+    "files": {
+      "run/rules.list": "DOMAIN mine.example PROXY\n",
+      "run/config.yaml": "rules:\n  - DOMAIN,mine.example,PROXY\n"
+    }
+  },
+  {
+    "name": "rule-del--nonlocal.txt",
+    "argv": [
+      "rule",
+      "del",
+      "Rf4d722"
+    ],
+    "files": {
+      "run/rules.list": "DOMAIN mine.example PROXY\n",
+      "run/config.yaml": "rules:\n  - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve\n  - DOMAIN,mine.example,PROXY\n"
+    }
   }
 ]

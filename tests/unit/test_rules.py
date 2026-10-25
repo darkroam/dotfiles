@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "lib"))
 
 from axs.config import CIDRS  # noqa: E402
 from axs.core import write_defaults  # noqa: E402
-from axs.rules import check, cmd_add, cmd_list, mutate, rule_line, rules_add, rules_del  # noqa: E402
+from axs.rules import check, cmd_add, cmd_del, cmd_list, mutate, rule_id, rule_line, rules_add, rules_del  # noqa: E402
 
 FIXTURE = ROOT / "tests" / "fixtures" / "subscription.yaml"
 API = "127.0.0.1:9"
@@ -266,15 +266,18 @@ def check_list():
     v6 = next(item for item in CIDRS if item.startswith("IP-CIDR6,"))
     _kind, payload, policy, *_rest = v6.split(",")
     logic = "AND,((DOMAIN,a.com),(DOMAIN,b.com)),PROXY"
-    want = (
-        "R1  prepend   IP-CIDR,10.0.0.0/8,DIRECT,no-resolve\n"
-        f"R2  prepend   {v6}\n"
-        "R3  prepend   DOMAIN-SUFFIX,local,DIRECT\n"
-        "R4  local     DOMAIN,mine.example,PROXY\n"
-        "R5  provider  GEOSITE,ads,REJECT\n"
-        "R6  provider  MATCH,PROXY\n"
-        f"R7  provider  {logic}\n"
-    )
+    spec = [
+        ("prepend", "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve"),
+        ("prepend", v6),
+        ("prepend", "DOMAIN-SUFFIX,local,DIRECT"),
+        ("local", "DOMAIN,mine.example,PROXY"),
+        ("provider", "GEOSITE,ads,REJECT"),
+        ("provider", "MATCH,PROXY"),
+        ("provider", logic),
+    ]
+    want = "".join(f"{i}  {rule_id(kind, line)}  {kind:<8}  {line}\n" for i, (kind, line) in enumerate(spec, 1))
+    local_line = "DOMAIN mine.example PROXY"
+    local_want = f"1  {rule_id('local', local_line)}  local     {local_line}\n"
     with tempfile.TemporaryDirectory(prefix="axs-rule-list-") as tmp:
         run = Path(tmp)
         code, out, err = invoke(cmd_list, run)
@@ -282,7 +285,7 @@ def check_list():
             fail(f"list down {code} {out!r} {err!r}")
         (run / "rules.list").write_text("DOMAIN mine.example PROXY\n# keep\n", encoding="utf-8")
         code, out, err = invoke(cmd_list, run, True)
-        if code != 0 or out != "R1  local     DOMAIN mine.example PROXY\n" or err:
+        if code != 0 or out != local_want or err:
             fail(f"local {code} {out!r} {err!r}")
         (run / "override.yaml").write_text("prepend-rules:\n  - DOMAIN-SUFFIX,local,DIRECT\n", encoding="utf-8")
         (run / "config.yaml").write_text(
@@ -327,7 +330,7 @@ def check_list():
             if code != 0 or out != want or "no-resolve" not in out or logic not in out or err:
                 fail(f"controller ignored {code} {out!r} {err!r}")
             code, out, err = invoke(cmd_list, run, True)
-            if code != 0 or out != "R1  local     DOMAIN mine.example PROXY\n" or err:
+            if code != 0 or out != local_want or err:
                 fail(f"local while up {code} {out!r}")
         finally:
             proc.kill()
@@ -335,6 +338,64 @@ def check_list():
             os.environ.pop("AXS_FAKE_DIR", None)
             os.environ.pop("AXS_API", None)
             os.environ.pop("AXS_MIHOMO", None)
+
+
+
+def release_lock():
+    from axs.core import _HELD
+
+    while _HELD:
+        _HELD.pop().close()
+
+
+def check_del():
+    os.environ["AXS_COLOR"] = "never"
+    with tempfile.TemporaryDirectory(prefix="axs-rule-del-") as tmp:
+        run = Path(tmp)
+        (run / "rules.list").write_text("DOMAIN mine.example PROXY\nDOMAIN other.example DIRECT\n", encoding="utf-8")
+        code, out, err = invoke(cmd_list, run, True)
+        mine = next(line.split()[1] for line in out.splitlines() if "mine.example" in line)
+        other = next(line.split()[1] for line in out.splitlines() if "other.example" in line)
+        if rule_id("local", "DOMAIN mine.example PROXY") != rule_id("local", "DOMAIN,mine.example,REJECT") or mine == other:
+            fail("local id is not the domain")
+        pre = "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve"
+        if rule_id("prepend", pre) == rule_id("prepend", pre.replace(",no-resolve", "")):
+            fail("prepend id dropped the flag")
+        (run / "rules.list").write_text("DOMAIN mine.example REJECT\n", encoding="utf-8")
+        code, out, err = invoke(cmd_list, run, True)
+        if code or err or out.split()[1] != mine:
+            fail(f"target change {code} {out!r} {err!r}")
+        (run / "rules.list").write_text("DOMAIN mine.example PROXY\n", encoding="utf-8")
+        (run / "config.yaml").write_text(
+            "rules:\n  - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve\n  - DOMAIN,mine.example,PROXY\n  - GEOSITE,ads,REJECT\n",
+            encoding="utf-8",
+        )
+        before = (run / "rules.list").read_text(encoding="utf-8")
+        code, out, err = invoke(cmd_del, run, [rule_id("prepend", pre)])
+        if code != 3 or out or err != "不是本地规则\n" or (run / "rules.list").read_text(encoding="utf-8") != before:
+            fail(f"nonlocal id {code} {out!r} {err!r}")
+        code, out, err = invoke(cmd_del, run, ["GEOSITE,ads,REJECT"])
+        if code != 3 or out or err != "不是本地规则\n" or (run / "rules.list").read_text(encoding="utf-8") != before:
+            fail(f"nonlocal text {code} {out!r} {err!r}")
+        code, out, err = invoke(cmd_del, run, ["DOMAIN,missing.example,PROXY"])
+        if code != 3 or out or err != "规则不存在\n" or (run / "rules.list").read_text(encoding="utf-8") != before:
+            fail(f"missing text {code} {out!r} {err!r}")
+        code, out, err = invoke(cmd_del, run, ["R000000"])
+        if code != 3 or out or err != "规则不存在\n" or (run / "rules.list").read_text(encoding="utf-8") != before:
+            fail(f"missing id {code} {out!r} {err!r}")
+        code, out, err = invoke(cmd_del, run, [mine])
+        if code or err or "mine.example" in (run / "rules.list").read_text(encoding="utf-8") or out != "已写入，启动时生效\n" or not (run / ".snap").is_dir():
+            fail(f"del id {code} {out!r} {err!r}")
+        release_lock()
+        (run / "rules.list").write_text(before, encoding="utf-8")
+        code, out, err = invoke(cmd_del, run, ["DOMAIN,mine.example,PROXY"])
+        if code or err or (run / "rules.list").read_text(encoding="utf-8").strip():
+            fail(f"del text {code} {out!r} {err!r}")
+        release_lock()
+        (run / "rules.list").write_text(before, encoding="utf-8")
+        code, out, err = invoke(cmd_del, run, ["gone.example"])
+        if code or err or out != "已写入，启动时生效\n" or (run / "rules.list").read_text(encoding="utf-8") != before:
+            fail(f"domain miss {code} {out!r} {err!r}")
 
 
 def main():
@@ -373,6 +434,7 @@ def main():
         finally:
             os.environ.pop("AXS_FAKE_DIR", None)
     check_list()
+    check_del()
     print("rules ok")
     return 0
 
