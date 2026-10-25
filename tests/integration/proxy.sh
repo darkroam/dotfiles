@@ -138,7 +138,10 @@ grep -q '未运行' "$RUN/err" || fail "he: $(cat "$RUN/err")"
 assert_code 'retired x' 1 x
 test "$(grep -c . "$RUN/err")" -eq 8 || fail "retired x: $(cat "$RUN/err")"
 assert_code 'retired o' 1 o
-assert_code 'retired k' 1 k
+assert_code 'hidden health' 2 health
+grep -qx '未运行' "$RUN/err" || fail "hidden health: $(cat "$RUN/err")"
+assert_code 'hidden k' 2 k
+grep -qx '未运行' "$RUN/err" || fail "hidden k: $(cat "$RUN/err")"
 assert_code 'retired u' 1 u
 assert_code 'alias unknown' 1 zz
 test "$(grep -c . "$RUN/err")" -eq 8 || fail "unknown lines: $(cat "$RUN/err")"

@@ -42,6 +42,8 @@ EXACT = (
     ("?", "top", "help"),
     ("--help", "top", "help"),
     ("-h", "top", "help"),
+    ("health", "top", "health"),
+    ("k", "top", "health"),
     ("s", "service", "status"),
     ("sta", "service", "start"),
     ("sto", "service", "stop"),
@@ -83,7 +85,6 @@ UNKNOWN = (
     ("nope", "top"),
     ("x", "top"),
     ("o", "top"),
-    ("k", "top"),
     ("u", "top"),
     ("nw", "top"),
     ("sto", "top"),
@@ -283,6 +284,10 @@ def check_node_args():
         (["node", "show"], DOWN, "服务：未运行\n"),
         (["group", "test"], DOWN, "服务：未运行\n"),
         (["group", "switch", "g", "n"], DOWN, "服务：未运行\n"),
+        (["health"], DOWN, "未运行\n"),
+        (["k"], DOWN, "未运行\n"),
+        (["health", "x"], USAGE, "用法错误\n"),
+        (["k", "x"], USAGE, "用法错误\n"),
     )
     with tempfile.TemporaryDirectory(prefix="axs-node-args-") as tmp:
         os.environ["AXS_RUN"] = tmp
@@ -338,6 +343,8 @@ def main():
         raise SystemExit("help still has redundant lines")
     if "单字符优先；冲突用两字母；前缀亦可" not in help_plain:
         raise SystemExit("help intro")
+    if "health" in help_plain or "health" in usage_text():
+        raise SystemExit("health is listed")
     check_help_heads(help_plain)
     if '示例：axs s · axs n s · axs p sy on' not in help_plain:
         raise SystemExit("help example")
