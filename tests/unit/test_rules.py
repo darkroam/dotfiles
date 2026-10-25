@@ -16,7 +16,8 @@ sys.path.insert(0, str(ROOT / "lib"))
 
 from axs.config import CIDRS  # noqa: E402
 from axs.core import write_defaults  # noqa: E402
-from axs.rules import check, cmd_add, cmd_del, cmd_list, mutate, rule_id, rule_line, rules_add, rules_del  # noqa: E402
+from axs.rulelist import cmd_list, rule_id  # noqa: E402
+from axs.rules import check, cmd_add, cmd_del, mutate, rule_line, rules_add, rules_del  # noqa: E402
 
 FIXTURE = ROOT / "tests" / "fixtures" / "subscription.yaml"
 API = "127.0.0.1:9"
@@ -239,9 +240,14 @@ def check_forward():
     if (ROOT / "lib" / "merge.py").exists() or (ROOT / "lib" / "common.sh").exists():
         fail("forwarding layer remains")
     source = (ROOT / "lib" / "axs" / "rules.py").read_text(encoding="utf-8")
+    listed = (ROOT / "lib" / "axs" / "rulelist.py").read_text(encoding="utf-8")
     for name in ("def has_group", "def parse_rule", "def rules_add", "def rules_del"):
         if name not in source:
             fail("rules lost " + name)
+    if "def rule_id" in source or "def cmd_list" in source:
+        fail("rules kept the view")
+    if any(name not in listed for name in ("def rule_id", "def cmd_list", "def resolve_delete")):
+        fail("rulelist lost the view")
 
 
 
@@ -384,18 +390,19 @@ def check_del():
         if code != 3 or out or err != "规则不存在\n" or (run / "rules.list").read_text(encoding="utf-8") != before:
             fail(f"missing id {code} {out!r} {err!r}")
         code, out, err = invoke(cmd_del, run, [mine])
-        if code or err or "mine.example" in (run / "rules.list").read_text(encoding="utf-8") or out != "已写入，启动时生效\n" or not (run / ".snap").is_dir():
+        if code or err or "mine.example" in (run / "rules.list").read_text(encoding="utf-8") or out != "已删除，启动时生效\n" or not (run / ".snap").is_dir():
             fail(f"del id {code} {out!r} {err!r}")
         release_lock()
         (run / "rules.list").write_text(before, encoding="utf-8")
         code, out, err = invoke(cmd_del, run, ["DOMAIN,mine.example,PROXY"])
-        if code or err or (run / "rules.list").read_text(encoding="utf-8").strip():
+        if code or err or out != "已删除，启动时生效\n" or (run / "rules.list").read_text(encoding="utf-8").strip():
             fail(f"del text {code} {out!r} {err!r}")
         release_lock()
-        (run / "rules.list").write_text(before, encoding="utf-8")
-        code, out, err = invoke(cmd_del, run, ["gone.example"])
-        if code or err or out != "已写入，启动时生效\n" or (run / "rules.list").read_text(encoding="utf-8") != before:
-            fail(f"domain miss {code} {out!r} {err!r}")
+        for token in ("gone.example", "Rzzzzz"):
+            (run / "rules.list").write_text(before, encoding="utf-8")
+            code, out, err = invoke(cmd_del, run, [token])
+            if code != 3 or out or err != "规则不存在\n" or (run / "rules.list").read_text(encoding="utf-8") != before:
+                fail(f"domain miss {token} {code} {out!r} {err!r}")
 
 
 def main():

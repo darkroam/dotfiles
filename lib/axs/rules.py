@@ -1,18 +1,12 @@
 """Rule lines, then the merge-install-reload-rollback chain."""
 
-from axs.codes import DOWN, USAGE, FAIL
-import hashlib
-import re
+from axs.codes import USAGE, FAIL
 import sys
 from pathlib import Path
-
-import yaml
 
 from axs.config import CONFIG, CONFIG_NEW, OVERRIDE, RULES, SECRET, SUBSCRIPTION
 from axs.core import atomic_write, install_file, restore_snapshot, snapshot
 from axs.subscription import build_file
-
-_RID = re.compile(r"^R[0-9a-f]{6}$")
 
 
 def _fail(message):
@@ -172,7 +166,8 @@ def mutate(run, op, running, api, args):
     else:
         rules_del(run / RULES, domain)
     if running != "1":
-        sys.stdout.write("已写入，启动时生效\n")
+        verb = "已删除" if op == "del" else "已写入"
+        sys.stdout.write(verb + "，启动时生效\n")
         return
     if not (run / SUBSCRIPTION).is_file():
         restore_snapshot(run)
@@ -181,119 +176,6 @@ def mutate(run, op, running, api, args):
 
     gen_secret(run / SECRET)
     _apply_kept(run, api)
-
-
-def _kept_lines(path):
-    if not path.is_file():
-        return []
-    kept = []
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        if raw.strip() and not raw.lstrip().startswith("#"):
-            kept.append(raw)
-    return kept
-
-
-def rule_id(source, line):
-    basis = line
-    if source == "local":
-        from axs.mihomo import rule_parts
-
-        parsed = rule_parts(line)
-        if parsed is not None:
-            basis = parsed[1]
-    return "R" + hashlib.sha256(basis.encode()).hexdigest()[:6]
-
-
-def _classify(run, lines, source=None):
-    from axs.mihomo import _rule_key, _sources, rule_parts
-
-    prepend, local = (set(), set()) if source else _sources(run)
-    labeled = []
-    for line in lines:
-        if source:
-            labeled.append((source, line))
-            continue
-        parsed = rule_parts(line)
-        key = _rule_key(*parsed) if parsed else None
-        if key in prepend:
-            kind = "prepend"
-        elif key in local:
-            kind = "local"
-        else:
-            kind = "provider"
-        labeled.append((kind, line))
-    return labeled
-
-
-def _show_lines(run, lines, source=None):
-    labeled = _classify(run, lines, source)
-    if not labeled:
-        return ""
-    width = len(str(len(labeled)))
-    rows = [
-        f"{index:>{width}}  {rule_id(kind, line)}  {kind:<8}  {line}"
-        for index, (kind, line) in enumerate(labeled, 1)
-    ]
-    return "\n".join(rows) + "\n"
-
-
-def _config_lines(run):
-    path = Path(run) / CONFIG
-    if not path.is_file():
-        return None
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except yaml.YAMLError:
-        return None
-    rules = data.get("rules") if isinstance(data, dict) else None
-    if not isinstance(rules, list):
-        return None
-    return [item for item in rules if isinstance(item, str)]
-
-
-def _installed(run):
-    lines = _config_lines(run)
-    if lines is None:
-        return None
-    return _show_lines(run, lines)
-
-
-def _local_target(run, token, by_id):
-    from axs.mihomo import rule_parts
-    from axs.render import die
-
-    run = Path(run)
-    hits = []
-    config = _config_lines(run)
-    for kind, line in _classify(run, config or []):
-        matched = rule_id(kind, line) == token if by_id else line == token
-        if matched:
-            hits.append((kind, line))
-    for line in _kept_lines(run / RULES):
-        matched = rule_id("local", line) == token if by_id else line == token
-        if matched:
-            hits.append(("local", line))
-    if not hits:
-        die(FAIL, "规则不存在")
-    if any(kind != "local" for kind, _line in hits):
-        die(FAIL, "不是本地规则")
-    parsed = rule_parts(hits[0][1])
-    if not parsed or not parsed[1]:
-        die(FAIL, "规则不存在")
-    return parsed[1]
-
-
-def cmd_list(run, local=False):
-    run = Path(run)
-    if local:
-        sys.stdout.write(_show_lines(run, _kept_lines(run / RULES), "local"))
-        return
-    from axs.render import die
-
-    text = _installed(run)
-    if text is None:
-        die(DOWN, "服务：未运行")
-    sys.stdout.write(text)
 
 
 def _mutate_live(run, op, args):
@@ -318,10 +200,15 @@ def cmd_add(run, args):
 
 def cmd_del(run, args):
     from axs.render import die
+    from axs.rulelist import has_local, is_selector, resolve_delete
 
     if len(args) != 1:
         die(USAGE, "用法错误")
     token = args[0]
-    if _RID.fullmatch(token) or "," in token:
-        token = _local_target(run, token, _RID.fullmatch(token) is not None)
+    if is_selector(token):
+        token = resolve_delete(run, token)
+    else:
+        rule_line("direct", token, "")
+        if not has_local(run, token):
+            die(FAIL, "规则不存在")
     _mutate_live(run, "del", [token])

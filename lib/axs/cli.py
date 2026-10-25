@@ -269,7 +269,8 @@ def _node(run, kind, args):
 def main(argv):
     from axs.net import net_ip, net_test
     from axs.proxy import proxy_session, proxy_system, proxy_user
-    from axs.rules import cmd_add, cmd_del, cmd_list
+    from axs.rulelist import cmd_list
+    from axs.rules import cmd_add, cmd_del
     from axs.service import boot, clean, ensure, health, prime, restart, run_dir, service_status, start, status, stop
     from axs.subscription import refresh_run as _refresh, show_userinfo
     from axs.core import unix_now
