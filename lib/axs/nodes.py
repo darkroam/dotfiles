@@ -63,7 +63,7 @@ def lookup_group(secret_path, api, token):
 
 def group_table(proxies):
     numbers = group_numbers(proxies)
-    rows = [(str(numbers[n]), n, str(proxies[n].get("type")), _now(proxies[n])) for n in sorted(numbers, key=numbers.get)]
+    rows = [(f"G{numbers[n]}", n, str(proxies[n].get("type")), _now(proxies[n])) for n in sorted(numbers, key=numbers.get)]
     if not rows:
         return ""
     widths = [max(display_width(row[i]) for row in rows) for i in range(3)]
@@ -268,12 +268,12 @@ def show_nodes(secret_path, api, mode=""):
         if delay is None or delay == "":
             delay = "-"
         shown.append((name, str(delay)))
-    num_width = len(str(max(numbers.values()))) if numbers else 1
+    num_width = len(f"N{max(numbers.values())}") if numbers else 1
     delay_width = max((display_width(delay) for _, delay in shown), default=1)
     entries = []
     for name, delay in shown:
         marker = "[*] " if name == star else "    "
-        num_text = f"{numbers[name]:>{num_width}}"
+        num_text = f"{'N' + str(numbers[name]):>{num_width}}"
         delay_text = f"{delay:>{delay_width}}"
         plain = f"{marker}{num_text} {name} {delay_text}"
         colored = paint_cell(marker, num_text, name, delay_text, name == star, delay)

@@ -1,5 +1,5 @@
 exit: 0
 --- stdout
-1 local    DOMAIN,leaf.example,leaf
-2 provider MATCH,DIRECT
+R1  local     DOMAIN,leaf.example,leaf
+R2  provider  MATCH,DIRECT
 --- stderr

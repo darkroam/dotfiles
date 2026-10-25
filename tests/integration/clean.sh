@@ -211,10 +211,11 @@ data=$(sed -n '3p' "$RUN/out")
 printf '%s\n' "$data" | grep -q '^\[\*\] ' || fail "mark width: $data"
 # units digit of 1 and of 10 sit in the same column of their cells
 python3 -c 'import os; line=open(os.environ["AXS_RUN"]+"/out",encoding="utf-8").read().splitlines()[2]
-assert line.startswith("[*]  1 "), line
-idx=line.index("    10 node-10")
-assert line[4:6]==" 1", line
-assert line[idx+4:idx+6]=="10", line'
+assert line.startswith("[*]  N1 "), line
+idx=line.index("    N10 node-10")
+assert line[4:7]==" N1", line
+assert line[idx+4:idx+7]=="N10", line
+assert line[6]=="1" and line[idx+6]=="0", line'
 if grep -q "$ESC" "$RUN/out"; then
     fail 'non-tty list has color'
 fi
@@ -233,7 +234,7 @@ grep -F -q "${ESC}[32m" "$RUN/out" || fail "always green: $(cat "$RUN/out")"
 grep -F -q "${ESC}[1m" "$RUN/out" || fail "always bold: $(cat "$RUN/out")"
 grep -F -q "${ESC}[1;32m[*]" "$RUN/out" || fail "mark green: $(cat "$RUN/out")"
 grep -F -q "${ESC}[1;32ma" "$RUN/out" || fail "selected name: $(cat "$RUN/out")"
-grep -F -q "${ESC}[90m1" "$RUN/out" || fail "number gray: $(cat "$RUN/out")"
+grep -F -q "${ESC}[90mN1" "$RUN/out" || fail "number gray: $(cat "$RUN/out")"
 assert_code 'groups tone' 0 group show
 grep -F -q "${ESC}[36m主代理" "$RUN/out" || fail "group cyan: $(cat "$RUN/out")"
 grep -F -q "${ESC}[90mSelector" "$RUN/out" || fail "type gray: $(cat "$RUN/out")"
