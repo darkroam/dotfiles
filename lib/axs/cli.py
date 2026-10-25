@@ -28,6 +28,8 @@ TOP = (
         "?": "help",
         "--help": "help",
         "-h": "help",
+        "health": "health",
+        "k": "health",
     },
 )
 GROUPS = {
@@ -352,6 +354,10 @@ def main(argv):
         status(run)
     elif cmd == "clean":
         clean(run, "config", rest)
+    elif cmd == "health":
+        if rest:
+            die(USAGE, "用法错误")
+        health(run)
     elif cmd == "service":
         op, extra = _take("service", rest)
         if op == "ensure":
