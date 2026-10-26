@@ -130,10 +130,64 @@ def check_default():
             fail("balance\n" + shown)
 
 
+def check_frames():
+    from axs.nodes import _show_nodes_full
+    from axs.render import view_page
+    from axs.rulelist import status_text
+    from axs.tree import render_tree
+
+    proxies = {"G": {"type": "Selector", "now": "a", "all": ["a"]}, "a": {"type": "Direct"}}
+    code, flat, _err = _capture(_show_nodes_full, proxies)
+    if code or "当前规则路径" in flat or "说明：" in flat or "\t" not in flat:
+        fail("flat frame\n" + flat)
+    os.environ["AXS_COLOR"] = "never"
+    plain = view_page("", [("全部子叶节点：", "当前：无")], "说明：全部叶子节点；组关系见 --full。")
+    if plain.splitlines()[3] != "当前：无" or "\033" in plain:
+        fail("plain page\n" + plain)
+    os.environ["AXS_COLOR"] = "always"
+    painted = view_page("G1 入口", [], "说明：x")
+    os.environ["AXS_COLOR"] = "never"
+    if "\033[1m当前规则路径：" not in painted or "\033[90m说明：x" not in painted:
+        fail("paint\n" + painted)
+    full = render_tree(proxies, width=80, view=True)
+    if not full.startswith("当前规则路径：\n\n完整拓扑：\n") or "说明：完整拓扑" not in full:
+        fail("full frame\n" + full)
+    if "当前规则路径" in render_tree(proxies, width=80):
+        fail("view leaked")
+    with tempfile.TemporaryDirectory(prefix="axs-frame-") as tmp:
+        run = Path(tmp)
+        (run / "config.yaml").write_text("rules:\n  - MATCH,G\n", encoding="utf-8")
+        (run / "secret").write_text("x\n", encoding="utf-8")
+        shown = render_tree(proxies, width=80, mode="select", origin=run / "secret", view=True)
+        if "当前规则目标组（可切换）：" not in shown or "说明：可手动切换项" not in shown:
+            fail("select frame\n" + shown)
+        if "规则入口" in shown or "成员引用（仅被其他组引用的组）" in shown:
+            fail("old select label\n" + shown)
+        data = build(proxies, run)
+        headed = status_text(data, header=True)
+        if not headed.startswith("当前规则路径：\n") or "说明：" in headed:
+            fail("rule status\n" + headed)
+        if headed.split("\n", 1)[1] != status_text(data):
+            fail("header changed body")
+        from axs.nodeview import rule_page
+        auto = {
+            "入口": {"type": "Selector", "now": "自动", "all": ["自动"]},
+            "自动": {"type": "URLTest", "now": "a", "all": ["a"]},
+            "a": {"type": "Direct"},
+        }
+        (run / "config.yaml").write_text("rules:\n  - MATCH,入口\n", encoding="utf-8")
+        page = rule_page(auto, build(auto, run), run)
+        if "末端组（链尾自动组）：" not in page or not page.endswith("全部叶子。\n"):
+            fail("default note\n" + page)
+        if not page.startswith("当前规则路径：\n") or "G1 入口" not in page:
+            fail("default path\n" + page)
+
+
 def main():
     os.environ["AXS_COLOR"] = "never"
     check_members()
     check_default()
+    check_frames()
     print("nodeview ok")
     return 0
 

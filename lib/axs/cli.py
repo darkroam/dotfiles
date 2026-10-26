@@ -199,7 +199,7 @@ def _proxies(secret, api):
 def _show_tree(secret, api, mode, depth):
     from axs.tree import render_tree
 
-    sys.stdout.write(render_tree(_proxies(secret, api), depth, mode=mode, origin=secret))
+    sys.stdout.write(render_tree(_proxies(secret, api), depth, mode=mode, origin=secret, view=True))
 
 
 def _node(run, kind, args):
@@ -207,7 +207,7 @@ def _node(run, kind, args):
 
     from axs.config import SECRET, api_address, read_ports
     from axs.nodes import DELAY_URL, default_group, delay, lookup_group, select_proxy, show_groups, show_nodes, write_node_cache
-    from axs.nodeview import show_members, show_rule_nodes
+    from axs.nodeview import show_all, show_members, show_rule_nodes
     from axs.service import captured, service_up, write_cache
     import os
     if kind == "groups" and args:
@@ -258,7 +258,7 @@ def _node(run, kind, args):
         elif list_mode == "flat":
             show_nodes(secret, api, "flat")
         elif list_mode == "all":
-            show_nodes(secret, api, str(run))
+            show_all(run, secret, api)
         else:
             show_rule_nodes(run, secret, api)
     elif kind == "members":
@@ -290,7 +290,7 @@ def _rule_status(run):
     data = build(proxies, run)
     if data is None:
         die(DOWN, "服务：未运行")
-    sys.stdout.write(status_text(data))
+    sys.stdout.write(status_text(data, header=True))
 
 
 def main(argv):

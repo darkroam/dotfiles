@@ -14,7 +14,7 @@ from axs.nodes import (
     paint_cell,
     resolve_group_name,
 )
-from axs.render import die, display_width, emph, layout_cells, term_cols, tone, use_color
+from axs.render import die, display_width, emph, layout_cells, term_cols, tone, use_color, view_page
 from axs.routes import build
 from axs.rulelist import status_text
 
@@ -58,8 +58,15 @@ def show_rule_nodes(run, secret, api):
     data = build(proxies, run)
     if data is None:
         die(DOWN, "服务：未运行")
-    path, tail = status_text(data), terminal_text(proxies, data, run)
-    sys.stdout.write(path + ("\n" + tail if path and tail else tail))
+    sys.stdout.write(rule_page(proxies, data, run))
+
+
+def rule_page(proxies, data, run):
+    path = status_text(data).strip("\n")
+    tail = terminal_text(proxies, data, run).strip("\n")
+    blocks = [("末端组（链尾自动组）：", tail)] if tail else []
+    note = "说明：默认视图＝当前规则路径＋链尾自动组；--full 完整拓扑，--select 可切换项，--all 全部叶子。"
+    return view_page(path, blocks, note)
 
 
 def render_members(proxies, group, delays):
@@ -108,3 +115,22 @@ def show_members(proxies, token, run_dir):
         sys.stderr.write(err + "\n")
         raise SystemExit(FAIL)
     sys.stdout.write(render_members(proxies, name, load_delays(run_dir)))
+
+
+def show_all(run, secret, api):
+    import contextlib
+    import io
+
+    from axs.nodes import show_nodes
+
+    data = None
+    try:
+        data = build(load_proxies(secret, api), run)
+    except SystemExit:
+        data = None
+    path = status_text(data).strip("\n") if data else ""
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        show_nodes(secret, api, str(run))
+    note = "说明：全部叶子节点；组关系见 --full。"
+    sys.stdout.write(view_page(path, [("全部子叶节点：", buf.getvalue())], note))

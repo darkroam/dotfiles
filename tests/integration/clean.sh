@@ -207,10 +207,10 @@ export AXS_API="127.0.0.1:18081" COLUMNS=200
 arm_api PROXY 204 0
 python3 -c 'import json; json.dump({"proxies": {f"node-{i:02d}": {"type": "Shadowsocks"} for i in range(1, 11)} | {"主代理": {"all": ["node-01"], "now": "node-01", "type": "Selector"}}}, open("'"$RUN"'/fake/proxies.json", "w"))'
 assert_code 'align mark' 0 node show --all
-data=$(sed -n '3p' "$RUN/out")
+data=$(sed -n '6p' "$RUN/out")
 printf '%s\n' "$data" | grep -q '^\[\*\] ' || fail "mark width: $data"
 # units digit of 1 and of 10 sit in the same column of their cells
-python3 -c 'import os; line=open(os.environ["AXS_RUN"]+"/out",encoding="utf-8").read().splitlines()[2]
+python3 -c 'import os; line=open(os.environ["AXS_RUN"]+"/out",encoding="utf-8").read().splitlines()[5]
 assert line.startswith("[*]  N1 "), line
 idx=line.index("    N10 node-10")
 assert line[4:7]==" N1", line

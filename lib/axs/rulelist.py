@@ -128,7 +128,7 @@ def _hop_text(hop):
     return f"{number}{hop['name']}{kind}"
 
 
-def status_text(data):
+def status_text(data, header=False):
     lines = []
     for target in data["targets"]:
         stats = f"规则 {target['count']}（{_kind_text(target['kinds'])}）"
@@ -146,7 +146,13 @@ def status_text(data):
         else:
             rest.append("-")
         lines.append(f"{head} · {stats} → " + " → ".join(rest))
-    return ("\n".join(lines) + "\n") if lines else ""
+    body = ("\n".join(lines) + "\n") if lines else ""
+    if not header:
+        return body
+    from axs.render import PATH_TITLE, section_title
+
+    title = section_title(PATH_TITLE)
+    return title + ("\n" + body if body else "\n")
 
 
 def cmd_list(run, local=False):

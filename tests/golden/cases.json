@@ -273,6 +273,60 @@
     }
   },
   {
+    "name": "node-show--select-nested.txt",
+    "argv": [
+      "node",
+      "show",
+      "--select"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"子\", \"all\": [\"子\", \"甲\"]}, \"子\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"乙\", \"孙\"]}, \"孙\": {\"type\": \"Selector\", \"now\": \"丙\", \"all\": [\"丙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}, \"丙\": {\"type\": \"Shadowsocks\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - MATCH,主代理\n"
+    }
+  },
+  {
+    "name": "node-show--select-depth.txt",
+    "argv": [
+      "node",
+      "show",
+      "--select",
+      "--depth",
+      "1"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"子\", \"all\": [\"子\", \"甲\"]}, \"子\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"乙\", \"孙\"]}, \"孙\": {\"type\": \"Selector\", \"now\": \"丙\", \"all\": [\"丙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}, \"丙\": {\"type\": \"Shadowsocks\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - MATCH,主代理\n"
+    }
+  },
+  {
+    "name": "node-show--select-relay.txt",
+    "argv": [
+      "node",
+      "show",
+      "--select"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"中继\", \"all\": [\"中继\"]}, \"中继\": {\"type\": \"Relay\", \"now\": \"手动\", \"all\": [\"手动\", \"甲\"]}, \"手动\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - MATCH,主代理\n"
+    }
+  },
+  {
+    "name": "node-show--select-cycle.txt",
+    "argv": [
+      "node",
+      "show",
+      "--select"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"甲组\": {\"type\": \"Selector\", \"now\": \"乙组\", \"all\": [\"乙组\", \"甲\"]}, \"乙组\": {\"type\": \"Selector\", \"now\": \"甲组\", \"all\": [\"甲组\", \"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - MATCH,甲组\n"
+    }
+  },
+  {
     "name": "group-members--up.txt",
     "argv": [
       "group",

@@ -1,5 +1,6 @@
 exit: 0
 --- stdout
+当前规则路径：
 G1 主代理 [Selector] · 规则 3（DOMAIN 1、DOMAIN-SUFFIX 1、RULE-SET 1） → G3 自动 [URLTest] → N2 甲
 G2 均衡 [LoadBalance] · 规则 1（MATCH 1） → -
 --- stderr
