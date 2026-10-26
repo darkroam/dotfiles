@@ -266,6 +266,32 @@ def _node(run, kind, args):
         select_proxy(secret, api, args[0], args[1], str(run))
 
 
+def _rule_status(run):
+    from pathlib import Path
+
+    from axs.codes import FAIL
+    from axs.config import SECRET, api_address
+    from axs.core import service_up
+    from axs.mihomo import load_proxies
+    from axs.routes import build
+    from axs.rulelist import status_text
+
+    proxies = {}
+    if service_up(run):
+        api = api_address(run)
+        if not api:
+            die(FAIL, "控制器失败")
+        try:
+            proxies = load_proxies(Path(run) / SECRET, api)
+        except SystemExit as exc:
+            code = exc.code if isinstance(exc.code, int) else FAIL
+            raise SystemExit(FAIL if code == USAGE else code)
+    data = build(proxies, run)
+    if data is None:
+        die(DOWN, "服务：未运行")
+    sys.stdout.write(status_text(data))
+
+
 def main(argv):
     from axs.net import net_ip, net_test
     from axs.proxy import proxy_session, proxy_system, proxy_user
@@ -326,9 +352,12 @@ def main(argv):
     elif cmd == "rule":
         op, extra = _take("rule", rest)
         if op == "show":
-            if extra not in ([], ["--local"]):
+            if extra == ["status"]:
+                _rule_status(run)
+            elif extra not in ([], ["--local"]):
                 die(USAGE, "用法错误")
-            cmd_list(run, extra == ["--local"])
+            else:
+                cmd_list(run, extra == ["--local"])
         elif op == "add":
             cmd_add(run, extra)
         elif op == "del":

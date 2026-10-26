@@ -312,6 +312,15 @@
     }
   },
   {
+    "name": "rule-show--status.txt",
+    "argv": ["rule", "show", "status"],
+    "up": true,
+    "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\", \"甲\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"甲\", \"all\": [\"甲\", \"乙\"]}, \"均衡\": {\"type\": \"LoadBalance\", \"all\": [\"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Shadowsocks\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - DOMAIN,a.example,主代理\n  - DOMAIN-SUFFIX,b.example,主代理\n  - RULE-SET,ads,主代理\n  - MATCH,均衡\n  - DOMAIN,c.example,甲\n  - MATCH,DIRECT\n"
+    }
+  },
+  {
     "name": "rule-del--missing.txt",
     "argv": [
       "rule",
