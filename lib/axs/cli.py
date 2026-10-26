@@ -207,7 +207,8 @@ def _node(run, kind, args):
 
     from axs.config import SECRET, api_address, read_ports
     from axs.nodes import DELAY_URL, default_group, delay, lookup_group, select_proxy, show_groups, show_nodes, write_node_cache
-    from axs.service import captured, service_up, show_rule_nodes, write_cache
+    from axs.nodeview import show_members, show_rule_nodes
+    from axs.service import captured, service_up, write_cache
     import os
     if kind == "groups" and args:
         die(USAGE, "用法错误")
@@ -261,8 +262,6 @@ def _node(run, kind, args):
         else:
             show_rule_nodes(run, secret, api)
     elif kind == "members":
-        from axs.tree import show_members
-
         show_members(_proxies(secret, api), args[0], str(run))
     else:
         select_proxy(secret, api, args[0], args[1], str(run))
