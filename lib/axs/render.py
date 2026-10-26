@@ -99,6 +99,29 @@ def term_cols():
         return int(out)
     return 80
 
+PATH_TITLE = "当前规则路径："
+
+
+def section_title(text):
+    return bold(text)
+
+
+def view_note(text):
+    return dim(text)
+
+
+def view_page(path_body, blocks, note):
+    body = path_body.strip("\n")
+    head = section_title(PATH_TITLE)
+    parts = [head if not body else head + "\n" + body]
+    for title, block in blocks:
+        shown = block.strip("\n")
+        title = section_title(title)
+        parts.append(title if not shown else title + "\n" + shown)
+    parts.append(view_note(note))
+    return "\n\n".join(parts) + "\n"
+
+
 def layout_cells(entries, width):
     if not entries:
         return []

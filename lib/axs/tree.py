@@ -8,8 +8,11 @@ from axs.nodes import (
     node_numbers,
     selection_parts,
 )
-from axs.render import display_width, term_cols
-from axs.routes import select_roots
+from pathlib import Path
+
+from axs.render import display_width, term_cols, view_page
+from axs.routes import build, select_roots
+from axs.rulelist import status_text
 
 
 def exit_line(proxies):
@@ -67,7 +70,7 @@ def tree_roots(proxies):
     return sorted(groups)
 
 
-def render_tree(proxies, depth=None, width=None, mode="full", origin=None):
+def render_tree(proxies, depth=None, width=None, mode="full", origin=None, view=False):
     if width is None:
         width = term_cols()
     gnums = group_numbers(proxies)
@@ -163,7 +166,7 @@ def render_tree(proxies, depth=None, width=None, mode="full", origin=None):
         tail = "（上方）" if above else "（下方）"
         return f"{prefix}→ 见 G{gnums[name]} {name}{tail}"
 
-    lines, home, lower_set = [exit_line(proxies)], {}, set()
+    home, lower_set = {}, set()
     roots = select_roots(proxies, origin) if select else tree_roots(proxies)
     depths = {} if select else min_group_depth(proxies, roots)
     lower = []
@@ -184,13 +187,31 @@ def render_tree(proxies, depth=None, width=None, mode="full", origin=None):
                 lower.append(name)
         lower.sort(key=gnums.get)
         lower_set.update(lower)
-        lines.append("规则入口")
+    upper = []
     for name in roots:
-        lines.extend(expand(name, "", "", 1, [], "", "上" if select else ""))
+        upper.extend(expand(name, "", "", 1, [], "", "上" if select else ""))
+    lower_lines = []
     if lower:
-        lines.append("成员引用")
         for name in lower:
-            lines.extend([point(name, "")] if name in home else expand(name, "", "", 1, [], "", "下"))
-    return "\n".join(lines) + "\n"
+            lower_lines.extend([point(name, "")] if name in home else expand(name, "", "", 1, [], "", "下"))
+    opened = exit_line(proxies)
+    if not view:
+        lines = [opened]
+        if select:
+            lines.append("规则入口")
+        lines.extend(upper)
+        if lower_lines:
+            lines.extend(["成员引用", *lower_lines])
+        return "\n".join(lines) + "\n"
+    data = build(proxies, Path(origin).parent) if origin is not None else None
+    path = status_text(data).strip("\n") if data else ""
+    if not select:
+        note = "说明：完整拓扑；每组只在最小深度处展开一次，不带延迟。"
+        return view_page(path, [("完整拓扑：", "\n".join([opened, *upper]))], note)
+    blocks = [("当前规则目标组（可切换）：", "\n".join([opened, *upper]))]
+    if lower_lines:
+        blocks.append(("成员引用（仅被其他组引用的组）：", "\n".join(lower_lines)))
+    note = "说明：可手动切换项；每个 Selector 只展开一层，自动组只作终端。"
+    return view_page(path, blocks, note)
 
 
