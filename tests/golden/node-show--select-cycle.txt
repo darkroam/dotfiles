@@ -4,15 +4,14 @@ exit: 0
 G2 甲组 [Selector] · 规则 1（MATCH 1） → G1 乙组 [Selector] → -
 
 当前规则目标组（可切换）：
-当前出口：-
-G2 甲组 [Selector]
-G1 乙组 [Selector] * → 见成员引用
-N2 甲
+  G2 甲组 [Selector]
+  ├─ G1 乙组 [Selector] [*] → 见成员引用
+  └─ N2 甲
 
 成员引用（仅被其他组引用的组）：
-G1 乙组 [Selector]
-G2 甲组 [Selector] * → 见当前规则目标组
-N1 乙
+  G1 乙组 [Selector]
+  ├─ G2 甲组 [Selector] [*] → 见当前规则目标组
+  └─ N1 乙
 
 说明：可手动切换项；每个 Selector 只展开一层，自动组只作终端。
 --- stderr

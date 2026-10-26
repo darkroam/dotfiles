@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "lib"))
 from axs.cli import _list_flags  # noqa: E402
 from axs.codes import USAGE  # noqa: E402
 from axs.nodes import group_numbers, node_numbers  # noqa: E402
+from axs.selectview import render_select  # noqa: E402
 from axs.tree import render_tree  # noqa: E402
 
 
@@ -24,7 +25,7 @@ def _select(proxies, rules, depth=None, view=False):
     with tempfile.TemporaryDirectory(prefix="axs-select-") as tmp:
         root = Path(tmp)
         (root / "config.yaml").write_text(rules, encoding="utf-8")
-        return render_tree(proxies, depth=depth, width=80, mode="select", origin=root / "secret", view=view)
+        return render_select(proxies, depth=depth, origin=root / "secret", view=view)
 
 
 def _once(text, token):
@@ -62,27 +63,32 @@ def check_select():
     shallow = _select(proxies, rules, 1)
     mid = _select(proxies, rules, 2)
     if select != (
-        "当前出口：主代理 → 自动（自动，url-test）→ 隐藏\n"
         "规则入口\n"
-        "G3 主代理 [Selector]\n"
-        f"G7 自动 [URLTest] * {note}\n"
-        "N3 甲\n"
-        "G2 中继 [Relay]\n"
-        "G5 国内直连 [Selector]\n"
-        "N1 丙 [*]\n"
-        f"G4 回退 [Fallback] {note}\n"
-        f"G8 负载 [LoadBalance] {note}\n"
+        "  G3 主代理 [Selector]\n"
+        f"  ├─ G7 自动 [URLTest] [*] {note}\n"
+        "  ├─ N3 甲\n"
+        "  └─ G2 中继 [Relay]\n"
+        "\n"
+        "  G5 国内直连 [Selector]\n"
+        "  ├─ N1 丙 [*]\n"
+        f"  └─ G4 回退 [Fallback] {note}\n"
+        "\n"
+        f"  G8 负载 [LoadBalance] {note}\n"
     ):
         fail("select\n" + select)
     if mid != select:
         fail("depth>=2 is the member layer\n" + mid)
-    if "成员引用" in select or "旁路" in select or "├" in select or "[Shadowsocks]" in select:
+    if "成员引用" in select or "旁路" in select or "[Shadowsocks]" in select or "当前出口" in select:
         fail("flat direct\n" + select)
-    if shallow.splitlines()[1:] != [
+    if "  ├─ " not in select or not any(line.startswith("  G") for line in select.splitlines()):
+        fail("indent\n" + select)
+    if shallow.splitlines() != [
         "规则入口",
-        "G3 主代理 [Selector]",
-        "G5 国内直连 [Selector]",
-        f"G8 负载 [LoadBalance] {note}",
+        "  G3 主代理 [Selector]",
+        "",
+        "  G5 国内直连 [Selector]",
+        "",
+        f"  G8 负载 [LoadBalance] {note}",
     ]:
         fail("select depth 1\n" + shallow)
     gnums = group_numbers(proxies)
@@ -106,27 +112,34 @@ def check_select():
     zrules = "rules:\n  - DOMAIN,a.example,入口\n  - MATCH,另一\n"
     zoned = _select(zones, zrules)
     if zoned != (
-        "当前出口：-\n"
         "规则入口\n"
-        "G2 入口 [Selector]\n"
-        "N2 甲 [*]\n"
-        "G3 共享 [Selector] → 见成员引用\n"
-        "G1 中继 [Relay]\n"
-        "G4 另一 [Selector]\n"
-        "G3 共享 [Selector] * → 见成员引用\n"
-        "G1 中继 [Relay]\n"
+        "  G2 入口 [Selector]\n"
+        "  ├─ N2 甲 [*]\n"
+        "  ├─ G3 共享 [Selector] → 见成员引用\n"
+        "  └─ G1 中继 [Relay]\n"
+        "\n"
+        "  G4 另一 [Selector]\n"
+        "  ├─ G3 共享 [Selector] [*] → 见成员引用\n"
+        "  └─ G1 中继 [Relay]\n"
         "成员引用\n"
-        "G3 共享 [Selector]\n"
-        "N1 乙 [*]\n"
-        "G2 入口 [Selector] → 见当前规则目标组\n"
+        "  G3 共享 [Selector]\n"
+        "  ├─ N1 乙 [*]\n"
+        "  └─ G2 入口 [Selector] → 见当前规则目标组\n"
     ):
         fail("zones\n" + zoned)
     if zoned.count("N2 甲") != 1 or zoned.count("→ 见成员引用") != 2 or zoned.count("G3 共享 [") != 3:
         fail("shared leaf\n" + zoned)
     if "回到上层" in zoned or "甲 [Shadowsocks]" in zoned:
         fail("zone expanded\n" + zoned)
-    z1 = "\n".join(_select(zones, zrules, 1).splitlines()[1:])
-    if z1 != "规则入口\nG2 入口 [Selector]\nG4 另一 [Selector]\n成员引用\nG3 共享 [Selector]":
+    z1 = _select(zones, zrules, 1)
+    if z1 != (
+        "规则入口\n"
+        "  G2 入口 [Selector]\n"
+        "\n"
+        "  G4 另一 [Selector]\n"
+        "成员引用\n"
+        "  G3 共享 [Selector]\n"
+    ):
         fail("zone depth 1\n" + z1)
     if _select(zones, zrules, 2) != zoned or _select(zones, zrules, 3) != zoned:
         fail("zone depth stops at members")
@@ -139,11 +152,11 @@ def check_select():
     }
     shown = _select(auto, "rules:\n  - DOMAIN,a.example,自动\n  - MATCH,负载\n")
     if shown != (
-        "当前出口：主代理 → 负载（自动，load-balance）→ -\n"
         "规则入口\n"
-        f"G2 自动 [URLTest] {note}\n"
-        f"G3 负载 [LoadBalance] {note}\n"
-    ) or "成员引用" in shown or "甲" in shown.split("规则入口", 1)[-1]:
+        f"  G2 自动 [URLTest] {note}\n"
+        "\n"
+        f"  G3 负载 [LoadBalance] {note}\n"
+    ) or "成员引用" in shown or "当前出口" in shown or "甲" in shown.split("规则入口", 1)[-1]:
         fail("auto root\n" + shown)
     ref = {
         "主代理": {"type": "Selector", "now": "甲", "all": ["甲", "手动"]},
@@ -153,14 +166,13 @@ def check_select():
     }
     cited = _select(ref, "rules:\n  - MATCH,主代理\n")
     if cited != (
-        "当前出口：主代理 → 甲（手动）→ 甲\n"
         "规则入口\n"
-        "G1 主代理 [Selector]\n"
-        "N2 甲 [*]\n"
-        "G2 手动 [Selector] → 见成员引用\n"
+        "  G1 主代理 [Selector]\n"
+        "  ├─ N2 甲 [*]\n"
+        "  └─ G2 手动 [Selector] → 见成员引用\n"
         "成员引用\n"
-        "G2 手动 [Selector]\n"
-        "N1 乙 [*]\n"
+        "  G2 手动 [Selector]\n"
+        "  └─ N1 乙 [*]\n"
     ):
         fail("referenced\n" + cited)
     buried = _select(
@@ -200,17 +212,17 @@ def check_reach():
     }
     text = _select(nested, "rules:\n  - MATCH,主代理\n")
     if text != (
-        "当前出口：主代理 → 子（手动）→ 乙\n"
         "规则入口\n"
-        "G1 主代理 [Selector]\n"
-        "G2 子 [Selector] * → 见成员引用\n"
-        "N3 甲\n"
+        "  G1 主代理 [Selector]\n"
+        "  ├─ G2 子 [Selector] [*] → 见成员引用\n"
+        "  └─ N3 甲\n"
         "成员引用\n"
-        "G2 子 [Selector]\n"
-        "N2 乙 [*]\n"
-        "G3 孙 [Selector] → 见成员引用\n"
-        "G3 孙 [Selector]\n"
-        "N1 丙 [*]\n"
+        "  G2 子 [Selector]\n"
+        "  ├─ N2 乙 [*]\n"
+        "  └─ G3 孙 [Selector] → 见成员引用\n"
+        "\n"
+        "  G3 孙 [Selector]\n"
+        "  └─ N1 丙 [*]\n"
     ):
         fail("nested\n" + text)
     head, low = text.split("\n成员引用\n", 1)
@@ -239,13 +251,12 @@ def check_reach():
     }
     via = _select(relay, "rules:\n  - MATCH,主代理\n")
     if via != (
-        "当前出口：主代理 → 中继（手动）→ 乙\n"
         "规则入口\n"
-        "G2 主代理 [Selector]\n"
-        "G1 中继 [Relay] *\n"
+        "  G2 主代理 [Selector]\n"
+        "  └─ G1 中继 [Relay] [*]\n"
         "成员引用\n"
-        "G3 手动 [Selector]\n"
-        "N1 乙 [*]\n"
+        "  G3 手动 [Selector]\n"
+        "  └─ N1 乙 [*]\n"
     ):
         fail("relay\n" + via)
     cycle = {
@@ -256,15 +267,14 @@ def check_reach():
     }
     ring = _select(cycle, "rules:\n  - MATCH,甲组\n")
     if ring != (
-        "当前出口：-\n"
         "规则入口\n"
-        "G2 甲组 [Selector]\n"
-        "G1 乙组 [Selector] * → 见成员引用\n"
-        "N2 甲\n"
+        "  G2 甲组 [Selector]\n"
+        "  ├─ G1 乙组 [Selector] [*] → 见成员引用\n"
+        "  └─ N2 甲\n"
         "成员引用\n"
-        "G1 乙组 [Selector]\n"
-        "G2 甲组 [Selector] * → 见当前规则目标组\n"
-        "N1 乙\n"
+        "  G1 乙组 [Selector]\n"
+        "  ├─ G2 甲组 [Selector] [*] → 见当前规则目标组\n"
+        "  └─ N1 乙\n"
     ):
         fail("cycle\n" + ring)
     if "回到上层" in ring or ring.count("G2 甲组 [Selector]") != 2:

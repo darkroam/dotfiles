@@ -134,6 +134,7 @@ def check_frames():
     from axs.nodes import _show_nodes_full
     from axs.render import view_page
     from axs.rulelist import status_text
+    from axs.selectview import render_select
     from axs.tree import render_tree
 
     proxies = {"G": {"type": "Selector", "now": "a", "all": ["a"]}, "a": {"type": "Direct"}}
@@ -158,8 +159,8 @@ def check_frames():
         run = Path(tmp)
         (run / "config.yaml").write_text("rules:\n  - MATCH,G\n", encoding="utf-8")
         (run / "secret").write_text("x\n", encoding="utf-8")
-        shown = render_tree(proxies, width=80, mode="select", origin=run / "secret", view=True)
-        if "当前规则目标组（可切换）：" not in shown or "说明：可手动切换项" not in shown:
+        shown = render_select(proxies, origin=run / "secret", view=True)
+        if "当前规则目标组（可切换）：" not in shown or "说明：可手动切换项" not in shown or "当前出口" in shown:
             fail("select frame\n" + shown)
         if "规则入口" in shown or "成员引用（仅被其他组引用的组）" in shown:
             fail("old select label\n" + shown)
