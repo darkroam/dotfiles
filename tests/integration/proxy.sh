@@ -166,6 +166,7 @@ new_run
 mark_up
 prepare_health 18084
 python3 -c 'import json,os; json.dump({"proxies":{"主代理":{"all":["自动选择"],"now":"自动选择","type":"Selector"},"自动选择":{"all":["a"],"now":"a","type":"URLTest"},"GLOBAL":{"all":["DIRECT"],"now":"DIRECT","type":"Selector"},"a":{"type":"Shadowsocks"},"DIRECT":{"type":"Direct"}}}, open(os.environ["AXS_RUN"]+"/fake/proxies.json","w"))'
+printf '%s\n' 'rules:' '  - MATCH,主代理' >"$RUN/config.yaml"
 now=$(date +%s)
 printf 'upload=1536\nexpire=%s\n' "$((now - 10))" >"$RUN/userinfo"
 mkdir -p "$RUN/cache"
@@ -176,17 +177,13 @@ grep -F -q "${ESC}[1m服务" "$RUN/out" || fail "status label: $(cat "$RUN/out")
 grep -F -q "${ESC}[90m状态" "$RUN/out" || fail "status row label: $(cat "$RUN/out")"
 grep -F -q "${ESC}[1;32m运行中" "$RUN/out" || fail "status up: $(cat "$RUN/out")"
 grep -F -q "${ESC}[32m监听" "$RUN/out" || fail "status port: $(cat "$RUN/out")"
-grep -F -q "${ESC}[36m自动选择" "$RUN/out" || fail "status group: $(cat "$RUN/out")"
-grep -F -q "${ESC}[1;32ma" "$RUN/out" || fail "status now: $(cat "$RUN/out")"
 python3 -c 'import os,re,sys
 esc=re.compile("\x1b\\[[0-9;]*m")
 text=esc.sub("", open(os.environ["AXS_RUN"]+"/out",encoding="utf-8").read())
-if "主代理  → 自动选择（自动，url-test）→ a" not in text:
+chain="G2 主代理 [Selector] · 规则 1（MATCH 1） → G3 自动选择 [URLTest] → N2 a"
+if chain not in text or "路径" not in text or "GLOBAL  " in text or "[*]" in text:
     sys.stderr.write(text)
     raise SystemExit(1)
-if "GLOBAL  DIRECT" not in text:
-    sys.stderr.write(text)
-    raise SystemExit(4)
 if "上传 1.5K" not in text:
     raise SystemExit(2)
 want=["服务","节点","订阅","测试","代理"]
@@ -202,8 +199,7 @@ assert_code 'status tone plain' 5 status
 if grep -q "$ESC" "$RUN/out"; then
     fail 'status never colored'
 fi
-grep -q '主代理  → 自动选择（自动，url-test）→ a' "$RUN/out" || fail "plain chain: $(cat "$RUN/out")"
-grep -q 'GLOBAL  DIRECT' "$RUN/out" || fail "plain global: $(cat "$RUN/out")"
+grep -F -q 'G2 主代理 [Selector] · 规则 1（MATCH 1） → G3 自动选择 [URLTest] → N2 a' "$RUN/out" || fail "plain chain: $(cat "$RUN/out")"
 grep -q '上传 1.5K' "$RUN/out" || fail "plain bytes: $(cat "$RUN/out")"
 
 

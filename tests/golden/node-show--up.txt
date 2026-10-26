@@ -1,6 +1,8 @@
 exit: 0
 --- stdout
-当前：主代理 → a（手动）→ a 第1个
-最近测速：-
-[*] N1 a -      N2 b -
+G1 入口 [Selector] · 规则 1（MATCH 1） → G3 自动 [URLTest] → N1 乙
+G2 旁路 [Selector] · 规则 1（DOMAIN 1） → G3 自动 [URLTest] → N1 乙
+
+G3 自动 [URLTest] → N1 乙 · 2 个成员
+    N2 甲 -  [*] N1 乙 -
 --- stderr

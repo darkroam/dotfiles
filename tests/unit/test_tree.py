@@ -119,9 +119,9 @@ def check_flat_and_flags():
         fail("flags")
     if _list_flags(["--depth", "1", "--full"]) != ("full", 1):
         fail("flags order")
-    if _list_flags(["-l"]) != ("flat", None) or _list_flags(["--flat"]) != ("flat", None):
+    if _list_flags(["-l"]) != ("flat", None) or _list_flags(["--flat"]) != ("flat", None) or _list_flags(["--all"]) != ("all", None):
         fail("flat")
-    for args in (["--depth", "1"], ["--full", "--flat"], ["--depth", "0"], ["--depth", "03"], ["--nope"]):
+    for args in (["--depth", "1"], ["--full", "--flat"], ["--depth", "0"], ["--depth", "03"], ["--nope"], ["--all", "--depth", "1"]):
         try:
             with contextlib.redirect_stderr(io.StringIO()):
                 _list_flags(args)

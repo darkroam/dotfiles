@@ -141,13 +141,14 @@ SECTIONS = (
     ), ()),
     ("规则（rule / r）", (
         ("axs rule show", "s", "按顺序编号；来源 prepend/local/provider；--local 只看本地"),
+        ("axs rule show status", "", "规则路径，不含成员"),
         ("axs rule add via", "v", "域名 + 组"),
         ("axs rule add direct", "d", "域名"),
         ("axs rule add node", "n", "域名 + 节点"),
         ("axs rule del", "d", "<域名|RID|规则全文>"),
     ), ()),
     ("节点（node / n）", (
-        ("axs node show", "s", "--full 树；--select 规则入口/成员引用，每组一次，自动组为终端；--flat；--depth"),
+        ("axs node show", "s", "--all 全量叶子；--full 树；--select 两段；--depth"),
     ), ()),
     ("组（group / g）", (
         ("axs group show", "s", "策略组与当前节点"),

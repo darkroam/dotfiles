@@ -29,8 +29,8 @@ PASS=$((PASS + 1))
 new_run
 assert_code 'status down' 2 status
 grep -q '状态    未运行（手动）' "$RUN/out" || fail "down service: $(cat "$RUN/out")"
-grep -q '主代理  → -' "$RUN/out" || fail "down nodes: $(cat "$RUN/out")"
-grep -q 'GLOBAL  -' "$RUN/out" || fail "down global: $(cat "$RUN/out")"
+grep -q '路径    -' "$RUN/out" || fail "down nodes: $(cat "$RUN/out")"
+if grep -q 'GLOBAL  ' "$RUN/out"; then fail "down global: $(cat "$RUN/out")"; fi
 grep -q 'net     -' "$RUN/out" || fail "down net cache: $(cat "$RUN/out")"
 grep -q 'node    -' "$RUN/out" || fail "down node cache: $(cat "$RUN/out")"
 grep -q '自启    -' "$RUN/out" || fail "down timer: $(cat "$RUN/out")"
@@ -359,7 +359,7 @@ assert_code 'status expired' 5 status
 grep -q '状态    运行中（手动，pid' "$RUN/out" || fail "expired service: $(cat "$RUN/out")"
 grep -q '18080 监听' "$RUN/out" || fail "expired port: $(cat "$RUN/out")"
 grep -q '控制器 18081 可达' "$RUN/out" || fail "expired api: $(cat "$RUN/out")"
-grep -q '主代理  → -' "$RUN/out" || fail "expired nodes: $(cat "$RUN/out")"
+grep -q '路径    -' "$RUN/out" || fail "expired nodes: $(cat "$RUN/out")"
 grep -q '已过期，0 天' "$RUN/out" || fail "expired sub: $(cat "$RUN/out")"
 
 new_run
