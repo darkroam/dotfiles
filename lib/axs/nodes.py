@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 
 from axs.mihomo import GROUP_TYPES, delay_path, load_proxies, read_secret, request, select_path
-from axs.render import bold, dim, display_width, emph, ident, layout_cells, term_cols, tone, use_color
+from axs.render import dim, display_width, emph, ident, layout_cells, term_cols, tone, use_color
 
 DELAY_URL = "https://www.gstatic.com/generate_204"
 
@@ -142,12 +142,10 @@ def selection_parts(proxies):
     return mid, follow_leaf(proxies, now)
 
 def current_selection(proxies, numbers):
-    mid, leaf = selection_parts(proxies)
-    if mid is None:
-        return "当前：无", None
+    _mid, leaf = selection_parts(proxies)
     if leaf in numbers:
-        return f"当前：主代理 → {mid}→ {leaf} 第{numbers[leaf]}个", leaf
-    return f"当前：主代理 → {mid}→ -", None
+        return leaf
+    return None
 
 def pick_test_group(proxies):
     groups = {
@@ -260,7 +258,7 @@ def show_nodes(secret_path, api, mode=""):
         _show_nodes_full(proxies)
         return
     numbers = node_numbers(proxies)
-    head, star = current_selection(proxies, numbers)
+    star = current_selection(proxies, numbers)
     delays = load_delays(mode)
     shown = []
     for name in sorted(numbers, key=numbers.get):
@@ -278,7 +276,7 @@ def show_nodes(secret_path, api, mode=""):
         plain = f"{marker}{num_text} {name} {delay_text}"
         colored = paint_cell(marker, num_text, name, delay_text, name == star, delay)
         entries.append((plain, colored))
-    lines = [bold(head), bold(speed_line(mode)), *layout_cells(entries, term_cols())]
+    lines = layout_cells(entries, term_cols())
     sys.stdout.write("\n".join(lines) + "\n")
 
 def cached_delay(run_dir, name):

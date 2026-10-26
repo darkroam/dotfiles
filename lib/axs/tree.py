@@ -2,30 +2,14 @@
 
 from axs.nodes import (
     _is_group,
-    follow_leaf,
     group_numbers,
     node_numbers,
-    selection_parts,
 )
 from pathlib import Path
 
 from axs.render import display_width, term_cols, view_page
 from axs.routes import build
 from axs.rulelist import status_text
-
-
-def exit_line(proxies):
-    if _is_group(proxies.get("主代理")):
-        mid, leaf = selection_parts(proxies)
-        if not mid:
-            return "当前出口：主代理 → -"
-        return f"当前出口：主代理 → {mid}→ {leaf or '-'}"
-    item = proxies.get("GLOBAL")
-    if not _is_group(item):
-        return "当前出口：-"
-    now = item.get("now") if isinstance(item.get("now"), str) and item.get("now") else ""
-    leaf = follow_leaf(proxies, now) if now else None
-    return f"当前出口：GLOBAL → {leaf or now or '-'}"
 
 
 def min_group_depth(proxies, roots):
@@ -161,8 +145,7 @@ def render_tree(proxies, depth=None, width=None, origin=None, view=False):
     upper = []
     for name in roots:
         upper.extend(expand(name, "", "", 1, [], "", ""))
-    opened = exit_line(proxies)
-    body = "\n".join([opened, *upper])
+    body = "\n".join(upper)
     if not view:
         return body + "\n"
     data = build(proxies, Path(origin).parent) if origin is not None else None

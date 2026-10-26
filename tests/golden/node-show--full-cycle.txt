@@ -3,7 +3,6 @@ exit: 0
 当前规则路径：
 
 完整拓扑：
-当前出口：-
 G1 A [Selector]
 ├─ → 见 G2 B（下方）
 └─ N1 甲 [Shadowsocks]

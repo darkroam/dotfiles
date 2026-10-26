@@ -121,7 +121,7 @@ def show_all(run, secret, api):
     import contextlib
     import io
 
-    from axs.nodes import show_nodes
+    from axs.nodes import show_nodes, speed_line
 
     data = None
     try:
@@ -132,5 +132,6 @@ def show_all(run, secret, api):
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         show_nodes(secret, api, str(run))
-    note = "说明：全部叶子节点；组关系见 --full。"
-    sys.stdout.write(view_page(path, [("全部子叶节点：", buf.getvalue())], note))
+    note = "说明：全部叶子节点；组关系见 --full。叶子含节点与内置策略，不含策略组。"
+    title = f"全部叶子端点（{speed_line(run)}）："
+    sys.stdout.write(view_page(path, [(title, buf.getvalue())], note))

@@ -3,7 +3,6 @@ exit: 0
 当前规则路径：
 
 完整拓扑：
-当前出口：-
 G2 右 [Selector]
 ├─ G1 共享 [Selector]
 │  └─ N1 丙 [Vless] [*]
