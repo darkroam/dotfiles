@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 
 from axs.mihomo import GROUP_TYPES, delay_path, load_proxies, read_secret, request, select_path
-from axs.render import bold, dim, display_width, emph, ident, layout_cells, ok, term_cols, tone, use_color
+from axs.render import bold, dim, display_width, emph, ident, layout_cells, term_cols, tone, use_color
 
 DELAY_URL = "https://www.gstatic.com/generate_204"
 
@@ -371,24 +371,3 @@ def delay(secret_path, api, group, url):
             code = "31"
         title = ident(name) if name == group else name
         sys.stdout.write(f"{title} {_ansi(code, shown)}\n")
-
-def status_nodes(secret_path, api):
-    proxies = {}
-    try:
-        loaded = load_proxies(secret_path, api)
-    except SystemExit:
-        loaded = {}
-    if isinstance(loaded, dict):
-        proxies = loaded
-    mid, leaf = selection_parts(proxies)
-    if leaf not in node_numbers(proxies):
-        leaf = None
-    global_item = proxies.get("GLOBAL")
-    global_now = _now(global_item) if _is_group(global_item) else "-"
-    leaf_shown = emph("32", leaf) if leaf else dim("-")
-    if mid:
-        chain = f"→ {ident(mid)}→ {leaf_shown}"
-    else:
-        chain = f"→ {dim('-')}"
-    gshown = dim(global_now) if global_now == "-" else ok(global_now)
-    sys.stdout.write(chain + "\n" + gshown + "\n")

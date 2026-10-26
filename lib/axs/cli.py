@@ -106,7 +106,7 @@ def usage_text():
     previous = os.environ.get("AXS_PAINT_FD")
     os.environ["AXS_PAINT_FD"] = "2"
     try:
-        flags = "|".join(_usage_word(flag) for flag in ("--full", "--select", "--flat"))
+        flags = "|".join(_usage_word(flag) for flag in ("--full", "--select", "--all"))
         lines = [
             "用法：axs " + _pipes(["status", "clean", "help"], "top"),
             "      axs " + _usage_word("service", "top") + " " + _pipes(["status", "start", "stop", "restart", "ensure", "enable", "disable"], "service"),
@@ -166,10 +166,10 @@ def _list_flags(args):
     index = 0
     while index < len(args):
         arg = args[index]
-        if arg in ("--full", "--flat", "-l", "--select"):
+        if arg in ("--full", "--flat", "-l", "--select", "--all"):
             if mode:
                 die(USAGE, "用法错误")
-            mode = "flat" if arg in ("--flat", "-l") else "select" if arg == "--select" else "full"
+            mode = {"--flat": "flat", "-l": "flat", "--select": "select", "--all": "all"}.get(arg, "full")
             index += 1
             continue
         if arg != "--depth":
@@ -207,7 +207,7 @@ def _node(run, kind, args):
 
     from axs.config import SECRET, api_address, read_ports
     from axs.nodes import DELAY_URL, default_group, delay, lookup_group, select_proxy, show_groups, show_nodes, write_node_cache
-    from axs.service import captured, service_up, write_cache
+    from axs.service import captured, service_up, show_rule_nodes, write_cache
     import os
     if kind == "groups" and args:
         die(USAGE, "用法错误")
@@ -256,8 +256,10 @@ def _node(run, kind, args):
             _show_tree(secret, api, list_mode, depth)
         elif list_mode == "flat":
             show_nodes(secret, api, "flat")
-        else:
+        elif list_mode == "all":
             show_nodes(secret, api, str(run))
+        else:
+            show_rule_nodes(run, secret, api)
     elif kind == "members":
         from axs.tree import show_members
 

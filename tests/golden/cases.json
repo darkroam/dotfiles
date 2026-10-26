@@ -48,7 +48,28 @@
       "node",
       "show"
     ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"入口\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\"]}, \"旁路\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"乙\", \"all\": [\"甲\", \"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Shadowsocks\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - MATCH,入口\n  - DOMAIN,a.example,旁路\n"
+    }
+  },
+  {
+    "name": "node-show--all.txt",
+    "argv": [
+      "node",
+      "show",
+      "--all"
+    ],
     "up": true
+  },
+  {
+    "name": "node-show--all-down.txt",
+    "argv": [
+      "node",
+      "show",
+      "--all"
+    ]
   },
   {
     "name": "node-show--tree.txt",

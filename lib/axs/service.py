@@ -28,11 +28,13 @@ from axs.core import (
     unix_now,
     write_cache,
 )
-from axs.mihomo import version_ok
+from axs.mihomo import load_proxies, version_ok
 from axs.net import port_open
-from axs.nodes import status_nodes
+from axs.nodes import follow_leaf, group_numbers, load_delays, node_numbers, paint_cell
 from axs.proxy import status_summary
-from axs.render import bad, bold, die, dim, emph, label, ok
+from axs.render import bad, bold, die, dim, display_width, emph, label, layout_cells, ok, term_cols
+from axs.routes import build
+from axs.rulelist import status_text
 from axs.subscription import classify, clean_names, refresh_run, status_sub
 
 def run_dir():
@@ -131,20 +133,75 @@ def service_status(run):
         raise SystemExit(FAIL)
 
 
+def terminal_text(proxies, data, run):
+    gnums, nnums = group_numbers(proxies), node_numbers(proxies)
+    delays, blocks = load_delays(run), []
+    for name in data["terminals"]:
+        item = proxies.get(name) or {}
+        kind = str(item.get("type") or "")
+        members = item.get("all") if isinstance(item.get("all"), list) else []
+        now = item.get("now") if isinstance(item.get("now"), str) else ""
+        leaf = "" if kind == "LoadBalance" else (follow_leaf(proxies, now) or "")
+        current = f"N{nnums[leaf]} {leaf}" if leaf in nnums else "-"
+        head_line = f"G{gnums[name]} {name} [{kind}] → {current} · {len(members)} 个成员"
+        shown = []
+        for member in members:
+            if member not in nnums:
+                continue
+            delay = delays.get(member, "-")
+            shown.append((member, "-" if delay in (None, "") else str(delay)))
+        width = len(f"N{max((nnums[member] for member, _delay in shown), default=1)}")
+        wide = max((display_width(delay) for _member, delay in shown), default=1)
+        entries = []
+        for member, delay in shown:
+            marker = "[*] " if member == leaf else "    "
+            num_text = f"{'N' + str(nnums[member]):>{width}}"
+            delay_text = f"{delay:>{wide}}"
+            plain = f"{marker}{num_text} {member} {delay_text}"
+            entries.append((plain, paint_cell(marker, num_text, member, delay_text, member == leaf, delay)))
+        blocks.append("\n".join([head_line, *layout_cells(entries, term_cols())]))
+    return ("\n\n".join(blocks) + "\n") if blocks else ""
+
+
+def show_rule_nodes(run, secret, api):
+    try:
+        proxies = load_proxies(secret, api)
+    except SystemExit as exc:
+        code = exc.code if isinstance(exc.code, int) else USAGE
+        raise SystemExit(FAIL if code == USAGE else code)
+    data = build(proxies, run)
+    if data is None:
+        die(DOWN, "服务：未运行")
+    path, tail = status_text(data), terminal_text(proxies, data, run)
+    sys.stdout.write(path + ("\n" + tail if path and tail else tail))
+
+
+def node_status_lines(proxies, run):
+    data = build(proxies, run) if proxies else None
+    if not data or not data.get("live"):
+        return []
+    return status_text(data).splitlines()
+
+
+def write_node_status(run, api):
+    proxies = {}
+    if api:
+        try:
+            loaded = load_proxies(Path(run) / SECRET, api)
+        except SystemExit:
+            loaded = {}
+        if isinstance(loaded, dict):
+            proxies = loaded
+    lines = node_status_lines(proxies, run)
+    row("路径    ", lines[0] if lines else dim("-"))
+    for line in lines[1:]:
+        row("        ", line)
+
+
 def status(run):
     running, port_ok, api_ok, api, mixed = service_section(run)
-    node_mid = f"→ {dim('-')}"
-    node_g = dim("-")
-    if port_ok and api_ok:
-        _code, block = captured(status_nodes, Path(run) / SECRET, api)
-        lines = block.splitlines()
-        if lines and lines[0]:
-            node_mid = lines[0]
-        if len(lines) > 1 and lines[1]:
-            node_g = lines[1]
     head("节点")
-    row("主代理  ", node_mid)
-    row("GLOBAL  ", node_g)
+    write_node_status(run, api if port_ok and api_ok else "")
     code, block = captured(status_sub, Path(run) / USERINFO, unix_now())
     lines = block.splitlines()
     if code or len(lines) < 2:

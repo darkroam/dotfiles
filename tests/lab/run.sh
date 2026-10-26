@@ -226,7 +226,7 @@ check() {
         printf '%s\n' "$groups" >&2
         return 1
     }
-    listed=$("$AXS" node show)
+    listed=$("$AXS" node show --all)
     printf '%s\n' "$listed" | grep -F spare >/dev/null || {
         say "FAIL spare missing"
         return 1

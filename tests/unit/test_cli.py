@@ -218,7 +218,7 @@ def check_help_aliases():
                 key = (parts[1], parts[2])
             shown.setdefault(key, set()).add(alias)
     for (group, word), aliases in shown.items():
-        expect = sub[word] if " " in group else _alias_marks(GROUPS[group][1]).get(word, "")
+        expect = sub.get(word, "") if " " in group else _alias_marks(GROUPS[group][1]).get(word, "")
         nonempty = {item for item in aliases if item}
         if expect and nonempty != {expect}:
             raise SystemExit(f"help alias {group} {word}")
@@ -345,8 +345,10 @@ def main():
         raise SystemExit("help still has redundant lines")
     if "单字符优先；冲突用两字母；前缀亦可" not in help_plain:
         raise SystemExit("help intro")
-    if "health" in help_plain or "health" in usage_text():
-        raise SystemExit("health is listed")
+    if "health" in help_plain or "health" in usage_text() or "--flat" in help_plain or "--flat" in usage_text():
+        raise SystemExit("hidden command listed")
+    if "--all" not in help_plain or "axs rule show status" not in help_plain:
+        raise SystemExit("help views")
     check_help_heads(help_plain)
     if '示例：axs s · axs n s · axs p sy on' not in help_plain:
         raise SystemExit("help example")

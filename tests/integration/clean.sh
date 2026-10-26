@@ -206,7 +206,7 @@ mark_up
 export AXS_API="127.0.0.1:18081" COLUMNS=200
 arm_api PROXY 204 0
 python3 -c 'import json; json.dump({"proxies": {f"node-{i:02d}": {"type": "Shadowsocks"} for i in range(1, 11)} | {"主代理": {"all": ["node-01"], "now": "node-01", "type": "Selector"}}}, open("'"$RUN"'/fake/proxies.json", "w"))'
-assert_code 'align mark' 0 node show
+assert_code 'align mark' 0 node show --all
 data=$(sed -n '3p' "$RUN/out")
 printf '%s\n' "$data" | grep -q '^\[\*\] ' || fail "mark width: $data"
 # units digit of 1 and of 10 sit in the same column of their cells
@@ -229,7 +229,7 @@ cat >"$RUN/fake/proxies.json" <<'EOF'
 EOF
 mkdir -p "$RUN/cache"
 printf 'ts=1\nresult=ok\n{"a": 50}\n' >"$RUN/cache/node-test"
-assert_code 'color always' 0 node show
+assert_code 'color always' 0 node show --all
 grep -F -q "${ESC}[32m" "$RUN/out" || fail "always green: $(cat "$RUN/out")"
 grep -F -q "${ESC}[1m" "$RUN/out" || fail "always bold: $(cat "$RUN/out")"
 grep -F -q "${ESC}[1;32m[*]" "$RUN/out" || fail "mark green: $(cat "$RUN/out")"
@@ -241,7 +241,7 @@ grep -F -q "${ESC}[90mSelector" "$RUN/out" || fail "type gray: $(cat "$RUN/out")
 grep -F -q "${ESC}[1;32ma" "$RUN/out" || fail "now green: $(cat "$RUN/out")"
 grep -F -q "→ ${ESC}[1;32ma" "$RUN/out" || fail "now arrow: $(cat "$RUN/out")"
 export AXS_COLOR=never
-assert_code 'color never' 0 node show
+assert_code 'color never' 0 node show --all
 if grep -q "$ESC" "$RUN/out"; then
     fail 'never still colored'
 fi
