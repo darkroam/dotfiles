@@ -13,6 +13,7 @@ LAYERS = (
     ("config", "codes"),
     ("core", "render", "mihomo"),
     ("net", "nodes", "rulelist"),
+    ("routes",),
     ("subscription", "rules", "proxy"),
     ("tree", "service"),
     ("cli",),

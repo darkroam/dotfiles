@@ -118,6 +118,37 @@ def resolve_delete(run, token):
     return parsed[1]
 
 
+def _kind_text(kinds):
+    return "、".join(f"{name} {count}" for name, count in kinds)
+
+
+def _hop_text(hop):
+    number = f"G{hop['gnum']} " if hop.get("gnum") else ""
+    kind = f" [{hop['type']}]" if hop.get("type") else ""
+    return f"{number}{hop['name']}{kind}"
+
+
+def status_text(data):
+    lines = []
+    for target in data["targets"]:
+        stats = f"规则 {target['count']}（{_kind_text(target['kinds'])}）"
+        if not data["live"]:
+            head = target["name"] + (f" [{target['type']}]" if target.get("type") else "")
+            lines.append(f"{head} · {stats} → 当前选择：-")
+            continue
+        hops = target["hops"]
+        head = _hop_text(hops[0]) if hops else target["name"]
+        rest = [_hop_text(hop) for hop in hops[1:]]
+        leaf = target.get("leaf")
+        if leaf:
+            number = leaf.get("nnum")
+            rest.append(f"N{number} {leaf['name']}" if number else leaf["name"])
+        else:
+            rest.append("-")
+        lines.append(f"{head} · {stats} → " + " → ".join(rest))
+    return ("\n".join(lines) + "\n") if lines else ""
+
+
 def cmd_list(run, local=False):
     run = Path(run)
     if local:

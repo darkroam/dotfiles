@@ -23,6 +23,8 @@ bin/axs  bin/mihomo-run
     |
  subscription  rules  proxy
     |
+ routes
+    |
   net   nodes   rulelist
     |
  core ---------------- mihomo
@@ -49,6 +51,7 @@ bin/axs  bin/mihomo-run
 | service | 启停、health、清理、status 编排 | 订阅解析、锁、进程探测、端口探测 |
 | subscription | 拉取、校验、合并、流量与到期 | status 排版 |
 | rulelist | `RID`、来源分类、`rule show` 行、删除参数解析 | 安装、重载、回滚 |
+| routes | 规则目标链、条数分布、链尾自动组 | 着色、排版、改配置 |
 | rules | 规则增删，以及合并后的安装、重载、回滚 | 读端口、再写一遍锁、`RID` |
 | nodes | 组、列表、延迟、切换、测速缓存 | 改配置 |
 | net | 连通性、出口地址、入站是否打开 | 写订阅 |
@@ -95,6 +98,7 @@ run/                         运行时。不入库
 | `lib/axs/service.py` | 启停、ensure、health、清理、status | 400 行 |
 | `lib/axs/subscription.py` | 拉取、校验、合并、流量与到期 | 400 行 |
 | `lib/axs/rulelist.py` | `RID`、来源分类、`rule show` 行、删除参数解析 | 200 行 |
+| `lib/axs/routes.py` | 规则目标链与条数。不排版 | 160 行 |
 | `lib/axs/rules.py` | 规则增删、安装回滚 | 220 行 |
 | `lib/axs/nodes.py` | 组、列表、延迟、切换 | 400 行 |
 | `lib/axs/tree.py` | `node list` 的树，以及 `node members` 表。编号仍问 nodes | 250 行 |
