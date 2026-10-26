@@ -1,0 +1,19 @@
+exit: 0
+--- stdout
+当前规则路径：
+G2 主代理 [Selector] · 规则 1（MATCH 1） → N7 甲
+
+当前规则目标组（可切换）：
+  G2 主代理 [Selector]
+  ├─ G3 手动 [Selector] → 见成员引用
+  ├─ G1 中继 [Relay]
+  └─ N7 甲 [*]  N3 乙      N2 丙
+     N1 丁      N6 戊      N4 己
+     N5 庚      N8 辛
+
+成员引用（仅被其他组引用的组）：
+  G3 手动 [Selector]
+  └─ N3 乙 [*]
+
+说明：可手动切换项；每个 Selector 只展开一层，自动组只作终端。
+--- stderr

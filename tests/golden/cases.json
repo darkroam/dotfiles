@@ -327,6 +327,34 @@
     }
   },
   {
+    "name": "node-show--select-narrow.txt",
+    "columns": 40,
+    "argv": [
+      "node",
+      "show",
+      "--select"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"甲\", \"all\": [\"手动\", \"中继\", \"甲\", \"乙\", \"丙\", \"丁\", \"戊\", \"己\", \"庚\", \"辛\", \"GONE\"]}, \"手动\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"乙\"]}, \"中继\": {\"type\": \"Relay\", \"all\": [\"甲\"]}, \"乙\": {\"type\": \"Shadowsocks\"}, \"甲\": {\"type\": \"Shadowsocks\"}, \"丙\": {\"type\": \"Shadowsocks\"}, \"丁\": {\"type\": \"Shadowsocks\"}, \"戊\": {\"type\": \"Shadowsocks\"}, \"己\": {\"type\": \"Shadowsocks\"}, \"庚\": {\"type\": \"Shadowsocks\"}, \"辛\": {\"type\": \"Shadowsocks\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - MATCH,主代理\n"
+    }
+  },
+  {
+    "name": "node-show--select-wide.txt",
+    "columns": 160,
+    "argv": [
+      "node",
+      "show",
+      "--select"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"甲\", \"all\": [\"手动\", \"中继\", \"甲\", \"乙\", \"丙\", \"丁\", \"戊\", \"己\", \"庚\", \"辛\", \"GONE\"]}, \"手动\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"乙\"]}, \"中继\": {\"type\": \"Relay\", \"all\": [\"甲\"]}, \"乙\": {\"type\": \"Shadowsocks\"}, \"甲\": {\"type\": \"Shadowsocks\"}, \"丙\": {\"type\": \"Shadowsocks\"}, \"丁\": {\"type\": \"Shadowsocks\"}, \"戊\": {\"type\": \"Shadowsocks\"}, \"己\": {\"type\": \"Shadowsocks\"}, \"庚\": {\"type\": \"Shadowsocks\"}, \"辛\": {\"type\": \"Shadowsocks\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - MATCH,主代理\n"
+    }
+  },
+  {
     "name": "group-members--up.txt",
     "argv": [
       "group",

@@ -5,8 +5,8 @@ G1 主代理 [Selector] · 规则 1（MATCH 1） → N2 甲
 
 当前规则目标组（可切换）：
   G1 主代理 [Selector]
-  ├─ N2 甲 [*]
-  └─ G2 手动 [Selector] → 见成员引用
+  ├─ G2 手动 [Selector] → 见成员引用
+  └─ N2 甲 [*]
 
 成员引用（仅被其他组引用的组）：
   G2 手动 [Selector]

@@ -21,11 +21,11 @@ def fail(message):
     raise SystemExit(message)
 
 
-def _select(proxies, rules, depth=None, view=False):
+def _select(proxies, rules, depth=None, view=False, width=80):
     with tempfile.TemporaryDirectory(prefix="axs-select-") as tmp:
         root = Path(tmp)
         (root / "config.yaml").write_text(rules, encoding="utf-8")
-        return render_select(proxies, depth=depth, origin=root / "secret", view=view)
+        return render_select(proxies, depth=depth, origin=root / "secret", view=view, width=width)
 
 
 def _once(text, token):
@@ -66,12 +66,12 @@ def check_select():
         "规则入口\n"
         "  G3 主代理 [Selector]\n"
         f"  ├─ G7 自动 [URLTest] [*] {note}\n"
-        "  ├─ N3 甲\n"
-        "  └─ G2 中继 [Relay]\n"
+        "  ├─ G2 中继 [Relay]\n"
+        "  └─ N3 甲\n"
         "\n"
         "  G5 国内直连 [Selector]\n"
-        "  ├─ N1 丙 [*]\n"
-        f"  └─ G4 回退 [Fallback] {note}\n"
+        f"  ├─ G4 回退 [Fallback] {note}\n"
+        "  └─ N1 丙 [*]\n"
         "\n"
         f"  G8 负载 [LoadBalance] {note}\n"
     ):
@@ -114,17 +114,17 @@ def check_select():
     if zoned != (
         "规则入口\n"
         "  G2 入口 [Selector]\n"
-        "  ├─ N2 甲 [*]\n"
         "  ├─ G3 共享 [Selector] → 见成员引用\n"
-        "  └─ G1 中继 [Relay]\n"
+        "  ├─ G1 中继 [Relay]\n"
+        "  └─ N2 甲 [*]\n"
         "\n"
         "  G4 另一 [Selector]\n"
         "  ├─ G3 共享 [Selector] [*] → 见成员引用\n"
         "  └─ G1 中继 [Relay]\n"
         "成员引用\n"
         "  G3 共享 [Selector]\n"
-        "  ├─ N1 乙 [*]\n"
-        "  └─ G2 入口 [Selector] → 见当前规则目标组\n"
+        "  ├─ G2 入口 [Selector] → 见当前规则目标组\n"
+        "  └─ N1 乙 [*]\n"
     ):
         fail("zones\n" + zoned)
     if zoned.count("N2 甲") != 1 or zoned.count("→ 见成员引用") != 2 or zoned.count("G3 共享 [") != 3:
@@ -168,8 +168,8 @@ def check_select():
     if cited != (
         "规则入口\n"
         "  G1 主代理 [Selector]\n"
-        "  ├─ N2 甲 [*]\n"
-        "  └─ G2 手动 [Selector] → 见成员引用\n"
+        "  ├─ G2 手动 [Selector] → 见成员引用\n"
+        "  └─ N2 甲 [*]\n"
         "成员引用\n"
         "  G2 手动 [Selector]\n"
         "  └─ N1 乙 [*]\n"
@@ -218,8 +218,8 @@ def check_reach():
         "  └─ N3 甲\n"
         "成员引用\n"
         "  G2 子 [Selector]\n"
-        "  ├─ N2 乙 [*]\n"
-        "  └─ G3 孙 [Selector] → 见成员引用\n"
+        "  ├─ G3 孙 [Selector] → 见成员引用\n"
+        "  └─ N2 乙 [*]\n"
         "\n"
         "  G3 孙 [Selector]\n"
         "  └─ N1 丙 [*]\n"
@@ -284,9 +284,46 @@ def check_reach():
         fail("depth 1 headers\n" + heads)
 
 
+def check_columns():
+    names = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛"]
+    proxies = {
+        "主代理": {"type": "Selector", "now": "甲", "all": ["手动", "中继", *names, "GONE"]},
+        "手动": {"type": "Selector", "now": "乙", "all": ["乙"]},
+        "中继": {"type": "Relay", "all": ["甲"]},
+        "乙": {"type": "Vless"},
+    }
+    proxies.update({name: {"type": "Shadowsocks"} for name in names})
+    rules = "rules:\n  - MATCH,主代理\n"
+    os.environ["AXS_COLOR"] = "never"
+    narrow = _select(proxies, rules, width=40)
+    wide = _select(proxies, rules, width=160)
+    block = narrow.split("\n成员引用\n", 1)[0].split("主代理 [Selector]\n", 1)[1]
+    lines = [line for line in block.splitlines() if line]
+    groups = [line for line in lines if "[Selector]" in line or "[Relay]" in line]
+    leaves = [line for line in lines if line not in groups]
+    if len(groups) != 2 or any(line.count("G") != 1 or not line.startswith("  ├─ ") for line in groups):
+        fail("group lines\n" + narrow)
+    if not leaves[0].startswith("  └─ ") or any(not line.startswith("     ") for line in leaves[1:]):
+        fail("leaf wrap\n" + narrow)
+    if "甲 [*]" not in leaves[0] or "GONE" in narrow or len(leaves) < 2:
+        fail("marker\n" + narrow)
+    wide_leaf = [line for line in wide.splitlines() if line.startswith("  └─ ") and "甲" in line]
+    if len(wide_leaf) != 1 or any(name not in wide_leaf[0] for name in names):
+        fail("wide\n" + wide)
+    heads = _select(proxies, rules, 1, width=40)
+    if "├─" in heads or "└─" in heads:
+        fail("depth\n" + heads)
+    os.environ["AXS_COLOR"] = "always"
+    colored = _select(proxies, rules, width=40)
+    os.environ["AXS_COLOR"] = "never"
+    if "\033[32m[*]\033[0m" not in colored:
+        fail("color\n" + colored)
+
+
 def main():
     check_select()
     check_reach()
+    check_columns()
     print("select ok")
     return 0
 
