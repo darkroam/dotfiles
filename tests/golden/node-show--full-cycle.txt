@@ -2,9 +2,9 @@ exit: 0
 --- stdout
 当前出口：-
 G1 A [Selector]
-├─ G2 B [Selector] *
-│  ├─ ↩ G1 A（回到上层）
-│  └─ N1 甲 [Shadowsocks]
+├─ → 见 G2 B（下方）
 └─ N1 甲 [Shadowsocks]
-→ 见 G2 B
+G2 B [Selector]
+├─ → 见 G1 A（上方）
+└─ N1 甲 [Shadowsocks]
 --- stderr
