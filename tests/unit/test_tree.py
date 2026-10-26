@@ -60,7 +60,7 @@ def check_tree():
     text = render_tree(proxies, width=80)
     if "\t" in text or not text.endswith("\n"):
         fail("tree shape")
-    if not text.startswith("当前出口：-"):
+    if "当前出口" in text:
         fail(text.splitlines()[0])
     nnums = node_numbers(proxies)
     if "M [URLTest] *" in text or text.count("R [Selector]") != 1 or "回到上层" in text:
@@ -144,7 +144,6 @@ def check_min_depth():
     }
     full = render_tree(deep, width=80)
     if full != (
-        "当前出口：-\n"
         "G2 根 [Selector]\n"
         "├─ G4 深 [Selector]\n"
         "│  └─ G1 中 [Selector]\n"

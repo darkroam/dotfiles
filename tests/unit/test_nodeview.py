@@ -142,8 +142,8 @@ def check_frames():
     if code or "当前规则路径" in flat or "说明：" in flat or "\t" not in flat:
         fail("flat frame\n" + flat)
     os.environ["AXS_COLOR"] = "never"
-    plain = view_page("", [("全部子叶节点：", "当前：无")], "说明：全部叶子节点；组关系见 --full。")
-    if plain.splitlines()[3] != "当前：无" or "\033" in plain:
+    plain = view_page("", [("全部叶子端点（最近测速：-）：", "    N1 a -")], "说明：全部叶子节点；组关系见 --full。叶子含节点与内置策略，不含策略组。")
+    if "最近测速：-" not in plain.splitlines()[2] or "当前：" in plain or "当前出口" in plain or "\033" in plain:
         fail("plain page\n" + plain)
     os.environ["AXS_COLOR"] = "always"
     painted = view_page("G1 入口", [], "说明：x")
