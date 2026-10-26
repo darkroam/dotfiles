@@ -6,7 +6,7 @@ import yaml
 
 from axs.config import CONFIG
 from axs.mihomo import GROUP_TYPES, rule_parts
-from axs.nodes import AUTO_TYPES, follow_leaf, group_numbers, node_numbers
+from axs.nodes import AUTO_TYPES, _is_group, follow_leaf, group_numbers, node_numbers
 
 _YAML = {
     "select": "Selector",
@@ -135,3 +135,25 @@ def build(proxies, run):
             terminals.append(last)
         targets.append(_target(name, groups, gnums, nnums, counts, kinds, hops, leaf))
     return {"live": live, "other": other, "terminals": terminals, "targets": targets}
+
+def select_roots(proxies, origin):
+    from axs.mihomo import rule_parts
+
+    path = None if origin is None else Path(origin).parent / CONFIG
+    if path is None or not path.is_file():
+        return []
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError:
+        return []
+    rules = data.get("rules") if isinstance(data, dict) else None
+    if not isinstance(rules, list):
+        return []
+    names, seen = [], set()
+    for item in rules:
+        parsed = rule_parts(item)
+        name = parsed[2] if parsed else ""
+        if name and name not in seen and _is_group(proxies.get(name)):
+            seen.add(name)
+            names.append(name)
+    return names

@@ -1,24 +1,15 @@
-"""Tree rendering for node show and group members. Numbers come from nodes.py."""
+"""Topology for node show --full and --select. Numbers come from nodes.py."""
 
-import sys
-from pathlib import Path
-
-import yaml
-
-from axs.codes import FAIL
-from axs.config import CONFIG
 from axs.nodes import (
     AUTO_TYPES,
     _is_group,
     follow_leaf,
     group_numbers,
-    delay_code,
-    load_delays,
     node_numbers,
-    resolve_group_name,
     selection_parts,
 )
-from axs.render import display_width, emph, term_cols, tone, use_color
+from axs.render import display_width, term_cols
+from axs.routes import select_roots
 
 
 def exit_line(proxies):
@@ -33,29 +24,6 @@ def exit_line(proxies):
     now = item.get("now") if isinstance(item.get("now"), str) and item.get("now") else ""
     leaf = follow_leaf(proxies, now) if now else None
     return f"当前出口：GLOBAL → {leaf or now or '-'}"
-
-
-def select_roots(proxies, origin):
-    from axs.mihomo import rule_parts
-
-    path = None if origin is None else Path(origin).parent / CONFIG
-    if path is None or not path.is_file():
-        return []
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except yaml.YAMLError:
-        return []
-    rules = data.get("rules") if isinstance(data, dict) else None
-    if not isinstance(rules, list):
-        return []
-    names, seen = [], set()
-    for item in rules:
-        parsed = rule_parts(item)
-        name = parsed[2] if parsed else ""
-        if name and name not in seen and _is_group(proxies.get(name)):
-            seen.add(name)
-            names.append(name)
-    return names
 
 
 def tree_roots(proxies):
@@ -201,49 +169,3 @@ def render_tree(proxies, depth=None, width=None, mode="full", origin=None):
     return "\n".join(lines) + "\n"
 
 
-def render_members(proxies, group, delays):
-    item = proxies[group]
-    members = item.get("all") if isinstance(item.get("all"), list) else []
-    if not members:
-        return "（无成员）\n"
-    now = item.get("now") if isinstance(item.get("now"), str) else ""
-    if not isinstance(delays, dict):
-        delays = {}
-    gnums = group_numbers(proxies)
-    nnums = node_numbers(proxies)
-    rows = []
-    for name in members:
-        child = proxies.get(name)
-        if _is_group(child):
-            ident = f"G{gnums[name]}"
-            kind = str(child.get("type") or "-")
-        else:
-            number = nnums.get(name)
-            ident = f"N{number}" if number else "-"
-            kind = str(child.get("type") or "-") if isinstance(child, dict) else "-"
-        mark = "[*]" if name == now else ""
-        delay = delays.get(name, "-")
-        if delay is None or delay == "":
-            delay = "-"
-        rows.append((ident, str(name), kind, mark, str(delay)))
-    widths = [max(display_width(row[index]) for row in rows) for index in range(5)]
-    color = use_color()
-    lines = []
-    for row in rows:
-        parts = []
-        for index in range(4):
-            shown = emph("32", row[index]) if color and index == 3 and row[index] == "[*]" else row[index]
-            parts.append(shown + " " * (widths[index] - display_width(row[index])))
-        delay = row[4]
-        shown = tone(delay_code(delay), delay) if color else delay
-        parts.append(" " * (widths[4] - display_width(delay)) + shown)
-        lines.append("  ".join(parts))
-    return "\n".join(lines) + "\n"
-
-
-def show_members(proxies, token, run_dir):
-    name, err = resolve_group_name(proxies, token)
-    if err:
-        sys.stderr.write(err + "\n")
-        raise SystemExit(FAIL)
-    sys.stdout.write(render_members(proxies, name, load_delays(run_dir)))

@@ -19,7 +19,7 @@ bin/axs  bin/mihomo-run
     |
    cli
     |
- tree     service
+ tree     service   nodeview
     |
  subscription  rules  proxy
     |
@@ -32,7 +32,7 @@ bin/axs  bin/mihomo-run
  config              codes
 ```
 
-`render` 不在这条链上，也不得引用任何 axs 模块。为了输出调用它，不算斜边。`service` 是编排，可以调用它下面的模块。命令模块不调用 `service`。`tree` 只被 `cli` 调用。
+`render` 不在这条链上，也不得引用任何 axs 模块。为了输出调用它，不算斜边。`service` 是编排，可以调用它下面的模块。命令模块不调用 `service`。`tree` 与 `nodeview` 只被 `cli` 调用，彼此不引用。
 
 斜边台账：
 
@@ -48,14 +48,16 @@ bin/axs  bin/mihomo-run
 | render | 颜色、对齐、帮助和 status 的排版 | 任何 axs 模块 |
 | core | 锁、持锁、进程存活、安装、快照与回滚、systemd 探测、会话 environ | 订阅正文、命令模块、端口探测、原子写 |
 | mihomo | 控制器 HTTP、探活、重载请求 | 回滚、规则语义 |
-| service | 启停、health、清理、status 编排 | 订阅解析、锁、进程探测、端口探测 |
+| service | 启停、health、清理、status 编排 | 订阅解析、锁、进程探测、端口探测、默认页 |
 | subscription | 拉取、校验、合并、流量与到期 | status 排版 |
 | rulelist | `RID`、来源分类、`rule show` 行、删除参数解析 | 安装、重载、回滚 |
-| routes | 规则目标链、条数分布、链尾自动组 | 着色、排版、改配置 |
+| routes | 规则目标链、条数分布、链尾自动组、select 根 | 着色、排版、改配置 |
 | rules | 规则增删，以及合并后的安装、重载、回滚 | 读端口、再写一遍锁、`RID` |
 | nodes | 组、列表、延迟、切换、测速缓存 | 改配置 |
 | net | 连通性、出口地址、入站是否打开 | 写订阅 |
 | proxy | 三层开关和状态词 | 改内核进程 |
+| nodeview | 默认 `node show`、成员表 | 拓扑、生命周期、着色规则 |
+| tree | `--full`/`--select` 拓扑 | 成员表、默认页、select 根 |
 | cli | 命令表、别名、分发 | 被下层调用 |
 | codes | 退出码常量 | 任何其它逻辑 |
 
@@ -98,10 +100,11 @@ run/                         运行时。不入库
 | `lib/axs/service.py` | 启停、ensure、health、清理、status | 400 行 |
 | `lib/axs/subscription.py` | 拉取、校验、合并、流量与到期 | 400 行 |
 | `lib/axs/rulelist.py` | `RID`、来源分类、`rule show` 行、删除参数解析 | 200 行 |
-| `lib/axs/routes.py` | 规则目标链与条数。不排版 | 160 行 |
+| `lib/axs/routes.py` | 规则目标链与条数，以及 select 的根。不排版 | 160 行 |
 | `lib/axs/rules.py` | 规则增删、安装回滚 | 220 行 |
 | `lib/axs/nodes.py` | 组、列表、延迟、切换 | 400 行 |
-| `lib/axs/tree.py` | `node list` 的树，以及 `node members` 表。编号仍问 nodes | 250 行 |
+| `lib/axs/nodeview.py` | 默认页与成员表。不画拓扑 | 160 行 |
+| `lib/axs/tree.py` | `--full`/`--select` 拓扑。编号仍问 nodes | 250 行 |
 | `lib/axs/net.py` | 连通、出口、入站是否打开 | 250 行 |
 | `lib/axs/proxy.py` | 三层开关和状态词 | 300 行 |
 | `units/*` | 已安装单元的模板。外部行为不改 | 各 40 行 |

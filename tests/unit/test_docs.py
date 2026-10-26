@@ -105,6 +105,8 @@ def main():
         fail("render sink")
     if "`lib/axs/tree.py`" not in arch:
         fail("tree file row")
+    if "`lib/axs/nodeview.py`" not in arch:
+        fail("nodeview file row")
     if "阶段 2 记录" in arch or "步 13" in arch:
         fail("process narrative")
     heads = titles(design)
