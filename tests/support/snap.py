@@ -53,7 +53,7 @@ def prepare(tmp, case):
         "AXS_SESSION_PID": "2147483001",
         "AXS_XPROFILE": str(home / "missing-xprofile"),
         "AXS_GS_DB": str(base / "gs"),
-        "COLUMNS": "80",
+        "COLUMNS": str(case.get("columns") or 80),
     }
     (base / "gs").mkdir()
     proc = None

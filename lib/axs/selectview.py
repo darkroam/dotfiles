@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from axs.nodes import AUTO_TYPES, _is_group, group_numbers, node_numbers
-from axs.render import view_page
+from axs.render import display_width, layout_cells, ok, term_cols, view_page
 from axs.routes import build, select_roots
 from axs.rulelist import status_text
 
@@ -14,7 +14,15 @@ def _members(proxies, name):
     return got if isinstance(got, list) else []
 
 
-def render_select(proxies, depth=None, origin=None, view=False):
+def _star(current):
+    if not current:
+        return "", ""
+    return " [*]", " " + ok("[*]")
+
+
+def render_select(proxies, depth=None, origin=None, view=False, width=None):
+    if width is None:
+        width = term_cols()
     gnums, nnums = group_numbers(proxies), node_numbers(proxies)
     roots = select_roots(proxies, origin)
     root_sel = [name for name in roots if proxies[name].get("type") == "Selector"]
@@ -37,21 +45,20 @@ def render_select(proxies, depth=None, origin=None, view=False):
     place = {name: "当前规则目标组" for name in root_sel}
     place.update((name, "成员引用") for name in lower)
 
-    def row(parent, name):
-        item = proxies.get(name)
-        if not isinstance(item, dict):
-            return ""
-        current = proxies[parent].get("now") == name
-        if not _is_group(item):
-            number = nnums.get(name)
-            head = f"N{number} " if number else ""
-            return head + name + (" [*]" if current else "")
+    def group_text(parent, name):
+        item = proxies[name]
         kind = str(item.get("type") or "-")
-        star = " [*]" if current else ""
+        star = _star(proxies[parent].get("now") == name)[1]
         if kind == "Selector" and name in place:
             return f"G{gnums[name]} {name} [Selector]{star} → 见{place[name]}"
         note = " 自动·手动切换会被覆盖" if kind in AUTO_TYPES else ""
         return f"G{gnums[name]} {name} [{kind}]{star}{note}"
+
+    def leaf_pair(parent, name):
+        number = nnums.get(name)
+        head = f"N{number} " if number else ""
+        plain_star, star = _star(proxies[parent].get("now") == name)
+        return head + name + plain_star, head + name + star
 
     def block(name):
         kind = str(proxies[name].get("type") or "-")
@@ -59,10 +66,25 @@ def render_select(proxies, depth=None, origin=None, view=False):
         lines = [f"  G{gnums[name]} {name} [{kind}]{note}"]
         if kind != "Selector" or depth == 1:
             return "\n".join(lines)
-        body = [text for text in (row(name, member) for member in _members(proxies, name)) if text]
-        for index, text in enumerate(body):
-            branch = "└─ " if index == len(body) - 1 else "├─ "
-            lines.append("  " + branch + text)
+        groups, leaves = [], []
+        for member in _members(proxies, name):
+            child = proxies.get(member)
+            if not isinstance(child, dict):
+                continue
+            if _is_group(child):
+                groups.append(group_text(name, member))
+            else:
+                leaves.append(leaf_pair(name, member))
+        chunks = [[text] for text in groups]
+        if leaves:
+            gutter = display_width("  └─ ")
+            chunks.append(layout_cells(leaves, max(1, width - gutter)))
+        last = len(chunks) - 1
+        for index, rows in enumerate(chunks):
+            branch = "└─ " if index == last else "├─ "
+            pad = "   " if index == last else "│  "
+            for row_index, row in enumerate(rows):
+                lines.append("  " + (branch if row_index == 0 else pad) + row)
         return "\n".join(lines)
 
     upper = "\n\n".join(block(name) for name in roots)

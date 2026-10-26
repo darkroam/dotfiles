@@ -10,8 +10,8 @@ G1 主代理 [Selector] · 规则 1（MATCH 1） → G2 子 [Selector] → N2 �
 
 成员引用（仅被其他组引用的组）：
   G2 子 [Selector]
-  ├─ N2 乙 [*]
-  └─ G3 孙 [Selector] → 见成员引用
+  ├─ G3 孙 [Selector] → 见成员引用
+  └─ N2 乙 [*]
 
   G3 孙 [Selector]
   └─ N1 丙 [*]
