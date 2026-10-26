@@ -1,0 +1,11 @@
+exit: 0
+--- stdout
+当前出口：-
+G2 根 [Selector]
+├─ G4 深 [Selector]
+│  └─ G1 中 [Selector]
+│     └─ → 见 G5 目标（下方）
+└─ G3 浅 [Selector]
+   └─ G5 目标 [Selector]
+      └─ N1 甲 [Shadowsocks]
+--- stderr

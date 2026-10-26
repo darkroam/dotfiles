@@ -102,6 +102,16 @@
     "proxies": "{\"proxies\": {\"A\": {\"type\": \"Selector\", \"now\": \"B\", \"all\": [\"B\", \"甲\"]}, \"B\": {\"type\": \"Selector\", \"now\": \"A\", \"all\": [\"A\", \"甲\"]}, \"甲\": {\"type\": \"Shadowsocks\"}}}\n"
   },
   {
+    "name": "node-show--full-min-depth.txt",
+    "argv": [
+      "node",
+      "show",
+      "--full"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"根\": {\"type\": \"Selector\", \"all\": [\"深\", \"浅\"]}, \"深\": {\"type\": \"Selector\", \"all\": [\"中\"]}, \"中\": {\"type\": \"Selector\", \"all\": [\"目标\"]}, \"浅\": {\"type\": \"Selector\", \"all\": [\"目标\"]}, \"目标\": {\"type\": \"Selector\", \"all\": [\"甲\"]}, \"甲\": {\"type\": \"Shadowsocks\"}}}\n"
+  },
+  {
     "name": "group-show--up.txt",
     "argv": [
       "group",

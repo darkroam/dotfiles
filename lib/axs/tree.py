@@ -26,6 +26,29 @@ def exit_line(proxies):
     return f"当前出口：GLOBAL → {leaf or now or '-'}"
 
 
+def min_group_depth(proxies, roots):
+    depth, pending = {}, []
+    for name in roots:
+        if name in depth:
+            continue
+        depth[name] = 1
+        pending.append(name)
+    index = 0
+    while index < len(pending):
+        name = pending[index]
+        index += 1
+        members = proxies[name].get("all")
+        if not isinstance(members, list):
+            continue
+        nxt = depth[name] + 1
+        for member in members:
+            if member in depth or not _is_group(proxies.get(member)):
+                continue
+            depth[member] = nxt
+            pending.append(member)
+    return depth
+
+
 def tree_roots(proxies):
     groups = [name for name, item in proxies.items() if _is_group(item)]
     referenced = set()
@@ -122,7 +145,7 @@ def render_tree(proxies, depth=None, width=None, mode="full", origin=None):
         return lines
 
     def expand(name, line_prefix, child_base, level, stack, mark, section):
-        if not select and name in home:
+        if not select and (name in home or level != depths.get(name, level)):
             return [point(name, line_prefix)]
         lines = [group_line(name, line_prefix, mark)]
         if select and str(proxies[name].get("type") or "") in AUTO_TYPES:
@@ -136,11 +159,13 @@ def render_tree(proxies, depth=None, width=None, mode="full", origin=None):
         return lines + blocks(name, members, child_base, level, stack + [name], section)
 
     def point(name, prefix):
-        tail = "" if not select else ("（上方）" if home.get(name) == "上" else "（下方）")
+        above = (home.get(name) == "上") if select else (name in home)
+        tail = "（上方）" if above else "（下方）"
         return f"{prefix}→ 见 G{gnums[name]} {name}{tail}"
 
     lines, home, lower_set = [exit_line(proxies)], {}, set()
     roots = select_roots(proxies, origin) if select else tree_roots(proxies)
+    depths = {} if select else min_group_depth(proxies, roots)
     lower = []
     if select:
         seen = set(roots)
