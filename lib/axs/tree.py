@@ -154,11 +154,12 @@ def render_tree(proxies, depth=None, width=None, mode="full", origin=None):
         return lines
 
     def expand(name, line_prefix, child_base, level, stack, mark, section):
+        if not select and name in home:
+            return [point(name, line_prefix)]
         lines = [group_line(name, line_prefix, mark)]
         if select and str(proxies[name].get("type") or "") in AUTO_TYPES:
             return lines
-        if select:
-            home[name] = section
+        home[name] = section
         if depth is not None and level >= depth:
             return lines
         members = proxies[name].get("all")
@@ -167,8 +168,8 @@ def render_tree(proxies, depth=None, width=None, mode="full", origin=None):
         return lines + blocks(name, members, child_base, level, stack + [name], section)
 
     def point(name, prefix):
-        word = "上方" if home.get(name) == "上" else "下方"
-        return f"{prefix}→ 见 G{gnums[name]} {name}（{word}）"
+        tail = "" if not select else ("（上方）" if home.get(name) == "上" else "（下方）")
+        return f"{prefix}→ 见 G{gnums[name]} {name}{tail}"
 
     lines, home, lower_set = [exit_line(proxies)], {}, set()
     roots = select_roots(proxies, origin) if select else tree_roots(proxies)

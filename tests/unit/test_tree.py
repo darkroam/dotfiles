@@ -12,7 +12,7 @@ sys.path.insert(0, str(ROOT / "lib"))
 
 from axs.cli import _list_flags  # noqa: E402
 from axs.codes import FAIL, USAGE  # noqa: E402
-from axs.nodes import _show_nodes_full, group_numbers, group_table, node_numbers  # noqa: E402
+from axs.nodes import _show_nodes_full, group_numbers, node_numbers  # noqa: E402
 from axs.render import display_width, emph, tone  # noqa: E402
 from axs.tree import render_members, render_tree, show_members, tree_roots  # noqa: E402
 
@@ -65,26 +65,26 @@ def check_tree():
         fail(text.splitlines()[0])
     gnums = group_numbers(proxies)
     nnums = node_numbers(proxies)
-    if f"G{gnums['R']} R [Selector]" not in text or f"G{gnums['M']} M [URLTest] *" not in text:
-        fail("group mark\n" + text)
-    if f"N{nnums['甲']} 甲 [Shadowsocks] [*]" not in text:
-        fail("leaf mark\n" + text)
-    if text.count(f"N{nnums['甲']} 甲") < 2:
-        fail("shared leaf\n" + text)
-    if f"↩ G{gnums['R']} R（回到上层）" not in text:
+    if "M [URLTest] *" in text or text.count("R [Selector]") != 1 or "→ 见 G2 R\n" not in text:
+        fail("once\n" + text)
+    if text.count(f"N{nnums['甲']} 甲") < 2 or f"↩ G{gnums['M']} M（回到上层）" not in text or "[*]" not in text:
         fail("cycle\n" + text)
     shallow = render_tree(proxies, depth=1, width=80)
-    if "├" in shallow or "└" in shallow or "甲" in shallow:
+    if "├" in shallow or "└" in shallow or "甲" in shallow or "→ 见" in shallow:
         fail("depth 1\n" + shallow)
     mid = render_tree(proxies, depth=2, width=80)
-    if "M [URLTest]" not in mid or "乙乙" not in mid or "回到上层" in mid:
+    if "乙乙" in mid or "回到上层" in mid or "→ 见 G2 R" not in mid or "R [Selector]" not in mid:
         fail("depth 2\n" + mid)
-    table = group_table(proxies)
-    for name, number in gnums.items():
-        if f"G{number} {name}" not in text:
-            fail(f"tree number {name}")
-        if not any(line.split()[0] == f"G{number}" for line in table.splitlines()):
-            fail(f"group table {name}\n{table}")
+    shared = {"左": {"type": "Selector", "now": "共享", "all": ["共享", "甲"]}, "右": {"type": "Selector", "now": "乙", "all": ["共享", "乙"]}, "共享": {"type": "Selector", "now": "丙", "all": ["丙"]}, "甲": {"type": "Shadowsocks"}, "乙": {"type": "Shadowsocks"}, "丙": {"type": "Vless"}}
+    once = render_tree(shared, width=80)
+    if once.count("共享 [Selector]") != 1 or once.count("→ 见 G1 共享") != 1 or once.count("丙") != 1:
+        fail("shared\n" + once)
+    ring = {"A": {"type": "Selector", "now": "B", "all": ["B", "甲"]}, "B": {"type": "Selector", "now": "A", "all": ["A", "甲"]}, "甲": {"type": "Shadowsocks"}}
+    got = render_tree(ring, width=80)
+    if got.count("B [Selector]") != 1 or "↩ G1 A（回到上层）" not in got or "→ 见 G2 B" not in got or got.count("N1 甲") < 2:
+        fail("ring\n" + got)
+    if "上方" in text + once + got or "下方" in text + once + got:
+        fail("side")
 
 
 def check_columns():
