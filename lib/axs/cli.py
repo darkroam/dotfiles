@@ -197,9 +197,12 @@ def _proxies(secret, api):
 
 
 def _show_tree(secret, api, mode, depth):
-    from axs.tree import render_tree
-
-    sys.stdout.write(render_tree(_proxies(secret, api), depth, mode=mode, origin=secret, view=True))
+    proxies = _proxies(secret, api)
+    if mode == "select":
+        from axs.selectview import render_select as draw
+    else:
+        from axs.tree import render_tree as draw
+    sys.stdout.write(draw(proxies, depth, origin=secret, view=True))
 
 
 def _node(run, kind, args):

@@ -19,7 +19,7 @@ bin/axs  bin/mihomo-run
     |
    cli
     |
- tree     service   nodeview
+ tree     service   nodeview   selectview
     |
  subscription  rules  proxy
     |
@@ -32,7 +32,7 @@ bin/axs  bin/mihomo-run
  config              codes
 ```
 
-`render` 不在这条链上，也不得引用任何 axs 模块。为了输出调用它，不算斜边。`service` 是编排，可以调用它下面的模块。命令模块不调用 `service`。`tree` 与 `nodeview` 只被 `cli` 调用，彼此不引用。
+`render` 不在这条链上，也不得引用任何 axs 模块。为了输出调用它，不算斜边。`service` 是编排，可以调用它下面的模块。命令模块不调用 `service`。`tree`、`nodeview` 与 `selectview` 只被 `cli` 调用，彼此不引用。
 
 斜边台账：
 
@@ -57,7 +57,8 @@ bin/axs  bin/mihomo-run
 | net | 连通性、出口地址、入站是否打开 | 写订阅 |
 | proxy | 三层开关和状态词 | 改内核进程 |
 | nodeview | 默认 `node show`、成员表 | 拓扑、生命周期、着色规则 |
-| tree | `--full`/`--select` 拓扑 | 成员表、默认页、select 根 |
+| selectview | `--select` 板块 | 完整拓扑、默认页、select 根 |
+| tree | `--full` 拓扑 | 成员表、默认页、select 根、`--select` |
 | cli | 命令表、别名、分发 | 被下层调用 |
 | codes | 退出码常量 | 任何其它逻辑 |
 
@@ -104,7 +105,8 @@ run/                         运行时。不入库
 | `lib/axs/rules.py` | 规则增删、安装回滚 | 220 行 |
 | `lib/axs/nodes.py` | 组、列表、延迟、切换 | 400 行 |
 | `lib/axs/nodeview.py` | 默认页与成员表。不画拓扑 | 160 行 |
-| `lib/axs/tree.py` | `--full`/`--select` 拓扑。编号仍问 nodes | 250 行 |
+| `lib/axs/selectview.py` | `--select` 板块。不画完整拓扑 | 200 行 |
+| `lib/axs/tree.py` | `--full` 拓扑。编号仍问 nodes | 250 行 |
 | `lib/axs/net.py` | 连通、出口、入站是否打开 | 250 行 |
 | `lib/axs/proxy.py` | 三层开关和状态词 | 300 行 |
 | `units/*` | 已安装单元的模板。外部行为不改 | 各 40 行 |

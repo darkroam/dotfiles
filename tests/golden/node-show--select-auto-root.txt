@@ -5,9 +5,9 @@ G2 自动 [URLTest] · 规则 1（DOMAIN 1） → N2 甲
 G3 负载 [LoadBalance] · 规则 1（MATCH 1） → -
 
 当前规则目标组（可切换）：
-当前出口：主代理 → 负载（自动，load-balance）→ -
-G2 自动 [URLTest] 自动·手动切换会被覆盖
-G3 负载 [LoadBalance] 自动·手动切换会被覆盖
+  G2 自动 [URLTest] 自动·手动切换会被覆盖
+
+  G3 负载 [LoadBalance] 自动·手动切换会被覆盖
 
 说明：可手动切换项；每个 Selector 只展开一层，自动组只作终端。
 --- stderr

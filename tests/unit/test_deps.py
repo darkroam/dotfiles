@@ -15,7 +15,7 @@ LAYERS = (
     ("net", "nodes", "rulelist"),
     ("routes",),
     ("subscription", "rules", "proxy"),
-    ("tree", "service", "nodeview"),
+    ("tree", "service", "nodeview", "selectview"),
     ("cli",),
     ("__main__",),
 )
@@ -160,13 +160,13 @@ def service_imports():
 
 def auto_set():
     from axs.nodes import AUTO_LABEL, AUTO_TYPES
-    from axs import tree
+    from axs import selectview, tree
 
     if AUTO_TYPES != frozenset(AUTO_LABEL):
         fail("auto label is not the type set")
-    if tree.AUTO_TYPES is not AUTO_TYPES:
-        fail("tree copied the auto set")
-    if "AUTO" in vars(tree):
+    if selectview.AUTO_TYPES is not AUTO_TYPES:
+        fail("selectview copied the auto set")
+    if "AUTO_TYPES" in vars(tree) or "AUTO" in vars(tree):
         fail("tree still has AUTO")
 
 
