@@ -7,15 +7,15 @@ G2 右 [Selector] · 规则 1（MATCH 1） → N2 乙
 当前规则目标组（可切换）：
 当前出口：-
 G3 左 [Selector]
-├─ → 见 G1 共享（下方）
-└─ N3 甲 [Shadowsocks] [*]
+G1 共享 [Selector] → 见成员引用
+N3 甲 [*]
 G2 右 [Selector]
-├─ → 见 G1 共享（下方）
-└─ N2 乙 [Shadowsocks] [*]
+G1 共享 [Selector] → 见成员引用
+N2 乙 [*]
 
 成员引用（仅被其他组引用的组）：
 G1 共享 [Selector]
-└─ N1 丙 [Vless] [*]
+N1 丙 [*]
 
 说明：可手动切换项；每个 Selector 只展开一层，自动组只作终端。
 --- stderr

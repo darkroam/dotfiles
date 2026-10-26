@@ -70,17 +70,89 @@ def tree_roots(proxies):
     return sorted(groups)
 
 
+def _members(proxies, name):
+    item = proxies.get(name)
+    got = item.get("all") if isinstance(item, dict) else None
+    return got if isinstance(got, list) else []
+
+
+def _render_select(proxies, depth, origin, view):
+    gnums, nnums = group_numbers(proxies), node_numbers(proxies)
+    roots = select_roots(proxies, origin)
+    root_sel = [name for name in roots if proxies[name].get("type") == "Selector"]
+    seen, lower, queue, index = set(root_sel), [], [], 0
+    for name in root_sel:
+        queue.extend(_members(proxies, name))
+    while index < len(queue):
+        member = queue[index]
+        index += 1
+        item = proxies.get(member)
+        if member in seen or not _is_group(item):
+            continue
+        seen.add(member)
+        if item.get("type") in AUTO_TYPES:
+            continue
+        if item.get("type") == "Selector":
+            lower.append(member)
+        queue.extend(_members(proxies, member))
+    lower.sort(key=gnums.get)
+    place = {name: "当前规则目标组" for name in root_sel}
+    place.update((name, "成员引用") for name in lower)
+
+    def row(parent, name):
+        item = proxies.get(name)
+        if not isinstance(item, dict):
+            return ""
+        current = proxies[parent].get("now") == name
+        if not _is_group(item):
+            number = nnums.get(name)
+            head = f"N{number} " if number else ""
+            return head + name + (" [*]" if current else "")
+        kind = str(item.get("type") or "-")
+        star = " *" if current else ""
+        if kind == "Selector" and name in place:
+            return f"G{gnums[name]} {name} [Selector]{star} → 见{place[name]}"
+        note = " 自动·手动切换会被覆盖" if kind in AUTO_TYPES else ""
+        return f"G{gnums[name]} {name} [{kind}]{star}{note}"
+
+    def block(name):
+        kind = str(proxies[name].get("type") or "-")
+        note = " 自动·手动切换会被覆盖" if kind in AUTO_TYPES else ""
+        lines = [f"G{gnums[name]} {name} [{kind}]{note}"]
+        if kind != "Selector" or depth == 1:
+            return lines
+        body = [text for text in (row(name, member) for member in _members(proxies, name)) if text]
+        return lines + body
+
+    upper = [line for name in roots for line in block(name)]
+    low = [line for name in lower for line in block(name)]
+    opened = exit_line(proxies)
+    if not view:
+        lines = [opened, "规则入口", *upper]
+        if low:
+            lines.extend(["成员引用", *low])
+        return "\n".join(lines) + "\n"
+    run = Path(origin).parent if origin is not None else None
+    data = build(proxies, run) if run is not None else None
+    path = status_text(data).strip("\n") if data else ""
+    blocks = [("当前规则目标组（可切换）：", "\n".join([opened, *upper]))]
+    if low:
+        blocks.append(("成员引用（仅被其他组引用的组）：", "\n".join(low)))
+    note = "说明：可手动切换项；每个 Selector 只展开一层，自动组只作终端。"
+    return view_page(path, blocks, note)
+
+
 def render_tree(proxies, depth=None, width=None, mode="full", origin=None, view=False):
+    if mode == "select":
+        return _render_select(proxies, depth, origin, view)
     if width is None:
         width = term_cols()
     gnums = group_numbers(proxies)
     nnums = node_numbers(proxies)
-    select = mode == "select"
 
     def group_line(name, prefix, mark):
         kind = str(proxies[name].get("type") or "-")
-        note = " 自动·手动切换会被覆盖" if select and kind in AUTO_TYPES else ""
-        return f"{prefix}G{gnums[name]} {name} [{kind}]{mark}{note}"
+        return f"{prefix}G{gnums[name]} {name} [{kind}]{mark}"
 
     def leaf_text(parent, name):
         item = proxies.get(name)
@@ -122,8 +194,6 @@ def render_tree(proxies, depth=None, width=None, mode="full", origin=None, view=
             if _is_group(item):
                 flush()
                 grouped.append(member)
-            elif select and not isinstance(item, dict):
-                continue
             else:
                 leaves.append(member)
         flush()
@@ -140,19 +210,14 @@ def render_tree(proxies, depth=None, width=None, mode="full", origin=None, view=
             if block in stack:
                 lines.append(f"{branch}↩ G{gnums[block]} {block}（回到上层）")
                 continue
-            if select and (block in home or block in lower_set):
-                lines.append(point(block, branch))
-                continue
             mark = " *" if proxies[parent].get("now") == block else ""
             lines.extend(expand(block, branch, cont, level + 1, stack, mark, section))
         return lines
 
     def expand(name, line_prefix, child_base, level, stack, mark, section):
-        if not select and (name in home or level != depths.get(name, level)):
+        if name in home or level != depths.get(name, level):
             return [point(name, line_prefix)]
         lines = [group_line(name, line_prefix, mark)]
-        if select and str(proxies[name].get("type") or "") in AUTO_TYPES:
-            return lines
         home[name] = section
         if depth is not None and level >= depth:
             return lines
@@ -162,56 +227,22 @@ def render_tree(proxies, depth=None, width=None, mode="full", origin=None, view=
         return lines + blocks(name, members, child_base, level, stack + [name], section)
 
     def point(name, prefix):
-        above = (home.get(name) == "上") if select else (name in home)
-        tail = "（上方）" if above else "（下方）"
+        tail = "（上方）" if name in home else "（下方）"
         return f"{prefix}→ 见 G{gnums[name]} {name}{tail}"
 
-    home, lower_set = {}, set()
-    roots = select_roots(proxies, origin) if select else tree_roots(proxies)
-    depths = {} if select else min_group_depth(proxies, roots)
-    lower = []
-    if select:
-        seen = set(roots)
-        for root_name in roots:
-            item = proxies.get(root_name)
-            if not _is_group(item) or item.get("type") != "Selector":
-                continue
-            members = item.get("all")
-            if not isinstance(members, list):
-                continue
-            for name in members:
-                child = proxies.get(name)
-                if name in seen or not _is_group(child) or child.get("type") != "Selector":
-                    continue
-                seen.add(name)
-                lower.append(name)
-        lower.sort(key=gnums.get)
-        lower_set.update(lower)
+    home = {}
+    roots = tree_roots(proxies)
+    depths = min_group_depth(proxies, roots)
     upper = []
     for name in roots:
-        upper.extend(expand(name, "", "", 1, [], "", "上" if select else ""))
-    lower_lines = []
-    if lower:
-        for name in lower:
-            lower_lines.extend([point(name, "")] if name in home else expand(name, "", "", 1, [], "", "下"))
+        upper.extend(expand(name, "", "", 1, [], "", ""))
     opened = exit_line(proxies)
+    body = "\n".join([opened, *upper])
     if not view:
-        lines = [opened]
-        if select:
-            lines.append("规则入口")
-        lines.extend(upper)
-        if lower_lines:
-            lines.extend(["成员引用", *lower_lines])
-        return "\n".join(lines) + "\n"
+        return body + "\n"
     data = build(proxies, Path(origin).parent) if origin is not None else None
     path = status_text(data).strip("\n") if data else ""
-    if not select:
-        note = "说明：完整拓扑；每组只在最小深度处展开一次，不带延迟。"
-        return view_page(path, [("完整拓扑：", "\n".join([opened, *upper]))], note)
-    blocks = [("当前规则目标组（可切换）：", "\n".join([opened, *upper]))]
-    if lower_lines:
-        blocks.append(("成员引用（仅被其他组引用的组）：", "\n".join(lower_lines)))
-    note = "说明：可手动切换项；每个 Selector 只展开一层，自动组只作终端。"
-    return view_page(path, blocks, note)
+    note = "说明：完整拓扑；每组只在最小深度处展开一次，不带延迟。"
+    return view_page(path, [("完整拓扑：", body)], note)
 
 

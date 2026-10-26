@@ -6,12 +6,12 @@ G1 主代理 [Selector] · 规则 1（MATCH 1） → N2 甲
 当前规则目标组（可切换）：
 当前出口：主代理 → 甲（手动）→ 甲
 G1 主代理 [Selector]
-├─ N2 甲 [Shadowsocks] [*]
-└─ → 见 G2 手动（下方）
+N2 甲 [*]
+G2 手动 [Selector] → 见成员引用
 
 成员引用（仅被其他组引用的组）：
 G2 手动 [Selector]
-└─ N1 乙 [Vless] [*]
+N1 乙 [*]
 
 说明：可手动切换项；每个 Selector 只展开一层，自动组只作终端。
 --- stderr
