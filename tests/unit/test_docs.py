@@ -109,8 +109,28 @@ def main():
         fail("selectview file row")
     if "`lib/axs/nodeview.py`" not in arch:
         fail("nodeview file row")
-    if "| `lib/axs/catalog.py` | 命令树数据与子命令签名。不解析、不分发、不排版 | 140 行 |" not in arch:
+    if "| `lib/axs/catalog.py` | 命令树数据与子命令签名。不解析、不分发、不排版 | 160 行 |" not in arch:
         fail("catalog ceiling")
+    sentence = "用法：axs group members <组>（先看 group status）"
+    if design.count(sentence) != 2:
+        fail("members hint")
+    if "提示先看 group status" in design:
+        fail("old members hint")
+    parse = design.split("## 解析", 1)[1].split("## 退出码", 1)[0]
+    for phrase in (
+        "未知命令：xxx（属于 group）",
+        "未知选项：--x",
+        "旗标：（无）",
+        "候选：",
+        "需要 --yes",
+        "不是本地规则",
+        "整页用法",
+        "用法：axs proxy user on|off|status",
+        "用法：axs proxy system on|off|enable|disable|status",
+        "用法：axs proxy session enable|disable|status",
+    ):
+        if phrase not in parse:
+            fail("parse " + phrase)
     if "`tests/unit/test_render.py`" not in arch:
         fail("test_render row")
     if "阶段 2 记录" in arch or "步 13" in arch:

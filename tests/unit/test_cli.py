@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
-from axs.catalog import GROUPS, SIG
+from axs.catalog import GROUPS, SIG, USE
 from axs.cli import (
     DOWN, EXPIRED, FAIL, LOCK, ResolveError, USAGE,
     _list_flags, main as cli_main, resolve_token,
@@ -125,25 +125,45 @@ def check_node_args():
             raise SystemExit("list unknown flag")
     else:
         raise SystemExit("list unknown accepted")
+    from axs.cli import usage_text
+    unknown = (
+        "未知命令：nope（属于 group）\n"
+        "status  策略组与当前节点\n"
+        "members  组成员：编号、类型、当前、延迟\n"
+        "switch  组号或组名，再接节点\n"
+        "test  测延迟，可接组号或组名\n"
+        "用法：axs group status|members|switch|test\n"
+    )
     cases = (
-        (["group", "status", "x"], USAGE, "用法错误\n"),
-        (["node", "show", "nope"], USAGE, "用法错误\n"),
-        (["group", "members"], USAGE, "用法错误，先看 group status\n"),
-        (["group", "members", "a", "b"], USAGE, "用法错误\n"),
-        (["group", "members", "--x"], USAGE, "用法错误\n"),
-        (["group", "switch"], USAGE, "用法错误，用 group members 查看成员\n"),
-        (["group", "switch", "g"], USAGE, "用法错误，用 group members 查看成员\n"),
-        (["group", "switch", "g", "n", "x"], USAGE, "用法错误\n"),
-        (["group", "test", "g", "x"], USAGE, "用法错误\n"),
+        (["group", "status", "x"], USAGE, "用法：axs group status\n"),
+        (["node", "show", "nope"], USAGE, "用法：axs node show [--full|--all] [--depth N]\n"),
+        (["group", "members"], USAGE, "用法：axs group members <组>（先看 group status）\n"),
+        (["group", "members", "a", "b"], USAGE, "用法：axs group members <组>（先看 group status）\n"),
+        (["group", "members", "--x"], USAGE, "未知选项：--x\n旗标：（无）\n"),
+        (["group", "switch"], USAGE, "用法：axs group switch <组> <成员>\n"),
+        (["group", "switch", "g"], USAGE, "用法：axs group switch <组> <成员>\n"),
+        (["group", "switch", "g", "n", "x"], USAGE, "用法：axs group switch <组> <成员>\n"),
+        (["group", "test", "g", "x"], USAGE, "用法：axs group test [组]\n"),
+        (["group", "nope"], USAGE, unknown),
+        (["node", "show", "--zz"], USAGE, "未知选项：--zz\n旗标：--full --all --depth N\n"),
+        (["service", "st"], USAGE, "候选：status start stop\n"),
+        (["nope"], USAGE, usage_text()),
+        (["rule", "add", "nope", "example.com"], USAGE, "用法错误\n"),
+        (["proxy", "user"], USAGE, "用法：axs proxy user on|off|status\n"),
+        (["proxy", "user", "foo"], USAGE, "用法：axs proxy user on|off|status\n"),
+        (["proxy", "system", "foo"], USAGE, "用法：axs proxy system on|off|enable|disable|status\n"),
+        (["proxy", "session", "foo"], USAGE, "用法：axs proxy session enable|disable|status\n"),
         (["group", "status"], DOWN, "服务：未运行\n"),
         (["group", "members", "1"], DOWN, "服务：未运行\n"),
         (["node", "show"], DOWN, "服务：未运行\n"),
+        (["node", "show", "--flat"], DOWN, "服务：未运行\n"),
+        (["node", "show", "-l"], DOWN, "服务：未运行\n"),
         (["group", "test"], DOWN, "服务：未运行\n"),
         (["group", "switch", "g", "n"], DOWN, "服务：未运行\n"),
         (["health"], DOWN, "未运行\n"),
         (["k"], DOWN, "未运行\n"),
-        (["health", "x"], USAGE, "用法错误\n"),
-        (["k", "x"], USAGE, "用法错误\n"),
+        (["health", "x"], USAGE, "用法：axs health\n"),
+        (["k", "x"], USAGE, "用法：axs health\n"),
     )
     with tempfile.TemporaryDirectory(prefix="axs-node-args-") as tmp:
         os.environ["AXS_RUN"] = tmp
@@ -168,6 +188,50 @@ def check_node_args():
                 code = exc.code if isinstance(exc.code, int) else 1
             if code != 0 or err_buf.getvalue() or out_buf.getvalue() != layer_text(name):
                 raise SystemExit(f"bare {name} -> {code} {err_buf.getvalue()!r} {out_buf.getvalue()!r}")
+        old_in = sys.stdin
+        sys.stdin = io.StringIO("")
+        try:
+            out_buf, err_buf = io.StringIO(), io.StringIO()
+            code = 0
+            try:
+                with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
+                    cli_main(["clean"])
+            except SystemExit as exc:
+                code = exc.code if isinstance(exc.code, int) else 1
+            if code != USAGE or err_buf.getvalue() != "需要 --yes\n" or out_buf.getvalue():
+                raise SystemExit(f"clean -> {code} {err_buf.getvalue()!r} {out_buf.getvalue()!r}")
+        finally:
+            sys.stdin = old_in
+        seen = set()
+        for group, spec in SIG.items():
+            for name in spec:
+                argv = [name, "--no-such"] if group == "top" else [group, name, "--no-such"]
+                out_buf, err_buf = io.StringIO(), io.StringIO()
+                code = 0
+                try:
+                    with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
+                        cli_main(argv)
+                except SystemExit as exc:
+                    code = exc.code if isinstance(exc.code, int) else 1
+                err = err_buf.getvalue()
+                if code != USAGE or not err.startswith("未知选项：--no-such\n") or out_buf.getvalue():
+                    raise SystemExit(f"sig dispatch {group} {name} -> {code} {err!r}")
+                seen.add((group, name))
+        if seen != {(group, name) for group, spec in SIG.items() for name in spec}:
+            raise SystemExit("sig dispatch missed")
+        os.environ["AXS_COLOR"] = "always"
+        out_buf, err_buf = io.StringIO(), io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
+                cli_main(["group", "members"])
+        except SystemExit:
+            pass
+        painted = err_buf.getvalue()
+        os.environ["AXS_COLOR"] = "never"
+        if "\033[1maxs group members\033[0m" not in painted or "\033[90m<组>（先看 group status）\033[0m" not in painted:
+            raise SystemExit("usage color " + repr(painted))
+        if out_buf.getvalue():
+            raise SystemExit("usage color stdout")
 
 
 
@@ -247,21 +311,53 @@ def check_sig():
             if secret is not ((group, name) in hidden):
                 raise SystemExit(f"sig hidden {group} {name}")
     expect = {
-        ("group", "members"): (1, 1, ()),
-        ("group", "switch"): (2, 2, ()),
-        ("group", "test"): (0, 1, ()),
-        ("rule", "add"): (2, 3, ()),
-        ("rule", "del"): (1, 1, ()),
-        ("rule", "show"): (0, 0, ("--local",)),
-        ("network", "test"): (0, None, ()),
-        ("network", "ip"): (0, 0, ()),
-        ("node", "show"): (0, 0, ("--full", "--all", "--flat!", "-l!", "--depth=")),
-        ("proxy", "user"): (1, 1, ()),
-        ("top", "clean"): (0, 0, ("--yes",)),
+        ("top", "status"): (0, 0, (), False), ("top", "clean"): (0, 0, ("--yes",), False),
+        ("top", "help"): (0, 0, (), False), ("top", "health"): (0, 0, (), True),
+        ("service", "status"): (0, 0, (), False), ("service", "start"): (0, 0, (), False),
+        ("service", "stop"): (0, 0, (), False), ("service", "restart"): (0, 0, (), False),
+        ("service", "ensure"): (0, 0, (), False), ("service", "enable"): (0, 0, (), False),
+        ("service", "disable"): (0, 0, (), False), ("service", "health"): (0, 0, (), True),
+        ("node", "status"): (0, 0, (), False),
+        ("node", "show"): (0, 0, ("--full", "--all", "--flat!", "-l!", "--depth="), False),
+        ("group", "status"): (0, 0, (), False), ("group", "members"): (1, 1, (), False),
+        ("group", "switch"): (2, 2, (), False), ("group", "test"): (0, 1, (), False),
+        ("rule", "status"): (0, 0, (), False), ("rule", "show"): (0, 0, ("--local",), False),
+        ("rule", "add"): (2, 3, (), False), ("rule", "del"): (1, 1, (), False),
+        ("subscription", "status"): (0, 0, (), False), ("subscription", "refresh"): (0, 0, (), False),
+        ("subscription", "clean"): (0, 0, ("--yes",), False),
+        ("network", "test"): (0, None, (), False), ("network", "ip"): (0, 0, (), False),
+        ("proxy", "status"): (0, 0, (), False), ("proxy", "user"): (1, 1, (), False),
+        ("proxy", "system"): (1, 1, (), False), ("proxy", "session"): (1, 1, (), False),
     }
+    if set(expect) != {(group, name) for group, spec in SIG.items() for name in spec}:
+        raise SystemExit("sig table " + str(len(expect)))
     for key, want in expect.items():
-        if SIG[key[0]][key[1]][:3] != want:
+        if SIG[key[0]][key[1]] != want:
             raise SystemExit("sig value " + " ".join(key))
+    use_want = {
+        ("top", "clean"): ("axs clean", "[--yes]"),
+        ("subscription", "clean"): ("axs subscription clean", "[--yes]"),
+        ("node", "show"): ("axs node show", "[--full|--all] [--depth N]"),
+        ("group", "members"): ("axs group members", "<组>（先看 group status）"),
+        ("group", "switch"): ("axs group switch", "<组> <成员>"),
+        ("group", "test"): ("axs group test", "[组]"),
+        ("rule", "show"): ("axs rule show", "[--local]"),
+        ("rule", "add"): ("axs rule add", "direct|via|node <域名> [组或节点]"),
+        ("rule", "del"): ("axs rule del", "<域名|RID|规则全文>"),
+        ("network", "test"): ("axs network test", "[网址 ...]"),
+        ("proxy", "user"): ("axs proxy user", "on|off|status"),
+        ("proxy", "system"): ("axs proxy system", "on|off|enable|disable|status"),
+        ("proxy", "session"): ("axs proxy session", "enable|disable|status"),
+    }
+    if USE != use_want:
+        raise SystemExit("use lines")
+    need = set()
+    for group, spec in SIG.items():
+        for name, (least, most, flags, _hidden) in spec.items():
+            if flags or least or most != 0:
+                need.add((group, name))
+    if set(USE) != need:
+        raise SystemExit("use coverage")
 
 
 def main():

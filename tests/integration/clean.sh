@@ -349,7 +349,8 @@ grep -q '清理' "$RUN/out" || fail "flag out: $(cat "$RUN/out")"
 assert_code 'help short flag' 0 -h
 grep -q 'axs n s' "$RUN/out" || fail "short flag: $(cat "$RUN/out")"
 assert_code 'help flag extra' 1 -h extra
-test "$(grep -c . "$RUN/err")" -eq 8 || fail "flag extra: $(cat "$RUN/err")"
+test "$(grep -c . "$RUN/err")" -eq 1 || fail "flag extra: $(cat "$RUN/err")"
+grep -q '用法：' "$RUN/err" || fail "flag extra text: $(cat "$RUN/err")"
 export AXS_COLOR=never
 assert_code 'bare help plain' 1
 grep -F -q '用法：axs status|clean|help' "$RUN/err" || fail "bare plain: $(cat "$RUN/err")"

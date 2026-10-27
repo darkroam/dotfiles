@@ -1,0 +1,9 @@
+exit: 1
+--- stdout
+--- stderr
+未知命令：nope（属于 group）
+status  策略组与当前节点
+members  组成员：编号、类型、当前、延迟
+switch  组号或组名，再接节点
+test  测延迟，可接组号或组名
+用法：axs group status|members|switch|test

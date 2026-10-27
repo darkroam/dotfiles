@@ -4,7 +4,7 @@ import subprocess
 import sys
 import unicodedata
 
-from axs.catalog import INTRO, SECTIONS
+from axs.catalog import GROUPS, INTRO, SECTIONS, SIG, USE
 
 
 def use_color(fd=1):
@@ -174,3 +174,34 @@ def help_text():
     return "\n".join(lines) + "\n"
 
 
+
+
+def call_usage(group, name):
+    item = USE.get((group, name))
+    if item:
+        return "用法：" + bold(item[0]) + " " + dim(item[1])
+    text = name if group == "top" else group + " " + name
+    return "用法：" + bold("axs " + text)
+
+
+def option_error(arg, shown):
+    text = " ".join(shown) if shown else "（无）"
+    return "未知选项：" + bold(arg) + "\n旗标：" + dim(text)
+
+
+def command_error(group, word):
+    words = [item for item in GROUPS[group][0] if not SIG[group][item][3]]
+    lines = ["未知命令：" + bold(word) + dim("（属于 " + group + "）")]
+    for item in words:
+        desc = ""
+        prefix = "axs " + group + " " + item
+        for _title, rows, _notes in SECTIONS:
+            for cmd, _alias, text in rows:
+                if cmd == prefix or cmd.startswith(prefix + " "):
+                    desc = text
+                    break
+            if desc:
+                break
+        lines.append(bold(item) + "  " + dim(desc))
+    lines.append("用法：axs " + bold(group) + " " + bold("|".join(words)))
+    return "\n".join(lines)

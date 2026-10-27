@@ -221,6 +221,7 @@ grep -qx 'export NO_PROXY=localhost,127.0.0.1,::1' "$RUN/out" || fail 'proxy use
 assert_code 'proxy user off' 0 proxy user off
 grep -q '^unset http_proxy' "$RUN/out" || fail 'proxy user off unset'
 assert_code 'proxy user bogus' 1 proxy user bogus
+if ! grep -F -q 'axs proxy user' "$RUN/err" || ! grep -F -q 'on|off|status' "$RUN/err"; then fail "proxy user bogus: $(cat "$RUN/err")"; fi
 
 new_run
 assert_code 'network ip down' 2 network ip
@@ -255,6 +256,7 @@ if [ -e "$RUN/proxy-system.flag" ]; then
     fail 'disable left flag'
 fi
 assert_code 'proxy system bogus' 1 proxy system bogus
+if ! grep -F -q 'axs proxy system' "$RUN/err" || ! grep -F -q 'on|off|enable|disable|status' "$RUN/err"; then fail "proxy system bogus: $(cat "$RUN/err")"; fi
 PATH=$old_path
 export PATH
 
@@ -354,6 +356,7 @@ assert_code 'proxy session status off' 1 proxy session status
 grep -q 'effect -' "$RUN/out" || fail "session disabled: $(cat "$RUN/out")"
 unset AXS_SESSION_PID || true
 assert_code 'proxy session bogus' 1 proxy session bogus
+if ! grep -F -q 'axs proxy session' "$RUN/err" || ! grep -F -q 'enable|disable|status' "$RUN/err"; then fail "proxy session bogus: $(cat "$RUN/err")"; fi
 
 printf '%s\n' drop >"$RUN/config.yaml"
 export AXS_COLOR=never

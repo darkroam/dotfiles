@@ -4,8 +4,8 @@ from axs.codes import DOWN, EXPIRED, FAIL, LOCK, USAGE
 import os
 import sys
 
-from axs.catalog import GROUPS
-from axs.render import bold, die, emph, help_text, layer_text
+from axs.catalog import GROUPS, SIG
+from axs.render import bold, call_usage, command_error, die, emph, help_text, layer_text, option_error
 
 
 class ResolveError(Exception):
@@ -105,6 +105,52 @@ def _usage():
     raise SystemExit(code)
 
 
+def _emit(build):
+    previous = os.environ.get("AXS_PAINT_FD")
+    os.environ["AXS_PAINT_FD"] = "2"
+    try:
+        text = build()
+    finally:
+        if previous is None:
+            os.environ.pop("AXS_PAINT_FD", None)
+        else:
+            os.environ["AXS_PAINT_FD"] = previous
+    sys.stderr.write(text if text.endswith("\n") else text + "\n")
+    raise SystemExit(USAGE)
+
+
+def _spec(flags):
+    known, shown = {}, []
+    for flag in flags:
+        hidden = flag.endswith("!")
+        token = flag[:-1] if hidden else flag
+        takes = token.endswith("=")
+        name = token[:-1] if takes else token
+        known[name] = takes
+        if not hidden:
+            shown.append(name + (" N" if takes else ""))
+    return known, shown
+
+
+def _bound(group, name, args):
+    least, most, flags, _hidden = SIG[group][name]
+    known, shown = _spec(flags)
+    count = index = 0
+    while index < len(args):
+        arg = args[index]
+        if len(arg) > 1 and arg.startswith("-"):
+            if arg not in known:
+                _emit(lambda arg=arg, shown=tuple(shown): option_error(arg, shown))
+            if known[arg] and index + 1 >= len(args):
+                _emit(lambda group=group, name=name: call_usage(group, name))
+            index += 2 if known[arg] else 1
+            continue
+        count += 1
+        index += 1
+    if count < least or (most is not None and count > most):
+        _emit(lambda group=group, name=name: call_usage(group, name))
+
+
 def _take(group, argv):
     if not argv:
         _usage()
@@ -116,7 +162,11 @@ def _take(group, argv):
             sys.stderr.write(exc.message + "\n")
             code = USAGE
             raise SystemExit(code)
-        _usage()
+        if group == "top":
+            _usage()
+        _emit(lambda group=group, word=argv[0]: command_error(group, word))
+    if name in SIG[group]:
+        _bound(group, name, argv[1:])
     return name, argv[1:]
 
 
@@ -174,14 +224,6 @@ def _node(run, kind, args):
     from axs.nodeview import show_all, show_members, show_rule_nodes
     from axs.service import captured, service_up, write_cache
     import os
-    if kind == "groups" and args:
-        die(USAGE, "用法错误")
-    if kind == "members" and (len(args) != 1 or args[0].startswith("-")):
-        die(USAGE, "用法错误，先看 group status" if not args else "用法错误")
-    if kind == "test" and len(args) > 1:
-        die(USAGE, "用法错误")
-    if kind == "switch" and len(args) != 2:
-        die(USAGE, "用法错误，用 group members 查看成员" if len(args) < 2 else "用法错误")
     list_mode, depth = "", None
     if kind == "list":
         list_mode, depth = _list_flags(args)
@@ -279,8 +321,6 @@ def main(argv):
         sys.stdout.write(layer_text(cmd))
         return
     if cmd == "help":
-        if rest:
-            _usage()
         sys.stdout.write(help_text())
         return
     if cmd == "status":
@@ -288,15 +328,11 @@ def main(argv):
     elif cmd == "clean":
         clean(run, "config", rest)
     elif cmd == "health":
-        if rest:
-            die(USAGE, "用法错误")
         health(run)
     elif cmd == "service":
         op, extra = _take("service", rest)
         if op == "ensure":
             ensure(run, extra)
-        elif extra:
-            die(USAGE, "用法错误")
         elif op == "status":
             service_status(run)
         elif op == "start":
@@ -320,8 +356,6 @@ def main(argv):
     elif cmd == "rule":
         op, extra = _take("rule", rest)
         if op == "status":
-            if extra:
-                die(USAGE, "用法错误")
             _rule_status(run)
         elif op == "show":
             if extra not in ([], ["--local"]):
@@ -334,8 +368,6 @@ def main(argv):
             cmd_del(run, extra)
     elif cmd == "node":
         op, extra = _take("node", rest)
-        if op == "status" and extra:
-            die(USAGE, "用法错误")
         _node(run, "status" if op == "status" else "list", extra)
     elif cmd == "group":
         op, extra = _take("group", rest)
@@ -350,8 +382,6 @@ def main(argv):
     elif cmd == "proxy":
         op, extra = _take("proxy", rest)
         if op == "status":
-            if extra:
-                die(USAGE, "用法错误")
             proxy_status(run)
         else:
             {"user": proxy_user, "system": proxy_system, "session": proxy_session}[op](run, extra)
