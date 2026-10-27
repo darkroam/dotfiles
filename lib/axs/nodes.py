@@ -1,4 +1,4 @@
-"""Groups, node show, delay, switch, and the speed cache."""
+"""Groups, node lists, switch, and the speed cache."""
 
 from axs.codes import USAGE, FAIL
 import json
@@ -7,16 +7,8 @@ import sys
 import time
 from pathlib import Path
 
-from axs.mihomo import GROUP_TYPES, delay_path, delay_timeout, load_proxies, read_secret, request, select_path
+from axs.mihomo import GROUP_TYPES, load_proxies, read_secret, request, select_path
 from axs.render import dim, display_width, emph, ident, layout_cells, term_cols, tone, use_color
-
-DELAY_URL = "https://www.gstatic.com/generate_204"
-
-def _fail(message):
-    from axs.core import fail
-
-    fail(message)
-
 
 def _ansi(code, text):
     if text == "":
@@ -91,11 +83,7 @@ AUTO_LABEL = {"URLTest": "url-test", "Fallback": "fallback", "LoadBalance": "loa
 AUTO_TYPES = frozenset(AUTO_LABEL)
 
 def node_numbers(proxies):
-    names = sorted(
-        name
-        for name, item in proxies.items()
-        if isinstance(item, dict) and item.get("type") not in GROUP_TYPES
-    )
+    names = sorted(name for name, item in proxies.items() if isinstance(item, dict) and item.get("type") not in GROUP_TYPES)
     return {name: index for index, name in enumerate(names, 1)}
 
 def _show_nodes_full(proxies):
@@ -152,41 +140,7 @@ def selection_parts(proxies):
 
 def current_selection(proxies, numbers):
     _mid, leaf = selection_parts(proxies)
-    if leaf in numbers:
-        return leaf
-    return None
-
-def pick_test_group(proxies):
-    groups = {
-        name: item
-        for name, item in proxies.items()
-        if _is_group(item)
-    }
-    main = groups.get("主代理")
-    if main is not None:
-        return "主代理"
-    autos = sorted(name for name, item in groups.items() if item.get("type") in AUTO_LABEL)
-    if autos:
-        return autos[0]
-    others = sorted(name for name in groups if name != "GLOBAL")
-    if others:
-        return others[0]
-    return None
-
-def default_group(secret_path, api):
-    try:
-        proxies = load_proxies(secret_path, api)
-    except SystemExit as exc:
-        _as_exit3(exc)
-    name = pick_test_group(proxies)
-    if name:
-        sys.stdout.write(name + "\n")
-        return
-    listed = sorted(name for name, item in proxies.items() if _is_group(item))
-    sys.stderr.write("没有可测组\n")
-    for name in listed:
-        sys.stderr.write(name + "\n")
-    raise SystemExit(FAIL)
+    return leaf if leaf in numbers else None
 
 def delay_code(value):
     try:
@@ -374,26 +328,3 @@ def write_node_cache(dest, group, lines, ok=True):
     tmp.chmod(0o600)
     os.replace(tmp, path)
     path.chmod(0o600)
-
-
-def delay(secret_path, api, group, url):
-    secret = read_secret(secret_path, api)
-    try:
-        raw = request(secret, api, "GET", delay_path(group, url), timeout=delay_timeout())
-    except SystemExit:
-        raise SystemExit(FAIL)
-    try:
-        payload = json.loads(raw.decode("utf-8"))
-    except json.JSONDecodeError:
-        _fail("控制器失败：响应格式错误")
-    if not isinstance(payload, dict):
-        _fail("控制器失败：响应格式错误")
-    for name, value in payload.items():
-        try:
-            shown = str(int(value))
-            code = delay_code(value)
-        except (TypeError, ValueError):
-            shown = "超时"
-            code = "31"
-        title = ident(name) if name == group else name
-        sys.stdout.write(f"{title} {_ansi(code, shown)}\n")

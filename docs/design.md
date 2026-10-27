@@ -223,7 +223,7 @@
 | node status | — | `USAGE` | 同上；`node show` 的未知旗标也是 `USAGE` |
 | members | `USAGE`，`用法：axs group members <组>（先看 group status）` | `USAGE` | 不是策略组或组不存在为 `FAIL`；未运行 `DOWN` |
 | switch | `USAGE`，`用法：axs group switch <组> <成员>` | `USAGE` | 组不存在、不是策略组或节点不存在为 `FAIL`；未运行 `DOWN` |
-| test | 按既定组 | `USAGE` | 没有可测组为 `FAIL`；未运行 `DOWN` |
+| test | 按既定组 | `USAGE` | 服务未跑时先 `DOWN`；没有可测组为 `FAIL` |
 | node test | `USAGE` | `USAGE` | 裸数字或组名 `USAGE`；节点不存在 `FAIL`；有叶子失败 `FAIL`；未运行 `DOWN` |
 
 ## 节点

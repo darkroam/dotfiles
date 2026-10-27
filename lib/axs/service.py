@@ -78,16 +78,6 @@ def head(title):
 def row(name, value):
     sys.stdout.write("  " + label(name) + value + "\n")
 
-def captured(func, *args):
-    buf = io.StringIO()
-    try:
-        with contextlib.redirect_stdout(buf):
-            func(*args)
-    except SystemExit as exc:
-        code = exc.code if isinstance(exc.code, int) else USAGE
-        return code, buf.getvalue()
-    return 0, buf.getvalue()
-
 def service_section(run):
     running = 0
     if systemd_on():

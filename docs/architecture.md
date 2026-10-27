@@ -32,7 +32,7 @@ bin/axs  bin/mihomo-run
  config    codes    catalog
 ```
 
-`render` 不在这条链上，也不得引用任何 axs 模块。唯一例外是只读 `catalog`。为了输出调用它，不算斜边。`catalog` 在最底层，只放命令树，不引用任何模块。`service` 是编排，可以调用它下面的模块。命令模块不调用 `service`。`tree`、`nodeview`、`selectview` 与 `nodetest` 只被 `cli` 调用，彼此不引用。
+`render` 不在这条链上，也不得引用任何 axs 模块。唯一例外是只读 `catalog`。为了输出调用它，不算斜边。`catalog` 在最底层，只放命令树，不引用任何模块。`service` 是编排，可以调用它下面的模块。命令模块不调用 `service`。`tree`、`nodeview`、`selectview` 与 `nodetest` 只被 `cli` 调用，彼此不引用。 `nodetest` 拥有叶子测速和组测速。`nodes` 不再拥有 delay，只留测速缓存格式。
 
 斜边台账：
 
@@ -53,8 +53,8 @@ bin/axs  bin/mihomo-run
 | rulelist | `RID`、来源分类、`rule show` 行、删除参数解析 | 安装、重载、回滚 |
 | routes | 规则目标链、条数分布、链尾自动组、select 根 | 着色、排版、改配置 |
 | rules | 规则增删，以及合并后的安装、重载、回滚 | 读端口、再写一遍锁、`RID` |
-| nodes | 组、列表、延迟、切换、测速缓存 | 改配置 |
-| nodetest | 叶子测速 | 切换、改配置、缓存格式 |
+| nodes | 组、列表、切换、测速缓存 | 改配置、测速 |
+| nodetest | 叶子测速与组测速 | 切换、改配置、缓存格式 |
 | net | 连通性、出口地址、入站是否打开 | 写订阅 |
 | proxy | 三层开关和状态词 | 改内核进程 |
 | nodeview | `node status`、成员表 | 拓扑、生命周期、着色规则 |
@@ -96,18 +96,18 @@ run/                         运行时。不入库
 | `lib/axs/__main__.py` | 记下真实终端，再调 cli | 40 行 |
 | `lib/axs/codes.py` | 退出码常量 | 20 行 |
 | `lib/axs/catalog.py` | 命令树数据与子命令签名。不解析、不分发、不排版 | 160 行 |
-| `lib/axs/cli.py` | 前缀解析、用法、分发。命令树在 catalog | 400 行 |
+| `lib/axs/cli.py` | 前缀解析、用法、分发。命令树在 catalog | 380 行 |
 | `lib/axs/render.py` | 颜色、对齐、帮助排版。命令树在 catalog | 300 行 |
 | `lib/axs/config.py` | 默认值、路径、端口、内核路径、内置网段、原子写 | 200 行 |
 | `lib/axs/core.py` | 锁、持锁、进程存活、安装、快照、systemd、会话探测 | 400 行 |
-| `lib/axs/mihomo.py` | 控制器 HTTP，规则类型词和来源表。不是内核二进制 | 300 行 |
+| `lib/axs/mihomo.py` | 控制器 HTTP，规则类型词和来源表。不是内核二进制 | 285 行 |
 | `lib/axs/service.py` | 启停、ensure、health、清理、status | 400 行 |
 | `lib/axs/subscription.py` | 拉取、校验、合并、流量与到期 | 400 行 |
 | `lib/axs/rulelist.py` | `RID`、来源分类、`rule show` 行、删除参数解析 | 200 行 |
 | `lib/axs/routes.py` | 规则目标链与条数，以及 select 的根。不排版 | 160 行 |
 | `lib/axs/rules.py` | 规则增删、安装回滚 | 220 行 |
-| `lib/axs/nodes.py` | 组、列表、延迟、切换 | 400 行 |
-| `lib/axs/nodetest.py` | 叶子测速。不切换、不改配置 | 200 行 |
+| `lib/axs/nodes.py` | 组、列表、切换、测速缓存。测速在 nodetest | 330 行 |
+| `lib/axs/nodetest.py` | 叶子测速与组测速。不切换、不改配置 | 280 行 |
 | `lib/axs/nodeview.py` | 默认页与成员表。不画拓扑 | 160 行 |
 | `lib/axs/selectview.py` | `node show` 板块。不画完整拓扑 | 200 行 |
 | `lib/axs/tree.py` | `--full` 拓扑。编号仍问 nodes | 250 行 |

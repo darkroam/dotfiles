@@ -13,8 +13,6 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
 from axs.mihomo import (  # noqa: E402
-    delay_path,
-    delay_timeout,
     probe,
     proxies_path,
     read_secret,
@@ -23,6 +21,7 @@ from axs.mihomo import (  # noqa: E402
     select_path,
     version_path,
 )
+from axs.nodetest import delay_path, delay_timeout  # noqa: E402
 
 
 
