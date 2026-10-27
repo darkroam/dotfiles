@@ -178,7 +178,7 @@ def check_node_args():
             if code != want or err_buf.getvalue() != err or out_buf.getvalue():
                 raise SystemExit(f"{argv} -> {code} {err_buf.getvalue()!r} {out_buf.getvalue()!r}")
         from axs.render import layer_text
-        for name in ("node", "group", "rule", "subscription", "proxy", "service"):
+        for name in ("node", "group", "rule", "subscription", "proxy", "service", "network"):
             out_buf, err_buf = io.StringIO(), io.StringIO()
             code = 0
             try:

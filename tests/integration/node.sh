@@ -254,6 +254,7 @@ if grep -q 'PUT /proxies' "$RUN/fake/log"; then
 fi
 : >"$RUN/fake/log"
 assert_code 'switch group number' 0 group switch G1 b
+assert_code 'switch group lower' 0 group switch g1 b
 grep -q 'PUT /proxies/OTHER' "$RUN/fake/log" || fail "group number path: $(cat "$RUN/fake/log")"
 grep -q '{"name": "b"}' "$RUN/fake/log" || fail "group number body: $(cat "$RUN/fake/log")"
 test "$(cat "$RUN/out")" = "$(printf 'OTHER\tb\t-')" || fail "group number out: $(cat "$RUN/out")"
@@ -265,6 +266,7 @@ if grep -q 'PUT /proxies' "$RUN/fake/log"; then
 fi
 : >"$RUN/fake/log"
 assert_code 'test group number' 0 group test G1
+assert_code 'test group lower' 0 group test g1
 grep -q '/group/OTHER/delay' "$RUN/fake/log" || fail "group number delay: $(cat "$RUN/fake/log")"
 assert_code 'list bad flag' 1 node show --nope
 

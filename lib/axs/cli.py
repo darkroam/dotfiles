@@ -27,11 +27,19 @@ def resolve_token(word, words, aliases):
     raise ResolveError(2)
 
 
-def _alias_marks(aliases):
+def _alias_marks(aliases, words=()):
     marks = {}
     for alias, command in aliases.items():
         if alias.isalnum() and alias in command and len(alias) > len(marks.get(command, "")):
             marks[command] = alias
+    for command in words:
+        if marks.get(command):
+            continue
+        for size in range(1, len(command) + 1):
+            head = command[:size]
+            if sum(name.startswith(head) for name in words) == 1:
+                marks[command] = head
+                break
     return marks
 
 
@@ -52,7 +60,8 @@ def _paint_marked(word, alias=None):
 def _usage_word(word, group=None):
     alias = None
     if group:
-        alias = _alias_marks(GROUPS[group][1]).get(word)
+        names, aliases = GROUPS[group]
+        alias = _alias_marks(aliases, names).get(word)
     return _paint_marked(word, alias)
 
 
@@ -317,7 +326,7 @@ def main(argv):
         _usage()
     cmd, rest = _take("top", argv)
     run = run_dir()
-    if cmd in {"service", "node", "group", "rule", "subscription", "proxy"} and not rest:
+    if cmd in {"service", "node", "group", "rule", "subscription", "proxy", "network"} and not rest:
         sys.stdout.write(layer_text(cmd))
         return
     if cmd == "help":
