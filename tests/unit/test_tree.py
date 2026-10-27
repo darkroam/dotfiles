@@ -11,7 +11,8 @@ sys.path.insert(0, str(ROOT / "lib"))
 
 from axs.cli import _list_flags  # noqa: E402
 from axs.codes import USAGE  # noqa: E402
-from axs.nodes import _show_nodes_full, group_numbers, node_numbers  # noqa: E402
+from axs.nodelist import _show_nodes_full  # noqa: E402
+from axs.nodes import group_numbers, node_numbers  # noqa: E402
 from axs.render import display_width  # noqa: E402
 from axs.tree import render_tree, tree_roots  # noqa: E402
 

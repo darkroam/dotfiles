@@ -11,9 +11,9 @@ from axs.nodes import (
     group_numbers,
     load_delays,
     node_numbers,
-    paint_cell,
     resolve_group_name,
 )
+from axs.nodelist import paint_cell, show_nodes
 from axs.render import die, display_width, emph, layout_cells, term_cols, tone, use_color, view_page
 from axs.routes import build
 from axs.rulelist import status_text
@@ -121,7 +121,7 @@ def show_all(run, secret, api):
     import contextlib
     import io
 
-    from axs.nodes import show_nodes, speed_line
+    from axs.nodes import speed_line
 
     data = None
     try:

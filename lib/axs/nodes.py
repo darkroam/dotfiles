@@ -1,4 +1,4 @@
-"""Groups, node lists, switch, and the speed cache."""
+"""Numbers, switch, and the speed cache."""
 
 from axs.codes import USAGE, FAIL
 import json
@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 
 from axs.mihomo import GROUP_TYPES, load_proxies, read_secret, request, select_path
-from axs.render import dim, display_width, emph, ident, layout_cells, term_cols, tone, use_color
+from axs.render import tone
 
 def _ansi(code, text):
     if text == "":
@@ -19,12 +19,6 @@ def _ansi(code, text):
 def _as_exit3(exc):
     code = exc.code if isinstance(exc.code, int) else USAGE
     raise SystemExit(FAIL if code == USAGE else code)
-
-def _now(item):
-    now = item.get("now") if isinstance(item, dict) else None
-    if not isinstance(now, str) or now == "":
-        return "-"
-    return now
 
 def _proxies(secret_path, api):
     try:
@@ -62,51 +56,12 @@ def lookup_group(secret_path, api, token):
         raise SystemExit(FAIL)
     sys.stdout.write(name + "\n")
 
-def group_table(proxies):
-    numbers = group_numbers(proxies)
-    rows = [(f"G{numbers[n]}", n, str(proxies[n].get("type")), _now(proxies[n])) for n in sorted(numbers, key=numbers.get)]
-    if not rows:
-        return ""
-    widths = [max(display_width(row[i]) for row in rows) for i in range(3)]
-    lines = []
-    for num, name, kind, now in rows:
-        plain = (num.rjust(widths[0]), name, kind)
-        shown = (plain[0], ident(name), dim(kind))
-        body = "  ".join(c + " " * (w - display_width(t)) for c, t, w in zip(shown, plain, widths))
-        lines.append(body + "  " + (dim("-") if now == "-" else "→ " + emph("32", now)))
-    return "\n".join(lines) + "\n"
-
-def show_groups(secret_path, api):
-    sys.stdout.write(group_table(_proxies(secret_path, api)))
-
 AUTO_LABEL = {"URLTest": "url-test", "Fallback": "fallback", "LoadBalance": "load-balance"}
 AUTO_TYPES = frozenset(AUTO_LABEL)
 
 def node_numbers(proxies):
     names = sorted(name for name, item in proxies.items() if isinstance(item, dict) and item.get("type") not in GROUP_TYPES)
     return {name: index for index, name in enumerate(names, 1)}
-
-def _show_nodes_full(proxies):
-    rows = []
-    for name, item in proxies.items():
-        if not isinstance(item, dict) or item.get("type") in GROUP_TYPES:
-            continue
-        kind = item.get("type") or "-"
-        hits = []
-        for gname, gitem in proxies.items():
-            if not isinstance(gitem, dict) or gitem.get("type") not in GROUP_TYPES:
-                continue
-            members = gitem.get("all") or []
-            if isinstance(members, list) and name in members:
-                star = "*" if gitem.get("now") == name else ""
-                hits.append((gname, f"{star}\t{name}\t{kind}\t{gname}"))
-        if hits:
-            rows.extend((name, gname, line) for gname, line in hits)
-        else:
-            rows.append((name, "-", f"\t{name}\t{kind}\t-"))
-    rows.sort()
-    if rows:
-        sys.stdout.write("\n".join(line for _, _, line in rows) + "\n")
 
 def _is_group(item):
     return isinstance(item, dict) and item.get("type") in GROUP_TYPES
@@ -198,49 +153,6 @@ def speed_line(run_dir):
     else:
         rel = f"{age // 86400} 天前"
     return f"最近测速：{rel}"
-
-def paint_cell(marker, num_text, name, delay_text, selected, delay_raw):
-    plain = f"{marker}{num_text} {name} {delay_text}"
-    if not use_color():
-        return plain
-    mark = emph("32", "[*]") + " " if selected else marker
-    lead = len(num_text) - len(num_text.lstrip(" "))
-    number = (" " * lead) + dim(num_text.lstrip(" "))
-    shown = emph("32", name) if selected else name
-    dlead = len(delay_text) - len(delay_text.lstrip(" "))
-    body = delay_text.lstrip(" ")
-    delay = (" " * dlead) + _ansi(delay_code(delay_raw), body)
-    return f"{mark}{number} {shown} {delay}"
-
-def show_nodes(secret_path, api, mode=""):
-    try:
-        proxies = load_proxies(secret_path, api)
-    except SystemExit as exc:
-        _as_exit3(exc)
-    if mode == "flat":
-        _show_nodes_full(proxies)
-        return
-    numbers = node_numbers(proxies)
-    star = current_selection(proxies, numbers)
-    delays = load_delays(mode)
-    shown = []
-    for name in sorted(numbers, key=numbers.get):
-        delay = delays.get(name, "-")
-        if delay is None or delay == "":
-            delay = "-"
-        shown.append((name, str(delay)))
-    num_width = len(f"N{max(numbers.values())}") if numbers else 1
-    delay_width = max((display_width(delay) for _, delay in shown), default=1)
-    entries = []
-    for name, delay in shown:
-        marker = "[*] " if name == star else "    "
-        num_text = f"{'N' + str(numbers[name]):>{num_width}}"
-        delay_text = f"{delay:>{delay_width}}"
-        plain = f"{marker}{num_text} {name} {delay_text}"
-        colored = paint_cell(marker, num_text, name, delay_text, name == star, delay)
-        entries.append((plain, colored))
-    lines = layout_cells(entries, term_cols())
-    sys.stdout.write("\n".join(lines) + "\n")
 
 def cached_delay(run_dir, name):
     value = load_delays(run_dir).get(name, "-")
