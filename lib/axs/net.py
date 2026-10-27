@@ -67,9 +67,16 @@ def _one_try(url, proxy, timeout):
     started = time.monotonic()
     try:
         with opener.open(url, timeout=timeout) as resp:
+            code = getattr(resp, "status", None)
+            if not isinstance(code, int):
+                code = getattr(resp, "code", 0)
+            if isinstance(code, int) and code >= 500:
+                return None, f"HTTP {code}"
             resp.read(1)
         return int((time.monotonic() - started) * 1000), ""
-    except urllib.error.HTTPError:
+    except urllib.error.HTTPError as exc:
+        if exc.code >= 500:
+            return None, f"HTTP {exc.code}"
         return int((time.monotonic() - started) * 1000), ""
     except (urllib.error.URLError, TimeoutError, OSError, http.client.HTTPException) as exc:
         return None, _net_reason(exc)

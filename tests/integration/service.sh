@@ -368,7 +368,7 @@ prepare_health 18082
 now=$(date +%s)
 printf '%s\n' "expire=$((now + 2 * 86400))" >"$RUN/userinfo"
 assert_code 'status soon' 0 status
-grep -E -q '剩余 [12] 天' "$RUN/out" || fail "soon text: $(cat "$RUN/out")"
+grep -E -q '剩余 [12] 天（警告）' "$RUN/out" || fail "soon text: $(cat "$RUN/out")"
 
 new_run
 mark_up
