@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
-from axs.net import DEFAULT_URLS, _ip_reason, _ip_timeout, _net_reason, _net_table, _net_timeout_ms, egress, net_precheck, net_run, net_targets  # noqa: E402
+from axs.net import DEFAULT_URLS, _ip_reason, _ip_timeout, _net_reason, _net_table, _net_timeout_ms, _one_try, egress, net_precheck, net_run, net_targets  # noqa: E402
 import ssl
 import urllib.error
 
@@ -103,6 +103,61 @@ def check_egress():
         fail("ssl class")
 
 
+
+def check_http():
+    import axs.net as net
+
+    class Resp:
+        def __init__(self, status):
+            self.status = status
+
+        def read(self, _n=1):
+            return b"x"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    class Opener:
+        def __init__(self, status=None, error=None):
+            self.status = status
+            self.error = error
+
+        def open(self, url, timeout=None):
+            if self.error is not None:
+                raise self.error
+            return Resp(self.status)
+
+    original = net.urllib.request.build_opener
+
+    def install(opener):
+        def build(*_args, **_kwargs):
+            return opener
+        net.urllib.request.build_opener = build
+
+    try:
+        install(Opener(status=502))
+        delay, reason = _one_try("http://127.0.0.1/x", "http://127.0.0.1:9", 1)
+        if delay is not None or reason != "HTTP 502":
+            fail(f"不通 HTTP 502 {delay} {reason}")
+        install(Opener(status=403))
+        delay, reason = _one_try("http://127.0.0.1/x", "http://127.0.0.1:9", 1)
+        if not isinstance(delay, int) or reason:
+            fail(f"通 {delay} {reason}")
+        install(Opener(error=urllib.error.HTTPError("http://127.0.0.1/x", 502, "bad", {}, None)))
+        delay, reason = _one_try("http://127.0.0.1/x", "http://127.0.0.1:9", 1)
+        if delay is not None or reason != "HTTP 502":
+            fail(f"err 502 {delay} {reason}")
+        install(Opener(error=urllib.error.HTTPError("http://127.0.0.1/x", 403, "no", {}, None)))
+        delay, reason = _one_try("http://127.0.0.1/x", "http://127.0.0.1:9", 1)
+        if not isinstance(delay, int) or reason:
+            fail(f"err 403 {delay} {reason}")
+    finally:
+        net.urllib.request.build_opener = original
+
+
 def check_timeouts():
     saved = os.environ.pop("AXS_NET_TIMEOUT_MS", None)
     try:
@@ -153,6 +208,7 @@ def main():
             check_fake_reason(tmp)
         check_table()
         check_egress()
+        check_http()
         check_timeouts()
         check_forward()
     finally:
