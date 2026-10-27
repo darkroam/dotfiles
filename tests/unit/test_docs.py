@@ -89,8 +89,11 @@ def main():
     readme = (DOCS / "README.md").read_text(encoding="utf-8")
     if PY_SENTENCE not in readme:
         fail("readme missing the python3 sentence")
-    if "`axs n m`" not in readme:
+    if "`axs g m <组>`" not in readme:
         fail("readme missing members")
+    for dead in ("axs n m", "axs n l", "axs e"):
+        if dead in readme:
+            fail("readme keeps dead example " + dead)
     for word in ("池", "成员", "引用", "编号"):
         if word not in design:
             fail("design missing " + word)

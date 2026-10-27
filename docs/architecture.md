@@ -143,7 +143,7 @@ run/                         运行时。不入库
 
 - 单元：import 包，不启动子进程。
 - 集成：假命令、假控制器下跑 `bin/axs`。假命令的输出复刻真实工具的字段。systemd 定时器用 JSON 的 `next` 与 `left`。
-- golden：`AXS_COLOR=never` 的纯文本，逐字节比对。例外只存在于当时的提交说明，不在这里再开一张过程表。步 22：`--select` 自动组行尾改为「自动·手选会被覆盖」，只重打 `node-list--select`。
+- golden：`AXS_COLOR=never` 的纯文本，逐字节比对。例外只存在于当时的提交说明，不在这里再开一张过程表。步 22：select 视图自动组行尾改为「自动·手选会被覆盖」，只重打 select 系节点快照。
 - lab：能 bind 的环境里跑真内核。不进 `tests/run.sh`。
 - 离线套件里的裸数字退出只减不增。
 

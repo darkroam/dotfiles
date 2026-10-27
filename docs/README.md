@@ -17,10 +17,10 @@ python3 是全部命令的硬依赖。没有它，`axs` 不能启动。还需要
 命令和别名以 `axs help` 为准。不带参数时打印用法。
 
 - `axs s`：状态
-- `axs e`：保证服务在跑
+- `axs service ensure`：保证服务在跑
 - `axs su r`：拉取订阅
-- `axs n l`：节点列表
-- `axs n m`：一个组的成员
+- `axs node show --all`：全部叶子端点
+- `axs g m <组>`：一个组的成员
 - `axs p u on`：打印当前 shell 的代理变量，需要 eval 才会生效
 - `axs h` 或 `axs ?`：帮助
 
