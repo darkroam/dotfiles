@@ -150,13 +150,17 @@ def net_run(urls_path, proxy, timeout_ms, given):
     raise SystemExit(FAIL if failed else 0)
 
 
-def _ip_timeout():
+def _net_timeout_ms(default):
     raw = os.environ.get("AXS_NET_TIMEOUT_MS", "").strip()
     try:
-        value = int(raw) if raw else 10000
+        value = int(raw) if raw else default
     except ValueError:
-        return 10
-    return (value if value > 0 else 10000) / 1000
+        return default
+    return value if value > 0 else default
+
+
+def _ip_timeout():
+    return _net_timeout_ms(10000) / 1000
 
 
 def _ip_reason(exc):
@@ -217,7 +221,7 @@ def net_test(run, args):
     mixed, _api = read_ports(run)
     if not port_open(mixed):
         die(DOWN, "入站：不通")
-    timeout = os.environ.get("AXS_NET_TIMEOUT_MS") or "5000"
+    timeout = _net_timeout_ms(5000)
     try:
         net_run(Path(run) / URLS, f"http://{LOOPBACK}:{mixed}", timeout, list(args))
     except SystemExit as exc:

@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
-from axs.net import DEFAULT_URLS, _ip_reason, _ip_timeout, _net_reason, _net_table, egress, net_precheck, net_run, net_targets  # noqa: E402
+from axs.net import DEFAULT_URLS, _ip_reason, _ip_timeout, _net_reason, _net_table, _net_timeout_ms, egress, net_precheck, net_run, net_targets  # noqa: E402
 import ssl
 import urllib.error
 
@@ -101,16 +101,25 @@ def check_egress():
         fail("ip timeout class")
     if _net_reason(urllib.error.URLError(ssl.SSLError("certificate verify failed"))) != "SSL":
         fail("ssl class")
-    os.environ.pop("AXS_NET_TIMEOUT_MS", None)
-    if _ip_timeout() != 10:
-        fail("ip timeout default")
-    os.environ["AXS_NET_TIMEOUT_MS"] = "2500"
-    if _ip_timeout() != 2.5:
-        fail("ip timeout env")
-    os.environ["AXS_NET_TIMEOUT_MS"] = "no"
-    if _ip_timeout() != 10:
-        fail("ip timeout bad")
-    os.environ.pop("AXS_NET_TIMEOUT_MS", None)
+
+
+def check_timeouts():
+    saved = os.environ.pop("AXS_NET_TIMEOUT_MS", None)
+    try:
+        if _net_timeout_ms(5000) != 5000 or _ip_timeout() != 10:
+            fail("timeout default")
+        for raw in ("abc", "-3", "0"):
+            os.environ["AXS_NET_TIMEOUT_MS"] = raw
+            if _net_timeout_ms(5000) != 5000 or _ip_timeout() != 10:
+                fail(f"timeout fallback {raw}")
+        os.environ["AXS_NET_TIMEOUT_MS"] = "2500"
+        if _net_timeout_ms(5000) != 2500 or _ip_timeout() != 2.5:
+            fail("timeout 2500")
+    finally:
+        if saved is None:
+            os.environ.pop("AXS_NET_TIMEOUT_MS", None)
+        else:
+            os.environ["AXS_NET_TIMEOUT_MS"] = saved
 
 
 def check_fake_reason(tmp):
@@ -144,6 +153,7 @@ def main():
             check_fake_reason(tmp)
         check_table()
         check_egress()
+        check_timeouts()
         check_forward()
     finally:
         if saved is None:
