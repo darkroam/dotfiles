@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Group aggregation, fallback, and HTTP delay reasons."""
+"""Selector aggregation and HTTP delay reasons."""
 import json
 import os
 import sys
-import tempfile
 import time
 from pathlib import Path
 
@@ -43,13 +42,13 @@ def check_coverage():
     if leafdelay.coverage(proxies) != (2, 4):
         fail(leafdelay.coverage(proxies))
     groups, fallback = leafdelay.split(proxies, ["a", "b", "c", "DIRECT"])
-    if groups != ["A", "B"] or fallback != ["c", "DIRECT"]:
+    if groups != ["A", "B"] or fallback:
         fail((groups, fallback))
     one, rest = leafdelay.split(proxies, ["b"])
     if one != ["A", "B"] or rest:
         fail((one, rest))
     one, rest = leafdelay.split(proxies, ["DIRECT"])
-    if one or rest != ["DIRECT"]:
+    if one or rest:
         fail((one, rest))
 
 
@@ -71,11 +70,15 @@ def _install(table):
 def check_pick():
     proxies = mixed()
     proxies["x"] = {"type": "Shadowsocks"}
-    proxies["A"] = {"type": "Selector", "all": ["a", "b", "x"], "now": "a"}
+    proxies["y"] = {"type": "Shadowsocks"}
+    proxies["A"] = {"type": "Selector", "all": ["a", "b", "x", "y"], "now": "a"}
+    proxies["U"] = {"type": "URLTest", "all": ["c"], "now": "c"}
     calls = []
 
     def slow(path):
         calls.append(path)
+        if "/group/U/" in path or "/proxies/" in path:
+            raise SystemExit(path)
         if "/group/A/" in path:
             time.sleep(0.05)
             return {"a": 1, "b": 3, "x": "no"}
@@ -83,40 +86,64 @@ def check_pick():
             return {"b": 9}
         raise SystemExit(path)
 
-    original = _install({"group": slow})
+    original = _install({"group": slow, "/proxies/": slow})
     try:
-        rows = leafdelay.measure("secret-value", "127.0.0.1:9", proxies, ["b", "a", "x"], "http://127.0.0.1/x", 5, 4)
+        rows = leafdelay.measure(
+            "secret-value", "127.0.0.1:9", proxies, ["b", "a", "x", "y", "c"], "http://127.0.0.1/x", 5, 4,
+        )
     finally:
         leafdelay.request = original
-    if rows != [("b", 3, ""), ("a", 1, ""), ("x", None, "超时")]:
+    wanted = [("b", 3, ""), ("a", 1, ""), ("x", None, "超时"), ("y", None, "未覆盖"), ("c", None, "不可选")]
+    if rows != wanted:
+        fail(rows)
+    if any("/proxies/" in path or "/group/U/" in path for path in calls):
+        fail(calls)
+
+
+def check_no_proxy():
+    proxies = mixed()
+    calls = []
+
+    def grab(path):
+        calls.append(path)
+        if "/group/" in path:
+            return {"a": 1, "b": 2}
+        raise SystemExit(path)
+
+    original = _install({"/group/": grab, "/proxies/": grab})
+    try:
+        rows = leafdelay.measure(
+            "test-secret-value", "127.0.0.1:9", proxies, ["a", "c", "DIRECT"], "http://127.0.0.1/x", 5, 2,
+        )
+    finally:
+        leafdelay.request = original
+    if rows != [("a", 1, ""), ("c", None, "不可选"), ("DIRECT", None, "不可选")]:
         fail(rows)
     if any("/proxies/" in path for path in calls):
         fail(calls)
 
 
-def check_fallback(tmp):
-    proxies = mixed()
-    fake = Path(tmp) / "fake"
-    fake.mkdir()
-    (fake / "delay.json").write_text('{"c": 4, "DIRECT": 8, "a": 1}\n', encoding="utf-8")
-    saved = os.environ.get("AXS_FAKE_DIR")
-    os.environ["AXS_FAKE_DIR"] = str(fake)
+def check_delay_ms():
+    saved = os.environ.get("AXS_DELAY_TIMEOUT_MS")
     try:
-        rows = leafdelay.measure(
-            "test-secret-value", "127.0.0.1:9", proxies, ["a", "c", "DIRECT"], "http://127.0.0.1/x", 5, 2,
-        )
-        log = (fake / "log").read_text(encoding="utf-8")
+        os.environ.pop("AXS_DELAY_TIMEOUT_MS", None)
+        if leafdelay.delay_ms() != 5000:
+            fail("default ms")
+        for raw in ("", "abc", "-3", "0", "  "):
+            os.environ["AXS_DELAY_TIMEOUT_MS"] = raw
+            if leafdelay.delay_ms() != 5000:
+                fail("bad ms " + repr(raw))
+        os.environ["AXS_DELAY_TIMEOUT_MS"] = "2500"
+        if leafdelay.delay_ms() != 2500:
+            fail("2500")
+        path = leafdelay._group_path("主代理", "http://127.0.0.1/x")
+        if "timeout=2500" not in path or "/proxies/" in path:
+            fail(path)
     finally:
         if saved is None:
-            os.environ.pop("AXS_FAKE_DIR", None)
+            os.environ.pop("AXS_DELAY_TIMEOUT_MS", None)
         else:
-            os.environ["AXS_FAKE_DIR"] = saved
-    if rows[0] != ("a", 1, "") or rows[1][0] != "c" or rows[2][0] != "DIRECT":
-        fail(rows)
-    if "/group/" not in log or "/proxies/c/" not in log or "/proxies/DIRECT/" not in log:
-        fail(log)
-    if "/proxies/a/" in log:
-        fail("covered leaf fell back\n" + log)
+            os.environ["AXS_DELAY_TIMEOUT_MS"] = saved
 
 
 def check_http():
@@ -158,8 +185,8 @@ def main():
     check_pick()
     check_http()
     check_steps()
-    with tempfile.TemporaryDirectory(prefix="axs-leafdelay-") as tmp:
-        check_fallback(tmp)
+    check_no_proxy()
+    check_delay_ms()
     print("leafdelay ok")
     return 0
 

@@ -546,5 +546,43 @@
     "files": {
       "run/fake/delay.json": "{\"a\": 12}\n"
     }
+  },
+  {
+    "name": "node-test--bad.txt",
+    "argv": [
+      "node",
+      "test",
+      "--all"
+    ],
+    "up": true,
+    "files": {
+      "run/fake/delay.json": "{\"a\": 12, \"b\": \"no\"}\n"
+    }
+  },
+  {
+    "name": "node-test--filter.txt",
+    "argv": [
+      "node",
+      "test",
+      "--all"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\":{\"主代理\":{\"all\":[\"a\",\"剩余流量：9\",\"网址:x\",\"过期时间：1\",\"回家页:y\",\"pass\"],\"now\":\"a\",\"type\":\"Selector\"},\"自动\":{\"type\":\"URLTest\",\"all\":[\"a\",\"orphan\"],\"now\":\"a\"},\"a\":{\"type\":\"Shadowsocks\"},\"剩余流量：9\":{\"type\":\"Shadowsocks\"},\"网址:x\":{\"type\":\"Shadowsocks\"},\"过期时间：1\":{\"type\":\"Shadowsocks\"},\"回家页:y\":{\"type\":\"Shadowsocks\"},\"pass\":{\"type\":\"Pass\"},\"drop\":{\"type\":\"RejectDrop\"},\"rej\":{\"type\":\"Reject\"},\"comp\":{\"type\":\"Compatible\"},\"DIRECT\":{\"type\":\"Direct\"},\"orphan\":{\"type\":\"Shadowsocks\"}}}\n",
+    "files": {
+      "run/fake/delay.json": "{\"a\": 12}\n"
+    }
+  },
+  {
+    "name": "node-test--hidden.txt",
+    "argv": [
+      "node",
+      "test",
+      "剩余流量：9"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\":{\"主代理\":{\"all\":[\"a\",\"剩余流量：9\",\"网址:x\",\"过期时间：1\",\"回家页:y\",\"pass\"],\"now\":\"a\",\"type\":\"Selector\"},\"自动\":{\"type\":\"URLTest\",\"all\":[\"a\",\"orphan\"],\"now\":\"a\"},\"a\":{\"type\":\"Shadowsocks\"},\"剩余流量：9\":{\"type\":\"Shadowsocks\"},\"网址:x\":{\"type\":\"Shadowsocks\"},\"过期时间：1\":{\"type\":\"Shadowsocks\"},\"回家页:y\":{\"type\":\"Shadowsocks\"},\"pass\":{\"type\":\"Pass\"},\"drop\":{\"type\":\"RejectDrop\"},\"rej\":{\"type\":\"Reject\"},\"comp\":{\"type\":\"Compatible\"},\"DIRECT\":{\"type\":\"Direct\"},\"orphan\":{\"type\":\"Shadowsocks\"}}}\n",
+    "files": {
+      "run/fake/delay.json": "{\"a\": 12}\n"
+    }
   }
 ]

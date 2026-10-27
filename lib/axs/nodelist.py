@@ -13,7 +13,7 @@ from axs.nodes import (
     load_delays,
     node_numbers,
 )
-from axs.render import dim, display_width, emph, ident, layout_cells, term_cols, use_color
+from axs.render import bold, dim, display_width, emph, ident, layout_cells, term_cols, tone, use_color
 
 def _now(item):
     now = item.get("now") if isinstance(item, dict) else None
@@ -102,3 +102,19 @@ def show_nodes(secret_path, api, mode=""):
         entries.append((plain, colored))
     lines = layout_cells(entries, term_cols())
     sys.stdout.write("\n".join(lines) + "\n")
+
+
+def render_rows(numbers, rows, heading):
+    width = len(str(max(numbers.values()))) if numbers else 1
+    lines = [bold("测速（全部叶子）")] if heading else []
+    ordered = sorted(rows, key=lambda item: numbers[item[0]])
+    for name, delay, reason in ordered:
+        if delay is None:
+            plain = reason or "超时"
+            shown = tone("31", plain)
+        else:
+            plain = f"{delay}ms"
+            shown = tone(delay_code(delay), plain)
+        label = f"N{numbers[name]:>{width}}"
+        lines.append(f"{label} {name} {shown}")
+    return "\n".join(lines) + ("\n" if lines else "")

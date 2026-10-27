@@ -13,8 +13,9 @@ sys.path.insert(0, str(ROOT / "lib"))
 
 from axs.cli import main as cli_main
 from axs.codes import DOWN, FAIL, USAGE
-from axs.nodes import load_delays, write_node_cache
-from axs import leafdelay, nodetest
+from axs.nodes import load_delays, node_numbers, write_node_cache
+from axs import nodetest
+from axs.nodelist import render_rows
 
 
 def fail(message):
@@ -70,11 +71,11 @@ def check_workers():
 def check_order_and_color():
     numbers = {"b": 2, "a": 1}
     os.environ["AXS_COLOR"] = "never"
-    plain = nodetest.render_rows(numbers, [("b", None, "超时"), ("a", 12, "")], True)
+    plain = render_rows(numbers, [("b", None, "超时"), ("a", 12, "")], True)
     if plain != "测速（全部叶子）\nN1 a 12ms\nN2 b 超时\n":
         fail(plain)
     os.environ["AXS_COLOR"] = "always"
-    colored = nodetest.render_rows(numbers, [( "a", 12, ""), ("b", None, "超时")], False)
+    colored = render_rows(numbers, [( "a", 12, ""), ("b", None, "超时")], False)
     if "\033[32m12ms\033[0m" not in colored or "\033[31m超时\033[0m" not in colored:
         fail(colored)
     if colored.startswith("测速"):
@@ -82,27 +83,57 @@ def check_order_and_color():
     os.environ["AXS_COLOR"] = "never"
 
 
-def check_measure(tmp):
+def check_filter():
+    proxies = {
+        "主代理": {"type": "Selector", "all": ["a", "剩余流量：1", "pass"], "now": "a"},
+        "a": {"type": "Shadowsocks"},
+        "剩余流量：1": {"type": "Shadowsocks"},
+        "剩余流量:2": {"type": "Shadowsocks"},
+        "网址：z": {"type": "Shadowsocks"},
+        "过期时间:z": {"type": "Shadowsocks"},
+        "回家页：z": {"type": "Shadowsocks"},
+        "pass": {"type": "Pass"},
+        "drop": {"type": "RejectDrop"},
+        "rej": {"type": "Reject"},
+        "comp": {"type": "Compatible"},
+        "DIRECT": {"type": "Direct"},
+    }
+    numbers = node_numbers(proxies)
+    kept = [name for name in sorted(numbers, key=numbers.get) if nodetest.testable(name, proxies)]
+    if kept != ["DIRECT", "a"]:
+        fail(kept)
+
+
+def check_quiet(tmp):
     fake = Path(tmp) / "fake"
     fake.mkdir()
-    (fake / "delay.json").write_text('{"甲": 12, "乙": "timeout"}\n', encoding="utf-8")
+    (fake / "delay.json").write_text('{"a": 12}\n', encoding="utf-8")
     saved = os.environ.get("AXS_FAKE_DIR")
     os.environ["AXS_FAKE_DIR"] = str(fake)
+    proxies = {
+        "主代理": {"type": "Selector", "all": ["a"], "now": "a"},
+        "自动": {"type": "URLTest", "all": ["b"], "now": "b"},
+        "a": {"type": "Shadowsocks"},
+        "b": {"type": "Shadowsocks"},
+    }
+    err = io.StringIO()
     try:
-        delay, reason = leafdelay.proxy_delay("test-secret-value", "127.0.0.1:9", "甲", "http://127.0.0.1/x", 60)
-        if delay != 12 or reason:
-            fail(f"measure {delay} {reason}")
-        delay, reason = leafdelay.proxy_delay("test-secret-value", "127.0.0.1:9", "乙", "http://127.0.0.1/x", 60)
-        if delay is not None or reason != "超时":
-            fail(f"timeout {delay} {reason}")
+        with contextlib.redirect_stderr(err):
+            rows = nodetest.run_tests(
+                "test-secret-value", "127.0.0.1:9", proxies, ["a", "b"], "http://127.0.0.1/x", True,
+            )
         log = (fake / "log").read_text(encoding="utf-8")
-        if "/proxies/" not in log or "delay?timeout=5000" not in log:
-            fail(log)
     finally:
         if saved is None:
             os.environ.pop("AXS_FAKE_DIR", None)
         else:
             os.environ["AXS_FAKE_DIR"] = saved
+    if rows != [("a", 12, ""), ("b", None, "不可选")]:
+        fail(rows)
+    if err.getvalue():
+        fail("progress " + err.getvalue())
+    if "/group/" not in log or "/proxies/" in log or "自动" in log:
+        fail(log)
 
 
 def check_cache(tmp):
@@ -158,7 +189,8 @@ def main():
     check_order_and_color()
     check_cli()
     with tempfile.TemporaryDirectory(prefix="axs-nodetest-") as tmp:
-        check_measure(tmp)
+        check_filter()
+        check_quiet(tmp)
         check_cache(tmp)
     print("nodetest ok")
     return 0

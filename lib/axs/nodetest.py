@@ -6,8 +6,9 @@ from axs.core import service_up
 from axs.leafdelay import measure, split, workers as _workers
 from axs.mihomo import DELAY, GROUP, load_proxies, read_secret, request
 from axs.nodes import AUTO_LABEL, _ansi, _as_exit3, _is_group, _prefixed, delay_code, lookup_group, node_numbers, write_node_cache
+from axs.nodelist import render_rows
 from axs.progress import Progress
-from axs.render import bold, call_usage, die, ident, tone
+from axs.render import call_usage, die, ident
 import contextlib
 import io
 import json
@@ -33,25 +34,20 @@ def resolve_leaf(proxies, token):
     return None, "missing"
 
 
-def render_rows(numbers, rows, heading):
-    width = len(str(max(numbers.values()))) if numbers else 1
-    lines = [bold("测速（全部叶子）")] if heading else []
-    ordered = sorted(rows, key=lambda item: numbers[item[0]])
-    for name, delay, reason in ordered:
-        if delay is None:
-            plain = reason or "超时"
-            shown = tone("31", plain)
-        else:
-            plain = f"{delay}ms"
-            shown = tone(delay_code(delay), plain)
-        label = f"N{numbers[name]:>{width}}"
-        lines.append(f"{label} {name} {shown}")
-    return "\n".join(lines) + ("\n" if lines else "")
+_SKIP_TYPES = {"Compatible", "Pass", "Reject", "RejectDrop"}
+_SKIP_PREFIX = ("剩余流量", "网址", "过期时间", "回家页")
+
+
+def testable(name, proxies):
+    item = proxies.get(name)
+    if not isinstance(item, dict) or item.get("type") in _SKIP_TYPES:
+        return False
+    return not name.startswith(_SKIP_PREFIX)
 
 
 def run_tests(secret, api, proxies, names, url, progress=False):
-    groups, fallback = split(proxies, names)
-    bar = Progress(len(groups) + len(fallback), "测速") if progress else None
+    groups, _skip = split(proxies, names)
+    bar = Progress(len(groups), "测速") if progress else None
     try:
         return measure(
             secret, api, proxies, names, url, delay_timeout(), _workers(),
@@ -94,12 +90,12 @@ def cmd_test(run, args):
         raise SystemExit(FAIL if code == USAGE else code)
     numbers = node_numbers(proxies)
     if flag:
-        names = sorted(numbers, key=numbers.get)
+        names = [name for name in sorted(numbers, key=numbers.get) if testable(name, proxies)]
     else:
         name, err = resolve_leaf(proxies, tokens[0])
         if err == "usage":
             _usage()
-        if err:
+        if err or not testable(name, proxies):
             die(FAIL, "节点不存在")
         names = [name]
     url = os.environ.get("AXS_DELAY_URL") or DELAY_URL
