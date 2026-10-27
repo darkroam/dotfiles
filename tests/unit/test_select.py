@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""node show --select: one block per Selector, direct members only."""
+"""node show: one block per Selector, direct members only."""
 import contextlib
 import io
 import os

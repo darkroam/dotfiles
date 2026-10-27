@@ -1,4 +1,4 @@
-"""One-layer blocks for node show --select. Full topology stays in tree.py."""
+"""One-layer blocks for node show. Full topology stays in tree.py."""
 
 from pathlib import Path
 

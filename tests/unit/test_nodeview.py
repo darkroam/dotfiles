@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Members table and the default node show page."""
+"""Members table and the node status page."""
 import contextlib
 import io
 import os
@@ -178,8 +178,12 @@ def check_frames():
         }
         (run / "config.yaml").write_text("rules:\n  - MATCH,入口\n", encoding="utf-8")
         page = rule_page(auto, build(auto, run), run)
-        if "末端组（链尾自动组）：" not in page or not page.endswith("全部叶子。\n"):
+        note = "说明：当前状态＝当前规则路径＋链尾自动组；node show 查可选树，--full 完整拓扑，--all 全部叶子。"
+        if "末端组（链尾自动组）：" not in page or not page.endswith(note + "\n"):
             fail("default note\n" + page)
+        for old in ("--select", "group show", "rule show status", "subscription show", "node list", "node groups"):
+            if old in note:
+                fail("retired footer " + old)
         if not page.startswith("当前规则路径：\n") or "G1 入口" not in page:
             fail("default path\n" + page)
 
