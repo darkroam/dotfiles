@@ -64,15 +64,17 @@ def check_groups():
     ]
     if got.splitlines() != want:
         fail("table\n" + got)
-    if resolve_group_name(proxies, "1")[0] != "PROXY":
+    if resolve_group_name(proxies, "G1")[0] != "PROXY":
         fail("index 1")
+    if resolve_group_name(proxies, "1")[1] != "组不存在":
+        fail("bare digit")
     if resolve_group_name(proxies, "主代理")[0] != "主代理":
         fail("exact")
-    if resolve_group_name(proxies, "9")[1] != "组不存在":
+    if resolve_group_name(proxies, "G9")[1] != "组不存在":
         fail("missing index")
     if resolve_group_name(proxies, "甲")[1] != "不是策略组":
         fail("leaf")
-    if resolve_group_name(proxies, "02")[1] != "组不存在":
+    if resolve_group_name(proxies, "G02")[1] != "组不存在":
         fail("padded index")
     many = {f"g{i:02d}": {"type": "Selector", "now": "a"} for i in range(1, 11)}
     many["a"] = {"type": "Shadowsocks"}
@@ -92,10 +94,22 @@ def check_switch():
         "a": {"type": "Shadowsocks"},
         "b": {"type": "Shadowsocks"},
     }
-    if resolve_switch_name(proxies, ["a", "b"], "1") != "a":
+    if resolve_switch_name(proxies, ["a", "b"], "N1") != "a":
         fail("number")
+    if resolve_switch_name(proxies, ["a", "b"], "1") is not None:
+        fail("bare digit")
     if resolve_switch_name(proxies, ["a"], "b") is not None:
         fail("outsider")
+    nested = {
+        "主代理": {"type": "Selector", "now": "子", "all": ["子", "a"]},
+        "子": {"type": "Selector", "now": "a", "all": ["a"]},
+        "a": {"type": "Shadowsocks"},
+        "b": {"type": "Shadowsocks"},
+    }
+    if resolve_switch_name(nested, ["子", "a"], "G2") != "子":
+        fail("nested group")
+    if resolve_switch_name(nested, ["a"], "G2") is not None:
+        fail("group outside members")
 
 
 def check_cache(tmp):

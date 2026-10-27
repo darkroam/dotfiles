@@ -353,7 +353,7 @@ test "$(grep -c . "$RUN/err")" -eq 1 || fail "flag extra: $(cat "$RUN/err")"
 grep -q '用法：' "$RUN/err" || fail "flag extra text: $(cat "$RUN/err")"
 export AXS_COLOR=never
 assert_code 'bare help plain' 1
-grep -F -q '用法：axs status|clean|help' "$RUN/err" || fail "bare plain: $(cat "$RUN/err")"
+grep -F -q 'axs status|clean|help' "$RUN/err" || fail "bare plain: $(cat "$RUN/err")"
 grep -q 'axs network test' "$RUN/err" || fail "bare last: $(cat "$RUN/err")"
 grep -q 'session enable|disable|status' "$RUN/err" || fail "usage session: $(cat "$RUN/err")"
 if grep -q 'session on|off' "$RUN/err"; then

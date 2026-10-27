@@ -4,15 +4,15 @@ exit: 2
   状态    未运行（手动）
   端口    18080 不通 · 控制器 18081 不通
   自启    -
-节点
-  路径    -
 订阅
-  剩余    未知
-测试
+  剩余 未知
+路由
+  -
+测速
   net     -
   node    -
 代理
-  user    off
-  system  off（persist disabled）
-  session persist disabled · effect -
+user      off (unset)
+system    off (mode=) · persist disabled · desktop no x session
+session   persist disabled · effect -
 --- stderr

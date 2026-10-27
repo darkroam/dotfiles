@@ -239,21 +239,21 @@ EOF
 assert_code 'switch digit name' 0 group switch PROXY 2
 grep -q '{"name": "2"}' "$RUN/fake/log" || fail "digit name body: $(cat "$RUN/fake/log")"
 : >"$RUN/fake/log"
-assert_code 'switch number' 0 group switch OTHER 2
+assert_code 'switch number' 0 group switch OTHER N2
 grep -q '{"name": "a"}' "$RUN/fake/log" || fail "number body: $(cat "$RUN/fake/log")"
 : >"$RUN/fake/log"
-assert_code 'switch number missing' 3 group switch OTHER 1
+assert_code 'switch number missing' 3 group switch OTHER N1
 grep -q '节点不存在' "$RUN/err" || fail "number missing text: $(cat "$RUN/err")"
 if grep -q 'PUT /proxies' "$RUN/fake/log"; then
     fail 'number outside group sent select'
 fi
 : >"$RUN/fake/log"
-assert_code 'switch number range' 3 group switch PROXY 9
+assert_code 'switch number range' 3 group switch PROXY N9
 if grep -q 'PUT /proxies' "$RUN/fake/log"; then
     fail 'out of range sent select'
 fi
 : >"$RUN/fake/log"
-assert_code 'switch group number' 0 group switch 1 b
+assert_code 'switch group number' 0 group switch G1 b
 grep -q 'PUT /proxies/OTHER' "$RUN/fake/log" || fail "group number path: $(cat "$RUN/fake/log")"
 grep -q '{"name": "b"}' "$RUN/fake/log" || fail "group number body: $(cat "$RUN/fake/log")"
 test "$(cat "$RUN/out")" = "$(printf 'OTHER\tb\t-')" || fail "group number out: $(cat "$RUN/out")"
@@ -264,7 +264,7 @@ if grep -q 'PUT /proxies' "$RUN/fake/log"; then
     fail 'node named 2 sent select'
 fi
 : >"$RUN/fake/log"
-assert_code 'test group number' 0 group test 1
+assert_code 'test group number' 0 group test G1
 grep -q '/group/OTHER/delay' "$RUN/fake/log" || fail "group number delay: $(cat "$RUN/fake/log")"
 assert_code 'list bad flag' 1 node show --nope
 

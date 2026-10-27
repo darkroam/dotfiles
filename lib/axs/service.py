@@ -30,11 +30,11 @@ from axs.core import (
 )
 from axs.mihomo import load_proxies, version_ok
 from axs.net import port_open
-from axs.proxy import status_summary
+from axs.proxy import proxy_status_rows
 from axs.render import bad, bold, die, dim, emph, label, ok
 from axs.routes import build
 from axs.rulelist import status_text
-from axs.subscription import classify, clean_names, refresh_run, status_sub
+from axs.subscription import classify, clean_names, refresh_run, subscription_line
 
 def run_dir():
     chosen = os.environ.get("AXS_RUN")
@@ -149,27 +149,26 @@ def write_node_status(run, api):
         if isinstance(loaded, dict):
             proxies = loaded
     lines = node_status_lines(proxies, run)
-    row("路径    ", lines[0] if lines else dim("-"))
-    for line in lines[1:]:
-        row("        ", line)
+    if not lines:
+        sys.stdout.write("  " + dim("-") + "\n")
+        return
+    for line in lines:
+        sys.stdout.write("  " + line + "\n")
 
 
 def status(run):
-    running, port_ok, api_ok, api, mixed = service_section(run)
-    head("节点")
-    write_node_status(run, api if port_ok and api_ok else "")
-    code, block = captured(status_sub, Path(run) / USERINFO, unix_now())
-    lines = block.splitlines()
-    if code or len(lines) < 2:
-        sub_value, kind = dim("未知"), "unknown"
-    else:
-        sub_value, kind = lines[0], lines[-1]
+    running, port_ok, api_ok, api, _mixed = service_section(run)
+    text, kind = subscription_line(Path(run) / USERINFO, unix_now())
     head("订阅")
-    row("剩余    ", sub_value)
-    head("测试")
+    sys.stdout.write("  " + text + "\n")
+    head("路由")
+    write_node_status(run, api if port_ok and api_ok else "")
+    head("测速")
     row("net     ", cache_value(run, "net-test"))
     row("node    ", cache_value(run, "node-test"))
-    status_summary(run, mixed)
+    head("代理")
+    for line in proxy_status_rows(run):
+        sys.stdout.write(line + "\n")
     if running == 0 or not port_ok:
         code = DOWN
     elif not api_ok:

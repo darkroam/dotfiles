@@ -128,10 +128,10 @@ def check_node_args():
     from axs.cli import usage_text
     unknown = (
         "未知命令：nope（属于 group）\n"
-        "status  策略组与当前节点\n"
+        "status  策略组与当前选择\n"
         "members  组成员：编号、类型、当前、延迟\n"
-        "switch  组号或组名，再接节点\n"
-        "test  测延迟，可接组号或组名\n"
+        "switch  组名或 G#，再接名字、N# 或 G#\n"
+        "test  测延迟，可接组名或 G#\n"
         "用法：axs group status|members|switch|test\n"
     )
     cases = (

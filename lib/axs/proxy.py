@@ -18,7 +18,7 @@ from axs.config import (
     proxy_mixed,
 )
 from axs.core import session_value
-from axs.render import bad, bold, call_usage, dim, label, ok
+from axs.render import bad, call_usage, dim, ok
 
 GS = "org.gnome.system.proxy"
 SYSTEM_HOOK = "axs proxy system identity (managed)"
@@ -250,9 +250,9 @@ def proxy_session(run, args):
     _quit(USAGE)
 
 
-def proxy_status(run):
+def proxy_status_rows(run):
     port, cur, profile = _port(run), _user_current(), _xprofile()
-    _line(f"{'user':<10}{_word('on' if cur == _want(port) else 'off')} ({cur or 'unset'})")
+    rows = [f"{'user':<10}{_word('on' if cur == _want(port) else 'off')} ({cur or 'unset'})"]
     got = shutil.which("gsettings")
     mode, host, sport = (_gs_get(GS, "mode"), _gs_get(GS + ".http", "host"), _gs_get(GS + ".http", "port")) if got else ("no gsettings", "", "")
     state = "on" if mode == "manual" and host == LOOPBACK and sport == port else "off"
@@ -260,41 +260,17 @@ def proxy_status(run):
     hook = " (xprofile hook missing)"
     rc, desk = session_value("XDG_CURRENT_DESKTOP")
     desktop = ok("effective") if rc == 0 and _gnome(desk) else dim("no x session" if rc == 2 else "pending")
-    _line(f"{'system':<10}{_word(state)} (mode={mode}) · persist {_word('enabled' if sys_on else 'disabled')}{hook if sys_on and _hook_missing(profile, SYSTEM_HOOK) else ''} · desktop {desktop}")
+    rows.append(f"{'system':<10}{_word(state)} (mode={mode}) · persist {_word('enabled' if sys_on else 'disabled')}{hook if sys_on and _hook_missing(profile, SYSTEM_HOOK) else ''} · desktop {desktop}")
     rc, live = session_value("http_proxy") if ses_on else (0, "")
     effect = "-" if not ses_on else "no-x-session" if rc == 2 else "active" if live == _want(port) else "pending"
-    _line(f"{'session':<10}persist {_word('enabled' if ses_on else 'disabled')}{hook if ses_on and _hook_missing(profile, SESSION_HOOK) else ''} · effect {_word(effect)}")
+    rows.append(f"{'session':<10}persist {_word('enabled' if ses_on else 'disabled')}{hook if ses_on and _hook_missing(profile, SESSION_HOOK) else ''} · effect {_word(effect)}")
+    return rows
+
+
+def proxy_status(run):
+    for line in proxy_status_rows(run):
+        _line(line)
 
 
 def _word(text):
     return ok(text) if text in ("on", "enabled", "active") else dim(text)
-
-
-def _row(name, value):
-    sys.stdout.write("  " + label(name) + value + "\n")
-
-
-def status_summary(run, port):
-    current = os.environ.get("http_proxy") or os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") or ""
-    user = "on" if current == _want(port) else "off"
-    system = "off"
-    if shutil.which("gsettings"):
-        mode = _gs_get(GS, "mode")
-        host = _gs_get(GS + ".http", "host")
-        sport = _gs_get(GS + ".http", "port")
-        if mode == "manual" and host == LOOPBACK and sport == str(port):
-            system = "on"
-    system_flag = "enabled" if (Path(run) / SYSTEM_FLAG).is_file() else "disabled"
-    session_flag = "enabled" if (Path(run) / SESSION_FLAG).is_file() else "disabled"
-    effect = "-"
-    if session_flag == "enabled":
-        effect = "pending"
-        rc, live = session_value("http_proxy")
-        if rc == 2:
-            effect = "no-x-session"
-        elif rc == 0 and live == _want(port):
-            effect = "active"
-    sys.stdout.write(bold("代理") + "\n")
-    _row("user    ", _word(user))
-    _row("system  ", f"{_word(system)}（persist {_word(system_flag)}）")
-    _row("session ", f"{dim('persist')} {_word(session_flag)} · {dim('effect')} {_word(effect)}")

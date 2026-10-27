@@ -47,7 +47,6 @@ INTRO = "单字符优先；冲突用两字母；前缀亦可"
 
 SECTIONS = (
     ("服务（service / se）", (
-        ("axs status", "s", "查看全部状态"),
         ("axs service status", "s", "状态、自启、端口、控制器"),
         ("axs service start", "sta", "启动服务"),
         ("axs service stop", "sto", "停止服务"),
@@ -69,15 +68,15 @@ SECTIONS = (
         ("axs rule add node", "n", "域名 + 节点"),
         ("axs rule del", "d", "<域名|RID|规则全文>"),
     ), ()),
+    ("策略组（group / g）", (
+        ("axs group status", "s", "策略组与当前选择"),
+        ("axs group members", "m", "组成员：编号、类型、当前、延迟"),
+        ("axs group switch", "sw", "组名或 G#，再接名字、N# 或 G#"),
+        ("axs group test", "t", "测延迟，可接组名或 G#"),
+    ), ()),
     ("节点（node / n）", (
         ("axs node status", "s", "当前规则路径与末端组"),
         ("axs node show", "sh", "--all 全量叶子；--full 树；--depth"),
-    ), ()),
-    ("组（group / g）", (
-        ("axs group status", "s", "策略组与当前节点"),
-        ("axs group members", "m", "组成员：编号、类型、当前、延迟"),
-        ("axs group switch", "sw", "组号或组名，再接节点"),
-        ("axs group test", "t", "测延迟，可接组号或组名"),
     ), ()),
     ("网络（network）", (
         ("axs network test", "t", "测连通，可接网址"),
@@ -89,8 +88,10 @@ SECTIONS = (
         ("axs proxy system", "sy", "运行时 on|off；持久 enable|disable"),
         ("axs proxy session", "se", "登录持久 enable|disable|status"),
     ), ()),
-    ("清理（clean / c）", (
-        ("axs clean", "c", "删除本地配置，可加 --yes"),
+    ("其它", (
+        ("axs status", "s", "查看全部状态"),
+        ("axs clean", "c", "清理本地配置，可加 --yes"),
+        ("axs help", "h", "帮助"),
     ), ()),
 )
 

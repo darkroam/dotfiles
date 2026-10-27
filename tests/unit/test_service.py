@@ -94,7 +94,7 @@ def check_rule_view():
         if node_status_lines({}, run):
             fail("empty pool")
         code, out, err = capture(write_node_status, run, "")
-        if code or err or "路径    -" not in out or "主代理" in out:
+        if code or err or out != "  -\n" or "主代理" in out:
             fail(f"dash {code} {out!r} {err!r}")
 
 if __name__ == "__main__":

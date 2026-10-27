@@ -23,7 +23,7 @@ from axs.config import (
     USERINFO,
 )
 from axs.core import atomic_write, fail, install_file, restore_snapshot, snapshot
-from axs.render import dim, emph, label, warn
+from axs.render import dim, emph
 
 
 take_snapshot = snapshot
@@ -234,32 +234,29 @@ def human_bytes(raw):
         unit = name
     return f"{scaled:.1f}{unit}"
 
-def show_userinfo(path, now):
-    path = Path(path)
-    if not path.is_file():
-        sys.stdout.write("未知\n")
-        return
-    fields = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if "=" in line:
-            key, value = line.split("=", 1)
-            fields[key] = value
-    if not fields:
-        sys.stdout.write("未知\n")
-        return
-    labels = (("upload", "上传"), ("download", "下载"), ("total", "总量"))
-    for key, lab in labels:
-        if key in fields:
-            sys.stdout.write(f"{label(lab + ':')} {human_bytes(fields[key])}\n")
+def subscription_line(path, now):
     kind, days = classify(path, now)
     if kind == "expired":
-        sys.stdout.write(emph("31", "已过期") + "\n")
-    elif kind == "unknown":
-        sys.stdout.write(dim("未知") + "\n")
+        rest = emph("31", "已过期")
     elif kind == "soon":
-        sys.stdout.write(label("剩余:") + " " + emph("33", f"{days} 天") + "\n")
+        rest = emph("33", f"{days} 天")
+    elif kind == "ok":
+        rest = emph("32", f"{days} 天")
     else:
-        sys.stdout.write(label("剩余:") + " " + emph("32", f"{days} 天") + "\n")
+        rest = dim("未知")
+    bits = []
+    fields = _userinfo_fields(path)
+    for key, lab in (("upload", "上传"), ("download", "下载"), ("total", "总量")):
+        if key in fields and fields[key] != "":
+            bits.append(f"{lab} {human_bytes(fields[key])}")
+    text = "剩余 " + rest
+    if bits:
+        text += " · " + " · ".join(bits)
+    return text, kind
+
+def show_userinfo(path, now):
+    text, _kind = subscription_line(path, now)
+    sys.stdout.write(text + "\n")
 
 def _userinfo_fields(path):
     fields = {}
@@ -272,26 +269,6 @@ def _userinfo_fields(path):
         key, value = line.split("=", 1)
         fields[key] = value
     return fields
-
-def status_sub(path, now):
-    kind, days = classify(path, now)
-    if kind == "expired":
-        phrase = emph("31", "已过期") + "，" + emph("31", "0 天")
-    elif kind == "soon":
-        phrase = warn("警告") + "，" + emph("33", f"{days} 天")
-    elif kind == "ok":
-        phrase = emph("32", f"{days} 天")
-    else:
-        phrase = dim("未知")
-    bits = []
-    fields = _userinfo_fields(path)
-    for key, lab in (("upload", "上传"), ("download", "下载"), ("total", "总量")):
-        if key in fields and fields[key] != "":
-            bits.append(f"{lab} {human_bytes(fields[key])}")
-    if bits:
-        phrase += "（" + " · ".join(bits) + "）"
-    sys.stdout.write(phrase + "\n" + kind + "\n")
-
 
 def clean_names(kind):
     if kind == "config":
