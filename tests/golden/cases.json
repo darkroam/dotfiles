@@ -510,5 +510,41 @@
       "del",
       "Rzzzzz"
     ]
+  },
+  {
+    "name": "node-test--one.txt",
+    "argv": [
+      "node",
+      "test",
+      "N1"
+    ],
+    "up": true,
+    "files": {
+      "run/fake/delay.json": "{\"a\": 12, \"b\": 80}\n"
+    }
+  },
+  {
+    "name": "node-test--all.txt",
+    "argv": [
+      "node",
+      "test",
+      "--all"
+    ],
+    "up": true,
+    "files": {
+      "run/fake/delay.json": "{\"a\": 12, \"b\": 80}\n"
+    }
+  },
+  {
+    "name": "node-test--timeout.txt",
+    "argv": [
+      "node",
+      "test",
+      "--all"
+    ],
+    "up": true,
+    "files": {
+      "run/fake/delay.json": "{\"a\": 12}\n"
+    }
   }
 ]

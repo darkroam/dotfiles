@@ -35,7 +35,7 @@ GROUPS = {
             "he": "health",
         },
     ),
-    "node": ("status show".split(), {"s": "status", "sh": "show"}),
+    "node": ("status show test".split(), {"s": "status", "sh": "show", "t": "test"}),
     "group": ("status members switch test".split(), {"s": "status", "sw": "switch", "m": "members", "t": "test"}),
     "rule": ("status show add del".split(), {"s": "status", "sh": "show", "a": "add", "d": "del"}),
     "subscription": ("status refresh clean".split(), {"s": "status", "r": "refresh", "c": "clean"}),
@@ -77,6 +77,7 @@ SECTIONS = (
     ("节点（node / n）", (
         ("axs node status", "s", "当前规则路径与末端组"),
         ("axs node show", "sh", "--all 全量叶子；--full 树；--depth"),
+        ("axs node test", "t", "测一个叶子，或 --all 测全部"),
     ), ()),
     ("网络（network / nw）", (
         ("axs network test", "t", "测连通，可接网址"),
@@ -108,6 +109,7 @@ SIG = {
     "node": {
         "status": (0, 0, (), False),
         "show": (0, 0, ("--full", "--all", "--flat!", "-l!", "--depth="), False),
+        "test": (0, 1, ("--all",), False),
     },
     "group": {
         "status": (0, 0, (), False), "members": (1, 1, (), False),
@@ -132,6 +134,7 @@ USE = {
     ("top", "clean"): ("axs clean", "[--yes]"), ("top", "help"): ("axs help", "[-v|--verbose]"),
     ("subscription", "clean"): ("axs subscription clean", "[--yes]"),
     ("node", "show"): ("axs node show", "[--full|--all] [--depth N]"),
+    ("node", "test"): ("axs node test", "<名称|N#>|--all"),
     ("group", "members"): ("axs group members", "<组>（先看 group status）"), ("group", "switch"): ("axs group switch", "<组> <成员>"), ("group", "test"): ("axs group test", "[组]"),
     ("rule", "show"): ("axs rule show", "[--local]"), ("rule", "add"): ("axs rule add", "direct|via|node <域名> [组或节点]"), ("rule", "del"): ("axs rule del", "<域名|RID|规则全文>"),
     ("network", "test"): ("axs network test", "[网址 ...]"),
