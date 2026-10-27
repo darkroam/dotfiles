@@ -10,7 +10,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
-from axs.net import DEFAULT_URLS, _net_table, egress, net_precheck, net_targets  # noqa: E402
+from axs.net import DEFAULT_URLS, _ip_reason, _ip_timeout, _net_reason, _net_table, _net_timeout_ms, egress, net_precheck, net_run, net_targets  # noqa: E402
+import ssl
+import urllib.error
 
 
 def fail(message):
@@ -51,21 +53,27 @@ def check_precheck(tmp):
 
 def check_table():
     os.environ["AXS_COLOR"] = "never"
-    ok = _net_table([("通", "12", "http://127.0.0.1/ok")])
+    ok = _net_table([("通", "12ms", "http://127.0.0.1/ok", "")])
     golden = (ROOT / "tests" / "golden" / "network-test--ok.txt").read_text(encoding="utf-8")
     if golden != "exit: 0\n--- stdout\n" + ok + "--- stderr\n":
         fail(ok)
-    plain = _net_table([("通", "12", "http://127.0.0.1/ok"), ("不通", "-", "http://127.0.0.1/no")])
+    plain = _net_table([
+        ("通", "12ms", "http://127.0.0.1/ok", ""),
+        ("不通", "-", "http://127.0.0.1/no", "超时"),
+    ])
     want = (
         "连通性（经代理）\n"
-        "结果 / 延迟 / 目标\n"
-        "通    12  http://127.0.0.1/ok\n"
-        "不通   -  http://127.0.0.1/no\n"
+        "结果  延迟  目标                 原因\n"
+        "通    12ms  http://127.0.0.1/ok\n"
+        "不通     -  http://127.0.0.1/no  超时\n"
     )
     if plain != want:
         fail(plain)
     os.environ["AXS_COLOR"] = "always"
-    colored = _net_table([("通", "3", "http://127.0.0.1/ok"), ("不通", "-", "http://127.0.0.1/no")])
+    colored = _net_table([
+        ("通", "3ms", "http://127.0.0.1/ok", ""),
+        ("不通", "-", "http://127.0.0.1/no", "超时"),
+    ])
     if "\033[32m通\033[0m" not in colored or "\033[31m不通\033[0m" not in colored or "\033[90m-\033[0m" not in colored:
         fail(colored)
 
@@ -81,8 +89,51 @@ def check_egress():
     err = io.StringIO()
     with contextlib.redirect_stderr(err):
         expect(lambda: egress("http://127.0.0.1:9", "http://127.0.0.1:9/ip"), 3)
-    if not err.getvalue().startswith("公网地址查询失败（http://127.0.0.1:9/ip）："):
+    if err.getvalue() != "公网地址查询失败（http://127.0.0.1:9/ip）：连接失败\n":
         fail(err.getvalue())
+    if _net_reason(urllib.error.URLError(TimeoutError())) != "超时":
+        fail("timeout class")
+    if _net_reason(urllib.error.URLError(ConnectionRefusedError())) != "拒绝":
+        fail("refused class")
+    if _ip_reason(urllib.error.HTTPError("http://127.0.0.1/", 502, "bad", {}, None)) != "HTTP 502":
+        fail("http class")
+    if _ip_reason(urllib.error.URLError(TimeoutError())) != "超时":
+        fail("ip timeout class")
+    if _net_reason(urllib.error.URLError(ssl.SSLError("certificate verify failed"))) != "SSL":
+        fail("ssl class")
+
+
+def check_timeouts():
+    saved = os.environ.pop("AXS_NET_TIMEOUT_MS", None)
+    try:
+        if _net_timeout_ms(5000) != 5000 or _ip_timeout() != 10:
+            fail("timeout default")
+        for raw in ("abc", "-3", "0"):
+            os.environ["AXS_NET_TIMEOUT_MS"] = raw
+            if _net_timeout_ms(5000) != 5000 or _ip_timeout() != 10:
+                fail(f"timeout fallback {raw}")
+        os.environ["AXS_NET_TIMEOUT_MS"] = "2500"
+        if _net_timeout_ms(5000) != 2500 or _ip_timeout() != 2.5:
+            fail("timeout 2500")
+    finally:
+        if saved is None:
+            os.environ.pop("AXS_NET_TIMEOUT_MS", None)
+        else:
+            os.environ["AXS_NET_TIMEOUT_MS"] = saved
+
+
+def check_fake_reason(tmp):
+    fake = Path(tmp) / "fake"
+    fake.mkdir()
+    (fake / "net-result").write_text("拒绝\n", encoding="utf-8")
+    os.environ["AXS_FAKE_DIR"] = str(fake)
+    os.environ["AXS_COLOR"] = "never"
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        expect(lambda: net_run(Path(tmp) / "missing", "http://127.0.0.1:9", "200", ["http://127.0.0.1:9/"]), 3)
+    if "拒绝" not in buf.getvalue():
+        fail(buf.getvalue())
+    os.environ.pop("AXS_FAKE_DIR", None)
 
 
 def check_forward():
@@ -99,8 +150,10 @@ def main():
         with tempfile.TemporaryDirectory(prefix="axs-net-") as tmp:
             check_targets(tmp)
             check_precheck(tmp)
+            check_fake_reason(tmp)
         check_table()
         check_egress()
+        check_timeouts()
         check_forward()
     finally:
         if saved is None:
