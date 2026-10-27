@@ -228,37 +228,13 @@ def _show_tree(secret, api, mode, depth):
 def _node(run, kind, args):
     from pathlib import Path
 
-    from axs.config import SECRET, api_address, read_ports
-    from axs.nodes import DELAY_URL, default_group, delay, lookup_group, select_proxy, show_groups, show_nodes, write_node_cache
+    from axs.config import SECRET, api_address
+    from axs.nodes import select_proxy, show_groups, show_nodes
     from axs.nodeview import show_all, show_members, show_rule_nodes
-    from axs.service import captured, service_up
-    import os
+    from axs.service import service_up
     list_mode, depth = "", None
     if kind == "list":
         list_mode, depth = _list_flags(args)
-    if kind == "test":
-        if not service_up(run):
-            die(DOWN, "服务：未运行")
-        _mixed, api = read_ports(run)
-        secret_path = Path(run) / SECRET
-        group = args[0] if args else ""
-        if group:
-            code, out = captured(lookup_group, secret_path, api, group)
-        else:
-            code, out = captured(default_group, secret_path, api)
-        if code:
-            raise SystemExit(code)
-        group = out.strip("\n")
-        if not group:
-            die(FAIL, "组名不存在")
-        url = os.environ.get("AXS_DELAY_URL") or DELAY_URL
-        code, out = captured(delay, Path(run) / SECRET, api, group, url)
-        sys.stdout.write(out)
-        if code == 0:
-            write_node_cache(Path(run) / "cache" / "node-test", group, out.splitlines())
-            return
-        write_node_cache(Path(run) / "cache" / "node-test", "", [], False)
-        raise SystemExit(code)
     if not service_up(run):
         die(DOWN, "服务：未运行")
     api = api_address(run)
@@ -311,6 +287,7 @@ def _rule_status(run):
 
 
 def main(argv):
+    import axs.nodetest as nodetest
     from axs.net import net_ip, net_test
     from axs.proxy import proxy_session, proxy_status, proxy_system, proxy_user
     from axs.rulelist import cmd_list
@@ -378,14 +355,16 @@ def main(argv):
     elif cmd == "node":
         op, extra = _take("node", rest)
         if op == "test":
-            from axs.nodetest import cmd_test
-            cmd_test(run, extra)
+            nodetest.cmd_test(run, extra)
         else:
             _node(run, "status" if op == "status" else "list", extra)
     elif cmd == "group":
         op, extra = _take("group", rest)
-        kind = {"status": "groups", "members": "members", "switch": "switch", "test": "test"}[op]
-        _node(run, kind, extra)
+        if op == "test":
+            nodetest.run_group(run, extra)
+        else:
+            kind = {"status": "groups", "members": "members", "switch": "switch"}[op]
+            _node(run, kind, extra)
     elif cmd == "network":
         op, extra = _take("network", rest)
         if op == "test":

@@ -1,11 +1,13 @@
-"""Leaf delay tests. Does not switch or edit config."""
+"""Leaf and group delay tests. Does not switch or edit config."""
 
 from axs.codes import DOWN, FAIL, USAGE
-from axs.config import SECRET, api_address
+from axs.config import SECRET, api_address, read_ports
 from axs.core import service_up
-from axs.mihomo import DELAY, PROXIES, _QUIET, delay_timeout, load_proxies, read_secret, request
-from axs.nodes import DELAY_URL, _is_group, _prefixed, delay_code, node_numbers, write_node_cache
-from axs.render import bold, call_usage, die, tone
+from axs.mihomo import DELAY, GROUP, PROXIES, _QUIET, load_proxies, read_secret, request
+from axs.nodes import AUTO_LABEL, _ansi, _as_exit3, _is_group, _prefixed, delay_code, lookup_group, node_numbers, write_node_cache
+from axs.render import bold, call_usage, die, ident, tone
+import contextlib
+import io
 import json
 import os
 import sys
@@ -146,3 +148,120 @@ def cmd_test(run, args):
     write_node_cache(Path(run) / "cache" / "node-test", "", lines, ok)
     if not ok:
         raise SystemExit(FAIL)
+
+
+DELAY_URL = "https://www.gstatic.com/generate_204"
+
+
+def delay_path(group, url, timeout="5000"):
+    quoted = urllib.parse.quote(group, safe="")
+    query = urllib.parse.urlencode({"timeout": str(timeout), "url": url})
+    return f"{GROUP}{quoted}{DELAY}?{query}"
+
+
+def delay_timeout():
+    raw = os.environ.get("AXS_DELAY_TIMEOUT", "").strip()
+    try:
+        value = int(raw) if raw else 60
+    except ValueError:
+        return 60
+    return value if value > 0 else 60
+
+
+def _fail(message):
+    from axs.core import fail
+
+    fail(message)
+
+
+def pick_test_group(proxies):
+    groups = {
+        name: item
+        for name, item in proxies.items()
+        if _is_group(item)
+    }
+    main = groups.get("主代理")
+    if main is not None:
+        return "主代理"
+    autos = sorted(name for name, item in groups.items() if item.get("type") in AUTO_LABEL)
+    if autos:
+        return autos[0]
+    others = sorted(name for name in groups if name != "GLOBAL")
+    if others:
+        return others[0]
+    return None
+
+
+def default_group(secret_path, api):
+    try:
+        proxies = load_proxies(secret_path, api)
+    except SystemExit as exc:
+        _as_exit3(exc)
+    name = pick_test_group(proxies)
+    if name:
+        sys.stdout.write(name + "\n")
+        return
+    listed = sorted(name for name, item in proxies.items() if _is_group(item))
+    sys.stderr.write("没有可测组\n")
+    for name in listed:
+        sys.stderr.write(name + "\n")
+    raise SystemExit(FAIL)
+
+
+def delay(secret_path, api, group, url):
+    secret = read_secret(secret_path, api)
+    try:
+        raw = request(secret, api, "GET", delay_path(group, url), timeout=delay_timeout())
+    except SystemExit:
+        raise SystemExit(FAIL)
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError:
+        _fail("控制器失败：响应格式错误")
+    if not isinstance(payload, dict):
+        _fail("控制器失败：响应格式错误")
+    for name, value in payload.items():
+        try:
+            shown = str(int(value))
+            code = delay_code(value)
+        except (TypeError, ValueError):
+            shown = "超时"
+            code = "31"
+        title = ident(name) if name == group else name
+        sys.stdout.write(f"{title} {_ansi(code, shown)}\n")
+
+
+def _capture(func, *args):
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            func(*args)
+    except SystemExit as exc:
+        code = exc.code if isinstance(exc.code, int) else USAGE
+        return code, buf.getvalue()
+    return 0, buf.getvalue()
+
+
+def run_group(run, args):
+    if not service_up(run):
+        die(DOWN, "服务：未运行")
+    _mixed, api = read_ports(run)
+    secret_path = Path(run) / SECRET
+    group = args[0] if args else ""
+    if group:
+        code, out = _capture(lookup_group, secret_path, api, group)
+    else:
+        code, out = _capture(default_group, secret_path, api)
+    if code:
+        raise SystemExit(code)
+    group = out.strip("\n")
+    if not group:
+        die(FAIL, "组名不存在")
+    url = os.environ.get("AXS_DELAY_URL") or DELAY_URL
+    code, out = _capture(delay, Path(run) / SECRET, api, group, url)
+    sys.stdout.write(out)
+    if code == 0:
+        write_node_cache(Path(run) / "cache" / "node-test", group, out.splitlines())
+        return
+    write_node_cache(Path(run) / "cache" / "node-test", "", [], False)
+    raise SystemExit(code)

@@ -37,12 +37,6 @@ def select_path(name):
     return PROXIES + "/" + urllib.parse.quote(name, safe="")
 
 
-def delay_path(group, url, timeout="5000"):
-    quoted = urllib.parse.quote(group, safe="")
-    query = urllib.parse.urlencode({"timeout": str(timeout), "url": url})
-    return f"{GROUP}{quoted}{DELAY}?{query}"
-
-
 def _fail(message):
     if _QUIET.get():
         raise SystemExit(message)
@@ -60,15 +54,6 @@ def read_secret(secret_path, api):
     if len(secret) < 8:
         _fail("控制器失败：密钥过短")
     return secret
-
-
-def delay_timeout():
-    raw = os.environ.get("AXS_DELAY_TIMEOUT", "").strip()
-    try:
-        value = int(raw) if raw else 60
-    except ValueError:
-        return 60
-    return value if value > 0 else 60
 
 
 def _link_error(exc, timeout):
