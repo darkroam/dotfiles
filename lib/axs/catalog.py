@@ -130,7 +130,7 @@ SIG = {
 USE = {
     ("top", "clean"): ("axs clean", "[--yes]"), ("subscription", "clean"): ("axs subscription clean", "[--yes]"),
     ("node", "show"): ("axs node show", "[--full|--all] [--depth N]"),
-    ("group", "members"): ("axs group members", "<组>"), ("group", "switch"): ("axs group switch", "<组> <成员>"), ("group", "test"): ("axs group test", "[组]"),
+    ("group", "members"): ("axs group members", "<组>（先看 group status）"), ("group", "switch"): ("axs group switch", "<组> <成员>"), ("group", "test"): ("axs group test", "[组]"),
     ("rule", "show"): ("axs rule show", "[--local]"), ("rule", "add"): ("axs rule add", "direct|via|node <域名> [组或节点]"), ("rule", "del"): ("axs rule del", "<域名|RID|规则全文>"),
     ("network", "test"): ("axs network test", "[网址 ...]"),
     ("proxy", "user"): ("axs proxy user", "on|off|status"), ("proxy", "system"): ("axs proxy system", "on|off|enable|disable|status"),

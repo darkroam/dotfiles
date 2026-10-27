@@ -18,7 +18,7 @@ from axs.config import (
     proxy_mixed,
 )
 from axs.core import session_value
-from axs.render import bad, bold, dim, label, ok
+from axs.render import bad, bold, call_usage, dim, label, ok
 
 GS = "org.gnome.system.proxy"
 SYSTEM_HOOK = "axs proxy system identity (managed)"
@@ -30,7 +30,7 @@ def _quit(code, message=None):
         previous = os.environ.get("AXS_PAINT_FD")
         os.environ["AXS_PAINT_FD"] = "2"
         try:
-            message = bad(message)
+            message = message() if callable(message) else bad(message)  # callable is already painted
         finally:
             if previous is None:
                 os.environ.pop("AXS_PAINT_FD", None)
@@ -156,7 +156,7 @@ def proxy_user(run, args):
             return
         _line(f"user: {dim('off')} ({cur or 'unset'})")
         _quit(USAGE)
-    _quit(USAGE, "用法错误")
+    _quit(USAGE, lambda: call_usage("proxy", "user"))
 
 
 def proxy_system(run, args):
@@ -189,7 +189,7 @@ def proxy_system(run, args):
         _line(f"system：{bad('disabled')}")
         return
     if sub != "status":
-        _quit(USAGE, "用法错误")
+        _quit(USAGE, lambda: call_usage("proxy", "system"))
     port = _port(run)
     mode = _gs_get(GS, "mode")
     host = _gs_get(GS + ".http", "host")
@@ -231,7 +231,7 @@ def proxy_session(run, args):
         _line(f"session：{bad('disabled')}")
         return
     if sub != "status":
-        _quit(USAGE, "用法错误")
+        _quit(USAGE, lambda: call_usage("proxy", "session"))
     port = _port(run)
     if not flag.is_file():
         _line(f"session: persist {dim('disabled')} · effect {dim('-')}")

@@ -137,8 +137,8 @@ def check_node_args():
     cases = (
         (["group", "status", "x"], USAGE, "用法：axs group status\n"),
         (["node", "show", "nope"], USAGE, "用法：axs node show [--full|--all] [--depth N]\n"),
-        (["group", "members"], USAGE, "用法：axs group members <组>\n"),
-        (["group", "members", "a", "b"], USAGE, "用法：axs group members <组>\n"),
+        (["group", "members"], USAGE, "用法：axs group members <组>（先看 group status）\n"),
+        (["group", "members", "a", "b"], USAGE, "用法：axs group members <组>（先看 group status）\n"),
         (["group", "members", "--x"], USAGE, "未知选项：--x\n旗标：（无）\n"),
         (["group", "switch"], USAGE, "用法：axs group switch <组> <成员>\n"),
         (["group", "switch", "g"], USAGE, "用法：axs group switch <组> <成员>\n"),
@@ -149,7 +149,10 @@ def check_node_args():
         (["service", "st"], USAGE, "候选：status start stop\n"),
         (["nope"], USAGE, usage_text()),
         (["rule", "add", "nope", "example.com"], USAGE, "用法错误\n"),
-        (["proxy", "user", "foo"], USAGE, "用法错误\n"),
+        (["proxy", "user"], USAGE, "用法：axs proxy user on|off|status\n"),
+        (["proxy", "user", "foo"], USAGE, "用法：axs proxy user on|off|status\n"),
+        (["proxy", "system", "foo"], USAGE, "用法：axs proxy system on|off|enable|disable|status\n"),
+        (["proxy", "session", "foo"], USAGE, "用法：axs proxy session enable|disable|status\n"),
         (["group", "status"], DOWN, "服务：未运行\n"),
         (["group", "members", "1"], DOWN, "服务：未运行\n"),
         (["node", "show"], DOWN, "服务：未运行\n"),
@@ -225,7 +228,7 @@ def check_node_args():
             pass
         painted = err_buf.getvalue()
         os.environ["AXS_COLOR"] = "never"
-        if "\033[1maxs group members\033[0m" not in painted or "\033[90m<组>\033[0m" not in painted:
+        if "\033[1maxs group members\033[0m" not in painted or "\033[90m<组>（先看 group status）\033[0m" not in painted:
             raise SystemExit("usage color " + repr(painted))
         if out_buf.getvalue():
             raise SystemExit("usage color stdout")
@@ -335,7 +338,7 @@ def check_sig():
         ("top", "clean"): ("axs clean", "[--yes]"),
         ("subscription", "clean"): ("axs subscription clean", "[--yes]"),
         ("node", "show"): ("axs node show", "[--full|--all] [--depth N]"),
-        ("group", "members"): ("axs group members", "<组>"),
+        ("group", "members"): ("axs group members", "<组>（先看 group status）"),
         ("group", "switch"): ("axs group switch", "<组> <成员>"),
         ("group", "test"): ("axs group test", "[组]"),
         ("rule", "show"): ("axs rule show", "[--local]"),
