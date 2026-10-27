@@ -16,6 +16,7 @@ LAYERS = (
     ("routes", "nodelist"),
     ("subscription", "rules", "proxy"),
     ("tree", "service", "nodeview", "selectview", "nodetest"),
+    ("nodecmd",),
     ("cli",),
     ("__main__",),
 )
@@ -138,7 +139,7 @@ def graph():
 
 def service_imports():
     bad = []
-    cli_hits = 0
+    hits = {"cli.py": 0, "nodecmd.py": 0}
     for path in sorted(LIB.glob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
@@ -152,14 +153,16 @@ def service_imports():
                 )
             if not hit:
                 continue
-            if path.name == "cli.py":
-                cli_hits += 1
+            if path.name in hits:
+                hits[path.name] += 1
             else:
                 bad.append(f"{path.name}:{node.lineno}")
     if bad:
         fail("service import " + ", ".join(bad))
-    if cli_hits == 0:
+    if hits["cli.py"] == 0:
         fail("cli lost service")
+    if hits["nodecmd.py"] == 0:
+        fail("nodecmd lost service")
 
 
 def auto_set():

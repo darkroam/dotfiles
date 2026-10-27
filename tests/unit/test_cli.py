@@ -10,8 +10,9 @@ sys.path.insert(0, str(ROOT / "lib"))
 from axs.catalog import GROUPS, SIG, USE
 from axs.cli import (
     DOWN, EXPIRED, FAIL, LOCK, ResolveError, USAGE,
-    _list_flags, main as cli_main, resolve_token,
+    main as cli_main, resolve_token,
 )
+from axs.nodecmd import _list_flags
 from axs.render import bad, bold, dim, emph, ident, label, ok, tone, use_color, warn
 
 GOLDEN = ROOT / "tests" / "golden"

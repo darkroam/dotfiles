@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
-from axs.cli import _list_flags  # noqa: E402
+from axs.nodecmd import _list_flags  # noqa: E402
 from axs.codes import USAGE  # noqa: E402
 from axs.nodelist import _show_nodes_full  # noqa: E402
 from axs.nodes import group_numbers, node_numbers  # noqa: E402
