@@ -39,7 +39,7 @@ def check_usage_color(colored):
         2: ("r ule", "s tatus", "sh ow", "a dd", "d el"),
         3: ("g roup", "s tatus", "m embers", "sw itch", "t est"),
         4: ("n ode", "s tatus", "sh ow"),
-        5: ("t est", "i p"),
+        5: ("ne twork", "t est", "i p"),
         6: ("p roxy", "s tatus", "u ser", "sy stem", "se ssion"),
         7: ("s tatus", "c lean", "h elp"),
     }
@@ -93,7 +93,7 @@ def check_help_heads(help_plain):
     if len(titles) != len(heads):
         raise SystemExit("help section count")
     for (zh, command), title in zip(heads, titles):
-        alias = marks.get(command) if command else ""
+        alias = "nw" if command == "network" else (marks.get(command) if command else "")
         want = zh if not command else (f"{zh}（{command} / {alias}）" if alias else f"{zh}（{command}）")
         if title != want or title not in help_plain.splitlines():
             raise SystemExit("help head " + want)
@@ -130,13 +130,16 @@ def main():
         raise SystemExit("hidden command listed")
     verbose = help_text(True)
     need = (
-        "health / k", "service health / he", "node show --flat / -l", "node show → node status",
-        "--select → node show", "group show → group status", "rule show status → rule status",
-        "subscription show → subscription status",
+        "health / k", "顶级隐藏健康检查", "service health / he", "只报失败一行",
+        "node show --flat / -l", "机器可读 TSV", "→ node status", "当前路径与末端组",
+        "→ node show", "可选树", "→ group status", "策略组与当前选择",
+        "→ rule status", "当前规则路径", "→ subscription status", "订阅状态",
     )
-    leaked = any(item in help_plain for item in ("health / k", "退役名", "--select →"))
+    leaked = any(item in help_plain for item in ("health / k", "退役名", "--select →", "顶级隐藏健康检查"))
     if "更多入口：axs help --verbose" not in help_plain or leaked or any(item not in verbose for item in need):
         raise SystemExit("verbose text")
+    if "\n\n退役名\n" not in verbose:
+        raise SystemExit("verbose gap")
     if "更多入口：axs help --verbose" in verbose:
         raise SystemExit("verbose pointer")
 

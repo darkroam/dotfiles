@@ -36,7 +36,7 @@ axs group test            t       测延迟，可接组名或 G#
 axs node status           s       当前规则路径与末端组
 axs node show             sh      --all 全量叶子；--full 树；--depth
 
-网络（network）
+网络（network / nw）
 axs network test          t       测连通，可接网址
 axs network ip            i       经代理查出口 IP
 

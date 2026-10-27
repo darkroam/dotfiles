@@ -78,7 +78,7 @@ SECTIONS = (
         ("axs node status", "s", "当前规则路径与末端组"),
         ("axs node show", "sh", "--all 全量叶子；--full 树；--depth"),
     ), ()),
-    ("网络（network）", (
+    ("网络（network / nw）", (
         ("axs network test", "t", "测连通，可接网址"),
         ("axs network ip", "i", "经代理查出口 IP"),
     ), ()),
@@ -140,14 +140,14 @@ USE = {
 }
 
 MORE = (
-    "health / k",
-    "service health / he",
-    "node show --flat / -l",
+    ("health / k", "顶级隐藏健康检查"),
+    ("service health / he", "只报失败一行"),
+    ("node show --flat / -l", "机器可读 TSV"),
 )
 RETIRED = (
-    "node show → node status",
-    "--select → node show",
-    "group show → group status",
-    "rule show status → rule status",
-    "subscription show → subscription status",
+    ("node show", "node status", "当前路径与末端组"),
+    ("--select", "node show", "可选树"),
+    ("group show", "group status", "策略组与当前选择"),
+    ("rule show status", "rule status", "当前规则路径"),
+    ("subscription show", "subscription status", "订阅状态"),
 )

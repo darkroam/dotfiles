@@ -64,7 +64,7 @@ def check_groups():
     ]
     if got.splitlines() != want:
         fail("table\n" + got)
-    if resolve_group_name(proxies, "G1")[0] != "PROXY":
+    if resolve_group_name(proxies, "G1")[0] != "PROXY" or resolve_group_name(proxies, "g1")[0] != "PROXY":
         fail("index 1")
     if resolve_group_name(proxies, "1")[1] != "组不存在":
         fail("bare digit")
@@ -94,7 +94,7 @@ def check_switch():
         "a": {"type": "Shadowsocks"},
         "b": {"type": "Shadowsocks"},
     }
-    if resolve_switch_name(proxies, ["a", "b"], "N1") != "a":
+    if resolve_switch_name(proxies, ["a", "b"], "N1") != "a" or resolve_switch_name(proxies, ["a", "b"], "n1") != "a":
         fail("number")
     if resolve_switch_name(proxies, ["a", "b"], "1") is not None:
         fail("bare digit")
@@ -106,7 +106,7 @@ def check_switch():
         "a": {"type": "Shadowsocks"},
         "b": {"type": "Shadowsocks"},
     }
-    if resolve_switch_name(nested, ["子", "a"], "G2") != "子":
+    if resolve_switch_name(nested, ["子", "a"], "G2") != "子" or resolve_switch_name(nested, ["子", "a"], "g2") != "子":
         fail("nested group")
     if resolve_switch_name(nested, ["a"], "G2") is not None:
         fail("group outside members")

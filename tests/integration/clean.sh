@@ -95,6 +95,8 @@ new_run
 export AXS_MIXED_PORT=18086 AXS_NET_TIMEOUT_MS=200
 open_mixed 18086
 assert_code 'net cache fail' 3 network test 'http://127.0.0.1:9/'
+grep -q '连通性（经代理）' "$RUN/out" || fail 'net table title'
+grep -q '^不通' "$RUN/out" || fail 'net table fail'
 test -f "$RUN/cache/net-test" || fail 'network test wrote no cache'
 grep -q '^result=fail$' "$RUN/cache/net-test" || fail 'net cache result'
 if grep -q '127.0.0.1' "$RUN/cache/net-test"; then
@@ -307,7 +309,7 @@ grep -F -q "${ESC}[1;36msta${ESC}[0m" "$RUN/err" || fail "start alias: $(cat "$R
 grep -F -q "${ESC}[1;36msto${ESC}[0m" "$RUN/err" || fail "stop alias: $(cat "$RUN/err")"
 grep -F -q "${ESC}[1;36msu${ESC}[0m" "$RUN/err" || fail "sub alias: $(cat "$RUN/err")"
 grep -F -q "${ESC}[1;36mse${ESC}[0m" "$RUN/err" || fail "service alias: $(cat "$RUN/err")"
-grep -F -q "${ESC}[1mnetwork${ESC}[0m" "$RUN/err" || fail "network plain bold: $(cat "$RUN/err")"
+grep -F -q "${ESC}[1;36mne${ESC}[0m${ESC}[1mtwork${ESC}[0m" "$RUN/err" || fail "network prefix: $(cat "$RUN/err")"
 grep -F -q "${ESC}[1;36mre${ESC}[0m" "$RUN/err" || fail "restart alias: $(cat "$RUN/err")"
 grep -F -q "${ESC}[1;36ms${ESC}[0m" "$RUN/err" || fail "status letter: $(cat "$RUN/err")"
 grep -F -q "${ESC}[1;36msw${ESC}[0m" "$RUN/err" || fail "switch alias: $(cat "$RUN/err")"

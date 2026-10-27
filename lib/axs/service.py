@@ -168,7 +168,7 @@ def status(run):
     row("node    ", cache_value(run, "node-test"))
     head("代理")
     for line in proxy_status_rows(run):
-        sys.stdout.write(line + "\n")
+        sys.stdout.write("  " + line + "\n")
     if running == 0 or not port_ok:
         code = DOWN
     elif not api_ok:

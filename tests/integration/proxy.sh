@@ -228,7 +228,7 @@ assert_code 'network ip down' 2 network ip
 open_mixed 7897
 assert_code 'network ip forbid' 3 network ip
 [ ! -s "$RUN/out" ] || fail "network ip forbid stdout: $(cat "$RUN/out")"
-grep -q '出口查询失败' "$RUN/err" || fail "network ip forbid stderr"
+grep -q '公网地址查询被禁止（AXS_FORBID_NET=1）' "$RUN/err" || fail "network ip forbid stderr"
 proxy_status_on || fail 'proxy user status on'
 grep -q 'user: on' "$RUN/out" || fail "user status on: $(cat "$RUN/out")"
 if proxy_status_off; then fail 'proxy user status off code'; fi

@@ -163,6 +163,24 @@ def layer_text(group):
     return "\n".join(lines) + "\n"
 
 
+def _align(rows):
+    widths = [max(display_width(cell) for cell in column) for column in zip(*rows)]
+    lines = []
+    for row_cells in rows:
+        cells = []
+        for index, cell in enumerate(row_cells):
+            gap = widths[index] - display_width(cell)
+            cells.append(cell if index == len(row_cells) - 1 else cell + " " * gap)
+        lines.append("  " + "  ".join(cells))
+    return lines
+
+
+def _verbose_tail():
+    more = _align(list(MORE))
+    retired = _align([(old, "→ " + new, note) for old, new, note in RETIRED])
+    return ["", "更多入口", *more, "", "退役名", *retired]
+
+
 def help_text(verbose=False):
     lines = [bold("用法"), bold(pad("命令", 24) + "  别名"), dim(INTRO)]
     for title, rows, notes in SECTIONS:
@@ -171,7 +189,7 @@ def help_text(verbose=False):
         lines.extend(row(cmd, alias, desc) for cmd, alias, desc in rows)
         lines.extend(dim(note) for note in notes)
     lines.append(dim(EXAMPLE))
-    tail = ["", "更多入口", *MORE, "", "退役名", *RETIRED] if verbose else ["更多入口：axs help --verbose"]
+    tail = _verbose_tail() if verbose else ["更多入口：axs help --verbose"]
     lines.extend(dim(line) if line else line for line in tail)
     return "\n".join(lines) + "\n"
 

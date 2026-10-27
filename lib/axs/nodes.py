@@ -45,9 +45,10 @@ def group_numbers(proxies):
     return {name: index for index, name in enumerate(names, 1)}
 
 def _prefixed(token, prefix):
-    body = token[len(prefix):]
-    if not token.startswith(prefix) or not body:
+    size = len(prefix)
+    if len(token) <= size or token[:size].casefold() != prefix.casefold():
         return None
+    body = token[size:]
     if body.isascii() and body.isdigit() and str(int(body)) == body:
         return int(body)
     return None
