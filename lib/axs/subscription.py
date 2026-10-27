@@ -239,7 +239,7 @@ def subscription_line(path, now):
     if kind == "expired":
         rest = emph("31", "已过期")
     elif kind == "soon":
-        rest = emph("33", f"{days} 天")
+        rest = emph("33", f"{days} 天（警告）")
     elif kind == "ok":
         rest = emph("32", f"{days} 天")
     else:

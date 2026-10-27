@@ -5,6 +5,7 @@ import io
 import os
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -20,6 +21,7 @@ from axs.service import (  # noqa: E402
     health,
     node_status_lines,
     start,
+    status,
     write_node_status,
 )
 
@@ -37,6 +39,15 @@ def capture(func, *args):
     except SystemExit as exc:
         code = exc.code if isinstance(exc.code, int) else 1
     return code, out.getvalue(), err.getvalue()
+
+
+
+def check_soon_status(run):
+    (run / "userinfo").write_text(f"expire={int(time.time()) + 2 * 86400}\n", encoding="utf-8")
+    os.environ["AXS_SESSION_PID"] = "1"
+    code, out, err = capture(status, run)
+    if "剩余" not in out or "警告" not in out or "已过期" in out:
+        fail(f"soon status {code} {out!r} {err!r}")
 
 
 def main():
@@ -64,6 +75,7 @@ def main():
         code, _out, err = capture(boot, run, "enable")
         if code != FAIL or "没有 systemd" not in err:
             fail(f"boot {code} {err!r}")
+        check_soon_status(run)
         check_rule_view()
     print("service unit")
     return 0

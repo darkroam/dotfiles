@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Subscription merge, cleanup names, and rollback. No network."""
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -31,6 +32,7 @@ from axs.subscription import (  # noqa: E402
     clear_fetch,
     install_merged,
     rollback,
+    subscription_line,
     take_snapshot,
 )
 
@@ -141,6 +143,29 @@ def check_url_reject(work):
     fail("backslash accepted")
 
 
+
+def check_soon(work):
+    os.environ["AXS_COLOR"] = "never"
+    path = work / "userinfo"
+    now = 1700000000
+    path.write_text(f"expire={now + 86400}\n", encoding="utf-8")
+    text, kind = subscription_line(path, now)
+    if kind != "soon" or text != "剩余 1 天（警告）":
+        fail(text)
+    path.write_text(f"expire={now + 40 * 86400}\n", encoding="utf-8")
+    text, kind = subscription_line(path, now)
+    if kind != "ok" or "警告" in text or not text.startswith("剩余 "):
+        fail(text)
+    path.write_text("expire=1\n", encoding="utf-8")
+    text, kind = subscription_line(path, now)
+    if kind != "expired" or text != "剩余 已过期" or "警告" in text:
+        fail(text)
+    path.write_text("upload=1\n", encoding="utf-8")
+    text, kind = subscription_line(path, now)
+    if kind != "unknown" or text != "剩余 未知 · 上传 1.0B" or "警告" in text:
+        fail(text)
+
+
 def main():
     check_forward()
     check_names()
@@ -149,6 +174,7 @@ def main():
         check_merge(work)
         check_install_and_rollback(work)
         check_url_reject(work)
+        check_soon(work)
     print("subscription ok")
     return 0
 
