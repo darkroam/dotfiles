@@ -6,7 +6,6 @@ import json
 import os
 import sys
 import tempfile
-import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -15,7 +14,7 @@ sys.path.insert(0, str(ROOT / "lib"))
 from axs.cli import main as cli_main
 from axs.codes import DOWN, FAIL, USAGE
 from axs.nodes import load_delays, write_node_cache
-from axs import nodetest
+from axs import leafdelay, nodetest
 
 
 def fail(message):
@@ -70,19 +69,8 @@ def check_workers():
 
 def check_order_and_color():
     numbers = {"b": 2, "a": 1}
-    def slow(secret, api, name, url):
-        time.sleep(0.03 if name == "a" else 0)
-        if name == "b":
-            return None, "超时"
-        return 12, ""
-    original = nodetest._measure
-    nodetest._measure = slow
-    try:
-        rows = nodetest.run_tests("s", "127.0.0.1:9", numbers, ["b", "a"], "http://127.0.0.1/x")
-    finally:
-        nodetest._measure = original
     os.environ["AXS_COLOR"] = "never"
-    plain = nodetest.render_rows(numbers, rows, True)
+    plain = nodetest.render_rows(numbers, [("b", None, "超时"), ("a", 12, "")], True)
     if plain != "测速（全部叶子）\nN1 a 12ms\nN2 b 超时\n":
         fail(plain)
     os.environ["AXS_COLOR"] = "always"
@@ -101,10 +89,10 @@ def check_measure(tmp):
     saved = os.environ.get("AXS_FAKE_DIR")
     os.environ["AXS_FAKE_DIR"] = str(fake)
     try:
-        delay, reason = nodetest._measure("test-secret-value", "127.0.0.1:9", "甲", "http://127.0.0.1/x")
+        delay, reason = leafdelay.proxy_delay("test-secret-value", "127.0.0.1:9", "甲", "http://127.0.0.1/x", 60)
         if delay != 12 or reason:
             fail(f"measure {delay} {reason}")
-        delay, reason = nodetest._measure("test-secret-value", "127.0.0.1:9", "乙", "http://127.0.0.1/x")
+        delay, reason = leafdelay.proxy_delay("test-secret-value", "127.0.0.1:9", "乙", "http://127.0.0.1/x", 60)
         if delay is not None or reason != "超时":
             fail(f"timeout {delay} {reason}")
         log = (fake / "log").read_text(encoding="utf-8")
