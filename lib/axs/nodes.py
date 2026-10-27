@@ -7,7 +7,7 @@ import sys
 import time
 from pathlib import Path
 
-from axs.mihomo import GROUP_TYPES, delay_path, load_proxies, read_secret, request, select_path
+from axs.mihomo import GROUP_TYPES, delay_path, delay_timeout, load_proxies, read_secret, request, select_path
 from axs.render import dim, display_width, emph, ident, layout_cells, term_cols, tone, use_color
 
 DELAY_URL = "https://www.gstatic.com/generate_204"
@@ -367,15 +367,15 @@ def write_node_cache(dest, group, lines):
 def delay(secret_path, api, group, url):
     secret = read_secret(secret_path, api)
     try:
-        raw = request(secret, api, "GET", delay_path(group, url))
+        raw = request(secret, api, "GET", delay_path(group, url), timeout=delay_timeout())
     except SystemExit:
         raise SystemExit(FAIL)
     try:
         payload = json.loads(raw.decode("utf-8"))
     except json.JSONDecodeError:
-        _fail("控制器失败")
+        _fail("控制器失败：响应格式错误")
     if not isinstance(payload, dict):
-        _fail("控制器失败")
+        _fail("控制器失败：响应格式错误")
     for name, value in payload.items():
         try:
             shown = str(int(value))

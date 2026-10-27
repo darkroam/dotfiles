@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / "lib"))
 
 from axs.mihomo import (  # noqa: E402
     delay_path,
+    delay_timeout,
     probe,
     proxies_path,
     read_secret,
@@ -22,6 +23,75 @@ from axs.mihomo import (  # noqa: E402
     select_path,
     version_path,
 )
+
+
+
+def _stderr(action):
+    err = io.StringIO()
+    try:
+        with contextlib.redirect_stderr(err):
+            action()
+    except SystemExit:
+        return err.getvalue()
+    raise SystemExit("expected failure")
+
+
+def check_reasons(secret, secret_path):
+    if delay_timeout() != 60:
+        raise SystemExit("default delay timeout")
+    os.environ["AXS_DELAY_TIMEOUT"] = "15"
+    if delay_timeout() != 15:
+        raise SystemExit("env delay timeout")
+    os.environ["AXS_DELAY_TIMEOUT"] = "0"
+    if delay_timeout() != 60:
+        raise SystemExit("bad delay timeout")
+    os.environ["AXS_DELAY_TIMEOUT"] = "no"
+    if delay_timeout() != 60:
+        raise SystemExit("bad delay timeout text")
+    os.environ.pop("AXS_DELAY_TIMEOUT", None)
+    missing = secret_path.with_name("absent")
+    if _stderr(lambda: read_secret(missing, "127.0.0.1:9")) != "控制器失败：密钥不可读\n":
+        raise SystemExit("unreadable secret")
+    secret_path.write_text("short\n", encoding="utf-8")
+    if _stderr(lambda: read_secret(secret_path, "127.0.0.1:9")) != "控制器失败：密钥过短\n":
+        raise SystemExit("short secret")
+    secret_path.write_text(secret + "\n", encoding="utf-8")
+    import axs.mihomo as mihomo
+
+    def fail_open(exc):
+        def urlopen(req, timeout):
+            raise exc
+        return urlopen
+
+    cases = (
+        (urllib_http(401), "控制器失败：HTTP 401\n"),
+        (mihomo.urllib.error.URLError(TimeoutError("timed out")), "控制器失败：请求超时（5 秒）\n"),
+        (mihomo.urllib.error.URLError(ConnectionRefusedError(111, "refused")), "控制器失败：连接失败（[Errno 111] refused）\n"),
+    )
+    original = mihomo.urllib.request.urlopen
+    try:
+        for exc, want in cases:
+            mihomo.urllib.request.urlopen = fail_open(exc)
+            got = _stderr(lambda: request(secret, "127.0.0.1:9", "GET", proxies_path()))
+            if got != want:
+                raise SystemExit(f"reason {got!r} != {want!r}")
+        seen = {}
+
+        def record(req, timeout):
+            seen["timeout"] = timeout
+            raise mihomo.urllib.error.URLError(TimeoutError())
+
+        mihomo.urllib.request.urlopen = record
+        got = _stderr(lambda: request(secret, "127.0.0.1:9", "GET", proxies_path(), timeout=60))
+    finally:
+        mihomo.urllib.request.urlopen = original
+    if seen.get("timeout") != 60 or got != "控制器失败：请求超时（60 秒）\n":
+        raise SystemExit(f"delay timeout {seen} {got!r}")
+
+
+def urllib_http(code):
+    import urllib.error
+    return urllib.error.HTTPError("http://127.0.0.1/", code, "no", {}, None)
 
 
 def main():
@@ -115,6 +185,7 @@ def main():
                 "auth": "Bearer " + secret,
             }:
                 raise SystemExit(f"url build {captured}")
+            check_reasons(secret, secret_path)
     finally:
         if saved is None:
             os.environ.pop("AXS_FAKE_DIR", None)

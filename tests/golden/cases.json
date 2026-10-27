@@ -178,7 +178,8 @@
       "http://127.0.0.1:9/"
     ],
     "files": {
-      "run/fake/open-ports": "18080\n"
+      "run/fake/open-ports": "18080\n",
+      "run/fake/net-result": "拒绝\n"
     }
   },
   {

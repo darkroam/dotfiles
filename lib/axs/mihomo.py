@@ -48,14 +48,31 @@ def _fail(message):
 
 def read_secret(secret_path, api):
     if not str(api).startswith(LOOPBACK + ":"):
-        _fail("控制器必须在本机回环")
-    path = Path(secret_path)
-    if not path.is_file():
-        _fail("控制器失败")
-    secret = path.read_text(encoding="utf-8").strip()
+        _fail("控制器失败：不在回环")
+    try:
+        secret = Path(secret_path).read_text(encoding="utf-8").strip()
+    except OSError:
+        _fail("控制器失败：密钥不可读")
     if len(secret) < 8:
-        _fail("控制器失败")
+        _fail("控制器失败：密钥过短")
     return secret
+
+
+def delay_timeout():
+    raw = os.environ.get("AXS_DELAY_TIMEOUT", "").strip()
+    try:
+        value = int(raw) if raw else 60
+    except ValueError:
+        return 60
+    return value if value > 0 else 60
+
+
+def _link_error(exc, timeout):
+    reason = getattr(exc, "reason", exc)
+    if isinstance(reason, TimeoutError) or "timed out" in str(reason).lower():
+        return f"控制器失败：请求超时（{timeout} 秒）"
+    detail = reason if getattr(exc, "reason", None) is not None else exc
+    return f"控制器失败：连接失败（{detail}）"
 
 
 def _fake_exchange(method, path, secret, body=None):
@@ -106,7 +123,7 @@ def _fake_exchange(method, path, secret, body=None):
     _fail("控制器失败")
 
 
-def request(secret, api, method, path, body=None):
+def request(secret, api, method, path, body=None, timeout=5):
     if os.environ.get("AXS_FAKE_DIR"):
         return _fake_exchange(method, path, secret, body)
     req = urllib.request.Request(
@@ -119,17 +136,15 @@ def request(secret, api, method, path, body=None):
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw = resp.read()
             if resp.status >= 300:
-                _fail("控制器失败")
+                _fail(f"控制器失败：HTTP {resp.status}")
             return raw
     except urllib.error.HTTPError as exc:
-        if exc.code >= 300:
-            _fail("控制器失败")
-        raise
-    except (urllib.error.URLError, TimeoutError, OSError):
-        _fail("控制器失败")
+        _fail(f"控制器失败：HTTP {exc.code}")
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        _fail(_link_error(exc, timeout))
 
 
 def probe(host, port):
@@ -163,10 +178,10 @@ def load_proxies(secret_path, api):
     try:
         payload = json.loads(raw.decode("utf-8"))
     except json.JSONDecodeError:
-        _fail("控制器失败")
+        _fail("控制器失败：响应格式错误")
     proxies = payload.get("proxies") if isinstance(payload, dict) else None
     if not isinstance(proxies, dict):
-        _fail("控制器失败")
+        _fail("控制器失败：响应格式错误")
     return proxies
 
 

@@ -4,6 +4,7 @@ from axs.codes import USAGE, DOWN, FAIL
 from axs.config import LOOPBACK, LOOPBACK_HOSTS
 import http.client
 import os
+import ssl
 import sys
 import time
 import urllib.error
@@ -67,43 +68,101 @@ def _one_try(url, proxy, timeout):
     try:
         with opener.open(url, timeout=timeout) as resp:
             resp.read(1)
-        return int((time.monotonic() - started) * 1000)
+        return int((time.monotonic() - started) * 1000), ""
     except urllib.error.HTTPError:
-        return int((time.monotonic() - started) * 1000)
-    except (urllib.error.URLError, TimeoutError, OSError, http.client.HTTPException):
-        return None
+        return int((time.monotonic() - started) * 1000), ""
+    except (urllib.error.URLError, TimeoutError, OSError, http.client.HTTPException) as exc:
+        return None, _net_reason(exc)
+
+
+def _net_reason(exc):
+    reason = getattr(exc, "reason", exc)
+    text = str(reason).lower()
+    if isinstance(reason, TimeoutError) or "timed out" in text:
+        return "超时"
+    if isinstance(reason, ssl.SSLError) or "certificate" in text or type(reason).__name__.lower().startswith("ssl"):
+        return "SSL"
+    if isinstance(reason, ConnectionRefusedError) or "refused" in text:
+        return "拒绝"
+    return "连接失败"
 
 
 def _net_table(rows):
     from axs.render import bad, bold, dim, display_width, ok
 
-    result_w = max(display_width(label) for label, _delay, _url in rows)
-    delay_w = max(display_width(delay) for _label, delay, _url in rows)
-    lines = [bold("连通性（经代理）"), "结果 / 延迟 / 目标"]
-    for label, delay, url in rows:
-        paint = ok if label == "通" else bad
+    head = ("结果", "延迟", "目标", "原因")
+    plain = [head, *rows]
+    widths = [max(display_width(row[i]) for row in plain) for i in range(3)]
+
+    def line(cells, colored):
+        parts = []
+        for index, cell in enumerate(cells):
+            shown = colored[index]
+            if index == 3:
+                if cell:
+                    parts.append(shown)
+                continue
+            if index == 1:
+                pad = " " * (widths[index] - display_width(cell))
+                parts.append(pad + shown)
+            else:
+                parts.append(shown + " " * (widths[index] - display_width(cell)))
+        return "  ".join(parts)
+
+    lines = [bold("连通性（经代理）"), line(head, head)]
+    for label, delay, url, reason in rows:
+        paint = ok(label) if label == "通" else bad(label)
         shown = dim(delay) if delay == "-" else delay
-        left = paint(label) + " " * (result_w - display_width(label))
-        mid = " " * (delay_w - display_width(delay)) + shown
-        lines.append(f"{left}  {mid}  {url}")
+        lines.append(line((label, delay, url, reason), (paint, shown, url, reason)))
     return "\n".join(lines) + "\n"
+
+
+def _fake_reason():
+    # shortcut: seccomp turns a closed port into EPERM, drop when golden no longer dials
+    fake = os.environ.get("AXS_FAKE_DIR")
+    if not fake:
+        return ""
+    path = Path(fake) / "net-result"
+    if not path.is_file():
+        return ""
+    return path.read_text(encoding="utf-8").strip()
 
 
 def net_run(urls_path, proxy, timeout_ms, given):
     timeout = int(timeout_ms) / 1000
+    forced = _fake_reason()
     failed = False
     rows = []
     for url in net_targets(urls_path, given):
-        delay = _one_try(url, proxy, timeout)
+        if forced:
+            failed = True
+            rows.append(("不通", "-", url, forced))
+            continue
+        delay, reason = _one_try(url, proxy, timeout)
         if delay is None:
-            delay = _one_try(url, proxy, timeout)
+            delay, reason = _one_try(url, proxy, timeout)
         if delay is None:
             failed = True
-            rows.append(("不通", "-", url))
+            rows.append(("不通", "-", url, reason))
         else:
-            rows.append(("通", str(delay), url))
+            rows.append(("通", f"{delay}ms", url, ""))
     sys.stdout.write(_net_table(rows))
     raise SystemExit(FAIL if failed else 0)
+
+
+def _ip_timeout():
+    raw = os.environ.get("AXS_NET_TIMEOUT_MS", "").strip()
+    try:
+        value = int(raw) if raw else 10000
+    except ValueError:
+        return 10
+    return (value if value > 0 else 10000) / 1000
+
+
+def _ip_reason(exc):
+    if isinstance(exc, urllib.error.HTTPError):
+        return f"HTTP {exc.code}"
+    return "超时" if _net_reason(exc) == "超时" else "连接失败"
 
 
 def egress(proxy, url):
@@ -113,10 +172,10 @@ def egress(proxy, url):
     handler = urllib.request.ProxyHandler({"http": proxy, "https": proxy})
     opener = urllib.request.build_opener(handler)
     try:
-        with opener.open(url, timeout=10) as resp:
+        with opener.open(url, timeout=_ip_timeout()) as resp:
             text = resp.read(200).decode("utf-8", "replace").strip()
     except Exception as exc:
-        sys.stderr.write(f"公网地址查询失败（{url}）：{exc}\n")
+        sys.stderr.write(f"公网地址查询失败（{url}）：{_ip_reason(exc)}\n")
         raise SystemExit(FAIL)
     print(f"公网地址 {text}")
 
