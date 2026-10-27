@@ -164,6 +164,16 @@
     "expired": true
   },
   {
+    "name": "subscription-status--soon.txt",
+    "argv": [
+      "subscription",
+      "status"
+    ],
+    "files": {
+      "run/userinfo": "expire=1700086400\n"
+    }
+  },
+  {
     "name": "network-test--forbid.txt",
     "argv": [
       "network",
