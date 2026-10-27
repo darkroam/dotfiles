@@ -77,7 +77,7 @@ SECTIONS = (
     ("节点（node / n）", (
         ("axs node status", "s", "当前规则路径与末端组"),
         ("axs node show", "sh", "--all 全量叶子；--full 树；--depth"),
-        ("axs node test", "t", "测一个叶子，或 --all 测全部"),
+        ("axs node test", "t", "测一个叶子，或 --all 测可测叶子"),
     ), ()),
     ("网络（network / nw）", (
         ("axs network test", "t", "测连通，可接网址"),
