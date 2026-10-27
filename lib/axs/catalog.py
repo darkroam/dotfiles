@@ -93,3 +93,35 @@ SECTIONS = (
         ("axs clean", "c", "删除本地配置，可加 --yes"),
     ), ()),
 )
+
+# (最少位置参数, 最多位置参数或 None, 旗标, 是否隐藏)。旗标以 = 结尾还要吃下一个词，以 ! 结尾则帮助不列。
+SIG = {
+    "top": {
+        "status": (0, 0, (), False), "clean": (0, 0, ("--yes",), False),
+        "help": (0, 0, (), False), "health": (0, 0, (), True),
+    },
+    "service": {
+        "status": (0, 0, (), False), "start": (0, 0, (), False), "stop": (0, 0, (), False), "restart": (0, 0, (), False),
+        "ensure": (0, 0, (), False), "enable": (0, 0, (), False), "disable": (0, 0, (), False), "health": (0, 0, (), True),
+    },
+    "node": {
+        "status": (0, 0, (), False),
+        "show": (0, 0, ("--full", "--all", "--flat!", "-l!", "--depth="), False),
+    },
+    "group": {
+        "status": (0, 0, (), False), "members": (1, 1, (), False),
+        "switch": (2, 2, (), False), "test": (0, 1, (), False),
+    },
+    "rule": {
+        "status": (0, 0, (), False), "show": (0, 0, ("--local",), False),
+        "add": (2, 3, (), False), "del": (1, 1, (), False),
+    },
+    "subscription": {
+        "status": (0, 0, (), False), "refresh": (0, 0, (), False), "clean": (0, 0, ("--yes",), False),
+    },
+    "network": {"test": (0, None, (), False), "ip": (0, 0, (), False)},
+    "proxy": {
+        "status": (0, 0, (), False), "user": (1, 1, (), False),
+        "system": (1, 1, (), False), "session": (1, 1, (), False),
+    },
+}

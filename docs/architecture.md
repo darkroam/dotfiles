@@ -94,7 +94,7 @@ run/                         运行时。不入库
 | `lib/axs/__init__.py` | 包标记 | 20 行 |
 | `lib/axs/__main__.py` | 记下真实终端，再调 cli | 40 行 |
 | `lib/axs/codes.py` | 退出码常量 | 20 行 |
-| `lib/axs/catalog.py` | 命令树数据。不解析、不分发、不排版 | 200 行 |
+| `lib/axs/catalog.py` | 命令树数据与子命令签名。不解析、不分发、不排版 | 140 行 |
 | `lib/axs/cli.py` | 前缀解析、用法、分发。命令树在 catalog | 400 行 |
 | `lib/axs/render.py` | 颜色、对齐、帮助排版。命令树在 catalog | 300 行 |
 | `lib/axs/config.py` | 默认值、路径、端口、内核路径、内置网段、原子写 | 200 行 |
@@ -114,6 +114,7 @@ run/                         运行时。不入库
 | `units/*` | 已安装单元的模板。外部行为不改 | 各 40 行 |
 | `tests/run.sh` | 先单元，再集成。不含 lab | 40 行 |
 | `tests/unit/test_<模块>.py` | 该模块的 import 断言 | 各 400 行；`test_rules.py` 450 |
+| `tests/unit/test_render.py` | help、usage、别名着色。解析仍在 `test_cli.py` | 200 行 |
 | `tests/integration/<模块>.sh` | 该模块的假环境断言 | 各 400 行 |
 | `tests/lab/run.sh` | 真内核场景驱动 | 450 行 |
 | `tests/lab/lab.py` | 回环替身 | 400 行 |
