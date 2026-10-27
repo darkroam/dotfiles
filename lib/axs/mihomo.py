@@ -2,6 +2,7 @@
 
 from axs.codes import USAGE
 from axs.config import CIDRS, LOOPBACK, OVERRIDE, RULES
+import contextvars
 import yaml
 import json
 import os
@@ -17,6 +18,7 @@ RELOAD = "/configs?force=true"
 GROUP = "/group/"
 DELAY = "/delay"
 RULES_PATH = "/rules"
+_QUIET = contextvars.ContextVar("axs_controller_quiet", default=False)
 
 
 def proxies_path():
@@ -42,6 +44,8 @@ def delay_path(group, url, timeout="5000"):
 
 
 def _fail(message):
+    if _QUIET.get():
+        raise SystemExit(message)
     sys.stderr.write(message + "\n")
     raise SystemExit(USAGE)
 
@@ -109,6 +113,10 @@ def _fake_exchange(method, path, secret, body=None):
             for name in text.split()
         }
         return json.dumps({"proxies": payload}).encode()
+    if method == "GET" and pure.startswith(PROXIES + "/") and pure.endswith(DELAY):
+        name = urllib.parse.unquote(pure[len(PROXIES) + 1 : -len(DELAY)])
+        value = _leaf_delay(directory, name)
+        return json.dumps({"delay": value}).encode() if type(value) is int else b'{"delay":null}'
     if pure.startswith(GROUP) and pure.endswith(DELAY):
         ready = directory / "delay.json"
         if ready.is_file():
@@ -121,6 +129,17 @@ def _fake_exchange(method, path, secret, body=None):
         if ready.is_file():
             return ready.read_bytes()
     _fail("控制器失败")
+
+
+def _leaf_delay(directory, name):
+    ready = directory / "delay.json"
+    if ready.is_file():
+        data = json.loads(ready.read_text(encoding="utf-8"))
+        return data.get(name) if isinstance(data, dict) else None
+    path = directory / "delay"
+    if path.is_file():
+        return int(path.read_text(encoding="utf-8").strip() or "0")
+    return None
 
 
 def request(secret, api, method, path, body=None, timeout=5):

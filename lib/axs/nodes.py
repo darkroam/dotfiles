@@ -341,28 +341,40 @@ def _plain(text):
         text = text[:start] + text[end + 1 :]
     return text
 
-def write_node_cache(dest, group, lines):
+def write_node_cache(dest, group, lines, ok=True):
     path = Path(dest)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.parent.chmod(0o700)
     delays = {}
+    if path.is_file():
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            if not line.startswith("{"):
+                continue
+            try:
+                old = json.loads(line)
+            except json.JSONDecodeError:
+                old = {}
+            delays = old if isinstance(old, dict) else {}
+            break
     for line in lines:
         text = _plain(line).strip()
         if " " not in text:
             continue
         name, value = text.rsplit(" ", 1)
-        if name == group:
+        if not name or name == group:
             continue
         try:
             delays[name] = int(value)
         except ValueError:
-            delays[name] = value
-    body = f"ts={int(time.time())}\nresult=ok\n{json.dumps(delays, ensure_ascii=False)}\n"
+            continue
+    state = "ok" if ok else "fail"
+    body = f"ts={int(time.time())}\nresult={state}\n{json.dumps(delays, ensure_ascii=False)}\n"
     tmp = path.with_name("." + path.name + ".tmp")
     tmp.write_text(body, encoding="utf-8")
     tmp.chmod(0o600)
     os.replace(tmp, path)
     path.chmod(0o600)
+
 
 def delay(secret_path, api, group, url):
     secret = read_secret(secret_path, api)

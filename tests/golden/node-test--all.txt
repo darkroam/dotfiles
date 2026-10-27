@@ -1,0 +1,6 @@
+exit: 0
+--- stdout
+测速（全部叶子）
+N1 a 12ms
+N2 b 80ms
+--- stderr

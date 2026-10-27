@@ -5,7 +5,7 @@ exit: 1
       axs subscription status|refresh|clean
       axs rule status|show|add|del
       axs group status|members|switch|test
-      axs node status|show --full|--all --depth N
+      axs node status|show|test --full|--all --depth N
       axs network test|ip
       axs proxy status; user on|off|status; system on|off|enable|disable|status; session enable|disable|status
       axs status|clean|help

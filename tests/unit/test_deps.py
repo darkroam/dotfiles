@@ -15,7 +15,7 @@ LAYERS = (
     ("net", "nodes", "rulelist"),
     ("routes",),
     ("subscription", "rules", "proxy"),
-    ("tree", "service", "nodeview", "selectview"),
+    ("tree", "service", "nodeview", "selectview", "nodetest"),
     ("cli",),
     ("__main__",),
 )

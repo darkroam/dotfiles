@@ -19,7 +19,7 @@ bin/axs  bin/mihomo-run
     |
    cli
     |
- tree     service   nodeview   selectview
+ tree     service   nodeview   selectview   nodetest
     |
  subscription  rules  proxy
     |
@@ -32,7 +32,7 @@ bin/axs  bin/mihomo-run
  config    codes    catalog
 ```
 
-`render` 不在这条链上，也不得引用任何 axs 模块。唯一例外是只读 `catalog`。为了输出调用它，不算斜边。`catalog` 在最底层，只放命令树，不引用任何模块。`service` 是编排，可以调用它下面的模块。命令模块不调用 `service`。`tree`、`nodeview` 与 `selectview` 只被 `cli` 调用，彼此不引用。
+`render` 不在这条链上，也不得引用任何 axs 模块。唯一例外是只读 `catalog`。为了输出调用它，不算斜边。`catalog` 在最底层，只放命令树，不引用任何模块。`service` 是编排，可以调用它下面的模块。命令模块不调用 `service`。`tree`、`nodeview`、`selectview` 与 `nodetest` 只被 `cli` 调用，彼此不引用。
 
 斜边台账：
 
@@ -54,6 +54,7 @@ bin/axs  bin/mihomo-run
 | routes | 规则目标链、条数分布、链尾自动组、select 根 | 着色、排版、改配置 |
 | rules | 规则增删，以及合并后的安装、重载、回滚 | 读端口、再写一遍锁、`RID` |
 | nodes | 组、列表、延迟、切换、测速缓存 | 改配置 |
+| nodetest | 叶子测速 | 切换、改配置、缓存格式 |
 | net | 连通性、出口地址、入站是否打开 | 写订阅 |
 | proxy | 三层开关和状态词 | 改内核进程 |
 | nodeview | `node status`、成员表 | 拓扑、生命周期、着色规则 |
@@ -106,6 +107,7 @@ run/                         运行时。不入库
 | `lib/axs/routes.py` | 规则目标链与条数，以及 select 的根。不排版 | 160 行 |
 | `lib/axs/rules.py` | 规则增删、安装回滚 | 220 行 |
 | `lib/axs/nodes.py` | 组、列表、延迟、切换 | 400 行 |
+| `lib/axs/nodetest.py` | 叶子测速。不切换、不改配置 | 200 行 |
 | `lib/axs/nodeview.py` | 默认页与成员表。不画拓扑 | 160 行 |
 | `lib/axs/selectview.py` | `node show` 板块。不画完整拓扑 | 200 行 |
 | `lib/axs/tree.py` | `--full` 拓扑。编号仍问 nodes | 250 行 |

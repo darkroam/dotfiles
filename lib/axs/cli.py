@@ -80,7 +80,7 @@ def usage_text():
             "      axs " + _usage_word("subscription", "top") + " " + _pipes(["status", "refresh", "clean"], "subscription"),
             "      axs " + _usage_word("rule", "top") + " " + _pipes(["status", "show", "add", "del"], "rule"),
             "      axs " + _usage_word("group", "top") + " " + _pipes(["status", "members", "switch", "test"], "group"),
-            "      axs " + _usage_word("node", "top") + " " + _pipes(["status", "show"], "node") + " " + flags + " " + _usage_word("--depth") + " N",
+            "      axs " + _usage_word("node", "top") + " " + _pipes(["status", "show", "test"], "node") + " " + flags + " " + _usage_word("--depth") + " N",
             "      axs " + _usage_word("network", "top") + " " + _pipes(["test", "ip"], "network"),
             "      axs "
             + _usage_word("proxy", "top")
@@ -231,7 +231,7 @@ def _node(run, kind, args):
     from axs.config import SECRET, api_address, read_ports
     from axs.nodes import DELAY_URL, default_group, delay, lookup_group, select_proxy, show_groups, show_nodes, write_node_cache
     from axs.nodeview import show_all, show_members, show_rule_nodes
-    from axs.service import captured, service_up, write_cache
+    from axs.service import captured, service_up
     import os
     list_mode, depth = "", None
     if kind == "list":
@@ -257,7 +257,7 @@ def _node(run, kind, args):
         if code == 0:
             write_node_cache(Path(run) / "cache" / "node-test", group, out.splitlines())
             return
-        write_cache(run, "node-test", "fail")
+        write_node_cache(Path(run) / "cache" / "node-test", "", [], False)
         raise SystemExit(code)
     if not service_up(run):
         die(DOWN, "服务：未运行")
@@ -377,7 +377,11 @@ def main(argv):
             cmd_del(run, extra)
     elif cmd == "node":
         op, extra = _take("node", rest)
-        _node(run, "status" if op == "status" else "list", extra)
+        if op == "test":
+            from axs.nodetest import cmd_test
+            cmd_test(run, extra)
+        else:
+            _node(run, "status" if op == "status" else "list", extra)
     elif cmd == "group":
         op, extra = _take("group", rest)
         kind = {"status": "groups", "members": "members", "switch": "switch", "test": "test"}[op]
