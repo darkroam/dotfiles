@@ -14,6 +14,7 @@ LAYERS = (
     ("core", "render", "mihomo"),
     ("net", "nodes", "rulelist"),
     ("routes", "nodelist"),
+    ("leafdelay", "progress"),
     ("subscription", "rules", "proxy"),
     ("tree", "service", "nodeview", "selectview", "nodetest"),
     ("nodecmd",),

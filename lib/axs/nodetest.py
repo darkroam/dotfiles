@@ -3,8 +3,10 @@
 from axs.codes import DOWN, FAIL, USAGE
 from axs.config import SECRET, api_address, read_ports
 from axs.core import service_up
-from axs.mihomo import DELAY, GROUP, PROXIES, _QUIET, load_proxies, read_secret, request
+from axs.leafdelay import measure, split, workers as _workers
+from axs.mihomo import DELAY, GROUP, load_proxies, read_secret, request
 from axs.nodes import AUTO_LABEL, _ansi, _as_exit3, _is_group, _prefixed, delay_code, lookup_group, node_numbers, write_node_cache
+from axs.progress import Progress
 from axs.render import bold, call_usage, die, ident, tone
 import contextlib
 import io
@@ -12,17 +14,7 @@ import json
 import os
 import sys
 import urllib.parse
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-
-
-def _workers():
-    raw = os.environ.get("AXS_TEST_WORKERS", "").strip()
-    try:
-        value = int(raw) if raw else 8
-    except ValueError:
-        return 8
-    return value if 1 <= value <= 32 else 8
 
 
 def resolve_leaf(proxies, token):
@@ -41,28 +33,6 @@ def resolve_leaf(proxies, token):
     return None, "missing"
 
 
-def _measure(secret, api, name, url):
-    quoted = urllib.parse.quote(name, safe="")
-    query = urllib.parse.urlencode({"timeout": "5000", "url": url})
-    path = f"{PROXIES}/{quoted}{DELAY}?{query}"
-    token = _QUIET.set(True)
-    try:
-        raw = request(secret, api, "GET", path, timeout=delay_timeout())
-    except SystemExit as exc:
-        reason = exc.code if isinstance(exc.code, str) and exc.code else "超时"
-        return None, reason
-    finally:
-        _QUIET.reset(token)
-    try:
-        payload = json.loads(raw.decode("utf-8"))
-    except (UnicodeError, json.JSONDecodeError):
-        return None, "超时"
-    value = payload.get("delay") if isinstance(payload, dict) else None
-    if type(value) is not int:
-        return None, "超时"
-    return value, ""
-
-
 def render_rows(numbers, rows, heading):
     width = len(str(max(numbers.values()))) if numbers else 1
     lines = [bold("测速（全部叶子）")] if heading else []
@@ -79,24 +49,17 @@ def render_rows(numbers, rows, heading):
     return "\n".join(lines) + ("\n" if lines else "")
 
 
-def run_tests(secret, api, numbers, names, url):
-    found = {}
-
-    def fetch(name):
-        delay, reason = _measure(secret, api, name, url)
-        return name, delay, reason
-
-    if len(names) < 2:
-        for name in names:
-            found[name] = fetch(name)[1:]
-    else:
-        workers = max(1, min(_workers(), len(names)))
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = [pool.submit(fetch, name) for name in names]
-            for future in as_completed(futures):
-                name, delay, reason = future.result()
-                found[name] = (delay, reason)
-    return [(name, found[name][0], found[name][1]) for name in names]
+def run_tests(secret, api, proxies, names, url, progress=False):
+    groups, fallback = split(proxies, names)
+    bar = Progress(len(groups) + len(fallback), "测速") if progress else None
+    try:
+        return measure(
+            secret, api, proxies, names, url, delay_timeout(), _workers(),
+            bar.advance if bar else None,
+        )
+    finally:
+        if bar:
+            bar.finish()
 
 
 def _usage():
@@ -141,7 +104,7 @@ def cmd_test(run, args):
         names = [name]
     url = os.environ.get("AXS_DELAY_URL") or DELAY_URL
     secret = read_secret(secret_path, api)
-    rows = run_tests(secret, api, numbers, names, url)
+    rows = run_tests(secret, api, proxies, names, url, flag)
     sys.stdout.write(render_rows(numbers, rows, flag))
     lines = [f"{name} {delay}" for name, delay, _reason in rows if type(delay) is int]
     ok = all(delay is not None for _name, delay, _reason in rows)
@@ -162,7 +125,7 @@ def delay_path(group, url, timeout="5000"):
 def delay_timeout():
     raw = os.environ.get("AXS_DELAY_TIMEOUT", "").strip()
     try:
-        value = int(raw) if raw else 60
+        value = int(raw)
     except ValueError:
         return 60
     return value if value > 0 else 60
@@ -170,26 +133,18 @@ def delay_timeout():
 
 def _fail(message):
     from axs.core import fail
-
     fail(message)
 
 
 def pick_test_group(proxies):
-    groups = {
-        name: item
-        for name, item in proxies.items()
-        if _is_group(item)
-    }
-    main = groups.get("主代理")
-    if main is not None:
+    groups = {name: item for name, item in proxies.items() if _is_group(item)}
+    if "主代理" in groups:
         return "主代理"
     autos = sorted(name for name, item in groups.items() if item.get("type") in AUTO_LABEL)
     if autos:
         return autos[0]
     others = sorted(name for name in groups if name != "GLOBAL")
-    if others:
-        return others[0]
-    return None
+    return others[0] if others else None
 
 
 def default_group(secret_path, api):
@@ -202,9 +157,7 @@ def default_group(secret_path, api):
         sys.stdout.write(name + "\n")
         return
     listed = sorted(name for name, item in proxies.items() if _is_group(item))
-    sys.stderr.write("没有可测组\n")
-    for name in listed:
-        sys.stderr.write(name + "\n")
+    sys.stderr.write("没有可测组\n" + "".join(name + "\n" for name in listed))
     raise SystemExit(FAIL)
 
 
