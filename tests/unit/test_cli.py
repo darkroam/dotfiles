@@ -312,7 +312,7 @@ def check_sig():
                 raise SystemExit(f"sig hidden {group} {name}")
     expect = {
         ("top", "status"): (0, 0, (), False), ("top", "clean"): (0, 0, ("--yes",), False),
-        ("top", "help"): (0, 0, (), False), ("top", "health"): (0, 0, (), True),
+        ("top", "help"): (0, 0, ("-v", "--verbose"), False), ("top", "health"): (0, 0, (), True),
         ("service", "status"): (0, 0, (), False), ("service", "start"): (0, 0, (), False),
         ("service", "stop"): (0, 0, (), False), ("service", "restart"): (0, 0, (), False),
         ("service", "ensure"): (0, 0, (), False), ("service", "enable"): (0, 0, (), False),
@@ -336,6 +336,7 @@ def check_sig():
             raise SystemExit("sig value " + " ".join(key))
     use_want = {
         ("top", "clean"): ("axs clean", "[--yes]"),
+        ("top", "help"): ("axs help", "[-v|--verbose]"),
         ("subscription", "clean"): ("axs subscription clean", "[--yes]"),
         ("node", "show"): ("axs node show", "[--full|--all] [--depth N]"),
         ("group", "members"): ("axs group members", "<组>（先看 group status）"),

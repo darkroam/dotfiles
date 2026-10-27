@@ -6,6 +6,13 @@
     ]
   },
   {
+    "name": "help--verbose.txt",
+    "argv": [
+      "help",
+      "--verbose"
+    ]
+  },
+  {
     "name": "usage--bare.txt",
     "argv": []
   },
