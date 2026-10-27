@@ -4,7 +4,7 @@ import subprocess
 import sys
 import unicodedata
 
-from axs.catalog import GROUPS, INTRO, SECTIONS, SIG, USE
+from axs.catalog import GROUPS, INTRO, MORE, RETIRED, SECTIONS, SIG, USE
 
 
 def use_color(fd=1):
@@ -163,7 +163,7 @@ def layer_text(group):
     return "\n".join(lines) + "\n"
 
 
-def help_text():
+def help_text(verbose=False):
     lines = [bold("用法"), bold(pad("命令", 24) + "  别名"), dim(INTRO)]
     for title, rows, notes in SECTIONS:
         lines.append("")
@@ -171,6 +171,8 @@ def help_text():
         lines.extend(row(cmd, alias, desc) for cmd, alias, desc in rows)
         lines.extend(dim(note) for note in notes)
     lines.append(dim(EXAMPLE))
+    tail = ["", "更多入口", *MORE, "", "退役名", *RETIRED] if verbose else ["更多入口：axs help --verbose"]
+    lines.extend(dim(line) if line else line for line in tail)
     return "\n".join(lines) + "\n"
 
 

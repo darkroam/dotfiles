@@ -321,7 +321,7 @@ def main(argv):
         sys.stdout.write(layer_text(cmd))
         return
     if cmd == "help":
-        sys.stdout.write(help_text())
+        sys.stdout.write(help_text(bool(rest)))
         return
     if cmd == "status":
         status(run)

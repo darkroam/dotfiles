@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Help, usage, and alias coloring. Command parsing stays in test_cli."""
+import contextlib
+import io
 import os
 import re
 import sys
@@ -9,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
 from axs.catalog import GROUPS, SECTIONS
-from axs.cli import _alias_marks, _usage_word, usage_text
+from axs.cli import _alias_marks, _usage_word, main as cli_main, usage_text
 from axs.render import bold, display_width, emph, help_text
 
 GOLDEN = ROOT / "tests" / "golden"
@@ -113,6 +115,7 @@ def main():
     os.environ["AXS_COLOR"] = "never"
     checks = (
         ("help--default.txt", 0, help_text(), ""),
+        ("help--verbose.txt", 0, help_text(True), ""),
         ("usage--bare.txt", 1, "", usage_text()),
         ("usage--unknown.txt", 1, "", usage_text()),
     )
@@ -131,6 +134,31 @@ def main():
         raise SystemExit("help intro")
     if "health" in help_plain or "health" in usage_text() or "--flat" in help_plain or "--flat" in usage_text():
         raise SystemExit("hidden command listed")
+    verbose = help_text(True)
+    need = (
+        "health / k", "service health / he", "node show --flat / -l", "node show → node status",
+        "--select → node show", "group show → group status", "rule show status → rule status",
+        "subscription show → subscription status",
+    )
+    leaked = any(item in help_plain for item in ("health / k", "退役名", "--select →"))
+    if "更多入口：axs help --verbose" not in help_plain or leaked or any(item not in verbose for item in need):
+        raise SystemExit("verbose text")
+    if "更多入口：axs help --verbose" in verbose:
+        raise SystemExit("verbose pointer")
+
+    def grab(argv):
+        out, err = io.StringIO(), io.StringIO()
+        code = 0
+        try:
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                cli_main(argv)
+        except SystemExit as exc:
+            code = exc.code if isinstance(exc.code, int) else 1
+        return code, out.getvalue(), err.getvalue()
+
+    short, long, top = grab(["help", "-v"]), grab(["help", "--verbose"]), grab(["-v"])
+    if short[1] != long[1] or short[1] != verbose or top[0] != 1 or top[2] != usage_text():
+        raise SystemExit("verbose flags")
     if "--all" not in help_plain or "axs rule status" not in help_plain or "axs node status" not in help_plain:
         raise SystemExit("help views")
     check_help_heads(help_plain)
@@ -162,7 +190,7 @@ def main():
     else:
         os.environ["AXS_COLOR"] = saved_color
     os.environ.pop("AXS_TTY_ERR", None)
-    print("help golden 3")
+    print("help golden 4")
     return 0
 
 

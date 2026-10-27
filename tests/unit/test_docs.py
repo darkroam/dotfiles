@@ -131,6 +131,10 @@ def main():
     ):
         if phrase not in parse:
             fail("parse " + phrase)
+    if "更多入口：axs help --verbose" not in parse or "help -v" not in parse:
+        fail("verbose docs")
+    if design.count("用法：axs group switch <组> <成员>") != 2 or "提示用 members 看成员" in design:
+        fail("switch usage")
     if "`tests/unit/test_render.py`" not in arch:
         fail("test_render row")
     if "阶段 2 记录" in arch or "步 13" in arch:

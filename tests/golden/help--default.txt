@@ -50,4 +50,5 @@ axs proxy session         se      登录持久 enable|disable|status
 清理（clean / c）
 axs clean                 c       删除本地配置，可加 --yes
 示例：axs s · axs n s · axs p sy on · eval "$(axs p u on)"
+更多入口：axs help --verbose
 --- stderr
