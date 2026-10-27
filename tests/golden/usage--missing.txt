@@ -1,0 +1,4 @@
+exit: 1
+--- stdout
+--- stderr
+用法：axs group members <组>

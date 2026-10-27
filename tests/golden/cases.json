@@ -16,6 +16,28 @@
     ]
   },
   {
+    "name": "usage--missing.txt",
+    "argv": [
+      "group",
+      "members"
+    ]
+  },
+  {
+    "name": "usage--option.txt",
+    "argv": [
+      "node",
+      "show",
+      "--zz"
+    ]
+  },
+  {
+    "name": "usage--subcommand.txt",
+    "argv": [
+      "group",
+      "nope"
+    ]
+  },
+  {
     "name": "status--manual-down.txt",
     "argv": [
       "status"
