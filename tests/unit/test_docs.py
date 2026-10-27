@@ -118,6 +118,8 @@ def main():
         fail("nodeview file row")
     if "`lib/axs/nodetest.py`" not in arch:
         fail("nodetest file row")
+    if "`lib/axs/nodelist.py`" not in arch:
+        fail("nodelist file row")
     if "| `lib/axs/catalog.py` | 命令树数据与子命令签名。不解析、不分发、不排版 | 160 行 |" not in arch:
         fail("catalog ceiling")
     sentence = "用法：axs group members <组>（先看 group status）"

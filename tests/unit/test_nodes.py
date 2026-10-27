@@ -8,7 +8,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
-from axs.nodes import group_table, resolve_group_name, resolve_switch_name, write_node_cache  # noqa: E402
+from axs.nodelist import group_table  # noqa: E402
+from axs.nodes import resolve_group_name, resolve_switch_name, write_node_cache  # noqa: E402
 
 
 def fail(message):
@@ -21,8 +22,8 @@ def check_forward():
     from axs.core import gen_secret
     from axs.mihomo import group_names, reload_core
     from axs.net import egress, net_precheck
-    from axs.nodes import show_nodes
-    if show_nodes.__module__ != "axs.nodes" or group_names.__module__ != "axs.mihomo":
+    from axs.nodelist import show_nodes
+    if show_nodes.__module__ != "axs.nodelist" or group_names.__module__ != "axs.mihomo":
         fail("module")
     if reload_core.__module__ != "axs.mihomo" or gen_secret.__module__ != "axs.core":
         fail("debt module")

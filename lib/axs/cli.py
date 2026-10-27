@@ -229,7 +229,8 @@ def _node(run, kind, args):
     from pathlib import Path
 
     from axs.config import SECRET, api_address
-    from axs.nodes import select_proxy, show_groups, show_nodes
+    from axs.nodelist import show_groups, show_nodes
+    from axs.nodes import select_proxy
     from axs.nodeview import show_all, show_members, show_rule_nodes
     from axs.service import service_up
     list_mode, depth = "", None

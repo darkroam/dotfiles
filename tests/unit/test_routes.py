@@ -34,7 +34,7 @@ def check_limits():
             if node.module.split(".", 1)[1] in banned:
                 fail("routes import " + node.module)
     arch = (ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
-    if "`lib/axs/routes.py`" not in arch or "\n routes\n" not in arch:
+    if "`lib/axs/routes.py`" not in arch or "\n routes   nodelist\n" not in arch:
         fail("architecture")
 
 
