@@ -127,7 +127,7 @@
 
 ## 解析
 
-精确别名优先于全名，其次才是唯一前缀。多个前缀候选时退出 `USAGE`，只打印 `候选：` 加名字，没有第二句。顶层未知词打印整页用法并退出 `USAGE`。`node`、`group`、`rule`、`subscription`、`proxy`、`service` 不带下一个词时，打印这一层的子命令和说明，退出 0。`health` 为隐藏入口（`health`/`k`），不在默认帮助与用法列出。默认帮助末尾是 `更多入口：axs help --verbose`。`help -v` 与 `help --verbose` 等价，只属于 help，不是顶层命令。verbose 在正常帮助后另起暗色「更多入口」：`health / k`、`service health / he`、`node show --flat / -l`；以及「退役名」：`node show → node status`、`--select → node show`、`group show → group status`、`rule show status → rule status`、`subscription show → subscription status`。组内未知子命令退出 `USAGE`：第一行 `未知命令：xxx（属于 group）`，接着每个可见兄弟一行（名字、两空格、说明；隐藏子命令不列），最后一行是 `用法：axs` 加组名，再加用 `|` 拼起的可见兄弟。缺参或多参退出 `USAGE`，只打该命令一行用法：`用法：` 加命令加说明；没有说明时是 `用法：axs` 加组名和命令。未知选项退出 `USAGE`：第一行 `未知选项：--x`，第二行 `旗标：` 加可见旗标；没有可见旗标时第二行是 `旗标：（无）`。带 `!` 的隐藏旗标仍接受，不写进这一行。`需要 --yes` 和 `不是本地规则` 不使用这三种格式。`proxy` 的 `user`、`system`、`session` 遇到不认识的动词，也只打这一行：`用法：axs proxy user on|off|status`、`用法：axs proxy system on|off|enable|disable|status`、`用法：axs proxy session enable|disable|status`。缺参仍由签名检查打同一行。
+精确别名优先于全名，其次才是唯一前缀。多个前缀候选时退出 `USAGE`，只打印 `候选：` 加名字，没有第二句。顶层未知词打印整页用法并退出 `USAGE`。`node`、`group`、`rule`、`subscription`、`proxy`、`service` 不带下一个词时，打印这一层的子命令和说明，退出 0。`health` 为隐藏入口（`health`/`k`），不在默认帮助与用法列出。默认帮助末尾是 `更多入口：axs help --verbose`。帮助与用法的小节顺序固定为 服务、订阅、规则、策略组、节点、网络、代理、其它（`status`/`clean`/`help`）；`help --verbose` 同序。`help -v` 与 `help --verbose` 等价，只属于 help，不是顶层命令。verbose 在正常帮助后另起暗色「更多入口」：`health / k`、`service health / he`、`node show --flat / -l`；以及「退役名」：`node show → node status`、`--select → node show`、`group show → group status`、`rule show status → rule status`、`subscription show → subscription status`。组内未知子命令退出 `USAGE`：第一行 `未知命令：xxx（属于 group）`，接着每个可见兄弟一行（名字、两空格、说明；隐藏子命令不列），最后一行是 `用法：axs` 加组名，再加用 `|` 拼起的可见兄弟。缺参或多参退出 `USAGE`，只打该命令一行用法：`用法：` 加命令加说明；没有说明时是 `用法：axs` 加组名和命令。未知选项退出 `USAGE`：第一行 `未知选项：--x`，第二行 `旗标：` 加可见旗标；没有可见旗标时第二行是 `旗标：（无）`。带 `!` 的隐藏旗标仍接受，不写进这一行。`需要 --yes` 和 `不是本地规则` 不使用这三种格式。`proxy` 的 `user`、`system`、`session` 遇到不认识的动词，也只打这一行：`用法：axs proxy user on|off|status`、`用法：axs proxy system on|off|enable|disable|status`、`用法：axs proxy session enable|disable|status`。缺参仍由签名检查打同一行。
 
 ## 退出码
 
@@ -272,7 +272,7 @@ libproxy 的 gnome 插件和 Edge 都要会话里有这个桌面标识，才读 
 
 ## 健康
 
-`health` 为隐藏入口（`health`/`k`），不在默认帮助与用法列出，见 `help --verbose`。`service` 内别名仍是 `he`。通过时无输出，退出 0。失败时标准错误只有一行：`未运行` 或 `端口不通` 为 `DOWN`，`控制器不通` 为 `FAIL`，`订阅过期` 为 `EXPIRED`。不读测试缓存，不拉订阅，不跑延迟。快到期仍是静默 0。
+`health` 为隐藏入口（`health`/`k`），不在默认帮助与用法列出，见 `help --verbose`。`service` 内别名仍是 `he`。通过时无输出，退出 0。失败时标准错误只有一行：`未运行` 或 `端口不通` 为 `DOWN`，`控制器不通` 为 `FAIL`，`订阅过期` 为 `EXPIRED`。不读测试缓存，不拉订阅，不跑延迟。快到期仍是静默 0。警告只出现在 `status`/订阅状态；`health` 不打印警告，成功时无输出。
 
 ## 透明性
 

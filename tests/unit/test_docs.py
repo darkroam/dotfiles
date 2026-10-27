@@ -99,6 +99,10 @@ def main():
             fail("design missing " + word)
     if "| 动作 | 缺参 |" not in design:
         fail("design missing the arg matrix")
+    if "服务、订阅、规则、策略组、节点、网络、代理" not in design:
+        fail("design missing help group order")
+    if "警告只出现在" not in design:
+        fail("design missing warning ownership")
     arch = (DOCS / "architecture.md").read_text(encoding="utf-8")
     if "tree     service" not in arch:
         fail("layer diagram lost tree")
