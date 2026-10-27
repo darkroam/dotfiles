@@ -10,7 +10,7 @@ LIB = ROOT / "lib" / "axs"
 
 # Lower index is a lower layer. A module may import a strictly lower layer.
 LAYERS = (
-    ("config", "codes"),
+    ("config", "codes", "catalog"),
     ("core", "render", "mihomo"),
     ("net", "nodes", "rulelist"),
     ("routes",),
@@ -19,7 +19,7 @@ LAYERS = (
     ("cli",),
     ("__main__",),
 )
-# Same-layer logic edge. render is off this chain and must not import axs.
+# Same-layer logic edge. render may import only catalog.
 APPROVED = {("rules", "subscription")}
 
 
@@ -97,7 +97,9 @@ def graph():
     found = edges()
     allowed_pairs = set()
     for src, dst, line in found:
-        if src == "render" and dst in rank:
+        if src == "catalog":
+            fail(f"catalog import {line} -> {dst}")
+        if src == "render" and dst in rank and dst != "catalog":
             fail(f"render import {line} -> {dst}")
         if src not in rank or dst not in rank:
             fail(f"unlayered {src}:{line} -> {dst}")
@@ -112,6 +114,8 @@ def graph():
         fail(f"layer {src}:{line} -> {dst}")
     if ("rules", "subscription") not in allowed_pairs:
         fail("approved edge missing")
+    if ("render", "catalog") not in {(src, dst) for src, dst, _line in found}:
+        fail("render lost catalog")
     seen = {}
     for src, dst, _line in found:
         seen.setdefault(src, set()).add(dst)

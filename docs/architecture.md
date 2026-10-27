@@ -29,10 +29,10 @@ bin/axs  bin/mihomo-run
     |
  core ---------------- mihomo
     |
- config              codes
+ config    codes    catalog
 ```
 
-`render` 不在这条链上，也不得引用任何 axs 模块。为了输出调用它，不算斜边。`service` 是编排，可以调用它下面的模块。命令模块不调用 `service`。`tree`、`nodeview` 与 `selectview` 只被 `cli` 调用，彼此不引用。
+`render` 不在这条链上，也不得引用任何 axs 模块。唯一例外是只读 `catalog`。为了输出调用它，不算斜边。`catalog` 在最底层，只放命令树，不引用任何模块。`service` 是编排，可以调用它下面的模块。命令模块不调用 `service`。`tree`、`nodeview` 与 `selectview` 只被 `cli` 调用，彼此不引用。
 
 斜边台账：
 
@@ -45,7 +45,7 @@ bin/axs  bin/mihomo-run
 | 模块 | 拥有 | 不拥有 |
 | --- | --- | --- |
 | config | 路径、`run/` 文件名、默认值、端口、控制器地址、内核路径、内置网段、原子写 | 网络、颜色 |
-| render | 颜色、对齐、帮助和 status 的排版 | 任何 axs 模块 |
+| render | 颜色、对齐、帮助和 status 的排版 | 除 `catalog` 外的 axs 模块 |
 | core | 锁、持锁、进程存活、安装、快照与回滚、systemd 探测、会话 environ | 订阅正文、命令模块、端口探测、原子写 |
 | mihomo | 控制器 HTTP、探活、重载请求 | 回滚、规则语义 |
 | service | 启停、health、清理、status 编排 | 订阅解析、锁、进程探测、端口探测、默认页 |
@@ -59,7 +59,8 @@ bin/axs  bin/mihomo-run
 | nodeview | `node status`、成员表 | 拓扑、生命周期、着色规则 |
 | selectview | `node show` 板块 | 完整拓扑、`node status`、select 根 |
 | tree | `--full` 拓扑 | 成员表、`node status`、select 根、`node show` |
-| cli | 命令表、别名、分发 | 被下层调用 |
+| catalog | 命令树数据 | 解析、分发、排版 |
+| cli | 解析、分发 | 被下层调用、命令树数据 |
 | codes | 退出码常量 | 任何其它逻辑 |
 
 ## 目录
@@ -93,8 +94,9 @@ run/                         运行时。不入库
 | `lib/axs/__init__.py` | 包标记 | 20 行 |
 | `lib/axs/__main__.py` | 记下真实终端，再调 cli | 40 行 |
 | `lib/axs/codes.py` | 退出码常量 | 20 行 |
-| `lib/axs/cli.py` | 命令表、别名、前缀、分发 | 400 行 |
-| `lib/axs/render.py` | 颜色、对齐、帮助排版（`SECTIONS`/`help_text`） | 300 行 |
+| `lib/axs/catalog.py` | 命令树数据。不解析、不分发、不排版 | 200 行 |
+| `lib/axs/cli.py` | 前缀解析、用法、分发。命令树在 catalog | 400 行 |
+| `lib/axs/render.py` | 颜色、对齐、帮助排版。命令树在 catalog | 300 行 |
 | `lib/axs/config.py` | 默认值、路径、端口、内核路径、内置网段、原子写 | 200 行 |
 | `lib/axs/core.py` | 锁、持锁、进程存活、安装、快照、systemd、会话探测 | 400 行 |
 | `lib/axs/mihomo.py` | 控制器 HTTP，规则类型词和来源表。不是内核二进制 | 300 行 |
