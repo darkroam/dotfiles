@@ -158,23 +158,24 @@ SECTIONS = (
         ("axs service disable", "di", "关闭开机自启"),
     ), ()),
     ("订阅（subscription / su）", (
-        ("axs subscription show", "s", "流量与到期"),
+        ("axs subscription status", "s", "流量与到期"),
         ("axs subscription refresh", "r", "拉取并重载"),
         ("axs subscription clean", "c", "删除订阅缓存"),
     ), ()),
     ("规则（rule / r）", (
-        ("axs rule show", "s", "按顺序编号；来源 prepend/local/provider；--local 只看本地"),
-        ("axs rule show status", "", "规则路径，不含成员"),
+        ("axs rule status", "s", "规则路径，不含成员"),
+        ("axs rule show", "sh", "按顺序编号；来源 prepend/local/provider；--local 只看本地"),
         ("axs rule add via", "v", "域名 + 组"),
         ("axs rule add direct", "d", "域名"),
         ("axs rule add node", "n", "域名 + 节点"),
         ("axs rule del", "d", "<域名|RID|规则全文>"),
     ), ()),
     ("节点（node / n）", (
-        ("axs node show", "s", "--all 全量叶子；--full 树；--select 两段；--depth"),
+        ("axs node status", "s", "当前规则路径与末端组"),
+        ("axs node show", "sh", "--all 全量叶子；--full 树；--depth"),
     ), ()),
     ("组（group / g）", (
-        ("axs group show", "s", "策略组与当前节点"),
+        ("axs group status", "s", "策略组与当前节点"),
         ("axs group members", "m", "组成员：编号、类型、当前、延迟"),
         ("axs group switch", "sw", "组号或组名，再接节点"),
         ("axs group test", "t", "测延迟，可接组号或组名"),
@@ -184,6 +185,7 @@ SECTIONS = (
         ("axs network ip", "i", "经代理查出口 IP"),
     ), ()),
     ("代理（proxy / p）", (
+        ("axs proxy status", "s", "三层汇总"),
         ("axs proxy user", "u", "当前 shell 环境（on|off|status）"),
         ("axs proxy system", "sy", "运行时 on|off；持久 enable|disable"),
         ("axs proxy session", "se", "登录持久 enable|disable|status"),
@@ -196,6 +198,16 @@ SECTIONS = (
 
 def row(cmd, alias, desc):
     return f"{ident(pad(cmd, 24))}  {dim(pad(alias, 6))}  {dim(desc)}"
+
+
+def layer_text(group):
+    lines = []
+    for _title, rows, _notes in SECTIONS:
+        for cmd, _alias, desc in rows:
+            parts = cmd.split()
+            if len(parts) >= 3 and parts[1] == group:
+                lines.append(f"{cmd}  {desc}")
+    return "\n".join(lines) + "\n"
 
 
 def help_text():

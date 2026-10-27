@@ -56,9 +56,9 @@ bin/axs  bin/mihomo-run
 | nodes | 组、列表、延迟、切换、测速缓存 | 改配置 |
 | net | 连通性、出口地址、入站是否打开 | 写订阅 |
 | proxy | 三层开关和状态词 | 改内核进程 |
-| nodeview | 默认 `node show`、成员表 | 拓扑、生命周期、着色规则 |
-| selectview | `--select` 板块 | 完整拓扑、默认页、select 根 |
-| tree | `--full` 拓扑 | 成员表、默认页、select 根、`--select` |
+| nodeview | `node status`、成员表 | 拓扑、生命周期、着色规则 |
+| selectview | `node show` 板块 | 完整拓扑、`node status`、select 根 |
+| tree | `--full` 拓扑 | 成员表、`node status`、select 根、`node show` |
 | cli | 命令表、别名、分发 | 被下层调用 |
 | codes | 退出码常量 | 任何其它逻辑 |
 
@@ -105,7 +105,7 @@ run/                         运行时。不入库
 | `lib/axs/rules.py` | 规则增删、安装回滚 | 220 行 |
 | `lib/axs/nodes.py` | 组、列表、延迟、切换 | 400 行 |
 | `lib/axs/nodeview.py` | 默认页与成员表。不画拓扑 | 160 行 |
-| `lib/axs/selectview.py` | `--select` 板块。不画完整拓扑 | 200 行 |
+| `lib/axs/selectview.py` | `node show` 板块。不画完整拓扑 | 200 行 |
 | `lib/axs/tree.py` | `--full` 拓扑。编号仍问 nodes | 250 行 |
 | `lib/axs/net.py` | 连通、出口、入站是否打开 | 250 行 |
 | `lib/axs/proxy.py` | 三层开关和状态词 | 300 行 |

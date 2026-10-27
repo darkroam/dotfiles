@@ -1,4 +1,4 @@
-"""Default node show page and the members table. No topology."""
+"""node status page and the members table. No topology."""
 
 import sys
 
@@ -65,7 +65,7 @@ def rule_page(proxies, data, run):
     path = status_text(data).strip("\n")
     tail = terminal_text(proxies, data, run).strip("\n")
     blocks = [("末端组（链尾自动组）：", tail)] if tail else []
-    note = "说明：默认视图＝当前规则路径＋链尾自动组；--full 完整拓扑，--select 可切换项，--all 全部叶子。"
+    note = "说明：当前状态＝当前规则路径＋链尾自动组；node show 查可选树，--full 完整拓扑，--all 全部叶子。"
     return view_page(path, blocks, note)
 
 

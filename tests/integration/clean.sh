@@ -235,7 +235,7 @@ grep -F -q "${ESC}[1m" "$RUN/out" || fail "always bold: $(cat "$RUN/out")"
 grep -F -q "${ESC}[1;32m[*]" "$RUN/out" || fail "mark green: $(cat "$RUN/out")"
 grep -F -q "${ESC}[1;32ma" "$RUN/out" || fail "selected name: $(cat "$RUN/out")"
 grep -F -q "${ESC}[90mN1" "$RUN/out" || fail "number gray: $(cat "$RUN/out")"
-assert_code 'groups tone' 0 group show
+assert_code 'groups tone' 0 group status
 grep -F -q "${ESC}[36m主代理" "$RUN/out" || fail "group cyan: $(cat "$RUN/out")"
 grep -F -q "${ESC}[90mSelector" "$RUN/out" || fail "type gray: $(cat "$RUN/out")"
 grep -F -q "${ESC}[1;32ma" "$RUN/out" || fail "now green: $(cat "$RUN/out")"

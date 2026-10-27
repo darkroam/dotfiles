@@ -29,24 +29,24 @@
     "systemd": true
   },
   {
-    "name": "node-show--down.txt",
+    "name": "node-status--down.txt",
     "argv": [
       "node",
-      "show"
+      "status"
     ]
   },
   {
-    "name": "group-show--down.txt",
+    "name": "group-status--down.txt",
     "argv": [
       "group",
-      "show"
+      "status"
     ]
   },
   {
-    "name": "node-show--up.txt",
+    "name": "node-status--up.txt",
     "argv": [
       "node",
-      "show"
+      "status"
     ],
     "up": true,
     "proxies": "{\"proxies\": {\"入口\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\"]}, \"旁路\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"乙\", \"all\": [\"甲\", \"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Shadowsocks\"}}}\n",
@@ -112,25 +112,25 @@
     "proxies": "{\"proxies\": {\"根\": {\"type\": \"Selector\", \"all\": [\"深\", \"浅\"]}, \"深\": {\"type\": \"Selector\", \"all\": [\"中\"]}, \"中\": {\"type\": \"Selector\", \"all\": [\"目标\"]}, \"浅\": {\"type\": \"Selector\", \"all\": [\"目标\"]}, \"目标\": {\"type\": \"Selector\", \"all\": [\"甲\"]}, \"甲\": {\"type\": \"Shadowsocks\"}}}\n"
   },
   {
-    "name": "group-show--up.txt",
+    "name": "group-status--up.txt",
     "argv": [
       "group",
-      "show"
+      "status"
     ],
     "up": true
   },
   {
-    "name": "subscription-show--missing.txt",
+    "name": "subscription-status--missing.txt",
     "argv": [
       "subscription",
-      "show"
+      "status"
     ]
   },
   {
-    "name": "subscription-show--expired.txt",
+    "name": "subscription-status--expired.txt",
     "argv": [
       "subscription",
-      "show"
+      "status"
     ],
     "expired": true
   },
@@ -183,6 +183,13 @@
     "session_flag": true
   },
   {
+    "name": "proxy-status.txt",
+    "argv": [
+      "proxy",
+      "status"
+    ]
+  },
+  {
     "name": "rule-show--runtime.txt",
     "argv": [
       "rule",
@@ -208,11 +215,10 @@
     }
   },
   {
-    "name": "node-show--select.txt",
+    "name": "node-show.txt",
     "argv": [
       "node",
-      "show",
-      "--select"
+      "show"
     ],
     "up": true,
     "proxies": "{\"proxies\": {\"GLOBAL\": {\"type\": \"Selector\", \"now\": \"主代理\", \"all\": [\"主代理\", \"旁路\"]}, \"旁路\": {\"type\": \"Selector\", \"all\": [\"甲\"]}, \"主代理\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\", \"甲\", \"GONE\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"隐藏\", \"all\": [\"隐藏\", \"甲\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"隐藏\": {\"type\": \"Shadowsocks\"}}}\n",
@@ -221,11 +227,10 @@
     }
   },
   {
-    "name": "node-show--select-auto-root.txt",
+    "name": "node-show--auto-root.txt",
     "argv": [
       "node",
-      "show",
-      "--select"
+      "show"
     ],
     "up": true,
     "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"负载\", \"all\": [\"自动\", \"负载\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"甲\", \"all\": [\"甲\", \"乙\"]}, \"负载\": {\"type\": \"LoadBalance\", \"all\": [\"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Shadowsocks\"}}}\n",
@@ -234,11 +239,10 @@
     }
   },
   {
-    "name": "node-show--select-ref.txt",
+    "name": "node-show--ref.txt",
     "argv": [
       "node",
-      "show",
-      "--select"
+      "show"
     ],
     "up": true,
     "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"甲\", \"all\": [\"甲\", \"手动\"]}, \"手动\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}}}\n",
@@ -247,11 +251,10 @@
     }
   },
   {
-    "name": "node-show--select-two-roots.txt",
+    "name": "node-show--two-roots.txt",
     "argv": [
       "node",
-      "show",
-      "--select"
+      "show"
     ],
     "up": true,
     "proxies": "{\"proxies\": {\"左\": {\"type\": \"Selector\", \"now\": \"甲\", \"all\": [\"共享\", \"甲\"]}, \"右\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"共享\", \"乙\"]}, \"共享\": {\"type\": \"Selector\", \"now\": \"丙\", \"all\": [\"丙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Shadowsocks\"}, \"丙\": {\"type\": \"Vless\"}}}\n",
@@ -260,11 +263,10 @@
     }
   },
   {
-    "name": "node-show--select-auto-member.txt",
+    "name": "node-show--auto-member.txt",
     "argv": [
       "node",
-      "show",
-      "--select"
+      "show"
     ],
     "up": true,
     "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"甲\", \"all\": [\"甲\", \"手动\"]}, \"手动\": {\"type\": \"Selector\", \"all\": [\"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}}}\n",
@@ -273,11 +275,10 @@
     }
   },
   {
-    "name": "node-show--select-nested.txt",
+    "name": "node-show--nested.txt",
     "argv": [
       "node",
-      "show",
-      "--select"
+      "show"
     ],
     "up": true,
     "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"子\", \"all\": [\"子\", \"甲\"]}, \"子\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"乙\", \"孙\"]}, \"孙\": {\"type\": \"Selector\", \"now\": \"丙\", \"all\": [\"丙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}, \"丙\": {\"type\": \"Shadowsocks\"}}}\n",
@@ -286,11 +287,10 @@
     }
   },
   {
-    "name": "node-show--select-depth.txt",
+    "name": "node-show--depth.txt",
     "argv": [
       "node",
       "show",
-      "--select",
       "--depth",
       "1"
     ],
@@ -301,11 +301,10 @@
     }
   },
   {
-    "name": "node-show--select-relay.txt",
+    "name": "node-show--relay.txt",
     "argv": [
       "node",
-      "show",
-      "--select"
+      "show"
     ],
     "up": true,
     "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"中继\", \"all\": [\"中继\"]}, \"中继\": {\"type\": \"Relay\", \"now\": \"手动\", \"all\": [\"手动\", \"甲\"]}, \"手动\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}}}\n",
@@ -314,11 +313,10 @@
     }
   },
   {
-    "name": "node-show--select-cycle.txt",
+    "name": "node-show--cycle.txt",
     "argv": [
       "node",
-      "show",
-      "--select"
+      "show"
     ],
     "up": true,
     "proxies": "{\"proxies\": {\"甲组\": {\"type\": \"Selector\", \"now\": \"乙组\", \"all\": [\"乙组\", \"甲\"]}, \"乙组\": {\"type\": \"Selector\", \"now\": \"甲组\", \"all\": [\"甲组\", \"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}}}\n",
@@ -327,12 +325,11 @@
     }
   },
   {
-    "name": "node-show--select-narrow.txt",
+    "name": "node-show--narrow.txt",
     "columns": 40,
     "argv": [
       "node",
-      "show",
-      "--select"
+      "show"
     ],
     "up": true,
     "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"甲\", \"all\": [\"手动\", \"中继\", \"甲\", \"乙\", \"丙\", \"丁\", \"戊\", \"己\", \"庚\", \"辛\", \"GONE\"]}, \"手动\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"乙\"]}, \"中继\": {\"type\": \"Relay\", \"all\": [\"甲\"]}, \"乙\": {\"type\": \"Shadowsocks\"}, \"甲\": {\"type\": \"Shadowsocks\"}, \"丙\": {\"type\": \"Shadowsocks\"}, \"丁\": {\"type\": \"Shadowsocks\"}, \"戊\": {\"type\": \"Shadowsocks\"}, \"己\": {\"type\": \"Shadowsocks\"}, \"庚\": {\"type\": \"Shadowsocks\"}, \"辛\": {\"type\": \"Shadowsocks\"}}}\n",
@@ -341,12 +338,11 @@
     }
   },
   {
-    "name": "node-show--select-wide.txt",
+    "name": "node-show--wide.txt",
     "columns": 160,
     "argv": [
       "node",
-      "show",
-      "--select"
+      "show"
     ],
     "up": true,
     "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"甲\", \"all\": [\"手动\", \"中继\", \"甲\", \"乙\", \"丙\", \"丁\", \"戊\", \"己\", \"庚\", \"辛\", \"GONE\"]}, \"手动\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"乙\"]}, \"中继\": {\"type\": \"Relay\", \"all\": [\"甲\"]}, \"乙\": {\"type\": \"Shadowsocks\"}, \"甲\": {\"type\": \"Shadowsocks\"}, \"丙\": {\"type\": \"Shadowsocks\"}, \"丁\": {\"type\": \"Shadowsocks\"}, \"戊\": {\"type\": \"Shadowsocks\"}, \"己\": {\"type\": \"Shadowsocks\"}, \"庚\": {\"type\": \"Shadowsocks\"}, \"辛\": {\"type\": \"Shadowsocks\"}}}\n",
@@ -445,10 +441,9 @@
     }
   },
   {
-    "name": "rule-show--status.txt",
+    "name": "rule-status.txt",
     "argv": [
       "rule",
-      "show",
       "status"
     ],
     "up": true,

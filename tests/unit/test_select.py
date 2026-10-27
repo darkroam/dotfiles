@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""node show --select: one block per Selector, direct members only."""
+"""node show: one block per Selector, direct members only."""
 import contextlib
 import io
 import os
@@ -187,9 +187,9 @@ def check_select():
     )
     if "成员引用" in buried or "手动 [" in buried:
         fail("auto member\n" + buried)
-    if _list_flags(["--select"]) != ("select", None) or _list_flags(["--depth", "2", "--select"]) != ("select", 2):
+    if _list_flags([]) != ("", None) or _list_flags(["--depth", "2"]) != ("", 2):
         fail("select flags")
-    for args in (["--select", "--full"], ["--depth", "1", "--flat"]):
+    for args in (["--select"], ["--select", "--full"], ["--depth", "1", "--flat"]):
         try:
             with contextlib.redirect_stderr(io.StringIO()):
                 _list_flags(args)

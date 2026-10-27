@@ -249,12 +249,12 @@ fi
 test -f "$RUN/config.yaml.bak" && fail 'bak created when there was no previous config'
 mode=$(python3 -c 'import sys,yaml; print(yaml.safe_load(open(sys.argv[1], encoding="utf-8"))["mode"])' "$RUN/config.yaml")
 test "$mode" = rule || fail "mode $mode"
-assert_code 'subscription show' 0 subscription show
+assert_code 'subscription status' 0 subscription status
 if grep -q '未知' "$RUN/out"; then
     fail 'userinfo missing'
 fi
 grep -q '剩余' "$RUN/out" || fail 'remaining life not shown'
-no_secret_text 'subscription show'
+no_secret_text 'subscription status'
 
 new_run
 printf '%s\n' "$CANARY" >"$RUN/subscription.url"

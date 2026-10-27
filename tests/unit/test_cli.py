@@ -33,6 +33,7 @@ EXACT = (
     ("sub", "top", "subscription"),
     ("subscription", "top", "subscription"),
     ("ne", "top", "network"),
+    ("nw", "top", "network"),
     ("net", "top", "network"),
     ("network", "top", "network"),
     ("p", "top", "proxy"),
@@ -55,25 +56,33 @@ EXACT = (
     ("di", "service", "disable"),
     ("he", "service", "health"),
     ("health", "service", "health"),
-    ("s", "node", "show"),
-    ("show", "node", "show"),
+    ("s", "node", "status"),
+    ("status", "node", "status"),
     ("sh", "node", "show"),
-    ("s", "group", "show"),
+    ("show", "node", "show"),
+    ("s", "group", "status"),
+    ("status", "group", "status"),
     ("sw", "group", "switch"),
     ("m", "group", "members"),
     ("t", "group", "test"),
     ("mem", "group", "members"),
-    ("s", "rule", "show"),
+    ("s", "rule", "status"),
+    ("sh", "rule", "show"),
     ("a", "rule", "add"),
     ("d", "rule", "del"),
     ("show", "rule", "show"),
-    ("s", "subscription", "show"),
+    ("status", "rule", "status"),
+    ("s", "subscription", "status"),
+    ("status", "subscription", "status"),
     ("r", "subscription", "refresh"),
     ("c", "subscription", "clean"),
     ("ref", "subscription", "refresh"),
     ("t", "network", "test"),
     ("i", "network", "ip"),
     ("test", "network", "test"),
+    ("s", "proxy", "status"),
+    ("st", "proxy", "status"),
+    ("status", "proxy", "status"),
     ("u", "proxy", "user"),
     ("sy", "proxy", "system"),
     ("se", "proxy", "session"),
@@ -81,18 +90,15 @@ EXACT = (
 )
 AMBIGUOUS = (
     ("st", "service", "候选：status start stop"),
-    ("s", "proxy", "候选：system session"),
 )
 UNKNOWN = (
     ("nope", "top"),
     ("x", "top"),
     ("o", "top"),
     ("u", "top"),
-    ("nw", "top"),
     ("sto", "top"),
     ("re", "top"),
     ("e", "top"),
-    ("st", "proxy"),
     ("l", "node"),
     ("g", "subscription"),
 )
@@ -179,12 +185,12 @@ def check_usage_color(colored):
     expect = {
         0: ("s tatus", "c lean", "h elp"),
         1: ("se rvice", "s tatus", "sta rt", "sto p", "re start", "e nsure", "en able", "di sable"),
-        2: ("su bscription", "s how", "r efresh", "c lean"),
-        3: ("r ule", "s how", "a dd", "d el"),
-        4: ("n ode", "s how"),
-        5: ("g roup", "s how", "m embers", "sw itch", "t est"),
+        2: ("su bscription", "s tatus", "r efresh", "c lean"),
+        3: ("r ule", "s tatus", "sh ow", "a dd", "d el"),
+        4: ("n ode", "s tatus", "sh ow"),
+        5: ("g roup", "s tatus", "m embers", "sw itch", "t est"),
         6: ("t est", "i p"),
-        7: ("p roxy", "u ser", "sy stem", "se ssion"),
+        7: ("p roxy", "s tatus", "u ser", "sy stem", "se ssion"),
     }
     for index, pairs in expect.items():
         for pair in pairs:
@@ -196,7 +202,7 @@ def check_usage_color(colored):
     if health != marked("he", "alth") or help_word != marked("h", "elp"):
         raise SystemExit("quiet top alias")
     actions = bold("on") + "|" + bold("off") + "|" + bold("status")
-    if actions not in lines[7] or marked("s", "tatus") in lines[7]:
+    if actions not in lines[7] or marked("s", "tatus") not in lines[7]:
         raise SystemExit("proxy actions")
     if bold("enable") not in lines[7]:
         raise SystemExit("system enable should stay bold")
@@ -271,18 +277,17 @@ def check_node_args():
     else:
         raise SystemExit("list unknown accepted")
     cases = (
-        (["group", "show", "x"], USAGE, "用法错误\n"),
+        (["group", "status", "x"], USAGE, "用法错误\n"),
         (["node", "show", "nope"], USAGE, "用法错误\n"),
-        (["group", "members"], USAGE, "用法错误，先看 group show\n"),
+        (["group", "members"], USAGE, "用法错误，先看 group status\n"),
         (["group", "members", "a", "b"], USAGE, "用法错误\n"),
         (["group", "members", "--x"], USAGE, "用法错误\n"),
         (["group", "switch"], USAGE, "用法错误，用 group members 查看成员\n"),
         (["group", "switch", "g"], USAGE, "用法错误，用 group members 查看成员\n"),
         (["group", "switch", "g", "n", "x"], USAGE, "用法错误\n"),
         (["group", "test", "g", "x"], USAGE, "用法错误\n"),
-        (["group", "show"], DOWN, "服务：未运行\n"),
+        (["group", "status"], DOWN, "服务：未运行\n"),
         (["group", "members", "1"], DOWN, "服务：未运行\n"),
-        (["node"], DOWN, "服务：未运行\n"),
         (["node", "show"], DOWN, "服务：未运行\n"),
         (["group", "test"], DOWN, "服务：未运行\n"),
         (["group", "switch", "g", "n"], DOWN, "服务：未运行\n"),
@@ -303,6 +308,17 @@ def check_node_args():
                 code = exc.code if isinstance(exc.code, int) else 1
             if code != want or err_buf.getvalue() != err or out_buf.getvalue():
                 raise SystemExit(f"{argv} -> {code} {err_buf.getvalue()!r} {out_buf.getvalue()!r}")
+        from axs.render import layer_text
+        for name in ("node", "group", "rule", "subscription", "proxy", "service"):
+            out_buf, err_buf = io.StringIO(), io.StringIO()
+            code = 0
+            try:
+                with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
+                    cli_main([name])
+            except SystemExit as exc:
+                code = exc.code if isinstance(exc.code, int) else 1
+            if code != 0 or err_buf.getvalue() or out_buf.getvalue() != layer_text(name):
+                raise SystemExit(f"bare {name} -> {code} {err_buf.getvalue()!r} {out_buf.getvalue()!r}")
 
 
 def main():
@@ -347,7 +363,7 @@ def main():
         raise SystemExit("help intro")
     if "health" in help_plain or "health" in usage_text() or "--flat" in help_plain or "--flat" in usage_text():
         raise SystemExit("hidden command listed")
-    if "--all" not in help_plain or "axs rule show status" not in help_plain:
+    if "--all" not in help_plain or "axs rule status" not in help_plain or "axs node status" not in help_plain:
         raise SystemExit("help views")
     check_help_heads(help_plain)
     if '示例：axs s · axs n s · axs p sy on' not in help_plain:

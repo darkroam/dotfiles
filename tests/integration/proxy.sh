@@ -37,16 +37,18 @@ want={
  "axs service ensure":"e",
  "axs service enable":"en",
  "axs service disable":"di",
- "axs subscription show":"s",
+ "axs subscription status":"s",
  "axs subscription refresh":"r",
  "axs subscription clean":"c",
- "axs rule show":"s",
+ "axs rule status":"s",
+ "axs rule show":"sh",
  "axs rule add via":"v",
  "axs rule add direct":"d",
  "axs rule add node":"n",
  "axs rule del":"d",
- "axs node show":"s",
- "axs group show":"s",
+ "axs node status":"s",
+ "axs node show":"sh",
+ "axs group status":"s",
  "axs group members":"m",
  "axs group switch":"sw",
  "axs group test":"t",
@@ -70,7 +72,7 @@ if missing:
     sys.stderr.write(str(missing)+"\n"+str(got))
     raise SystemExit(1)
 '
-assert_code 'alias group show' 2 g s
+assert_code 'alias group status' 2 g s
 grep -q '服务：未运行' "$RUN/err" || fail "alias groups: $(cat "$RUN/err")"
 assert_code 'alias node show' 2 n s
 grep -q '服务：未运行' "$RUN/err" || fail "alias list: $(cat "$RUN/err")"
@@ -79,8 +81,8 @@ grep -q '服务：未运行' "$RUN/err" || fail "alias group test: $(cat "$RUN/e
 assert_code 'alias group switch' 1 g sw
 test "$(grep -c . "$RUN/err")" -eq 1 || fail "alias switch: $(cat "$RUN/err")"
 grep -q '用法' "$RUN/err" || fail "alias switch usage: $(cat "$RUN/err")"
-assert_code 'alias node bare' 2 n
-grep -q '服务：未运行' "$RUN/err" || fail "bare node: $(cat "$RUN/err")"
+assert_code 'alias node bare' 0 n
+grep -q 'axs node status' "$RUN/out" || fail "bare node: $(cat "$RUN/out")"
 assert_code 'prefix node show' 2 node sh
 grep -q '服务：未运行' "$RUN/err" || fail "prefix list: $(cat "$RUN/err")"
 set +e
@@ -91,8 +93,8 @@ set -e
 test "$code" -eq 1 || fail "alias proxy user want 1 got $code" "$(cat "$RUN/out")"
 grep -q 'user:' "$RUN/out" || fail "alias proxy user: $(cat "$RUN/out")"
 PASS=$((PASS + 1))
-assert_code 'alias proxy ambiguous' 1 p s
-grep -q '候选：system session' "$RUN/err" || fail "proxy s: $(cat "$RUN/err")"
+assert_code 'alias proxy status' 0 p s
+grep -q '^user' "$RUN/out" || fail "proxy status: $(cat "$RUN/out")"
 assert_code 'alias proxy system' 0 p sy enable
 grep -q 'system：' "$RUN/out" || fail "alias proxy system: $(cat "$RUN/out")"
 grep -q 'enabled' "$RUN/out" || fail "alias proxy system enabled: $(cat "$RUN/out")"
@@ -102,8 +104,8 @@ assert_code 'alias proxy session' 1 p se status
 grep -q 'session: persist' "$RUN/out" || fail "alias proxy session: $(cat "$RUN/out")"
 now=$(date +%s)
 printf 'upload=1\nexpire=%s\n' "$((now + 40 * 86400))" >"$RUN/userinfo"
-assert_code 'alias subscription show' 0 su s
-grep -q '上传' "$RUN/out" || fail "alias subscription show: $(cat "$RUN/out")"
+assert_code 'alias subscription status' 0 su s
+grep -q '上传' "$RUN/out" || fail "alias subscription status: $(cat "$RUN/out")"
 assert_code 'alias subscription refresh' 3 su r
 grep -q '没有订阅' "$RUN/err" || fail "alias subscription refresh: $(cat "$RUN/err")"
 assert_code 'alias subscription clean' 1 su c
@@ -152,12 +154,12 @@ fi
 export AXS_COLOR=always
 now=$(date +%s)
 printf 'upload=1\nexpire=%s\n' "$((now + 40 * 86400))" >"$RUN/userinfo"
-assert_code 'sub color' 0 subscription show
+assert_code 'sub color' 0 subscription status
 grep -F -q "${ESC}[90m上传:" "$RUN/out" || fail "sub label: $(cat "$RUN/out")"
 grep -F -q "${ESC}[1;32m" "$RUN/out" || fail "sub days: $(cat "$RUN/out")"
 grep -q '1.0B' "$RUN/out" || fail "sub bytes: $(cat "$RUN/out")"
 export AXS_COLOR=never
-assert_code 'sub plain' 0 subscription show
+assert_code 'sub plain' 0 subscription status
 if grep -q "$ESC" "$RUN/out"; then
     fail 'sub never colored'
 fi

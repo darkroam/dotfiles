@@ -115,13 +115,13 @@ def check_flat_and_flags():
         _show_nodes_full(proxies)
     if buf.getvalue() != "*\ta\tDirect\tG\n":
         fail(buf.getvalue())
-    if _list_flags(["--full", "--depth", "2"]) != ("full", 2):
+    if _list_flags(["--full", "--depth", "2"]) != ("full", 2) or _list_flags(["--depth", "1"]) != ("", 1):
         fail("flags")
     if _list_flags(["--depth", "1", "--full"]) != ("full", 1):
         fail("flags order")
     if _list_flags(["-l"]) != ("flat", None) or _list_flags(["--flat"]) != ("flat", None) or _list_flags(["--all"]) != ("all", None):
         fail("flat")
-    for args in (["--depth", "1"], ["--full", "--flat"], ["--depth", "0"], ["--depth", "03"], ["--nope"], ["--all", "--depth", "1"]):
+    for args in (["--full", "--flat"], ["--depth", "0"], ["--depth", "03"], ["--nope"], ["--all", "--depth", "1"], ["--select"]):
         try:
             with contextlib.redirect_stderr(io.StringIO()):
                 _list_flags(args)
