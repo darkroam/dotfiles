@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
-from axs.render import SECTIONS  # noqa: E402
+from axs.catalog import SECTIONS  # noqa: E402
 
 DOCS = ROOT / "docs"
 BANNED = ("未跟踪", "孵化中", "还没测")

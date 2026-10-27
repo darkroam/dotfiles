@@ -7,12 +7,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "lib"))
 
+from axs.catalog import GROUPS, SECTIONS
 from axs.cli import (
-    DOWN, EXPIRED, FAIL, GROUPS, LOCK, ResolveError, USAGE,
+    DOWN, EXPIRED, FAIL, LOCK, ResolveError, USAGE,
     _alias_marks, _list_flags, _usage_word, main as cli_main, resolve_token, usage_text,
 )
 from axs.render import (
-    SECTIONS, bad, bold, dim, display_width, emph, help_text, ident, label, ok, tone, use_color, warn,
+    bad, bold, dim, display_width, emph, help_text, ident, label, ok, tone, use_color, warn,
 )
 
 GOLDEN = ROOT / "tests" / "golden"

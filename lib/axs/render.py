@@ -4,6 +4,8 @@ import subprocess
 import sys
 import unicodedata
 
+from axs.catalog import INTRO, SECTIONS
+
 
 def use_color(fd=1):
     mode = os.environ.get("AXS_COLOR")
@@ -144,56 +146,7 @@ def layout_cells(entries, width):
     return lines
 
 
-INTRO = "单字符优先；冲突用两字母；前缀亦可"
 EXAMPLE = '示例：axs s · axs n s · axs p sy on · eval "$(axs p u on)"'
-SECTIONS = (
-    ("服务（service / se）", (
-        ("axs status", "s", "查看全部状态"),
-        ("axs service status", "s", "状态、自启、端口、控制器"),
-        ("axs service start", "sta", "启动服务"),
-        ("axs service stop", "sto", "停止服务"),
-        ("axs service restart", "re", "重启服务"),
-        ("axs service ensure", "e", "保证服务在跑"),
-        ("axs service enable", "en", "打开开机自启"),
-        ("axs service disable", "di", "关闭开机自启"),
-    ), ()),
-    ("订阅（subscription / su）", (
-        ("axs subscription status", "s", "流量与到期"),
-        ("axs subscription refresh", "r", "拉取并重载"),
-        ("axs subscription clean", "c", "删除订阅缓存"),
-    ), ()),
-    ("规则（rule / r）", (
-        ("axs rule status", "s", "规则路径，不含成员"),
-        ("axs rule show", "sh", "按顺序编号；来源 prepend/local/provider；--local 只看本地"),
-        ("axs rule add via", "v", "域名 + 组"),
-        ("axs rule add direct", "d", "域名"),
-        ("axs rule add node", "n", "域名 + 节点"),
-        ("axs rule del", "d", "<域名|RID|规则全文>"),
-    ), ()),
-    ("节点（node / n）", (
-        ("axs node status", "s", "当前规则路径与末端组"),
-        ("axs node show", "sh", "--all 全量叶子；--full 树；--depth"),
-    ), ()),
-    ("组（group / g）", (
-        ("axs group status", "s", "策略组与当前节点"),
-        ("axs group members", "m", "组成员：编号、类型、当前、延迟"),
-        ("axs group switch", "sw", "组号或组名，再接节点"),
-        ("axs group test", "t", "测延迟，可接组号或组名"),
-    ), ()),
-    ("网络（network）", (
-        ("axs network test", "t", "测连通，可接网址"),
-        ("axs network ip", "i", "经代理查出口 IP"),
-    ), ()),
-    ("代理（proxy / p）", (
-        ("axs proxy status", "s", "三层汇总"),
-        ("axs proxy user", "u", "当前 shell 环境（on|off|status）"),
-        ("axs proxy system", "sy", "运行时 on|off；持久 enable|disable"),
-        ("axs proxy session", "se", "登录持久 enable|disable|status"),
-    ), ()),
-    ("清理（clean / c）", (
-        ("axs clean", "c", "删除本地配置，可加 --yes"),
-    ), ()),
-)
 
 
 def row(cmd, alias, desc):

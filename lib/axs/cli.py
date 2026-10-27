@@ -1,9 +1,10 @@
-"""Command words, aliases, and the help text they print."""
+"""Resolve words and print usage. The command tree lives in catalog."""
 
 from axs.codes import DOWN, EXPIRED, FAIL, LOCK, USAGE
 import os
 import sys
 
+from axs.catalog import GROUPS
 from axs.render import bold, die, emph, help_text, layer_text
 
 
@@ -12,49 +13,6 @@ class ResolveError(Exception):
         self.code = code
         self.message = message
 
-
-TOP = (
-    "status service node group rule subscription network proxy clean help".split(),
-    {
-        "s": "status",
-        "se": "service",
-        "n": "node",
-        "g": "group",
-        "r": "rule",
-        "su": "subscription",
-        "p": "proxy",
-        "nw": "network",
-        "c": "clean",
-        "h": "help",
-        "?": "help",
-        "--help": "help",
-        "-h": "help",
-        "health": "health",
-        "k": "health",
-    },
-)
-GROUPS = {
-    "top": TOP,
-    "service": (
-        "status start stop restart ensure enable disable health".split(),
-        {
-            "s": "status",
-            "sta": "start",
-            "sto": "stop",
-            "re": "restart",
-            "e": "ensure",
-            "en": "enable",
-            "di": "disable",
-            "he": "health",
-        },
-    ),
-    "node": ("status show".split(), {"s": "status", "sh": "show"}),
-    "group": ("status members switch test".split(), {"s": "status", "sw": "switch", "m": "members", "t": "test"}),
-    "rule": ("status show add del".split(), {"s": "status", "sh": "show", "a": "add", "d": "del"}),
-    "subscription": ("status refresh clean".split(), {"s": "status", "r": "refresh", "c": "clean"}),
-    "network": ("test ip".split(), {"t": "test", "i": "ip"}),
-    "proxy": ("status user system session".split(), {"s": "status", "u": "user", "sy": "system", "se": "session"}),
-}
 
 def resolve_token(word, words, aliases):
     if word in aliases:
