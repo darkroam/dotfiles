@@ -12,12 +12,14 @@
 
 ## 依赖
 
-只向下。上层不被下层调用。`from axs.service import` 只允许出现在 `cli.py`。
+只向下。上层不被下层调用。`from axs.service import` 只允许出现在 `cli.py` 与 `nodecmd.py`。
 
 ```
 bin/axs  bin/mihomo-run
     |
    cli
+    |
+ nodecmd
     |
  tree     service   nodeview   selectview   nodetest
     |
@@ -32,7 +34,7 @@ bin/axs  bin/mihomo-run
  config    codes    catalog
 ```
 
-`render` 不在这条链上，也不得引用任何 axs 模块。唯一例外是只读 `catalog`。为了输出调用它，不算斜边。`catalog` 在最底层，只放命令树，不引用任何模块。`service` 是编排，可以调用它下面的模块。命令模块不调用 `service`。`tree`、`nodeview`、`selectview` 与 `nodetest` 只被 `cli` 调用，彼此不引用。 `nodetest` 拥有叶子测速和组测速。`nodes` 不再拥有 delay，只留测速缓存格式。 `nodelist` 画组表和节点列表，只问 `nodes` 的编号、延迟和选择。
+`render` 不在这条链上，也不得引用任何 axs 模块。唯一例外是只读 `catalog`。为了输出调用它，不算斜边。`catalog` 在最底层，只放命令树，不引用任何模块。`service` 是编排，可以调用它下面的模块。除 `nodecmd` 外，命令模块不调用 `service`。`nodecmd` 编排 node 与 group 的视图命令。`tree`、`nodeview`、`selectview` 只被 `nodecmd` 调用，`nodetest` 只被 `cli` 调用，彼此不引用。 `nodetest` 拥有叶子测速和组测速。`nodes` 不再拥有 delay，只留测速缓存格式。 `nodelist` 画组表和节点列表，只问 `nodes` 的编号、延迟和选择。
 
 斜边台账：
 
@@ -62,6 +64,7 @@ bin/axs  bin/mihomo-run
 | selectview | `node show` 板块 | 完整拓扑、`node status`、select 根 |
 | tree | `--full` 拓扑 | 成员表、`node status`、select 根、`node show` |
 | catalog | 命令树数据 | 解析、分发、排版 |
+| nodecmd | node 子命令编排 | 视图、测速、数据 |
 | cli | 解析、分发 | 被下层调用、命令树数据 |
 | codes | 退出码常量 | 任何其它逻辑 |
 
@@ -97,7 +100,8 @@ run/                         运行时。不入库
 | `lib/axs/__main__.py` | 记下真实终端，再调 cli | 40 行 |
 | `lib/axs/codes.py` | 退出码常量 | 20 行 |
 | `lib/axs/catalog.py` | 命令树数据与子命令签名。不解析、不分发、不排版 | 160 行 |
-| `lib/axs/cli.py` | 前缀解析、用法、分发。命令树在 catalog | 380 行 |
+| `lib/axs/cli.py` | 前缀解析、用法、分发。命令树在 catalog | 330 行 |
+| `lib/axs/nodecmd.py` | node 子命令编排。不画视图、不测速、不持有数据 | 180 行 |
 | `lib/axs/render.py` | 颜色、对齐、帮助排版。命令树在 catalog | 300 行 |
 | `lib/axs/config.py` | 默认值、路径、端口、内核路径、内置网段、原子写 | 200 行 |
 | `lib/axs/core.py` | 锁、持锁、进程存活、安装、快照、systemd、会话探测 | 400 行 |

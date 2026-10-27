@@ -120,6 +120,10 @@ def main():
         fail("nodetest file row")
     if "`lib/axs/nodelist.py`" not in arch:
         fail("nodelist file row")
+    if "| `lib/axs/nodecmd.py` | node 子命令编排。不画视图、不测速、不持有数据 | 180 行 |" not in arch:
+        fail("nodecmd file row")
+    if "| `lib/axs/cli.py` | 前缀解析、用法、分发。命令树在 catalog | 330 行 |" not in arch:
+        fail("cli ceiling")
     if "| `lib/axs/catalog.py` | 命令树数据与子命令签名。不解析、不分发、不排版 | 160 行 |" not in arch:
         fail("catalog ceiling")
     sentence = "用法：axs group members <组>（先看 group status）"
