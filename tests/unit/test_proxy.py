@@ -102,8 +102,10 @@ def check_status_source():
     core = (ROOT / "lib" / "axs" / "core.py").read_text(encoding="utf-8")
     if "session_env" in source or "pgrep" in source:
         fail("service still reads the session itself")
-    if "status_summary" not in source or "session_value(" not in proxy:
-        fail("status does not use session_value")
+    if "status_summary" in source or "status_summary" in proxy:
+        fail("old status summary remains")
+    if "proxy_status_rows" not in source or "proxy_status_rows" not in proxy or "session_value(" not in proxy:
+        fail("status does not share proxy rows")
     if "def session_value" not in core:
         fail("session probe left proxy")
 

@@ -155,7 +155,7 @@ export AXS_COLOR=always
 now=$(date +%s)
 printf 'upload=1\nexpire=%s\n' "$((now + 40 * 86400))" >"$RUN/userinfo"
 assert_code 'sub color' 0 subscription status
-grep -F -q "${ESC}[90m上传:" "$RUN/out" || fail "sub label: $(cat "$RUN/out")"
+grep -q '剩余' "$RUN/out" || fail "sub line: $(cat "$RUN/out")"
 grep -F -q "${ESC}[1;32m" "$RUN/out" || fail "sub days: $(cat "$RUN/out")"
 grep -q '1.0B' "$RUN/out" || fail "sub bytes: $(cat "$RUN/out")"
 export AXS_COLOR=never
@@ -183,12 +183,12 @@ python3 -c 'import os,re,sys
 esc=re.compile("\x1b\\[[0-9;]*m")
 text=esc.sub("", open(os.environ["AXS_RUN"]+"/out",encoding="utf-8").read())
 chain="G2 主代理 [Selector] · 规则 1（MATCH 1） → G3 自动选择 [URLTest] → N2 a"
-if chain not in text or "路径" not in text or "GLOBAL  " in text or "[*]" in text:
+if chain not in text or "路径" in text or "GLOBAL  " in text or "[*]" in text:
     sys.stderr.write(text)
     raise SystemExit(1)
-if "上传 1.5K" not in text:
+if "上传 1.5K" not in text or "剩余 已过期" not in text:
     raise SystemExit(2)
-want=["服务","节点","订阅","测试","代理"]
+want=["服务","订阅","路由","测速","代理"]
 got=[line for line in text.splitlines() if line in want]
 if got!=want:
     sys.stderr.write(repr(got))
@@ -335,7 +335,7 @@ export AXS_SESSION_PID=2147483001
 assert_code 'proxy session status no-dwm' 1 proxy session status
 grep -q 'effect no-x-session' "$RUN/out" || fail "session no dwm: $(cat "$RUN/out")"
 "$AXS" status >"$RUN/status" 2>"$RUN/err" || true
-grep -q 'session persist enabled · effect no-x-session' "$RUN/status" || fail "summary no-x: $(cat "$RUN/status")"
+grep -q 'session   persist enabled · effect no-x-session' "$RUN/status" || fail "summary no-x: $(cat "$RUN/status")"
 env -i /bin/sleep 30 &
 echo $! >>"$PIDS"
 export AXS_SESSION_PID=$!
@@ -350,7 +350,7 @@ if grep -q 'pending' "$RUN/out"; then
     fail 'session live still cold'
 fi
 "$AXS" status >"$RUN/out" 2>"$RUN/err" || true
-grep -q 'session persist enabled · effect active' "$RUN/out" || fail "status line live: $(cat "$RUN/out")"
+grep -q 'session   persist enabled · effect active' "$RUN/out" || fail "status line live: $(cat "$RUN/out")"
 assert_code 'proxy session disable' 0 proxy session disable
 assert_code 'proxy session status off' 1 proxy session status
 grep -q 'effect -' "$RUN/out" || fail "session disabled: $(cat "$RUN/out")"

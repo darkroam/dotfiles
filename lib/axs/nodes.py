@@ -44,14 +44,22 @@ def group_numbers(proxies):
     names = sorted(name for name, item in proxies.items() if _is_group(item))
     return {name: index for index, name in enumerate(names, 1)}
 
+def _prefixed(token, prefix):
+    body = token[len(prefix):]
+    if not token.startswith(prefix) or not body:
+        return None
+    if body.isascii() and body.isdigit() and str(int(body)) == body:
+        return int(body)
+    return None
+
 def resolve_group_name(proxies, token):
     if token in proxies:
         return (token, "") if _is_group(proxies[token]) else (None, "不是策略组")
-    digits = token.isascii() and token.isdigit() and str(int(token)) == token
-    wanted = int(token) if digits else None
-    for name, number in group_numbers(proxies).items():
-        if number == wanted:
-            return name, ""
+    wanted = _prefixed(token, "G")
+    if wanted is not None:
+        for name, number in group_numbers(proxies).items():
+            if number == wanted:
+                return name, ""
     return None, "组不存在"
 
 def lookup_group(secret_path, api, token):
@@ -288,11 +296,18 @@ def cached_delay(run_dir, name):
 def resolve_switch_name(proxies, members, token):
     if token in members:
         return token
-    if token.isdigit() and str(int(token)) == token:
-        wanted = int(token)
+    wanted = _prefixed(token, "N")
+    if wanted is not None:
         for name, number in node_numbers(proxies).items():
-            if number == wanted:
-                return name if name in members else None
+            if number == wanted and name in members:
+                return name
+        return None
+    wanted = _prefixed(token, "G")
+    if wanted is None:
+        return None
+    for name, number in group_numbers(proxies).items():
+        if number == wanted and name in members:
+            return name
     return None
 
 def select_proxy(secret_path, api, group, token, run_dir=""):

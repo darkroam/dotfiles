@@ -80,10 +80,10 @@ def check_members():
         fail("member colors\n" + colored)
     if painted_name in colored:
         fail("name should stay plain")
-    code, out, err = _capture(show_members, proxies, "1", "")
+    code, out, err = _capture(show_members, proxies, "G1", "")
     if code or err or out != render_members(proxies, "主", {}):
         fail(f"index {code} {err!r}\n{out}")
-    for token, message in (("甲", "不是策略组"), ("nope", "组不存在"), ("02", "组不存在")):
+    for token, message in (("甲", "不是策略组"), ("nope", "组不存在"), ("G02", "组不存在")):
         code, out, err = _capture(show_members, proxies, token, "")
         if code != FAIL or err != message + "\n" or out:
             fail(f"members {token} {code} {err!r}")

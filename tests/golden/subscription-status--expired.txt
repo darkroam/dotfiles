@@ -1,4 +1,4 @@
 exit: 0
 --- stdout
-已过期
+剩余 已过期
 --- stderr

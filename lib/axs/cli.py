@@ -67,12 +67,11 @@ def usage_text():
     try:
         flags = "|".join(_usage_word(flag) for flag in ("--full", "--all"))
         lines = [
-            "用法：axs " + _pipes(["status", "clean", "help"], "top"),
-            "      axs " + _usage_word("service", "top") + " " + _pipes(["status", "start", "stop", "restart", "ensure", "enable", "disable"], "service"),
+            "用法：axs " + _usage_word("service", "top") + " " + _pipes(["status", "start", "stop", "restart", "ensure", "enable", "disable"], "service"),
             "      axs " + _usage_word("subscription", "top") + " " + _pipes(["status", "refresh", "clean"], "subscription"),
             "      axs " + _usage_word("rule", "top") + " " + _pipes(["status", "show", "add", "del"], "rule"),
-            "      axs " + _usage_word("node", "top") + " " + _pipes(["status", "show"], "node") + " " + flags + " " + _usage_word("--depth") + " N",
             "      axs " + _usage_word("group", "top") + " " + _pipes(["status", "members", "switch", "test"], "group"),
+            "      axs " + _usage_word("node", "top") + " " + _pipes(["status", "show"], "node") + " " + flags + " " + _usage_word("--depth") + " N",
             "      axs " + _usage_word("network", "top") + " " + _pipes(["test", "ip"], "network"),
             "      axs "
             + _usage_word("proxy", "top")
@@ -90,6 +89,7 @@ def usage_text():
             + _usage_word("session", "proxy")
             + " "
             + _pipes(["enable", "disable", "status"]),
+            "      axs " + _pipes(["status", "clean", "help"], "top"),
         ]
     finally:
         if previous is None:

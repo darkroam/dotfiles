@@ -29,7 +29,7 @@ PASS=$((PASS + 1))
 new_run
 assert_code 'status down' 2 status
 grep -q '状态    未运行（手动）' "$RUN/out" || fail "down service: $(cat "$RUN/out")"
-grep -q '路径    -' "$RUN/out" || fail "down nodes: $(cat "$RUN/out")"
+grep -qx '  -' "$RUN/out" || fail "down route: $(cat "$RUN/out")"
 if grep -q 'GLOBAL  ' "$RUN/out"; then fail "down global: $(cat "$RUN/out")"; fi
 grep -q 'net     -' "$RUN/out" || fail "down net cache: $(cat "$RUN/out")"
 grep -q 'node    -' "$RUN/out" || fail "down node cache: $(cat "$RUN/out")"
@@ -118,15 +118,15 @@ fi
 new_run
 export AXS_SESSION_PID=2147483001
 assert_code 'status proxy off' 2 status
-grep -q 'user    off' "$RUN/out" || fail "status proxy off: $(cat "$RUN/out")"
-grep -q -E 'system  (on|off)（persist disabled）' "$RUN/out" || fail "status system line: $(cat "$RUN/out")"
-grep -q 'session persist disabled · effect -' "$RUN/out" || fail "status session line: $(cat "$RUN/out")"
+grep -q 'user      off (unset)' "$RUN/out" || fail "status proxy off: $(cat "$RUN/out")"
+grep -q -E 'system    (on|off) \(mode=' "$RUN/out" || fail "status system line: $(cat "$RUN/out")"
+grep -q 'session   persist disabled · effect -' "$RUN/out" || fail "status session line: $(cat "$RUN/out")"
 if grep -q 'no-x-session' "$RUN/out"; then
     fail 'disabled effect is no-x-session'
 fi
 unset AXS_SESSION_PID || true
 proxy_status_env
-grep -q 'user    on' "$RUN/out" || fail "status proxy on: $(cat "$RUN/out")"
+grep -q 'user      on (' "$RUN/out" || fail "status proxy on: $(cat "$RUN/out")"
 
 new_run
 assert_code 'status down' 2 status
@@ -359,16 +359,16 @@ assert_code 'status expired' 5 status
 grep -q '状态    运行中（手动，pid' "$RUN/out" || fail "expired service: $(cat "$RUN/out")"
 grep -q '18080 监听' "$RUN/out" || fail "expired port: $(cat "$RUN/out")"
 grep -q '控制器 18081 可达' "$RUN/out" || fail "expired api: $(cat "$RUN/out")"
-grep -q '路径    -' "$RUN/out" || fail "expired nodes: $(cat "$RUN/out")"
-grep -q '已过期，0 天' "$RUN/out" || fail "expired sub: $(cat "$RUN/out")"
+grep -qx '  -' "$RUN/out" || fail "expired route: $(cat "$RUN/out")"
+grep -q '剩余 已过期' "$RUN/out" || fail "expired sub: $(cat "$RUN/out")"
 
 new_run
 mark_up
 prepare_health 18082
 now=$(date +%s)
-printf '%s\n' "expire=$((now + 86400))" >"$RUN/userinfo"
+printf '%s\n' "expire=$((now + 2 * 86400))" >"$RUN/userinfo"
 assert_code 'status soon' 0 status
-grep -q '警告' "$RUN/out" || fail 'warning text'
+grep -E -q '剩余 [12] 天' "$RUN/out" || fail "soon text: $(cat "$RUN/out")"
 
 new_run
 mark_up

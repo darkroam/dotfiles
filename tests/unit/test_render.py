@@ -34,14 +34,14 @@ def check_usage_color(colored):
     if len(lines) != 8:
         raise SystemExit("usage lines")
     expect = {
-        0: ("s tatus", "c lean", "h elp"),
-        1: ("se rvice", "s tatus", "sta rt", "sto p", "re start", "e nsure", "en able", "di sable"),
-        2: ("su bscription", "s tatus", "r efresh", "c lean"),
-        3: ("r ule", "s tatus", "sh ow", "a dd", "d el"),
+        0: ("se rvice", "s tatus", "sta rt", "sto p", "re start", "e nsure", "en able", "di sable"),
+        1: ("su bscription", "s tatus", "r efresh", "c lean"),
+        2: ("r ule", "s tatus", "sh ow", "a dd", "d el"),
+        3: ("g roup", "s tatus", "m embers", "sw itch", "t est"),
         4: ("n ode", "s tatus", "sh ow"),
-        5: ("g roup", "s tatus", "m embers", "sw itch", "t est"),
-        6: ("t est", "i p"),
-        7: ("p roxy", "s tatus", "u ser", "sy stem", "se ssion"),
+        5: ("t est", "i p"),
+        6: ("p roxy", "s tatus", "u ser", "sy stem", "se ssion"),
+        7: ("s tatus", "c lean", "h elp"),
     }
     for index, pairs in expect.items():
         for pair in pairs:
@@ -53,9 +53,9 @@ def check_usage_color(colored):
     if health != marked("he", "alth") or help_word != marked("h", "elp"):
         raise SystemExit("quiet top alias")
     actions = bold("on") + "|" + bold("off") + "|" + bold("status")
-    if actions not in lines[7] or marked("s", "tatus") not in lines[7]:
+    if actions not in lines[6] or marked("s", "tatus") not in lines[6]:
         raise SystemExit("proxy actions")
-    if bold("enable") not in lines[7]:
+    if bold("enable") not in lines[6]:
         raise SystemExit("system enable should stay bold")
 
 
@@ -85,22 +85,16 @@ def check_help_aliases():
 
 def check_help_heads(help_plain):
     heads = (
-        ("服务", "service"),
-        ("订阅", "subscription"),
-        ("规则", "rule"),
-        ("节点", "node"),
-        ("组", "group"),
-        ("网络", "network"),
-        ("代理", "proxy"),
-        ("清理", "clean"),
+        ("服务", "service"), ("订阅", "subscription"), ("规则", "rule"), ("策略组", "group"),
+        ("节点", "node"), ("网络", "network"), ("代理", "proxy"), ("其它", ""),
     )
     marks = _alias_marks(GROUPS["top"][1])
     titles = [item[0] for item in SECTIONS]
     if len(titles) != len(heads):
         raise SystemExit("help section count")
     for (zh, command), title in zip(heads, titles):
-        alias = marks.get(command)
-        want = f"{zh}（{command} / {alias}）" if alias else f"{zh}（{command}）"
+        alias = marks.get(command) if command else ""
+        want = zh if not command else (f"{zh}（{command} / {alias}）" if alias else f"{zh}（{command}）")
         if title != want or title not in help_plain.splitlines():
             raise SystemExit("help head " + want)
     for line in help_plain.splitlines():
