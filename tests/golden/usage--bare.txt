@@ -3,9 +3,9 @@ exit: 1
 --- stderr
 用法：axs status|clean|help
       axs service status|start|stop|restart|ensure|enable|disable
-      axs subscription show|refresh|clean
-      axs rule show|add|del
-      axs node show --full|--select|--all --depth N
-      axs group show|members|switch|test
+      axs subscription status|refresh|clean
+      axs rule status|show|add|del
+      axs node status|show --full|--all --depth N
+      axs group status|members|switch|test
       axs network test|ip
-      axs proxy user on|off|status; system on|off|enable|disable|status; session enable|disable|status
+      axs proxy status; user on|off|status; system on|off|enable|disable|status; session enable|disable|status

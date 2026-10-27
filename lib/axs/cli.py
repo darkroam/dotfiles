@@ -4,7 +4,7 @@ from axs.codes import DOWN, EXPIRED, FAIL, LOCK, USAGE
 import os
 import sys
 
-from axs.render import bold, die, emph, help_text
+from axs.render import bold, die, emph, help_text, layer_text
 
 
 class ResolveError(Exception):
@@ -23,6 +23,7 @@ TOP = (
         "r": "rule",
         "su": "subscription",
         "p": "proxy",
+        "nw": "network",
         "c": "clean",
         "h": "help",
         "?": "help",
@@ -47,12 +48,12 @@ GROUPS = {
             "he": "health",
         },
     ),
-    "node": ("show".split(), {"s": "show"}),
-    "group": ("show members switch test".split(), {"s": "show", "sw": "switch", "m": "members", "t": "test"}),
-    "rule": ("show add del".split(), {"s": "show", "a": "add", "d": "del"}),
-    "subscription": ("show refresh clean".split(), {"s": "show", "r": "refresh", "c": "clean"}),
+    "node": ("status show".split(), {"s": "status", "sh": "show"}),
+    "group": ("status members switch test".split(), {"s": "status", "sw": "switch", "m": "members", "t": "test"}),
+    "rule": ("status show add del".split(), {"s": "status", "sh": "show", "a": "add", "d": "del"}),
+    "subscription": ("status refresh clean".split(), {"s": "status", "r": "refresh", "c": "clean"}),
     "network": ("test ip".split(), {"t": "test", "i": "ip"}),
-    "proxy": ("user system session".split(), {"u": "user", "sy": "system", "se": "session"}),
+    "proxy": ("status user system session".split(), {"s": "status", "u": "user", "sy": "system", "se": "session"}),
 }
 
 def resolve_token(word, words, aliases):
@@ -106,18 +107,20 @@ def usage_text():
     previous = os.environ.get("AXS_PAINT_FD")
     os.environ["AXS_PAINT_FD"] = "2"
     try:
-        flags = "|".join(_usage_word(flag) for flag in ("--full", "--select", "--all"))
+        flags = "|".join(_usage_word(flag) for flag in ("--full", "--all"))
         lines = [
             "用法：axs " + _pipes(["status", "clean", "help"], "top"),
             "      axs " + _usage_word("service", "top") + " " + _pipes(["status", "start", "stop", "restart", "ensure", "enable", "disable"], "service"),
-            "      axs " + _usage_word("subscription", "top") + " " + _pipes(["show", "refresh", "clean"], "subscription"),
-            "      axs " + _usage_word("rule", "top") + " " + _pipes(["show", "add", "del"], "rule"),
-            "      axs " + _usage_word("node", "top") + " " + _usage_word("show", "node") + " " + flags + " " + _usage_word("--depth") + " N",
-            "      axs " + _usage_word("group", "top") + " " + _pipes(["show", "members", "switch", "test"], "group"),
+            "      axs " + _usage_word("subscription", "top") + " " + _pipes(["status", "refresh", "clean"], "subscription"),
+            "      axs " + _usage_word("rule", "top") + " " + _pipes(["status", "show", "add", "del"], "rule"),
+            "      axs " + _usage_word("node", "top") + " " + _pipes(["status", "show"], "node") + " " + flags + " " + _usage_word("--depth") + " N",
+            "      axs " + _usage_word("group", "top") + " " + _pipes(["status", "members", "switch", "test"], "group"),
             "      axs " + _usage_word("network", "top") + " " + _pipes(["test", "ip"], "network"),
             "      axs "
             + _usage_word("proxy", "top")
             + " "
+            + _usage_word("status", "proxy")
+            + "; "
             + _usage_word("user", "proxy")
             + " "
             + _pipes(["on", "off", "status"])
@@ -166,10 +169,10 @@ def _list_flags(args):
     index = 0
     while index < len(args):
         arg = args[index]
-        if arg in ("--full", "--flat", "-l", "--select", "--all"):
+        if arg in ("--full", "--flat", "-l", "--all"):
             if mode:
                 die(USAGE, "用法错误")
-            mode = {"--flat": "flat", "-l": "flat", "--select": "select", "--all": "all"}.get(arg, "full")
+            mode = {"--flat": "flat", "-l": "flat", "--all": "all"}.get(arg, "full")
             index += 1
             continue
         if arg != "--depth":
@@ -181,7 +184,7 @@ def _list_flags(args):
             die(USAGE, "用法错误")
         depth = int(token)
         index += 2
-    if depth is not None and mode not in ("full", "select"):
+    if depth is not None and mode not in ("", "full"):
         die(USAGE, "用法错误")
     return mode, depth
 
@@ -216,7 +219,7 @@ def _node(run, kind, args):
     if kind == "groups" and args:
         die(USAGE, "用法错误")
     if kind == "members" and (len(args) != 1 or args[0].startswith("-")):
-        die(USAGE, "用法错误，先看 group show" if not args else "用法错误")
+        die(USAGE, "用法错误，先看 group status" if not args else "用法错误")
     if kind == "test" and len(args) > 1:
         die(USAGE, "用法错误")
     if kind == "switch" and len(args) != 2:
@@ -255,15 +258,17 @@ def _node(run, kind, args):
     secret = Path(run) / SECRET
     if kind == "groups":
         show_groups(secret, api)
+    elif kind == "status":
+        show_rule_nodes(run, secret, api)
     elif kind == "list":
-        if list_mode in ("full", "select"):
-            _show_tree(secret, api, list_mode, depth)
-        elif list_mode == "flat":
+        if list_mode == "flat":
             show_nodes(secret, api, "flat")
         elif list_mode == "all":
             show_all(run, secret, api)
+        elif list_mode == "full":
+            _show_tree(secret, api, "full", depth)
         else:
-            show_rule_nodes(run, secret, api)
+            _show_tree(secret, api, "select", depth)
     elif kind == "members":
         show_members(_proxies(secret, api), args[0], str(run))
     else:
@@ -298,7 +303,7 @@ def _rule_status(run):
 
 def main(argv):
     from axs.net import net_ip, net_test
-    from axs.proxy import proxy_session, proxy_system, proxy_user
+    from axs.proxy import proxy_session, proxy_status, proxy_system, proxy_user
     from axs.rulelist import cmd_list
     from axs.rules import cmd_add, cmd_del
     from axs.service import boot, clean, ensure, health, prime, restart, run_dir, service_status, start, status, stop
@@ -312,6 +317,9 @@ def main(argv):
         _usage()
     cmd, rest = _take("top", argv)
     run = run_dir()
+    if cmd in {"service", "node", "group", "rule", "subscription", "proxy"} and not rest:
+        sys.stdout.write(layer_text(cmd))
+        return
     if cmd == "help":
         if rest:
             _usage()
@@ -345,20 +353,20 @@ def main(argv):
             boot(run, op)
     elif cmd == "subscription":
         op, extra = _take("subscription", rest)
-        if op == "show":
+        if op == "status":
             show_userinfo(Path(run) / USERINFO, unix_now())
         elif op == "refresh":
             _refresh(run)
         elif op == "clean":
             clean(run, "sub", extra)
-        else:
-            _usage()
     elif cmd == "rule":
         op, extra = _take("rule", rest)
-        if op == "show":
-            if extra == ["status"]:
-                _rule_status(run)
-            elif extra not in ([], ["--local"]):
+        if op == "status":
+            if extra:
+                die(USAGE, "用法错误")
+            _rule_status(run)
+        elif op == "show":
+            if extra not in ([], ["--local"]):
                 die(USAGE, "用法错误")
             else:
                 cmd_list(run, extra == ["--local"])
@@ -366,17 +374,14 @@ def main(argv):
             cmd_add(run, extra)
         elif op == "del":
             cmd_del(run, extra)
-        else:
-            _usage()
     elif cmd == "node":
-        if not rest:
-            _node(run, "list", [])
-        else:
-            _op, extra = _take("node", rest)
-            _node(run, "list", extra)
+        op, extra = _take("node", rest)
+        if op == "status" and extra:
+            die(USAGE, "用法错误")
+        _node(run, "status" if op == "status" else "list", extra)
     elif cmd == "group":
         op, extra = _take("group", rest)
-        kind = {"show": "groups", "members": "members", "switch": "switch", "test": "test"}[op]
+        kind = {"status": "groups", "members": "members", "switch": "switch", "test": "test"}[op]
         _node(run, kind, extra)
     elif cmd == "network":
         op, extra = _take("network", rest)
@@ -384,10 +389,11 @@ def main(argv):
             net_test(run, extra)
         elif op == "ip":
             net_ip(run, extra)
-        else:
-            _usage()
     elif cmd == "proxy":
         op, extra = _take("proxy", rest)
-        {"user": proxy_user, "system": proxy_system, "session": proxy_session}[op](run, extra)
-    else:
-        _usage()
+        if op == "status":
+            if extra:
+                die(USAGE, "用法错误")
+            proxy_status(run)
+        else:
+            {"user": proxy_user, "system": proxy_system, "session": proxy_session}[op](run, extra)

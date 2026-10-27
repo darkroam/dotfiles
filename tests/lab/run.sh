@@ -220,7 +220,7 @@ check() {
     static
     say "a kernel-reject"
     up
-    groups=$("$AXS" group show)
+    groups=$("$AXS" group status)
     printf '%s\n' "$groups" | grep -E -x 'G[0-9]+ +PROXY +Selector +→ local' >/dev/null || {
         say "FAIL groups"
         printf '%s\n' "$groups" >&2
@@ -364,22 +364,22 @@ check() {
 
 record_sims() {
     say "sim switch-restart"
-    before=$("$AXS" group show 2>/dev/null || true)
+    before=$("$AXS" group status 2>/dev/null || true)
     say "sim before-stop $before"
     code_of group switch PROXY spare || true
     say "sim switch-spare code=$CODE"
     "$AXS" service stop >/dev/null 2>&1 || true
     "$AXS" service start >/dev/null 2>&1 || true
-    after=$("$AXS" group show 2>/dev/null || true)
+    after=$("$AXS" group status 2>/dev/null || true)
     say "sim after-restart $after"
     say "sim switch-reload"
     code_of group switch PROXY local || true
     say "sim switch-local code=$CODE"
-    before=$("$AXS" group show 2>/dev/null || true)
+    before=$("$AXS" group status 2>/dev/null || true)
     say "sim before-reload $before"
     code_of rule add via sim.test PROXY || true
     say "sim rule code=$CODE"
-    after=$("$AXS" group show 2>/dev/null || true)
+    after=$("$AXS" group status 2>/dev/null || true)
     say "sim after-reload $after"
 }
 

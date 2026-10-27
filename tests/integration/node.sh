@@ -58,7 +58,7 @@ grep -q 'auth=yes' "$RUN/fake/log" || fail 'api was not authenticated'
 if grep -F 'test-secret-value' "$RUN/fake/log" "$RUN/out" "$RUN/err" >/dev/null 2>&1; then
     fail 'secret reached the log or output'
 fi
-assert_code 'groups' 0 group show
+assert_code 'groups' 0 group status
 test "$(cat "$RUN/out")" = "G1  PROXY  Selector  → a" || fail "groups columns: $(cat "$RUN/out")"
 
 new_run
@@ -127,7 +127,7 @@ list_want=$(printf '%s\n' \
     "$(printf '\tb\tShadowsocks\tPROXY')" \
     "$(printf '\tlonely\tSocks\t-')")
 test "$(cat "$RUN/out")" = "$list_want" || fail "list columns: $(cat "$RUN/out")"
-assert_code 'groups columns' 0 group show
+assert_code 'groups columns' 0 group status
 groups_want=$(printf '%s\n' \
     'G1  AUTO   URLTest   → b' \
     'G2  PROXY  Selector  → a' \
@@ -326,14 +326,14 @@ test "$(grep -c . "$RUN/err")" -eq 1 || fail "delay stderr: $(cat "$RUN/err")"
 grep -qx '控制器失败' "$RUN/err" || fail "delay reason: $(cat "$RUN/err")"
 
 new_run
-assert_code 'list down' 2 node show
+assert_code 'list down' 2 node status
 
 new_run
 mark_up
 export AXS_API="127.0.0.1:18081"
 arm_api PROXY 204 0
 : >"$RUN/fake/down"
-assert_code 'list api down' 3 node show
+assert_code 'list api down' 3 node status
 
 new_run
 mark_up

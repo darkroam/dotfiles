@@ -174,7 +174,7 @@ def check_cli_down():
         env["AXS_RUN"] = tmp
         env["HOME"] = tmp
         result = subprocess.run(
-            [str(ROOT / "bin" / "axs"), "rule", "show", "status"],
+            [str(ROOT / "bin" / "axs"), "rule", "status"],
             env=env,
             text=True,
             capture_output=True,

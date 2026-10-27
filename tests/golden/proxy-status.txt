@@ -1,0 +1,6 @@
+exit: 0
+--- stdout
+user      off (unset)
+system    off (mode=) · persist disabled · desktop no x session
+session   persist disabled · effect -
+--- stderr
