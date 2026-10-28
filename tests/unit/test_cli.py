@@ -196,7 +196,10 @@ def check_node_args():
             except SystemExit as exc:
                 code = exc.code if isinstance(exc.code, int) else 1
             want = layer_text(name, LOOPBACK)
-            drifted = name == "proxy" and bare != f"exit: 0\n--- stdout\n{want}--- stderr\n"
+            drifted = name == "proxy" and (
+                bare != f"exit: 0\n--- stdout\n{want}--- stderr\n"
+                or f"curl -x http://{LOOPBACK}:<本机端口> https://ipinfo.io/ip" not in want
+            )
             if code != 0 or err_buf.getvalue() or out_buf.getvalue() != want or drifted:
                 raise SystemExit(f"bare {name} -> {code} {err_buf.getvalue()!r} {out_buf.getvalue()!r}")
         old_in = sys.stdin
@@ -342,6 +345,7 @@ def check_sig():
         ("network", "test"): (0, None, (), False), ("network", "ip"): (0, 0, (), False),
         ("proxy", "status"): (0, 0, (), False), ("proxy", "user"): (1, 1, (), False),
         ("proxy", "system"): (1, 1, (), False), ("proxy", "session"): (1, 1, (), False),
+        ("proxy", "lan"): (1, 1, ("--yes",), False),
     }
     if set(expect) != {(group, name) for group, spec in SIG.items() for name in spec}:
         raise SystemExit("sig table " + str(len(expect)))
@@ -367,6 +371,7 @@ def check_sig():
         ("proxy", "user"): ("axs proxy user", "on|off|status"),
         ("proxy", "system"): ("axs proxy system", "on|off|enable|disable|status"),
         ("proxy", "session"): ("axs proxy session", "enable|disable|status"),
+        ("proxy", "lan"): ("axs proxy lan", "on --yes|off|status"),
     }
     if USE != use_want:
         raise SystemExit("use lines")

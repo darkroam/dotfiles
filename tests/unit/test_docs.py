@@ -134,8 +134,12 @@ def main():
         fail("cli ceiling")
     if "| `lib/axs/catalog.py` | 命令树数据与子命令签名。不解析、不分发、不排版 | 160 行 |" not in arch:
         fail("catalog ceiling")
+    if "| `lib/axs/sections.py` | 帮助节正文。不解析、不分发 | 80 行 |" not in arch:
+        fail("sections ceiling")
     if "| `lib/axs/subslist.py` | 订阅列表的解析与写入。不拉取 | 200 行 |" not in arch:
         fail("subslist ceiling")
+    if "| `lib/axs/proxylan.py` | 局域网监听。不改三层开关 | 150 行 |" not in arch:
+        fail("proxylan ceiling")
     sentence = "用法：axs group members <组>（先看 group status）"
     if design.count(sentence) != 2:
         fail("members hint")

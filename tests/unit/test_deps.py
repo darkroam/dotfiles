@@ -10,19 +10,21 @@ LIB = ROOT / "lib" / "axs"
 
 # Lower index is a lower layer. A module may import a strictly lower layer.
 LAYERS = (
-    ("config", "codes", "catalog"),
+    ("config", "codes", "catalog", "sections"),
     ("core", "render", "mihomo"),
     ("net", "nodes", "rulelist"),
     ("routes", "nodelist"),
     ("leafdelay", "progress", "subslist"),
-    ("subscription", "rules", "proxy"),
+    ("subscription", "rules"),
+    ("proxylan",),
+    ("proxy",),
     ("tree", "service", "nodeview", "selectview", "nodetest", "grouptest"),
     ("nodecmd",),
     ("cli",),
     ("__main__",),
 )
-# Same-layer logic edge. render may import only catalog.
-APPROVED = {("rules", "subscription")}
+# Same-layer edges. render may import only catalog and sections.
+APPROVED = {("rules", "subscription"), ("catalog", "sections")}
 
 
 def fail(message):
@@ -99,9 +101,11 @@ def graph():
     found = edges()
     allowed_pairs = set()
     for src, dst, line in found:
-        if src == "catalog":
+        if src == "catalog" and dst != "sections":
             fail(f"catalog import {line} -> {dst}")
-        if src == "render" and dst in rank and dst != "catalog":
+        if src == "sections":
+            fail(f"sections import {line} -> {dst}")
+        if src == "render" and dst not in {"catalog", "sections"}:
             fail(f"render import {line} -> {dst}")
         if src not in rank or dst not in rank:
             fail(f"unlayered {src}:{line} -> {dst}")
@@ -116,8 +120,11 @@ def graph():
         fail(f"layer {src}:{line} -> {dst}")
     if ("rules", "subscription") not in allowed_pairs:
         fail("approved edge missing")
-    if ("render", "catalog") not in {(src, dst) for src, dst, _line in found}:
+    pairs = {(src, dst) for src, dst, _line in found}
+    if ("render", "catalog") not in pairs:
         fail("render lost catalog")
+    if ("render", "sections") not in pairs or ("catalog", "sections") not in pairs:
+        fail("sections edge missing")
     seen = {}
     for src, dst, _line in found:
         seen.setdefault(src, set()).add(dst)

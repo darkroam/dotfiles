@@ -157,7 +157,7 @@
 
 ## 状态
 
-`axs status` 固定五节。节标题粗体。顺序是服务、订阅、路由、测速、代理。服务和测速的标签灰，这两节和订阅、路由的正文缩进两格。代理三行与 `proxy status` 相同，不另缩进。
+`axs status` 固定五节。节标题粗体。顺序是服务、订阅、路由、测速、代理。服务和测速的标签灰，这两节和订阅、路由的正文缩进两格。代理四行与 `proxy status` 相同，不另缩进。
 
 ```
 服务
@@ -172,7 +172,7 @@
   net     上次连通缓存距今多久；没有为 -
   node    上次延迟缓存距今多久；没有为 -
 代理
-  user / system / session 三行，与 proxy status 相同（含 mode、desktop、unset）
+  user / system / session / lan 四行，与 proxy status 相同（含 mode、desktop、unset、allow-lan、bind）
 ```
 
 刷新时间来自 `systemctl list-timers --output=json` 的 `next` 与 `left`。缺一个就是 `-`。
@@ -254,7 +254,7 @@
 
 ## 代理
 
-服务只听回环上的混合端口。三层只决定谁去连它，不改内核进程。默认不注入。`proxy user` 与现有 `setproxy` 一样，都是显式打开。
+默认只听回环上的混合端口。`proxy lan on` 才放开。三层只决定谁去连它，不改内核进程。默认不注入。`proxy user` 与现有 `setproxy` 一样，都是显式打开。
 
 存在性开关只看文件在不在，名字以 `.flag` 结尾：`run/proxy-session.flag`、`run/proxy-system.flag`。`enable` 写成 0600，并删掉改名前的旧文件。
 
@@ -271,11 +271,14 @@
 | session enable | 写会话开关。没有 on/off |
 | session disable | 删会话开关 |
 | session status | 开关不在：persist `disabled`，effect `-`，退出 `USAGE`。钩子缺失也退出 `USAGE`。没有 X 会话：effect `no-x-session`。已经注入且指向本代理：effect `active`，退出 0。否则 effect `pending`，退出 `USAGE` |
-| proxy status | 三行汇总：user（on/off 与当前值或 unset）、system（运行时、mode、persist、desktop）、session（persist、effect）。钩子缺失单独标出。不调用 gsettings 的失败退出，没有该命令时 mode 写 `no gsettings`。恒为 0 |
+| proxy status | 四行汇总：user（on/off 与当前值或 unset）、system（运行时、mode、persist、desktop）、session（persist、effect）、lan（allow-lan 与 bind）。钩子缺失单独标出。不调用 gsettings 的失败退出，没有该命令时 mode 写 `no gsettings`。恒为 0 |
+| proxy lan on | 必须带 `--yes`，否则警告并退出 `USAGE`。只改 override 的 `allow-lan` 与 `bind-address`（打开为 true 与 `*`，其它键保留），然后重载。回环混合端口不通则恢复 override 并 `FAIL` |
+| proxy lan off | `allow-lan` 设为 false，`bind-address` 设为回环。同样重载并做回环校验 |
+| proxy lan status | 输出 allow-lan、bind、端口、LAN 地址，以及固定警告「混合端口无认证，仅限可信局域网」。退出 0 |
 
 会话环境读 dwm 进程的 environ。`AXS_SESSION_PID` 可以指定测哪个进程。
 
-`axs proxy` 裸命令在子命令说明后另起隧道段。默认帮助、`help --verbose` 和未知命令回执都不附。标题粗体，注释暗色，命令普通色，正文两格缩进。回环取 config 的回环地址，帮助里不写默认端口。正向：对方执行 `ssh -L <对方端口>:127.0.0.1:<本机端口> <用户>@<本机>`，本机 sshd 需 `AllowTcpForwarding local/all/yes`。反向：本机执行 `ssh -R <对方端口>:127.0.0.1:<本机端口> <用户>@<对方>`，对方 sshd 需 `AllowTcpForwarding remote/all/yes`；仅对方局域网连 `-R` 的非 loopback 才需 `GatewayPorts`：`yes` 强制全接口，`clientspecified` 需显式 `0.0.0.0:`。对方终端 `export http_proxy=http://127.0.0.1:<本机端口>` 与 `export https_proxy=$http_proxy` 等于本机的 `proxy user`，不是 `system`/`session`。本机端口见 `axs status` 或 `service status` 的端口行，不在 `proxy status`。检查命令是 `sshd -T | grep -E 'allowtcpforwarding|gatewayports'`。
+`axs proxy` 裸命令在子命令说明后另起隧道段。默认帮助、`help --verbose` 和未知命令回执都不附。标题粗体，注释暗色，命令普通色，正文两格缩进。回环取 config 的回环地址，帮助里不写默认端口。正向：对方执行 `ssh -L <对方端口>:127.0.0.1:<本机端口> <用户>@<本机>`，本机 sshd 需 `AllowTcpForwarding local/all/yes`。反向：本机执行 `ssh -R <对方端口>:127.0.0.1:<本机端口> <用户>@<对方>`，对方 sshd 需 `AllowTcpForwarding remote/all/yes`；仅对方局域网连 `-R` 的非 loopback 才需 `GatewayPorts`：`yes` 强制全接口，`clientspecified` 需显式 `0.0.0.0:`。对方终端 `export http_proxy=http://127.0.0.1:<本机端口>` 与 `export https_proxy=$http_proxy` 等于本机的 `proxy user`，不是 `system`/`session`。验证行 `curl -x http://127.0.0.1:<本机端口> https://ipinfo.io/ip` 普通色，紧跟这段说明。本机端口见 `axs status` 或 `service status` 的端口行，不在 `proxy status`。检查命令是 `sshd -T | grep -E 'allowtcpforwarding|gatewayports'`。
 
 登录脚本有两块，插入时都要判重。会话开关在时导出代理变量。系统开关在时导出 `XDG_CURRENT_DESKTOP=GNOME`。都要重登 X 才生效。`no_proxy` 只含 config 里的回环名单，私网例外由内核规则承担。
 

@@ -1,5 +1,7 @@
 """Command tree. Data only: no parsing, dispatch, or layout."""
 
+from axs.sections import SECTIONS
+
 TOP = (
     "status service node group rule subscription network proxy clean help".split(),
     {
@@ -40,65 +42,10 @@ GROUPS = {
     "rule": ("status show add del".split(), {"s": "status", "sh": "show", "a": "add", "d": "del"}),
     "subscription": ("status show add rm switch refresh clean".split(), {"s": "status", "sh": "show", "a": "add", "rm": "rm", "sw": "switch", "r": "refresh", "c": "clean"}),
     "network": ("test ip".split(), {"t": "test", "i": "ip"}),
-    "proxy": ("status user system session".split(), {"s": "status", "u": "user", "sy": "system", "se": "session"}),
+    "proxy": ("status user system session lan".split(), {"s": "status", "u": "user", "sy": "system", "se": "session"}),
 }
 
 INTRO = "单字符优先；冲突用两字母；前缀亦可"
-
-SECTIONS = (
-    ("服务（service / se）", (
-        ("axs service status", "s", "状态、自启、端口、控制器"),
-        ("axs service start", "sta", "启动服务"),
-        ("axs service stop", "sto", "停止服务"),
-        ("axs service restart", "re", "重启服务"),
-        ("axs service ensure", "e", "保证服务在跑"),
-        ("axs service enable", "en", "打开开机自启"),
-        ("axs service disable", "di", "关闭开机自启"),
-    ), ()),
-    ("订阅（subscription / su）", (
-        ("axs subscription status", "s", "流量与到期"),
-        ("axs subscription show", "sh", "列表，只显示主机"),
-        ("axs subscription add", "a", "追加一条，不拉取"),
-        ("axs subscription rm", "rm", "删除非当前条目"),
-        ("axs subscription switch", "sw", "切换并刷新"),
-        ("axs subscription refresh", "r", "拉取并重载"),
-        ("axs subscription clean", "c", "删除当前安装，保留列表"),
-    ), ()),
-    ("规则（rule / r）", (
-        ("axs rule status", "s", "规则路径，不含成员"),
-        ("axs rule show", "sh", "按顺序编号；来源 prepend/local/provider；--local 只看本地"),
-        ("axs rule add via", "v", "域名 + 组"),
-        ("axs rule add direct", "d", "域名"),
-        ("axs rule add node", "n", "域名 + 节点"),
-        ("axs rule del", "d", "<域名|RID|规则全文>"),
-    ), ()),
-    ("策略组（group / g）", (
-        ("axs group status", "s", "策略组与当前选择"),
-        ("axs group members", "m", "组成员：编号、类型、当前、延迟"),
-        ("axs group switch", "sw", "组名或 G#，再接名字、N# 或 G#"),
-        ("axs group test", "t", "测一组，或 --all 测全部组"),
-    ), ()),
-    ("节点（node / n）", (
-        ("axs node status", "s", "当前规则路径与末端组"),
-        ("axs node show", "sh", "--all 全量叶子；--full 树；--depth"),
-        ("axs node test", "t", "测一个叶子，或 --all 测可选叶子"),
-    ), ()),
-    ("网络（network / nw）", (
-        ("axs network test", "t", "测连通，可接网址"),
-        ("axs network ip", "i", "经代理查出口 IP"),
-    ), ()),
-    ("代理（proxy / p）", (
-        ("axs proxy status", "s", "三层汇总"),
-        ("axs proxy user", "u", "当前 shell 环境（on|off|status）"),
-        ("axs proxy system", "sy", "运行时 on|off；持久 enable|disable"),
-        ("axs proxy session", "se", "登录持久 enable|disable|status"),
-    ), ()),
-    ("其它", (
-        ("axs status", "s", "查看全部状态"),
-        ("axs clean", "c", "清理本地配置，可加 --yes"),
-        ("axs help", "h", "帮助"),
-    ), ()),
-)
 
 # (最少位置参数, 最多位置参数或 None, 旗标, 是否隐藏)。旗标以 = 结尾还要吃下一个词，以 ! 结尾则帮助不列。
 SIG = {
@@ -131,6 +78,7 @@ SIG = {
     "proxy": {
         "status": (0, 0, (), False), "user": (1, 1, (), False),
         "system": (1, 1, (), False), "session": (1, 1, (), False),
+        "lan": (1, 1, ("--yes",), False),
     },
 }
 
@@ -145,6 +93,7 @@ USE = {
     ("network", "test"): ("axs network test", "[网址 ...]"),
     ("proxy", "user"): ("axs proxy user", "on|off|status"), ("proxy", "system"): ("axs proxy system", "on|off|enable|disable|status"),
     ("proxy", "session"): ("axs proxy session", "enable|disable|status"),
+    ("proxy", "lan"): ("axs proxy lan", "on --yes|off|status"),
 }
 
 MORE = (

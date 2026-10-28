@@ -15,4 +15,5 @@ exit: 2
   user      off (unset)
   system    off (mode=) · persist disabled · desktop no x session
   session   persist disabled · effect -
+  lan       off (allow-lan false · bind -)
 --- stderr
