@@ -119,7 +119,7 @@ run/                         运行时。不入库
 | `lib/axs/nodes.py` | 编号、切换、测速缓存。列表在 nodelist | 330 行 |
 | `lib/axs/nodelist.py` | 组/节点列表与测速行渲染。不持有数据、不测速 | 200 行 |
 | `lib/axs/nodetest.py` | 叶子测速。不切换、不改配置 | 220 行 |
-| `lib/axs/grouptest.py` | 组测速。不切换、不改配置 | 150 行 |
+| `lib/axs/grouptest.py` | 组测速。不切换、不改配置 | 170 行 |
 | `lib/axs/leafdelay.py` | 延迟超时、HTTP 等待与原因分类。不发请求、不写缓存 | 120 行 |
 | `lib/axs/progress.py` | 可复用进度条。非 TTY 不输出 | 100 行 |
 | `lib/axs/nodeview.py` | 默认页与成员表。不画拓扑 | 160 行 |

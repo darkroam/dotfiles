@@ -94,11 +94,75 @@ def check_all(tmp):
         fail(log)
 
 
+def check_continue(tmp):
+    import urllib.parse
+
+    from axs.codes import FAIL
+    from axs.mihomo import _fail
+
+    fake = Path(tmp) / "fake"
+    fake.mkdir()
+    (fake / "delay.json").write_text('{"a": 12}\n', encoding="utf-8")
+    cache = Path(tmp) / "cache" / "node-test"
+    cache.parent.mkdir()
+    cache.write_text("ts=1\nresult=ok\n{\"keep\": 9}\n", encoding="utf-8")
+    proxies = {
+        "A": {"type": "Selector", "all": ["a"], "now": "a"},
+        "B": {"type": "Selector", "all": ["a"], "now": "a"},
+        "C": {"type": "URLTest", "all": ["a"], "now": "a"},
+        "a": {"type": "Shadowsocks"},
+    }
+    original = grouptest.request
+
+    def request(secret, api, method, path, body=None, timeout=5):
+        pure = path.split("?", 1)[0]
+        name = urllib.parse.unquote(pure[len("/group/"): -len("/delay")])
+        if name == "B":
+            _fail("控制器失败：HTTP 504")
+        return original(secret, api, method, path, body, timeout)
+
+    saved = os.environ.get("AXS_FAKE_DIR")
+    os.environ["AXS_FAKE_DIR"] = str(fake)
+    os.environ["AXS_COLOR"] = "never"
+    grouptest.request = request
+    out, err = io.StringIO(), io.StringIO()
+    code = 0
+    try:
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            grouptest._all(tmp, "test-secret-value", "127.0.0.1:9", proxies, "http://127.0.0.1/x")
+    except SystemExit as exc:
+        code = exc.code if isinstance(exc.code, int) else 1
+    finally:
+        grouptest.request = original
+        if saved is None:
+            os.environ.pop("AXS_FAKE_DIR", None)
+        else:
+            os.environ["AXS_FAKE_DIR"] = saved
+    text = (
+        "G1 A [Selector]\n"
+        "a 12\n"
+        "G2 B [Selector]\n"
+        "控制器失败：HTTP 504\n"
+        "G3 C [URLTest]\n"
+        "a 12\n"
+    )
+    if code != FAIL or out.getvalue() != text or err.getvalue():
+        fail((code, out.getvalue(), err.getvalue()))
+    log = (fake / "log").read_text(encoding="utf-8")
+    if "/group/A/" not in log or "/group/C/" not in log:
+        fail(log)
+    body = cache.read_text(encoding="utf-8")
+    if "result=fail" not in body or '"keep": 9' not in body or '"a": 12' not in body:
+        fail(body)
+
+
 def main():
     os.environ["AXS_COLOR"] = "never"
     check_args()
     with tempfile.TemporaryDirectory(prefix="axs-grouptest-") as tmp:
         check_all(tmp)
+    with tempfile.TemporaryDirectory(prefix="axs-grouptest-") as tmp:
+        check_continue(tmp)
     print("grouptest ok")
     return 0
 

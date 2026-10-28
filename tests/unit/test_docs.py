@@ -120,7 +120,7 @@ def main():
         fail("nodetest file row")
     if "| `lib/axs/nodetest.py` | 叶子测速。不切换、不改配置 | 220 行 |" not in arch:
         fail("nodetest ceiling")
-    if "| `lib/axs/grouptest.py` | 组测速。不切换、不改配置 | 150 行 |" not in arch:
+    if "| `lib/axs/grouptest.py` | 组测速。不切换、不改配置 | 170 行 |" not in arch:
         fail("grouptest ceiling")
     if "| `lib/axs/leafdelay.py` | 延迟超时、HTTP 等待与原因分类。不发请求、不写缓存 | 120 行 |" not in arch:
         fail("leafdelay file row")
