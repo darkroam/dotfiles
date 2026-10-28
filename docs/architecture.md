@@ -33,23 +33,24 @@ bin/axs  bin/mihomo-run
     |
  core ---------------- mihomo
     |
- config    codes    catalog
+ config    codes    catalog    sections
 ```
 
-`render` 不在这条链上，也不得引用任何 axs 模块。唯一例外是只读 `catalog`。为了输出调用它，不算斜边。`catalog` 在最底层，只放命令树，不引用任何模块。`service` 是编排，可以调用它下面的模块。除 `nodecmd` 外，命令模块不调用 `service`。`nodecmd` 编排 node 与 group 的视图命令。`tree`、`nodeview`、`selectview` 只被 `nodecmd` 调用。`nodetest` 与 `grouptest` 只被 `cli` 调用，彼此不引用。`nodetest` 逐叶请求 `/proxies`。`grouptest` 请求 `/group`。进度在 `progress`。`subslist` 只解析订阅列表，不拉取。`leafdelay` 提供查询超时和 HTTP 等待。`nodes` 不再拥有 delay，只留测速缓存格式。 `nodelist` 画组表、节点列表与测速行，只问 `nodes` 的编号、延迟和选择。
+`render` 不在这条链上，也不得引用任何 axs 模块。唯一例外是只读 `catalog` 与 `sections`。为了输出调用它，不算斜边。`catalog` 在最底层，只放命令树，只引用 `sections`。`sections` 只放帮助节，不引用任何模块。`service` 是编排，可以调用它下面的模块。除 `nodecmd` 外，命令模块不调用 `service`。`nodecmd` 编排 node 与 group 的视图命令。`tree`、`nodeview`、`selectview` 只被 `nodecmd` 调用。`nodetest` 与 `grouptest` 只被 `cli` 调用，彼此不引用。`nodetest` 逐叶请求 `/proxies`。`grouptest` 请求 `/group`。进度在 `progress`。`subslist` 只解析订阅列表，不拉取。`leafdelay` 提供查询超时和 HTTP 等待。`nodes` 不再拥有 delay，只留测速缓存格式。 `nodelist` 画组表、节点列表与测速行，只问 `nodes` 的编号、延迟和选择。
 
 斜边台账：
 
 | 从 | 到 | 原因 |
 | --- | --- | --- |
 | rules | subscription | 合并后的安装复用订阅模块 |
+| catalog | sections | 帮助节从命令树拆出 |
 
 反向不行。import 只能指向更下层，或台账里的这一条。锁、持锁和进程存活只来自 `core`。入站端口是否打开只来自 `net`。内核路径、内置网段和原子写只来自 `config`。重载请求只来自 `mihomo`。
 
 | 模块 | 拥有 | 不拥有 |
 | --- | --- | --- |
 | config | 路径、`run/` 文件名、默认值、端口、控制器地址、内核路径、内置网段、原子写 | 网络、颜色 |
-| render | 颜色、对齐、帮助和 status 的排版 | 除 `catalog` 外的 axs 模块 |
+| render | 颜色、对齐、帮助和 status 的排版 | 除 `catalog`、`sections` 外的 axs 模块 |
 | core | 锁、持锁、进程存活、安装、快照与回滚、systemd 探测、会话 environ | 订阅正文、命令模块、端口探测、原子写 |
 | mihomo | 控制器 HTTP、探活、重载请求 | 回滚、规则语义 |
 | service | 启停、health、清理、status 编排 | 订阅解析、锁、进程探测、端口探测、默认页 |
@@ -69,7 +70,8 @@ bin/axs  bin/mihomo-run
 | nodeview | `node status`、成员表 | 拓扑、生命周期、着色规则 |
 | selectview | `node show` 板块 | 完整拓扑、`node status`、select 根 |
 | tree | `--full` 拓扑 | 成员表、`node status`、select 根、`node show` |
-| catalog | 命令树数据 | 解析、分发、排版 |
+| catalog | 命令树数据 | 解析、分发、排版、帮助节正文 |
+| sections | 帮助节正文 | 解析、分发、排版、别名与签名 |
 | nodecmd | node 子命令编排 | 视图、测速、数据 |
 | cli | 解析、分发 | 被下层调用、命令树数据 |
 | codes | 退出码常量 | 任何其它逻辑 |
@@ -105,6 +107,7 @@ run/                         运行时。不入库
 | `lib/axs/__init__.py` | 包标记 | 20 行 |
 | `lib/axs/__main__.py` | 记下真实终端，再调 cli | 40 行 |
 | `lib/axs/codes.py` | 退出码常量 | 20 行 |
+| `lib/axs/sections.py` | 帮助节正文。不解析、不分发 | 80 行 |
 | `lib/axs/catalog.py` | 命令树数据与子命令签名。不解析、不分发、不排版 | 160 行 |
 | `lib/axs/cli.py` | 前缀解析、用法、分发。命令树在 catalog | 330 行 |
 | `lib/axs/nodecmd.py` | node 子命令编排。不画视图、不测速、不持有数据 | 180 行 |
