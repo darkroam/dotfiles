@@ -268,6 +268,8 @@
 
 会话环境读 dwm 进程的 environ。`AXS_SESSION_PID` 可以指定测哪个进程。
 
+`axs proxy` 的裸命令说明后附隧道用法：正向 `ssh -L 7897:127.0.0.1:7897 用户@本机`（本机 sshd 需 `AllowTcpForwarding local/all/yes`）；反向 `ssh -R 7897:127.0.0.1:7897 用户@对方`（对方 sshd 需 `remote/all/yes`；仅对方局域网连非 loopback 时才需 `GatewayPorts yes/clientspecified`）。检查命令是 `sshd -T | grep -E 'allowtcpforwarding|gatewayports'`。注释行暗色，命令普通色。
+
 登录脚本有两块，插入时都要判重。会话开关在时导出代理变量。系统开关在时导出 `XDG_CURRENT_DESKTOP=GNOME`。都要重登 X 才生效。`no_proxy` 只含 config 里的回环名单，私网例外由内核规则承担。
 
 libproxy 的 gnome 插件和 Edge 都要会话里有这个桌面标识，才读 gsettings。没有标识时走 direct。浏览器用 session 层。副作用是有的应用会把会话当成 GNOME。

@@ -6,6 +6,19 @@ import unicodedata
 
 from axs.catalog import GROUPS, INTRO, MORE, RETIRED, SECTIONS, SIG, USE
 
+PROXY_TUNNEL = (
+    "隧道（远程设备使用本机代理）",
+    "  正向：对方执行 ssh -L <端口>:<回环地址>:<端口> <用户>@<本机>",
+    "        # 本机 sshd 需 AllowTcpForwarding local/all/yes",
+    "  反向：本机执行 ssh -R <端口>:<回环地址>:<端口> <用户>@<对方>",
+    "        # 对方 sshd 需 AllowTcpForwarding remote/all/yes",
+    "        # 仅对方局域网连 -R 的非 loopback 才需 GatewayPorts yes/clientspecified",
+    "  对方终端：export http_proxy=http://<回环地址>:<端口>",
+    "            export https_proxy=$http_proxy",
+    "        # 端口见 axs status / axs proxy status",
+    "  检查：sshd -T | grep -E 'allowtcpforwarding|gatewayports'",
+)
+
 
 def use_color(fd=1):
     mode = os.environ.get("AXS_COLOR")
@@ -160,6 +173,10 @@ def layer_text(group):
             parts = cmd.split()
             if len(parts) >= 3 and parts[1] == group:
                 lines.append(f"{cmd}  {desc}")
+    if group == "proxy":
+        lines.append("")
+        for line in PROXY_TUNNEL:
+            lines.append(dim(line) if line.lstrip().startswith("#") else line)
     return "\n".join(lines) + "\n"
 
 
