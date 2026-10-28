@@ -15,7 +15,7 @@ from axs.cli import main as cli_main
 from axs.codes import DOWN, FAIL, USAGE
 from axs.nodes import load_delays, node_numbers, write_node_cache
 from axs import nodetest
-from axs.nodelist import render_rows
+from axs.nodelist import render_test_rows
 
 
 def fail(message):
@@ -70,12 +70,19 @@ def check_workers():
 
 def check_order_and_color():
     numbers = {"b": 2, "a": 1}
+    rows = [("b", None, "超时"), ("a", 12, "")]
     os.environ["AXS_COLOR"] = "never"
-    plain = render_rows(numbers, [("b", None, "超时"), ("a", 12, "")], True)
-    if plain != "测速（全部叶子）\nN1 a 12ms\nN2 b 超时\n":
-        fail(plain)
+    os.environ["COLUMNS"] = "80"
+    wide = render_test_rows(numbers, rows, True)
+    if wide != "测速（全部叶子）\nN1 a 12ms  N2 b 超时\n":
+        fail(wide)
+    os.environ["COLUMNS"] = "10"
+    narrow = render_test_rows(numbers, rows, True)
+    if narrow != "测速（全部叶子）\nN1 a 12ms\nN2 b 超时\n":
+        fail(narrow)
     os.environ["AXS_COLOR"] = "always"
-    colored = render_rows(numbers, [( "a", 12, ""), ("b", None, "超时")], False)
+    os.environ["COLUMNS"] = "80"
+    colored = render_test_rows(numbers, [("a", 12, ""), ("b", None, "超时")], False)
     if "\033[32m12ms\033[0m" not in colored or "\033[31m超时\033[0m" not in colored:
         fail(colored)
     if colored.startswith("测速"):

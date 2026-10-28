@@ -1,7 +1,5 @@
 exit: 3
 --- stdout
 测速（全部叶子）
-N 1 DIRECT 不可选
-N 2 a 12ms
-N 5 orphan 不可选
+N 1 DIRECT 不可选  N 2 a 12ms         N 5 orphan 不可选
 --- stderr
