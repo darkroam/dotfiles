@@ -35,7 +35,7 @@ def check_usage_color(colored):
         raise SystemExit("usage lines")
     expect = {
         0: ("se rvice", "s tatus", "sta rt", "sto p", "re start", "e nsure", "en able", "di sable"),
-        1: ("su bscription", "s tatus", "r efresh", "c lean"),
+        1: ("su bscription", "s tatus", "sh ow", "a dd", "rm ", "sw itch", "r efresh", "c lean"),
         2: ("r ule", "s tatus", "sh ow", "a dd", "d el"),
         3: ("g roup", "s tatus", "m embers", "sw itch", "t est"),
         4: ("n ode", "s tatus", "sh ow"),
@@ -133,7 +133,7 @@ def main():
         "health / k", "顶级隐藏健康检查", "service health / he", "只报失败一行",
         "node show --flat / -l", "机器可读 TSV", "→ node status", "当前路径与末端组",
         "→ node show", "可选树", "→ group status", "策略组与当前选择",
-        "→ rule status", "当前规则路径", "→ subscription status", "订阅状态",
+        "→ rule status", "当前规则路径",
     )
     leaked = any(item in help_plain for item in ("health / k", "退役名", "--select →", "顶级隐藏健康检查"))
     if "更多入口：axs help --verbose" not in help_plain or leaked or any(item not in verbose for item in need):

@@ -40,10 +40,11 @@ PID = "mihomo.pid"
 SNAP = ".snap"
 USERINFO = "userinfo"
 URL = "subscription.url"
+LIST = "subscriptions.list"
 CACHE = "cache"
 SYSTEM_FLAG = "proxy-system.flag"
 SESSION_FLAG = "proxy-session.flag"
-SNAP_NAMES = (CONFIG, SUBSCRIPTION, RULES)
+SNAP_NAMES = (CONFIG, SUBSCRIPTION, RULES, LIST)
 FETCH_BODY = "fetch.yaml"
 FETCH_HEADER = "fetch.hdr"
 CONFIG_NEW = CONFIG + ".new"
@@ -64,6 +65,7 @@ RUN_FILES = (
     SNAP,
     USERINFO,
     URL,
+    LIST,
     CACHE,
     SYSTEM_FLAG,
     SESSION_FLAG,

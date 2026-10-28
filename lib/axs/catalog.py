@@ -38,7 +38,7 @@ GROUPS = {
     "node": ("status show test".split(), {"s": "status", "sh": "show", "t": "test"}),
     "group": ("status members switch test".split(), {"s": "status", "sw": "switch", "m": "members", "t": "test"}),
     "rule": ("status show add del".split(), {"s": "status", "sh": "show", "a": "add", "d": "del"}),
-    "subscription": ("status refresh clean".split(), {"s": "status", "r": "refresh", "c": "clean"}),
+    "subscription": ("status show add rm switch refresh clean".split(), {"s": "status", "sh": "show", "a": "add", "rm": "rm", "sw": "switch", "r": "refresh", "c": "clean"}),
     "network": ("test ip".split(), {"t": "test", "i": "ip"}),
     "proxy": ("status user system session".split(), {"s": "status", "u": "user", "sy": "system", "se": "session"}),
 }
@@ -57,8 +57,12 @@ SECTIONS = (
     ), ()),
     ("订阅（subscription / su）", (
         ("axs subscription status", "s", "流量与到期"),
+        ("axs subscription show", "sh", "列表，只显示主机"),
+        ("axs subscription add", "a", "追加一条，不拉取"),
+        ("axs subscription rm", "rm", "删除非当前条目"),
+        ("axs subscription switch", "sw", "切换并刷新"),
         ("axs subscription refresh", "r", "拉取并重载"),
-        ("axs subscription clean", "c", "删除订阅缓存"),
+        ("axs subscription clean", "c", "删除当前安装，保留列表"),
     ), ()),
     ("规则（rule / r）", (
         ("axs rule status", "s", "规则路径，不含成员"),
@@ -120,7 +124,8 @@ SIG = {
         "add": (2, 3, (), False), "del": (1, 1, (), False),
     },
     "subscription": {
-        "status": (0, 0, (), False), "refresh": (0, 0, (), False), "clean": (0, 0, ("--yes",), False),
+        "status": (0, 0, (), False), "show": (0, 0, (), False), "add": (1, 1, (), False),
+        "rm": (1, 1, (), False), "switch": (1, 1, (), False), "refresh": (0, 0, (), False), "clean": (0, 0, ("--yes",), False),
     },
     "network": {"test": (0, None, (), False), "ip": (0, 0, (), False)},
     "proxy": {
@@ -132,7 +137,7 @@ SIG = {
 # 带参或带旗标命令的一行用法：(命令, 说明)。零参命令由分发拼接。
 USE = {
     ("top", "clean"): ("axs clean", "[--yes]"), ("top", "help"): ("axs help", "[-v|--verbose]"),
-    ("subscription", "clean"): ("axs subscription clean", "[--yes]"),
+    ("subscription", "add"): ("axs subscription add", "<URL>"), ("subscription", "rm"): ("axs subscription rm", "<S#>"), ("subscription", "switch"): ("axs subscription switch", "<S#>"), ("subscription", "clean"): ("axs subscription clean", "[--yes]"),
     ("node", "show"): ("axs node show", "[--full|--all] [--depth N]"),
     ("node", "test"): ("axs node test", "<名称|N#>|--all"),
     ("group", "members"): ("axs group members", "<组>（先看 group status）"), ("group", "switch"): ("axs group switch", "<组> <成员>"), ("group", "test"): ("axs group test", "<名称|G#>|--all"),
@@ -152,5 +157,4 @@ RETIRED = (
     ("--select", "node show", "可选树"),
     ("group show", "group status", "策略组与当前选择"),
     ("rule show status", "rule status", "当前规则路径"),
-    ("subscription show", "subscription status", "订阅状态"),
 )

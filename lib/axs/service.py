@@ -11,7 +11,7 @@ import sys
 import time
 from pathlib import Path
 
-from axs.config import CONFIG, PID, SECRET, URL, USERINFO, mihomo_path, read_ports, status_ports
+from axs.config import CONFIG, PID, SECRET, USERINFO, mihomo_path, read_ports, status_ports
 from axs.core import (
     active,
     alive,
@@ -34,6 +34,7 @@ from axs.proxy import proxy_status_rows
 from axs.render import bad, bold, die, dim, emph, label, ok
 from axs.routes import build
 from axs.rulelist import status_text
+from axs.subslist import has_source
 from axs.subscription import classify, clean_names, refresh_run, subscription_line
 
 def run_dir():
@@ -267,7 +268,7 @@ def ensure(run, args):
     if port_open(mixed):
         die(DOWN, "端口已被占用")
     if not (Path(run) / CONFIG).is_file():
-        if not (Path(run) / URL).is_file():
+        if not has_source(run):
             die(FAIL, "没有订阅")
         refresh_run(run)
     if manual:

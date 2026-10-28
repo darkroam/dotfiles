@@ -109,6 +109,7 @@ seed_clean() {
     printf '%s\n' hdr >"$RUN/fetch.hdr"
     printf '%s\n' 999999 >"$RUN/mihomo.pid"
     printf '%s\n' url >"$RUN/subscription.url"
+    printf '%s\n' 'axs-subscriptions 1' >"$RUN/subscriptions.list"
     printf '%s\n' secret >"$RUN/secret"
     printf '%s\n' rules >"$RUN/rules.list"
     printf '%s\n' over >"$RUN/override.yaml"

@@ -2,7 +2,7 @@ exit: 1
 --- stdout
 --- stderr
 用法：axs service status|start|stop|restart|ensure|enable|disable
-      axs subscription status|refresh|clean
+      axs subscription status|show|add|rm|switch|refresh|clean
       axs rule status|show|add|del
       axs group status|members|switch|test
       axs node status|show|test --full|--all --depth N

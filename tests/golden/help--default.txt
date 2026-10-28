@@ -15,8 +15,12 @@ axs service disable       di      关闭开机自启
 
 订阅（subscription / su）
 axs subscription status   s       流量与到期
+axs subscription show     sh      列表，只显示主机
+axs subscription add      a       追加一条，不拉取
+axs subscription rm       rm      删除非当前条目
+axs subscription switch   sw      切换并刷新
 axs subscription refresh  r       拉取并重载
-axs subscription clean    c       删除订阅缓存
+axs subscription clean    c       删除当前安装，保留列表
 
 规则（rule / r）
 axs rule status           s       规则路径，不含成员
