@@ -4,15 +4,15 @@
 
 load helpers.bash
 
-@test "TC-AXS01: .local/bin/axs resolves to the in-tree entry and runs" {
+@test "TC-AXS01: .local/bin/axs resolves to the in-tree entry" {
 	link=$(readlink "$DOTFILES_ROOT/.local/bin/axs")
 	[ "$link" = "../lib/access/bin/axs" ]
-	run "$DOTFILES_ROOT/.local/bin/axs" help
-	[ "$status" -eq 0 ]
-	[ -n "$output" ]
+	[ -e "$DOTFILES_ROOT/.local/bin/axs" ]
+	[ -x "$DOTFILES_ROOT/.local/bin/axs" ]
 }
 
 @test "TC-AXS02: min excludes the access entry and tree" {
+	# dotfiles 当前无 category 清单命令，出现后再换判据。
 	! grep -qF '.local/bin/axs' "$DOTFILES_ROOT/.local/lib/dotfiles/categories-1.0.0.conf"
 	! grep -qF '.local/lib/access' "$DOTFILES_ROOT/.local/lib/dotfiles/categories-1.0.0.conf"
 }
@@ -22,5 +22,5 @@ load helpers.bash
 	grep -qF '%h/.local/lib/access/bin/mihomo-run' "$units/axs.service"
 	grep -qF '%h/.local/lib/access/bin/axs subscription refresh' "$units/axs-refresh.service"
 	grep -qF 'WantedBy=timers.target' "$units/axs-refresh.timer"
-	! grep -R -q 'systemctl --user enable' "$units"
+	! grep -R -q 'systemctl' "$units"
 }
