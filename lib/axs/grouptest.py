@@ -10,7 +10,7 @@ from axs.codes import DOWN, FAIL, USAGE
 from axs.config import SECRET, api_address
 from axs.core import fail, service_up
 from axs.leafdelay import delay_timeout
-from axs.mihomo import DELAY, GROUP, load_proxies, read_secret, request
+from axs.mihomo import DELAY, GROUP, _QUIET, load_proxies, read_secret, request
 from axs.nodes import _ansi, _is_group, delay_code, group_numbers, resolve_group_name, write_node_cache
 from axs.progress import Progress
 from axs.render import call_usage, die, ident
@@ -54,18 +54,34 @@ def _split(args):
     return flag, tokens
 
 
-def _payload(secret, api, group, url):
+def _reason(exc):
+    text = exc.code if isinstance(exc.code, str) else ""
+    if text.startswith("控制器失败"):
+        return text
+    return "控制器失败" if not text else "控制器失败：" + text
+
+
+def _payload(secret, api, group, url, quiet=False):
+    token = _QUIET.set(True) if quiet else None
     try:
-        raw = request(secret, api, "GET", delay_path(group, url), timeout=delay_timeout())
-    except SystemExit:
-        raise SystemExit(FAIL)
-    try:
-        payload = json.loads(raw.decode("utf-8"))
-    except json.JSONDecodeError:
+        try:
+            raw = request(secret, api, "GET", delay_path(group, url), timeout=delay_timeout())
+        except SystemExit as exc:
+            if not quiet:
+                raise SystemExit(FAIL)
+            return None, _reason(exc)
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except json.JSONDecodeError:
+            payload = None
+        if isinstance(payload, dict):
+            return payload, ""
+        if quiet:
+            return None, "控制器失败：响应格式错误"
         fail("控制器失败：响应格式错误")
-    if not isinstance(payload, dict):
-        fail("控制器失败：响应格式错误")
-    return payload
+    finally:
+        if token is not None:
+            _QUIET.reset(token)
 
 
 def _rows(proxies, group, payload):
@@ -98,7 +114,7 @@ def _load(run):
 def _one(run, secret, api, proxies, group, url):
     dest = Path(run) / "cache" / "node-test"
     try:
-        payload = _payload(secret, api, group, url)
+        payload = _payload(secret, api, group, url)[0]
     except SystemExit as exc:
         write_node_cache(dest, "", [], False)
         raise SystemExit(exc.code if isinstance(exc.code, int) else FAIL)
@@ -111,23 +127,27 @@ def _all(run, secret, api, proxies, url):
     numbers = group_numbers(proxies)
     groups = sorted(numbers, key=numbers.get)
     bar = Progress(len(groups), "测速")
-    chunks, cached = [], []
+    chunks, cached, failed = [], [], False
     dest = Path(run) / "cache" / "node-test"
     try:
         for group in groups:
             kind = str(proxies[group].get("type") or "-")
             chunks.append(f"G{numbers[group]} {group} [{kind}]")
-            lines, extra = _rows(proxies, group, _payload(secret, api, group, url))
-            chunks.extend(lines)
-            cached.extend(extra)
+            payload, reason = _payload(secret, api, group, url, True)
+            if reason:
+                failed = True
+                chunks.append(reason)
+            else:
+                lines, extra = _rows(proxies, group, payload)
+                chunks.extend(lines)
+                cached.extend(extra)
             bar.advance()
-    except SystemExit as exc:
-        write_node_cache(dest, "", [], False)
-        raise SystemExit(exc.code if isinstance(exc.code, int) else FAIL)
     finally:
         bar.finish()
     sys.stdout.write("\n".join(chunks) + ("\n" if chunks else ""))
-    write_node_cache(dest, "", cached)
+    write_node_cache(dest, "", cached, not failed)
+    if failed:
+        raise SystemExit(FAIL)
 
 
 def run(run_dir, args):
