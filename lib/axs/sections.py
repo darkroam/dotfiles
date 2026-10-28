@@ -47,6 +47,7 @@ SECTIONS = (
         ("axs proxy user", "u", "当前 shell 环境（on|off|status）"),
         ("axs proxy system", "sy", "运行时 on|off；持久 enable|disable"),
         ("axs proxy session", "se", "登录持久 enable|disable|status"),
+        ("axs proxy lan", "", "局域网 on --yes|off|status"),
     ), ()),
     ("其它", (
         ("axs status", "s", "查看全部状态"),

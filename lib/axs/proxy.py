@@ -18,6 +18,7 @@ from axs.config import (
     proxy_mixed,
 )
 from axs.core import session_value
+from axs.proxylan import summary as lan_summary
 from axs.render import bad, call_usage, dim, ok
 
 GS = "org.gnome.system.proxy"
@@ -264,6 +265,8 @@ def proxy_status_rows(run):
     rc, live = session_value("http_proxy") if ses_on else (0, "")
     effect = "-" if not ses_on else "no-x-session" if rc == 2 else "active" if live == _want(port) else "pending"
     rows.append(f"{'session':<10}persist {_word('enabled' if ses_on else 'disabled')}{hook if ses_on and _hook_missing(profile, SESSION_HOOK) else ''} · effect {_word(effect)}")
+    state, allow, bind = lan_summary(run)
+    rows.append(f"{'lan':<10}{_word(state)} (allow-lan {'true' if allow else 'false'} · bind {bind})")
     return rows
 
 

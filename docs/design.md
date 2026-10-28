@@ -157,7 +157,7 @@
 
 ## 状态
 
-`axs status` 固定五节。节标题粗体。顺序是服务、订阅、路由、测速、代理。服务和测速的标签灰，这两节和订阅、路由的正文缩进两格。代理三行与 `proxy status` 相同，不另缩进。
+`axs status` 固定五节。节标题粗体。顺序是服务、订阅、路由、测速、代理。服务和测速的标签灰，这两节和订阅、路由的正文缩进两格。代理四行与 `proxy status` 相同，不另缩进。
 
 ```
 服务
@@ -172,7 +172,7 @@
   net     上次连通缓存距今多久；没有为 -
   node    上次延迟缓存距今多久；没有为 -
 代理
-  user / system / session 三行，与 proxy status 相同（含 mode、desktop、unset）
+  user / system / session / lan 四行，与 proxy status 相同（含 mode、desktop、unset、allow-lan、bind）
 ```
 
 刷新时间来自 `systemctl list-timers --output=json` 的 `next` 与 `left`。缺一个就是 `-`。
@@ -254,7 +254,7 @@
 
 ## 代理
 
-服务只听回环上的混合端口。三层只决定谁去连它，不改内核进程。默认不注入。`proxy user` 与现有 `setproxy` 一样，都是显式打开。
+默认只听回环上的混合端口。`proxy lan on` 才放开。三层只决定谁去连它，不改内核进程。默认不注入。`proxy user` 与现有 `setproxy` 一样，都是显式打开。
 
 存在性开关只看文件在不在，名字以 `.flag` 结尾：`run/proxy-session.flag`、`run/proxy-system.flag`。`enable` 写成 0600，并删掉改名前的旧文件。
 
@@ -271,7 +271,10 @@
 | session enable | 写会话开关。没有 on/off |
 | session disable | 删会话开关 |
 | session status | 开关不在：persist `disabled`，effect `-`，退出 `USAGE`。钩子缺失也退出 `USAGE`。没有 X 会话：effect `no-x-session`。已经注入且指向本代理：effect `active`，退出 0。否则 effect `pending`，退出 `USAGE` |
-| proxy status | 三行汇总：user（on/off 与当前值或 unset）、system（运行时、mode、persist、desktop）、session（persist、effect）。钩子缺失单独标出。不调用 gsettings 的失败退出，没有该命令时 mode 写 `no gsettings`。恒为 0 |
+| proxy status | 四行汇总：user（on/off 与当前值或 unset）、system（运行时、mode、persist、desktop）、session（persist、effect）、lan（allow-lan 与 bind）。钩子缺失单独标出。不调用 gsettings 的失败退出，没有该命令时 mode 写 `no gsettings`。恒为 0 |
+| proxy lan on | 必须带 `--yes`，否则警告并退出 `USAGE`。只改 override 的 `allow-lan` 与 `bind-address`（打开为 true 与 `*`，其它键保留），然后重载。回环混合端口不通则恢复 override 并 `FAIL` |
+| proxy lan off | `allow-lan` 设为 false，`bind-address` 设为回环。同样重载并做回环校验 |
+| proxy lan status | 输出 allow-lan、bind、端口、LAN 地址，以及固定警告「混合端口无认证，仅限可信局域网」。退出 0 |
 
 会话环境读 dwm 进程的 environ。`AXS_SESSION_PID` 可以指定测哪个进程。
 

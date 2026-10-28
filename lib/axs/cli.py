@@ -211,6 +211,7 @@ def main(argv):
     import axs.nodetest as nodetest
     from axs.net import net_ip, net_test
     from axs.proxy import proxy_session, proxy_status, proxy_system, proxy_user
+    from axs.proxylan import run as lan_run
     from axs.rulelist import cmd_list
     from axs.rules import cmd_add, cmd_del
     from axs.service import boot, clean, ensure, health, prime, restart, run_dir, service_status, start, status, stop
@@ -292,5 +293,7 @@ def main(argv):
         op, extra = _take("proxy", rest)
         if op == "status":
             proxy_status(run)
+        elif op == "lan":
+            lan_run(run, extra)
         else:
             {"user": proxy_user, "system": proxy_system, "session": proxy_session}[op](run, extra)

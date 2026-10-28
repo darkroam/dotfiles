@@ -23,7 +23,11 @@ bin/axs  bin/mihomo-run
     |
  tree     service   nodeview   selectview   nodetest   grouptest
     |
- subscription  rules  proxy
+ proxy
+    |
+ proxylan
+    |
+ subscription  rules
     |
  leafdelay   progress   subslist
     |
@@ -36,7 +40,7 @@ bin/axs  bin/mihomo-run
  config    codes    catalog    sections
 ```
 
-`render` 不在这条链上，也不得引用任何 axs 模块。唯一例外是只读 `catalog` 与 `sections`。为了输出调用它，不算斜边。`catalog` 在最底层，只放命令树，只引用 `sections`。`sections` 只放帮助节，不引用任何模块。`service` 是编排，可以调用它下面的模块。除 `nodecmd` 外，命令模块不调用 `service`。`nodecmd` 编排 node 与 group 的视图命令。`tree`、`nodeview`、`selectview` 只被 `nodecmd` 调用。`nodetest` 与 `grouptest` 只被 `cli` 调用，彼此不引用。`nodetest` 逐叶请求 `/proxies`。`grouptest` 请求 `/group`。进度在 `progress`。`subslist` 只解析订阅列表，不拉取。`leafdelay` 提供查询超时和 HTTP 等待。`nodes` 不再拥有 delay，只留测速缓存格式。 `nodelist` 画组表、节点列表与测速行，只问 `nodes` 的编号、延迟和选择。
+`render` 不在这条链上，也不得引用任何 axs 模块。唯一例外是只读 `catalog` 与 `sections`。为了输出调用它，不算斜边。`catalog` 在最底层，只放命令树，只引用 `sections`。`sections` 只放帮助节，不引用任何模块。`service` 是编排，可以调用它下面的模块。除 `nodecmd` 外，命令模块不调用 `service`。`nodecmd` 编排 node 与 group 的视图命令。`tree`、`nodeview`、`selectview` 只被 `nodecmd` 调用。`nodetest` 与 `grouptest` 只被 `cli` 调用，彼此不引用。`nodetest` 逐叶请求 `/proxies`。`grouptest` 请求 `/group`。进度在 `progress`。`subslist` 只解析订阅列表，不拉取。`proxylan` 在 `proxy` 之下，只改 override 的 allow-lan 与 bind-address。`leafdelay` 提供查询超时和 HTTP 等待。`nodes` 不再拥有 delay，只留测速缓存格式。 `nodelist` 画组表、节点列表与测速行，只问 `nodes` 的编号、延迟和选择。
 
 斜边台账：
 
@@ -66,7 +70,8 @@ bin/axs  bin/mihomo-run
 | leafdelay | 查询超时、HTTP 等待、原因分类 | 命令输出、缓存、进度条 |
 | progress | 进度条 | 测速、发请求 |
 | net | 连通性、出口地址、入站是否打开 | 写订阅 |
-| proxy | 三层开关和状态词 | 改内核进程 |
+| proxy | 三层开关和状态词 | 改内核进程、局域网监听 |
+| proxylan | override 的 allow-lan 与 bind-address | 三层开关、订阅合并 |
 | nodeview | `node status`、成员表 | 拓扑、生命周期、着色规则 |
 | selectview | `node show` 板块 | 完整拓扑、`node status`、select 根 |
 | tree | `--full` 拓扑 | 成员表、`node status`、select 根、`node show` |
@@ -132,6 +137,7 @@ run/                         运行时。不入库
 | `lib/axs/tree.py` | `--full` 拓扑。编号仍问 nodes | 250 行 |
 | `lib/axs/net.py` | 连通、出口、入站是否打开 | 250 行 |
 | `lib/axs/proxy.py` | 三层开关和状态词 | 300 行 |
+| `lib/axs/proxylan.py` | 局域网监听。不改三层开关 | 150 行 |
 | `units/*` | 已安装单元的模板。外部行为不改 | 各 40 行 |
 | `tests/run.sh` | 先单元，再集成。不含 lab | 40 行 |
 | `tests/unit/test_<模块>.py` | 该模块的 import 断言 | 各 400 行；`test_rules.py` 450 |

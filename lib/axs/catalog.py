@@ -42,7 +42,7 @@ GROUPS = {
     "rule": ("status show add del".split(), {"s": "status", "sh": "show", "a": "add", "d": "del"}),
     "subscription": ("status show add rm switch refresh clean".split(), {"s": "status", "sh": "show", "a": "add", "rm": "rm", "sw": "switch", "r": "refresh", "c": "clean"}),
     "network": ("test ip".split(), {"t": "test", "i": "ip"}),
-    "proxy": ("status user system session".split(), {"s": "status", "u": "user", "sy": "system", "se": "session"}),
+    "proxy": ("status user system session lan".split(), {"s": "status", "u": "user", "sy": "system", "se": "session"}),
 }
 
 INTRO = "单字符优先；冲突用两字母；前缀亦可"
@@ -78,6 +78,7 @@ SIG = {
     "proxy": {
         "status": (0, 0, (), False), "user": (1, 1, (), False),
         "system": (1, 1, (), False), "session": (1, 1, (), False),
+        "lan": (1, 1, ("--yes",), False),
     },
 }
 
@@ -92,6 +93,7 @@ USE = {
     ("network", "test"): ("axs network test", "[网址 ...]"),
     ("proxy", "user"): ("axs proxy user", "on|off|status"), ("proxy", "system"): ("axs proxy system", "on|off|enable|disable|status"),
     ("proxy", "session"): ("axs proxy session", "enable|disable|status"),
+    ("proxy", "lan"): ("axs proxy lan", "on --yes|off|status"),
 }
 
 MORE = (
