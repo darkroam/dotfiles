@@ -52,14 +52,14 @@ def check_workers():
     saved = os.environ.get("AXS_TEST_WORKERS")
     try:
         os.environ.pop("AXS_TEST_WORKERS", None)
-        if nodetest._workers() != 8:
+        if nodetest.workers() != 8:
             fail("default workers")
         for raw in ("0", "33", "abc", "-1", ""):
             os.environ["AXS_TEST_WORKERS"] = raw
-            if nodetest._workers() != 8:
+            if nodetest.workers() != 8:
                 fail("bad workers " + raw)
         os.environ["AXS_TEST_WORKERS"] = "3"
-        if nodetest._workers() != 3:
+        if nodetest.workers() != 3:
             fail("workers 3")
     finally:
         if saved is None:
@@ -111,6 +111,7 @@ def check_quiet(tmp):
     saved = os.environ.get("AXS_FAKE_DIR")
     os.environ["AXS_FAKE_DIR"] = str(fake)
     proxies = {
+        "GLOBAL": {"type": "Selector", "all": ["a", "b"], "now": "a"},
         "主代理": {"type": "Selector", "all": ["a"], "now": "a"},
         "自动": {"type": "URLTest", "all": ["b"], "now": "b"},
         "a": {"type": "Shadowsocks"},
@@ -118,9 +119,10 @@ def check_quiet(tmp):
     }
     err = io.StringIO()
     try:
+        chosen, skipped = nodetest.partition(proxies)
         with contextlib.redirect_stderr(err):
             rows = nodetest.run_tests(
-                "test-secret-value", "127.0.0.1:9", proxies, ["a", "b"], "http://127.0.0.1/x", True,
+                "test-secret-value", "127.0.0.1:9", chosen, "http://127.0.0.1/x", True,
             )
         log = (fake / "log").read_text(encoding="utf-8")
     finally:
@@ -128,11 +130,12 @@ def check_quiet(tmp):
             os.environ.pop("AXS_FAKE_DIR", None)
         else:
             os.environ["AXS_FAKE_DIR"] = saved
-    if rows != [("a", 12, ""), ("b", None, "不可选")]:
-        fail(rows)
+    rows.extend((name, None, "不可选") for name in skipped)
+    if chosen != ["a"] or skipped != ["b"] or rows != [("a", 12, ""), ("b", None, "不可选")]:
+        fail((chosen, skipped, rows))
     if err.getvalue():
         fail("progress " + err.getvalue())
-    if "/group/" not in log or "/proxies/" in log or "自动" in log:
+    if "/proxies/a/delay" not in log or "/group/" in log or "/proxies/b/" in log:
         fail(log)
 
 
@@ -170,6 +173,22 @@ def _call(argv):
     return code, out.getvalue(), err.getvalue()
 
 
+def check_http():
+    def boom(*_args, **_kwargs):
+        if not nodetest._QUIET.get():
+            raise SystemExit("loud")
+        raise SystemExit("控制器失败：HTTP 503")
+
+    original = nodetest.request
+    nodetest.request = boom
+    try:
+        got = nodetest.one_delay("s", "127.0.0.1:9", "a", "http://127.0.0.1/x", 5)
+    finally:
+        nodetest.request = original
+    if got != (None, "不可测"):
+        fail(got)
+
+
 def check_cli():
     code, _out, err = _call(["node", "test"])
     if code != USAGE or "axs node test" not in err:
@@ -187,6 +206,7 @@ def main():
     check_resolve()
     check_workers()
     check_order_and_color()
+    check_http()
     check_cli()
     with tempfile.TemporaryDirectory(prefix="axs-nodetest-") as tmp:
         check_filter()

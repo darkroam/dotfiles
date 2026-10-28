@@ -21,7 +21,8 @@ from axs.mihomo import (  # noqa: E402
     select_path,
     version_path,
 )
-from axs.nodetest import delay_path, delay_timeout  # noqa: E402
+from axs.grouptest import delay_path  # noqa: E402
+from axs.leafdelay import delay_timeout  # noqa: E402
 
 
 

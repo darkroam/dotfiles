@@ -76,8 +76,8 @@ assert_code 'alias group status' 2 g s
 grep -q '服务：未运行' "$RUN/err" || fail "alias groups: $(cat "$RUN/err")"
 assert_code 'alias node show' 2 n s
 grep -q '服务：未运行' "$RUN/err" || fail "alias list: $(cat "$RUN/err")"
-assert_code 'alias group test' 2 g t
-grep -q '服务：未运行' "$RUN/err" || fail "alias group test: $(cat "$RUN/err")"
+assert_code 'alias group test' 1 g t
+grep -q '用法：axs group test <名称|G#>|--all' "$RUN/err" || fail "alias group test: $(cat "$RUN/err")"
 assert_code 'alias group switch' 1 g sw
 test "$(grep -c . "$RUN/err")" -eq 1 || fail "alias switch: $(cat "$RUN/err")"
 grep -q '用法' "$RUN/err" || fail "alias switch usage: $(cat "$RUN/err")"

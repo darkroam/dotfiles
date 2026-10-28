@@ -285,10 +285,11 @@ fi
 grep -F '最近测速：' "$RUN/out" >/dev/null || fail "leaf title: $(cat "$RUN/out")"
 grep -F '[*] N3 新加坡aw1' "$RUN/out" >/dev/null || fail "leaf star: $(cat "$RUN/out")"
 : >"$RUN/fake/log"
-assert_code 'default skips global' 0 group test
-python3 -c 'import os,urllib.parse; log=open(os.environ["AXS_RUN"]+"/fake/log",encoding="utf-8").read();
-assert "/group/"+urllib.parse.quote("主代理")+"/delay" in log, log
-assert "/group/GLOBAL/delay" not in log, log'
+assert_code 'group test bare' 1 group test
+grep -q '用法：axs group test <名称|G#>|--all' "$RUN/err" || fail "bare text: $(cat "$RUN/err")"
+if grep -q '/delay' "$RUN/fake/log"; then
+    fail 'bare sent delay'
+fi
 
 new_run
 mark_up
@@ -297,11 +298,20 @@ arm_api PROXY 204 0
 cat >"$RUN/fake/proxies.json" <<'EOF'
 {"proxies":{"GLOBAL":{"all":["DIRECT"],"now":"DIRECT","type":"Selector"},"PROXY":{"all":["a"],"now":"a","type":"Selector"},"自动选择":{"all":["a"],"now":"a","type":"URLTest"},"DIRECT":{"type":"Direct"},"a":{"type":"Shadowsocks"}}}
 EOF
+printf '%s\n' '{"a": 12}' >"$RUN/fake/delay.json"
 : >"$RUN/fake/log"
-assert_code 'default auto' 0 group test
+assert_code 'group test all' 0 group test --all
 python3 -c 'import os,urllib.parse; log=open(os.environ["AXS_RUN"]+"/fake/log",encoding="utf-8").read();
+assert "/group/GLOBAL/delay" in log, log
+assert "/group/PROXY/delay" in log, log
 assert "/group/"+urllib.parse.quote("自动选择")+"/delay" in log, log
-assert "/group/GLOBAL/delay" not in log, log'
+assert log.count("/group/")==3, log'
+grep -F 'G1 GLOBAL [Selector]' "$RUN/out" >/dev/null || fail "all head: $(cat "$RUN/out")"
+grep -F 'G2 PROXY [Selector]' "$RUN/out" >/dev/null || fail "all proxy: $(cat "$RUN/out")"
+grep -F 'G3 自动选择 [URLTest]' "$RUN/out" >/dev/null || fail "all auto: $(cat "$RUN/out")"
+if [ -s "$RUN/err" ]; then
+    fail "all progress: $(cat "$RUN/err")"
+fi
 
 new_run
 mark_up
@@ -311,11 +321,10 @@ cat >"$RUN/fake/proxies.json" <<'EOF'
 {"proxies":{"GLOBAL":{"all":["DIRECT"],"now":"DIRECT","type":"Selector"},"DIRECT":{"type":"Direct"}}}
 EOF
 : >"$RUN/fake/log"
-assert_code 'default none' 3 group test
-grep -qx '没有可测组' "$RUN/err" || fail "none text: $(cat "$RUN/err")"
-grep -qx 'GLOBAL' "$RUN/err" || fail "none list: $(cat "$RUN/err")"
+assert_code 'group test digit' 1 group test 9
+grep -q '用法：axs group test <名称|G#>|--all' "$RUN/err" || fail "digit text: $(cat "$RUN/err")"
 if grep -q '/delay' "$RUN/fake/log"; then
-    fail 'none sent delay'
+    fail 'digit sent delay'
 fi
 
 new_run

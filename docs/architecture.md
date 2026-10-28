@@ -21,7 +21,7 @@ bin/axs  bin/mihomo-run
     |
  nodecmd
     |
- tree     service   nodeview   selectview   nodetest
+ tree     service   nodeview   selectview   nodetest   grouptest
     |
  subscription  rules  proxy
     |
@@ -36,7 +36,7 @@ bin/axs  bin/mihomo-run
  config    codes    catalog
 ```
 
-`render` 不在这条链上，也不得引用任何 axs 模块。唯一例外是只读 `catalog`。为了输出调用它，不算斜边。`catalog` 在最底层，只放命令树，不引用任何模块。`service` 是编排，可以调用它下面的模块。除 `nodecmd` 外，命令模块不调用 `service`。`nodecmd` 编排 node 与 group 的视图命令。`tree`、`nodeview`、`selectview` 只被 `nodecmd` 调用，`nodetest` 只被 `cli` 调用，彼此不引用。 `nodetest` 拥有叶子测速命令、组测速和进度接线。取值在 `leafdelay`。`progress` 只画进度。`nodes` 不再拥有 delay，只留测速缓存格式。 `nodelist` 画组表、节点列表与测速行，只问 `nodes` 的编号、延迟和选择。
+`render` 不在这条链上，也不得引用任何 axs 模块。唯一例外是只读 `catalog`。为了输出调用它，不算斜边。`catalog` 在最底层，只放命令树，不引用任何模块。`service` 是编排，可以调用它下面的模块。除 `nodecmd` 外，命令模块不调用 `service`。`nodecmd` 编排 node 与 group 的视图命令。`tree`、`nodeview`、`selectview` 只被 `nodecmd` 调用。`nodetest` 与 `grouptest` 只被 `cli` 调用，彼此不引用。`nodetest` 逐叶请求 `/proxies`。`grouptest` 请求 `/group`。进度在 `progress`。`leafdelay` 提供查询超时和 HTTP 等待。`nodes` 不再拥有 delay，只留测速缓存格式。 `nodelist` 画组表、节点列表与测速行，只问 `nodes` 的编号、延迟和选择。
 
 斜边台账：
 
@@ -59,8 +59,9 @@ bin/axs  bin/mihomo-run
 | rules | 规则增删，以及合并后的安装、重载、回滚 | 读端口、再写一遍锁、`RID` |
 | nodes | 编号、切换、测速缓存 | 改配置、测速、列表渲染 |
 | nodelist | 组/节点列表与测速行渲染 | 数据、测速 |
-| nodetest | 叶子测速命令、组测速、进度接线 | 切换、改配置、缓存格式、聚合算法 |
-| leafdelay | 组延迟聚合成叶子延迟 | 命令输出、缓存、进度条 |
+| nodetest | 叶子测速命令、可选叶子、进度接线 | 切换、改配置、缓存格式、组测速 |
+| grouptest | 组测速命令、全组分段 | 切换、改配置、缓存格式、叶子枚举 |
+| leafdelay | 查询超时、HTTP 等待、原因分类 | 命令输出、缓存、进度条 |
 | progress | 进度条 | 测速、发请求 |
 | net | 连通性、出口地址、入站是否打开 | 写订阅 |
 | proxy | 三层开关和状态词 | 改内核进程 |
@@ -117,8 +118,9 @@ run/                         运行时。不入库
 | `lib/axs/rules.py` | 规则增删、安装回滚 | 220 行 |
 | `lib/axs/nodes.py` | 编号、切换、测速缓存。列表在 nodelist | 330 行 |
 | `lib/axs/nodelist.py` | 组/节点列表与测速行渲染。不持有数据、不测速 | 200 行 |
-| `lib/axs/nodetest.py` | 叶子测速与组测速。不切换、不改配置 | 220 行 |
-| `lib/axs/leafdelay.py` | 组延迟聚合成叶子延迟。不输出、不写缓存 | 200 行 |
+| `lib/axs/nodetest.py` | 叶子测速。不切换、不改配置 | 220 行 |
+| `lib/axs/grouptest.py` | 组测速。不切换、不改配置 | 150 行 |
+| `lib/axs/leafdelay.py` | 延迟超时、HTTP 等待与原因分类。不发请求、不写缓存 | 120 行 |
 | `lib/axs/progress.py` | 可复用进度条。非 TTY 不输出 | 100 行 |
 | `lib/axs/nodeview.py` | 默认页与成员表。不画拓扑 | 160 行 |
 | `lib/axs/selectview.py` | `node show` 板块。不画完整拓扑 | 200 行 |
