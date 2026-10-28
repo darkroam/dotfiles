@@ -16,7 +16,7 @@ LAYERS = (
     ("routes", "nodelist"),
     ("leafdelay", "progress"),
     ("subscription", "rules", "proxy"),
-    ("tree", "service", "nodeview", "selectview", "nodetest"),
+    ("tree", "service", "nodeview", "selectview", "nodetest", "grouptest"),
     ("nodecmd",),
     ("cli",),
     ("__main__",),

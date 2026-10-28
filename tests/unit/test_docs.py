@@ -118,8 +118,10 @@ def main():
         fail("nodeview file row")
     if "`lib/axs/nodetest.py`" not in arch:
         fail("nodetest file row")
-    if "| `lib/axs/nodetest.py` | 叶子测速与组测速。不切换、不改配置 | 220 行 |" not in arch:
+    if "| `lib/axs/nodetest.py` | 叶子测速。不切换、不改配置 | 220 行 |" not in arch:
         fail("nodetest ceiling")
+    if "| `lib/axs/grouptest.py` | 组测速。不切换、不改配置 | 150 行 |" not in arch:
+        fail("grouptest ceiling")
     if "| `lib/axs/leafdelay.py` | 组延迟聚合成叶子延迟。不输出、不写缓存 | 200 行 |" not in arch:
         fail("leafdelay file row")
     if "| `lib/axs/progress.py` | 可复用进度条。非 TTY 不输出 | 100 行 |" not in arch:

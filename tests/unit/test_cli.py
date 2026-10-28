@@ -134,7 +134,7 @@ def check_node_args():
         "status  策略组与当前选择\n"
         "members  组成员：编号、类型、当前、延迟\n"
         "switch  组名或 G#，再接名字、N# 或 G#\n"
-        "test  测延迟，可接组名或 G#\n"
+        "test  测一组，或 --all 测全部组\n"
         "用法：axs group status|members|switch|test\n"
     )
     cases = (
@@ -146,7 +146,7 @@ def check_node_args():
         (["group", "switch"], USAGE, "用法：axs group switch <组> <成员>\n"),
         (["group", "switch", "g"], USAGE, "用法：axs group switch <组> <成员>\n"),
         (["group", "switch", "g", "n", "x"], USAGE, "用法：axs group switch <组> <成员>\n"),
-        (["group", "test", "g", "x"], USAGE, "用法：axs group test [组]\n"),
+        (["group", "test", "g", "x"], USAGE, "用法：axs group test <名称|G#>|--all\n"),
         (["group", "nope"], USAGE, unknown),
         (["node", "show", "--zz"], USAGE, "未知选项：--zz\n旗标：--full --all --depth N\n"),
         (["service", "st"], USAGE, "候选：status start stop\n"),
@@ -161,7 +161,7 @@ def check_node_args():
         (["node", "show"], DOWN, "服务：未运行\n"),
         (["node", "show", "--flat"], DOWN, "服务：未运行\n"),
         (["node", "show", "-l"], DOWN, "服务：未运行\n"),
-        (["group", "test"], DOWN, "服务：未运行\n"),
+        (["group", "test"], USAGE, "用法：axs group test <名称|G#>|--all\n"),
         (["group", "switch", "g", "n"], DOWN, "服务：未运行\n"),
         (["health"], DOWN, "未运行\n"),
         (["k"], DOWN, "未运行\n"),
@@ -324,7 +324,7 @@ def check_sig():
         ("node", "show"): (0, 0, ("--full", "--all", "--flat!", "-l!", "--depth="), False),
         ("node", "test"): (0, 1, ("--all",), False),
         ("group", "status"): (0, 0, (), False), ("group", "members"): (1, 1, (), False),
-        ("group", "switch"): (2, 2, (), False), ("group", "test"): (0, 1, (), False),
+        ("group", "switch"): (2, 2, (), False), ("group", "test"): (0, 1, ("--all",), False),
         ("rule", "status"): (0, 0, (), False), ("rule", "show"): (0, 0, ("--local",), False),
         ("rule", "add"): (2, 3, (), False), ("rule", "del"): (1, 1, (), False),
         ("subscription", "status"): (0, 0, (), False), ("subscription", "refresh"): (0, 0, (), False),
@@ -346,7 +346,7 @@ def check_sig():
         ("node", "test"): ("axs node test", "<名称|N#>|--all"),
         ("group", "members"): ("axs group members", "<组>（先看 group status）"),
         ("group", "switch"): ("axs group switch", "<组> <成员>"),
-        ("group", "test"): ("axs group test", "[组]"),
+        ("group", "test"): ("axs group test", "<名称|G#>|--all"),
         ("rule", "show"): ("axs rule show", "[--local]"),
         ("rule", "add"): ("axs rule add", "direct|via|node <域名> [组或节点]"),
         ("rule", "del"): ("axs rule del", "<域名|RID|规则全文>"),

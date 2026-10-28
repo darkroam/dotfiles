@@ -27,6 +27,15 @@ def delay_ms():
     return value if value > 0 else 5000
 
 
+def delay_timeout():
+    raw = os.environ.get("AXS_DELAY_TIMEOUT", "").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return 60
+    return value if value > 0 else 60
+
+
 def coverage(proxies):
     _order, owned = mapping(proxies)
     leaves = node_numbers(proxies)

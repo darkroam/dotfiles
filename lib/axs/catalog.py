@@ -72,12 +72,12 @@ SECTIONS = (
         ("axs group status", "s", "策略组与当前选择"),
         ("axs group members", "m", "组成员：编号、类型、当前、延迟"),
         ("axs group switch", "sw", "组名或 G#，再接名字、N# 或 G#"),
-        ("axs group test", "t", "测延迟，可接组名或 G#"),
+        ("axs group test", "t", "测一组，或 --all 测全部组"),
     ), ()),
     ("节点（node / n）", (
         ("axs node status", "s", "当前规则路径与末端组"),
         ("axs node show", "sh", "--all 全量叶子；--full 树；--depth"),
-        ("axs node test", "t", "测一个叶子，或 --all 测可测叶子"),
+        ("axs node test", "t", "测一个叶子，或 --all 测可选叶子"),
     ), ()),
     ("网络（network / nw）", (
         ("axs network test", "t", "测连通，可接网址"),
@@ -113,7 +113,7 @@ SIG = {
     },
     "group": {
         "status": (0, 0, (), False), "members": (1, 1, (), False),
-        "switch": (2, 2, (), False), "test": (0, 1, (), False),
+        "switch": (2, 2, (), False), "test": (0, 1, ("--all",), False),
     },
     "rule": {
         "status": (0, 0, (), False), "show": (0, 0, ("--local",), False),
@@ -135,7 +135,7 @@ USE = {
     ("subscription", "clean"): ("axs subscription clean", "[--yes]"),
     ("node", "show"): ("axs node show", "[--full|--all] [--depth N]"),
     ("node", "test"): ("axs node test", "<名称|N#>|--all"),
-    ("group", "members"): ("axs group members", "<组>（先看 group status）"), ("group", "switch"): ("axs group switch", "<组> <成员>"), ("group", "test"): ("axs group test", "[组]"),
+    ("group", "members"): ("axs group members", "<组>（先看 group status）"), ("group", "switch"): ("axs group switch", "<组> <成员>"), ("group", "test"): ("axs group test", "<名称|G#>|--all"),
     ("rule", "show"): ("axs rule show", "[--local]"), ("rule", "add"): ("axs rule add", "direct|via|node <域名> [组或节点]"), ("rule", "del"): ("axs rule del", "<域名|RID|规则全文>"),
     ("network", "test"): ("axs network test", "[网址 ...]"),
     ("proxy", "user"): ("axs proxy user", "on|off|status"), ("proxy", "system"): ("axs proxy system", "on|off|enable|disable|status"),
