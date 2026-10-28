@@ -16,7 +16,7 @@
 
 ### C5
 
-不再用一句「status 干净」验收。两条都要成立：默认 `git status --short` 没有输出；`git -c status.showUntrackedFiles=normal status --short -- .local/lib/access` 为空。normal 下 access 以外的未跟踪路径是 dotfiles 既有账，不算这次并入失败。
+不再用一句「status 干净」验收。两条都要成立：默认 `git status --short` 没有输出；`git -c status.showUntrackedFiles=normal status --short -- .local/lib/access` 为空。normal 下 access 以外的其余路径是 dotfiles 既有账，不算这次并入失败。
 
 删独立 `.git` 前，`fsck --unreachable --no-reflogs` 有 6 个不可达提交。父提交都还在历史上，同主题的后一笔已经取代它们，树差只在那一笔里，没有另打 tag：
 
