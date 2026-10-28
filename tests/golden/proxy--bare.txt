@@ -15,5 +15,6 @@ axs proxy session  登录持久 enable|disable|status
   对方终端：export http_proxy=http://127.0.0.1:<本机端口>
             export https_proxy=$http_proxy
         # 这两行等于本机的 proxy user，不是 system/session
+  验证：curl -x http://127.0.0.1:<本机端口> https://ipinfo.io/ip
   检查：sshd -T | grep -E 'allowtcpforwarding|gatewayports'
 --- stderr

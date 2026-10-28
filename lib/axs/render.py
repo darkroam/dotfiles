@@ -165,6 +165,7 @@ def proxy_tunnel(host):
         f"  对方终端：export http_proxy=http://{host}:<本机端口>",
         "            export https_proxy=$http_proxy",
         "        # 这两行等于本机的 proxy user，不是 system/session",
+        f"  验证：curl -x http://{host}:<本机端口> https://ipinfo.io/ip",
         "  检查：sshd -T | grep -E 'allowtcpforwarding|gatewayports'",
     )
 

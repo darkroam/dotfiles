@@ -196,7 +196,10 @@ def check_node_args():
             except SystemExit as exc:
                 code = exc.code if isinstance(exc.code, int) else 1
             want = layer_text(name, LOOPBACK)
-            drifted = name == "proxy" and bare != f"exit: 0\n--- stdout\n{want}--- stderr\n"
+            drifted = name == "proxy" and (
+                bare != f"exit: 0\n--- stdout\n{want}--- stderr\n"
+                or f"curl -x http://{LOOPBACK}:<本机端口> https://ipinfo.io/ip" not in want
+            )
             if code != 0 or err_buf.getvalue() or out_buf.getvalue() != want or drifted:
                 raise SystemExit(f"bare {name} -> {code} {err_buf.getvalue()!r} {out_buf.getvalue()!r}")
         old_in = sys.stdin
