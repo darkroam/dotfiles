@@ -14,6 +14,19 @@
 
 只读归档是 `~/src/access-2026-10-28.git`。撤回这次并入用 `git revert -m 1 <subtree merge>`，不要用不带 `-m` 的 revert。
 
+### C5
+
+不再用一句「status 干净」验收。两条都要成立：默认 `git status --short` 没有输出；`git -c status.showUntrackedFiles=normal status --short -- .local/lib/access` 为空。normal 下 access 以外的未跟踪路径是 dotfiles 既有账，不算这次并入失败。
+
+删独立 `.git` 前，`fsck --unreachable --no-reflogs` 有 6 个不可达提交。父提交都还在历史上，同主题的后一笔已经取代它们，树差只在那一笔里，没有另打 tag：
+
+- `2ee7fab6448efe692ce75b3c2ec13964c5d9b87a` `2ee7fab R32-codex: 隧道说明入 proxy 帮助`
+- `7a5ddb978e1f990585952f7091ed5ba7a3366a92` `7a5ddb9 R32-codex: 隧道说明入 proxy 帮助`
+- `21ae24bac813a9509ed840aeb3b8ab7ecab4b9b3` `21ae24b R32-codex: 隧道说明入 proxy 帮助`
+- `e9c7ebad5f238ef3d51071d1bbf96be7e85c9d81` `e9c7eba design: 前置组名校验与远端脱敏约束`
+- `ab08834ab99f32e8b2e7bd92241cacd10a06d915` `ab08834 R31-codex: 阶段5ah 返工死码`
+- `8a0bb3c3b77cb5596d026665a338da597119fd90` `8a0bb3c R31-dsh: 文档示例与残留清理`
+
 golden 是 63 份 `.txt` = 62 份 `cases.json` 重放 + `network-test--ok.txt` 单测专用。
 
 ## 依赖
