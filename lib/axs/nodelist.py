@@ -104,17 +104,55 @@ def show_nodes(secret_path, api, mode=""):
     sys.stdout.write("\n".join(lines) + "\n")
 
 
-def render_rows(numbers, rows, heading):
+def _pair(plain, colored):
+    return plain, colored if use_color() else plain
+
+
+def render_test_rows(numbers, rows, heading):
     width = len(str(max(numbers.values()))) if numbers else 1
-    lines = [bold("测速（全部叶子）")] if heading else []
-    ordered = sorted(rows, key=lambda item: numbers[item[0]])
-    for name, delay, reason in ordered:
+    entries = []
+    for name, delay, reason in sorted(rows, key=lambda item: numbers[item[0]]):
         if delay is None:
             plain = reason or "超时"
             shown = tone("31", plain)
         else:
             plain = f"{delay}ms"
             shown = tone(delay_code(delay), plain)
-        label = f"N{numbers[name]:>{width}}"
-        lines.append(f"{label} {name} {shown}")
+        label = f"N{numbers[name]:>{width}} {name} "
+        entries.append(_pair(label + plain, label + shown))
+    lines = [bold("测速（全部叶子）")] if heading else []
+    lines.extend(layout_cells(entries, term_cols()))
     return "\n".join(lines) + ("\n" if lines else "")
+
+
+def _tree(chunks):
+    lines = []
+    last = len(chunks) - 1
+    for index, rows in enumerate(chunks):
+        branch = "└─ " if index == last else "├─ "
+        pad = "   " if index == last else "│  "
+        for row_index, row in enumerate(rows):
+            lines.append((branch if row_index == 0 else pad) + row)
+    return lines
+
+
+def render_group_block(numbers, group, kind, members, failure=None):
+    lines = [f"G{numbers[group]} {group} [{kind}]"]
+    if failure:
+        lines.append("└─ " + failure)
+        return "\n".join(lines)
+    grouped, leaves = [], []
+    for name, number, is_group in members:
+        if type(number) is int:
+            plain, shown = str(number), tone(delay_code(number), str(number))
+        else:
+            plain, shown = "超时", tone("31", "超时")
+        title = ident(name) if name == group else name
+        cell = _pair(f"{name} {plain}", f"{title} {shown}")
+        (grouped if is_group else leaves).append(cell)
+    chunks = [[colored] for _plain, colored in grouped]
+    if leaves:
+        gutter = display_width("└─ ")
+        chunks.append(layout_cells(leaves, max(1, term_cols() - gutter)))
+    lines.extend(_tree(chunks))
+    return "\n".join(lines)

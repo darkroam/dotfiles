@@ -1,0 +1,8 @@
+exit: 0
+--- stdout
+G1 A [Selector]
+└─ a 12  b 80
+
+G2 B [URLTest]
+└─ a 12  b 80
+--- stderr

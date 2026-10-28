@@ -11,9 +11,10 @@ from axs.config import SECRET, api_address
 from axs.core import fail, service_up
 from axs.leafdelay import delay_timeout
 from axs.mihomo import DELAY, GROUP, _QUIET, load_proxies, read_secret, request
-from axs.nodes import _ansi, _is_group, delay_code, group_numbers, resolve_group_name, write_node_cache
+from axs.nodes import _is_group, group_numbers, resolve_group_name, write_node_cache
+from axs.nodelist import render_group_block
 from axs.progress import Progress
-from axs.render import call_usage, die, ident
+from axs.render import call_usage, die
 
 DELAY_URL = "https://www.gstatic.com/generate_204"
 
@@ -36,13 +37,12 @@ def _usage():
     previous = os.environ.get("AXS_PAINT_FD")
     os.environ["AXS_PAINT_FD"] = "2"
     try:
-        text = call_usage("group", "test")
+        sys.stderr.write(call_usage("group", "test") + "\n")
     finally:
         if previous is None:
             os.environ.pop("AXS_PAINT_FD", None)
         else:
             os.environ["AXS_PAINT_FD"] = previous
-    sys.stderr.write(text + "\n")
     raise SystemExit(USAGE)
 
 
@@ -84,19 +84,15 @@ def _payload(secret, api, group, url, quiet=False):
             _QUIET.reset(token)
 
 
-def _rows(proxies, group, payload):
-    lines, cached = [], []
+def _members(proxies, payload):
+    members, cached = [], []
     for name, value in payload.items():
-        try:
-            number = int(value)
-            shown, code = str(number), delay_code(value)
-        except (TypeError, ValueError):
-            number, shown, code = None, "超时", "31"
-        title = ident(name) if name == group else name
-        lines.append(f"{title} {_ansi(code, shown)}")
-        if number is not None and not _is_group(proxies.get(name)):
+        number = value if type(value) is int else None
+        is_group = _is_group(proxies.get(name))
+        members.append((name, number, is_group))
+        if number is not None and not is_group:
             cached.append(f"{name} {number}")
-    return lines, cached
+    return members, cached
 
 
 def _load(run):
@@ -111,6 +107,14 @@ def _load(run):
     return api, proxies
 
 
+def _show(numbers, proxies, group, payload, reason):
+    kind = str(proxies[group].get("type") or "-")
+    if reason:
+        return render_group_block(numbers, group, kind, [], reason), []
+    members, cached = _members(proxies, payload)
+    return render_group_block(numbers, group, kind, members), cached
+
+
 def _one(run, secret, api, proxies, group, url):
     dest = Path(run) / "cache" / "node-test"
     try:
@@ -118,8 +122,8 @@ def _one(run, secret, api, proxies, group, url):
     except SystemExit as exc:
         write_node_cache(dest, "", [], False)
         raise SystemExit(exc.code if isinstance(exc.code, int) else FAIL)
-    lines, cached = _rows(proxies, group, payload)
-    sys.stdout.write("".join(line + "\n" for line in lines))
+    text, cached = _show(group_numbers(proxies), proxies, group, payload, "")
+    sys.stdout.write(text + "\n")
     write_node_cache(dest, group, cached)
 
 
@@ -131,20 +135,17 @@ def _all(run, secret, api, proxies, url):
     dest = Path(run) / "cache" / "node-test"
     try:
         for group in groups:
-            kind = str(proxies[group].get("type") or "-")
-            chunks.append(f"G{numbers[group]} {group} [{kind}]")
             payload, reason = _payload(secret, api, group, url, True)
+            text, extra = _show(numbers, proxies, group, payload, reason)
+            chunks.append(text)
             if reason:
                 failed = True
-                chunks.append(reason)
             else:
-                lines, extra = _rows(proxies, group, payload)
-                chunks.extend(lines)
                 cached.extend(extra)
             bar.advance()
     finally:
         bar.finish()
-    sys.stdout.write("\n".join(chunks) + ("\n" if chunks else ""))
+    sys.stdout.write("\n\n".join(chunks) + ("\n" if chunks else ""))
     write_node_cache(dest, "", cached, not failed)
     if failed:
         raise SystemExit(FAIL)

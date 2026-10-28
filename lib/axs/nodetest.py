@@ -13,7 +13,7 @@ from axs.core import service_up
 from axs.leafdelay import classify, delay_ms, delay_timeout, workers
 from axs.mihomo import DELAY, PROXIES, _QUIET, load_proxies, read_secret, request
 from axs.nodes import _is_group, _prefixed, group_numbers, node_numbers, write_node_cache
-from axs.nodelist import render_rows
+from axs.nodelist import render_test_rows
 from axs.progress import Progress
 from axs.render import call_usage, die
 
@@ -169,7 +169,7 @@ def cmd_test(run, args):
     secret = read_secret(secret_path, api)
     rows = run_tests(secret, api, names, url, flag)
     rows.extend((name, None, "不可选") for name in skipped)
-    sys.stdout.write(render_rows(node_numbers(proxies), rows, flag))
+    sys.stdout.write(render_test_rows(node_numbers(proxies), rows, flag))
     cached = [f"{name} {delay}" for name, delay, _reason in rows if type(delay) is int]
     ok = all(delay is not None for _name, delay, _reason in rows)
     write_node_cache(Path(run) / "cache" / "node-test", "", cached, ok)

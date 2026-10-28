@@ -585,4 +585,30 @@
       "run/fake/delay.json": "{\"a\": 12}\n"
     }
   }
+,
+  {
+    "name": "group-test--one.txt",
+    "argv": [
+      "group",
+      "test",
+      "主代理"
+    ],
+    "up": true,
+    "files": {
+      "run/fake/delay.json": "{\"a\": 12, \"b\": 80}\n"
+    }
+  },
+  {
+    "name": "group-test--all.txt",
+    "argv": [
+      "group",
+      "test",
+      "--all"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\":{\"A\":{\"type\":\"Selector\",\"all\":[\"a\",\"b\"],\"now\":\"a\"},\"B\":{\"type\":\"URLTest\",\"all\":[\"a\"],\"now\":\"a\"},\"a\":{\"type\":\"Shadowsocks\"},\"b\":{\"type\":\"Shadowsocks\"}}}\n",
+    "files": {
+      "run/fake/delay.json": "{\"a\": 12, \"b\": 80}\n"
+    }
+  }
 ]

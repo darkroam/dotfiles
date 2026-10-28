@@ -79,11 +79,13 @@ def check_all(tmp):
             os.environ["AXS_FAKE_DIR"] = saved
     text = (
         "G1 GLOBAL [Selector]\n"
-        "a 12\n"
+        "└─ a 12\n"
+        "\n"
         "G2 主代理 [Selector]\n"
-        "a 12\n"
+        "└─ a 12\n"
+        "\n"
         "G3 自动 [URLTest]\n"
-        "a 12\n"
+        "└─ a 12\n"
     )
     if out.getvalue() != text:
         fail(out.getvalue())
@@ -140,11 +142,13 @@ def check_continue(tmp):
             os.environ["AXS_FAKE_DIR"] = saved
     text = (
         "G1 A [Selector]\n"
-        "a 12\n"
+        "└─ a 12\n"
+        "\n"
         "G2 B [Selector]\n"
-        "控制器失败：HTTP 504\n"
+        "└─ 控制器失败：HTTP 504\n"
+        "\n"
         "G3 C [URLTest]\n"
-        "a 12\n"
+        "└─ a 12\n"
     )
     if code != FAIL or out.getvalue() != text or err.getvalue():
         fail((code, out.getvalue(), err.getvalue()))
@@ -156,9 +160,28 @@ def check_continue(tmp):
         fail(body)
 
 
+def check_columns():
+    from axs.nodelist import render_group_block
+
+    numbers = {"child": 1, "主代理": 2}
+    members = [("child", 5, True), ("a", 12, False), ("b", 80, False)]
+    os.environ["AXS_COLOR"] = "never"
+    os.environ["COLUMNS"] = "80"
+    wide = render_group_block(numbers, "主代理", "Selector", members)
+    if wide != "G2 主代理 [Selector]\n├─ child 5\n└─ a 12  b 80":
+        fail(wide)
+    os.environ["COLUMNS"] = "12"
+    narrow = render_group_block(numbers, "主代理", "Selector", members)
+    if narrow != "G2 主代理 [Selector]\n├─ child 5\n└─ a 12\n   b 80":
+        fail(narrow)
+    os.environ["COLUMNS"] = "80"
+
+
 def main():
     os.environ["AXS_COLOR"] = "never"
+    os.environ["COLUMNS"] = "80"
     check_args()
+    check_columns()
     with tempfile.TemporaryDirectory(prefix="axs-grouptest-") as tmp:
         check_all(tmp)
     with tempfile.TemporaryDirectory(prefix="axs-grouptest-") as tmp:
