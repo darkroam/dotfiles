@@ -1,0 +1,5 @@
+exit: 0
+--- stdout
+G1 主代理 [Selector]
+└─ a 12  b 80
+--- stderr

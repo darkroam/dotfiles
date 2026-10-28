@@ -1,0 +1,31 @@
+mixed-port: 1
+mode: global
+port: 1
+socks-port: 2
+redir-port: 3
+tproxy-port: 4
+ipv6: false
+allow-lan: true
+external-controller: "127.0.0.1:1"
+secret: from-sub-should-not-win
+tun:
+  enable: true
+  stack: gvisor
+dns:
+  enable: false
+  listen: "127.0.0.1:53"
+  nameserver:
+    - "192.0.2.53"
+proxies:
+  - name: a
+    type: ss
+    server: "203.0.113.10"
+    port: 1
+proxy-groups:
+  - name: PROXY
+    type: select
+    proxies:
+      - a
+rules:
+  - "DOMAIN-SUFFIX,localhost,DIRECT"
+  - "MATCH,PROXY"

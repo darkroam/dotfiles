@@ -1,0 +1,4 @@
+exit: 0
+--- stdout
+剩余 1 天（警告）
+--- stderr

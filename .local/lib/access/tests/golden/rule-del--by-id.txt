@@ -1,0 +1,4 @@
+exit: 0
+--- stdout
+已删除，启动时生效
+--- stderr

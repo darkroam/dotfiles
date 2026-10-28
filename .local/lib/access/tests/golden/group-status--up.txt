@@ -1,0 +1,4 @@
+exit: 0
+--- stdout
+G1  主代理  Selector  → a
+--- stderr

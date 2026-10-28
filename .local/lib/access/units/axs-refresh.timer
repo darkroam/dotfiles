@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh axs subscription every 12 hours
+
+[Timer]
+OnUnitActiveSec=12h
+Persistent=true
+# 刷新单元没跑过时，OnUnitActiveSec 没有截止时间。这一行只排第一次。
+OnStartupSec=12h
+
+[Install]
+WantedBy=timers.target

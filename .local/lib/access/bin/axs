@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+export PYTHONPATH="$ROOT/lib${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m axs "$@"

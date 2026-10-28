@@ -1,0 +1,4 @@
+exit: 0
+--- stdout
+N1 a 12ms
+--- stderr

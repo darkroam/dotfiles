@@ -1,0 +1,6 @@
+exit: 0
+--- stdout
+G4  自动  URLTest      [*]   -
+N2  甲    Shadowsocks       42
+N1  乙    Vless              -
+--- stderr
