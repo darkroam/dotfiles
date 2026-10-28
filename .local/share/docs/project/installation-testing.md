@@ -102,6 +102,7 @@ setup_bootstrap_env() # 从当前工作树构造自举安装用的临时 remote
 ### TC-AXS01：access 入口（access-entry.bats）
 
 `.local/bin/axs` 的链接文本是 `../lib/access/bin/axs`。测试从本仓库根解析该链接并执行 `axs help`，退出码 0。不使用真实 `$HOME`，也不启动服务。
+同文件再断言 `min` 清单不含 `.local/bin/axs` 与 `.local/lib/access`，以及三份 unit 模板仍在库内：服务启动 `mihomo-run`，刷新启动 `axs subscription refresh`，模板不含 `systemctl --user enable`。
 
 ---
 
