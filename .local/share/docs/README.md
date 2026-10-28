@@ -28,7 +28,12 @@
 - [显示管理设计](project/display-management.md) — X11 显示引擎的状态模型、显示布局策略和验证矩阵
 - [显示设备适配器指引](project/display-device-adapter.md) — 非标准硬件扩展接口规范
 - [显示管理测试](project/display-testing.md) — 状态、显示布局、配置和适配器的测试方案与验收步骤
-- [访问子系统](../../lib/access/docs/README.md) — 网络访问控制的契约；实现在 `.local/lib/access/`
+- [访问子系统](project/access-system.md) — 网络访问控制：怎么用；实现在 `.local/lib/access/`
+- [访问设计](project/access-design.md) — 命令行为、退出码和术语
+- [访问架构](project/access-architecture.md) — 文件怎么摆、分层和上限
+- [访问约束](project/access-constraints.md) — 隐私、仓库边界和回滚
+- [访问路线](project/access-roadmap.md) — 还没授权的事
+- [访问测试](project/access-testing.md) — 离线套件与真机 lab
 - [协作规约](project/collaboration.md) — 用户 × dsh × qoder × codex 四角色协作流程、两级审查标准与提交纪律；轮次档案保存在本机私有目录 `.local/share/collab/`
 
 ### 约束速查
@@ -42,7 +47,7 @@
 | 文档质量与术语 | [文档质量规范](project/docs-standard.md) | 文档必须面向单一读者，并与实现、链接和权威术语同步。 |
 | 多 Agent 协作与提交 | [协作规约](project/collaboration.md) | 用户决策、dsh 终审、qoder 初审与建议、codex 实现的职责和文件边界不得越权。 |
 | 安装系统外部契约 | [安装系统](project/installation-system.md#核心开发契约与不可变规则) | 用户接口、数据保护、幂等性和配置驱动契约不可由内部重构改变。 |
-| 验证基线 | [安装测试](project/installation-testing.md) · [显示测试](project/display-testing.md) · [协作规约](project/collaboration.md) | 行为变更必须同步相应测试基线，失败不得绕过。 |
+| 验证基线 | [安装测试](project/installation-testing.md) · [显示测试](project/display-testing.md) · [访问测试](project/access-testing.md) · [协作规约](project/collaboration.md) | 行为变更必须同步相应测试基线，失败不得绕过。 |
 
 ## 按能力域导航
 

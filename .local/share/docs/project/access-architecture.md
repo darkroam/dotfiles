@@ -1,0 +1,197 @@
+# 访问子系统 · 文件结构
+
+本文是文件怎么摆的唯一说明。行为在 [access-design.md](access-design.md)。术语与规则见 [access-design.md](access-design.md#模型与术语)。命令表在 `axs help`。
+
+## 形态
+
+入口是薄 shell：`bin/axs` 找到实现根，把该目录放进模块路径，再 `exec python3 -m axs`。逻辑在 `axs/`。不新增依赖，继续用已经在用的 PyYAML。`bin/mihomo-run` 仍是 shell，只校验 PID、写下 PID 文件、exec 内核。
+
+## 并入
+
+代码在 dotfiles 的 `.local/lib/access/`。包是该目录下的 `axs/`，不是仓库根上的 `axs/`。测试在 `.local/share/test/access/`。六份文档在 `.local/share/docs/project/`，文件名以 `access-` 开头。PATH 入口是相对链接 `.local/bin/axs` → `../lib/access/bin/axs`。`bin/axs` 若经符号链接调用，先解析链接再找根目录；直接调用时根目录不变。
+
+`run/` 与 `.local/share/test/access/lab/var/` 不入库。根 `.gitignore` 忽略 `.local/lib/access/run/`、`.local/share/test/access/lab/var/` 和 `.local/share/test/access/**/__pycache__/`。实现目录的 `.gitignore` 再忽略 `run/`、`__pycache__/` 与 `*.pyc`。
+
+只读归档是 `~/src/access-2026-10-28.git`。撤回这次并入用 `git revert -m 1 <subtree merge>`，不要用不带 `-m` 的 revert。
+
+### C5
+
+不再用一句「status 干净」验收。两条都要成立：默认 `git status --short` 没有输出；`git -c status.showUntrackedFiles=normal status --short -- .local/lib/access .local/share/test/access` 为空。normal 下这两处以外的其余路径是 dotfiles 既有账，不算这次重组失败。
+
+删独立 `.git` 前，`fsck --unreachable --no-reflogs` 有 6 个不可达提交。父提交都还在历史上，同主题的后一笔已经取代它们，树差只在那一笔里，没有另打 tag：
+
+- `2ee7fab6448efe692ce75b3c2ec13964c5d9b87a` `2ee7fab R32-codex: 隧道说明入 proxy 帮助`
+- `7a5ddb978e1f990585952f7091ed5ba7a3366a92` `7a5ddb9 R32-codex: 隧道说明入 proxy 帮助`
+- `21ae24bac813a9509ed840aeb3b8ab7ecab4b9b3` `21ae24b R32-codex: 隧道说明入 proxy 帮助`
+- `e9c7ebad5f238ef3d51071d1bbf96be7e85c9d81` `e9c7eba design: 前置组名校验与远端脱敏约束`
+- `ab08834ab99f32e8b2e7bd92241cacd10a06d915` `ab08834 R31-codex: 阶段5ah 返工死码`
+- `8a0bb3c3b77cb5596d026665a338da597119fd90` `8a0bb3c R31-dsh: 文档示例与残留清理`
+
+golden 是 63 份 `.txt` = 62 份 `cases.json` 重放 + `network-test--ok.txt` 单测专用。
+
+## 依赖
+
+只向下。上层不被下层调用。`from axs.service import` 只允许出现在 `cli.py` 与 `nodecmd.py`。
+
+```
+bin/axs  bin/mihomo-run
+    |
+   cli
+    |
+ nodecmd
+    |
+ tree     service   nodeview   selectview   nodetest   grouptest
+    |
+ proxy
+    |
+ proxylan
+    |
+ subscription  rules
+    |
+ leafdelay   progress   subslist
+    |
+ routes   nodelist
+    |
+  net   nodes   rulelist
+    |
+ core ---------------- mihomo
+    |
+ config    codes    catalog    sections
+```
+
+`render` 不在这条链上，也不得引用任何 axs 模块。唯一例外是只读 `catalog` 与 `sections`。为了输出调用它，不算斜边。`catalog` 在最底层，只放命令树，只引用 `sections`。`sections` 只放帮助节，不引用任何模块。`service` 是编排，可以调用它下面的模块。除 `nodecmd` 外，命令模块不调用 `service`。`nodecmd` 编排 node 与 group 的视图命令。`tree`、`nodeview`、`selectview` 只被 `nodecmd` 调用。`nodetest` 与 `grouptest` 只被 `cli` 调用，彼此不引用。`nodetest` 逐叶请求 `/proxies`。`grouptest` 请求 `/group`。进度在 `progress`。`subslist` 只解析订阅列表，不拉取。`proxylan` 在 `proxy` 之下，只改 override 的 allow-lan 与 bind-address。`leafdelay` 提供查询超时和 HTTP 等待。`nodes` 不再拥有 delay，只留测速缓存格式。 `nodelist` 画组表、节点列表与测速行，只问 `nodes` 的编号、延迟和选择。
+
+斜边台账：
+
+| 从 | 到 | 原因 |
+| --- | --- | --- |
+| rules | subscription | 合并后的安装复用订阅模块 |
+| catalog | sections | 帮助节从命令树拆出 |
+
+反向不行。import 只能指向更下层，或台账里的这一条。锁、持锁和进程存活只来自 `core`。入站端口是否打开只来自 `net`。内核路径、内置网段和原子写只来自 `config`。重载请求只来自 `mihomo`。
+
+| 模块 | 拥有 | 不拥有 |
+| --- | --- | --- |
+| config | 路径、`run/` 文件名、默认值、端口、控制器地址、内核路径、内置网段、原子写 | 网络、颜色 |
+| render | 颜色、对齐、帮助和 status 的排版 | 除 `catalog`、`sections` 外的 axs 模块 |
+| core | 锁、持锁、进程存活、安装、快照与回滚、systemd 探测、会话 environ | 订阅正文、命令模块、端口探测、原子写 |
+| mihomo | 控制器 HTTP、探活、重载请求 | 回滚、规则语义 |
+| service | 启停、health、清理、status 编排 | 订阅解析、锁、进程探测、端口探测、默认页 |
+| subslist | 订阅列表的解析、编号、写入，以及到期行 | 拉取、刷新、锁 |
+| subscription | 拉取、校验、合并、安装与回滚 | 列表语法、status 排版 |
+| rulelist | `RID`、来源分类、`rule show` 行、删除参数解析 | 安装、重载、回滚 |
+| routes | 规则目标链、条数分布、链尾自动组、select 根 | 着色、排版、改配置 |
+| rules | 规则增删，以及合并后的安装、重载、回滚 | 读端口、再写一遍锁、`RID` |
+| nodes | 编号、切换、测速缓存 | 改配置、测速、列表渲染 |
+| nodelist | 组/节点列表与测速行渲染 | 数据、测速 |
+| nodetest | 叶子测速命令、可选叶子、进度接线 | 切换、改配置、缓存格式、组测速 |
+| grouptest | 组测速命令、全组分段 | 切换、改配置、缓存格式、叶子枚举 |
+| leafdelay | 查询超时、HTTP 等待、原因分类 | 命令输出、缓存、进度条 |
+| progress | 进度条 | 测速、发请求 |
+| net | 连通性、出口地址、入站是否打开 | 写订阅 |
+| proxy | 三层开关和状态词 | 改内核进程、局域网监听 |
+| proxylan | override 的 allow-lan 与 bind-address | 三层开关、订阅合并 |
+| nodeview | `node status`、成员表 | 拓扑、生命周期、着色规则 |
+| selectview | `node show` 板块 | 完整拓扑、`node status`、select 根 |
+| tree | `--full` 拓扑 | 成员表、`node status`、select 根、`node show` |
+| catalog | 命令树数据 | 解析、分发、排版、帮助节正文 |
+| sections | 帮助节正文 | 解析、分发、排版、别名与签名 |
+| nodecmd | node 子命令编排 | 视图、测速、数据 |
+| cli | 解析、分发 | 被下层调用、命令树数据 |
+| codes | 退出码常量 | 任何其它逻辑 |
+
+## 目录
+
+```
+.local/lib/access/bin/axs                 用户入口。路径冻住
+.local/lib/access/bin/mihomo-run          内核包装。路径冻住
+.local/lib/access/axs/                    Python 包
+.local/lib/access/units/                  单元模板。文件名冻住
+.local/lib/access/run/                    运行时。不入库
+.local/share/test/access/run.sh           离线总入口
+.local/share/test/access/unit/            直接 import
+.local/share/test/access/integration/     假命令下跑 bin/axs
+.local/share/test/access/lab/             真内核
+.local/share/test/access/fixtures/        假命令与假订阅
+.local/share/test/access/golden/          纯文本快照。入库
+.local/share/test/access/support/         造运行目录、对快照。不是测试
+.local/share/docs/project/access-*.md     六份文档
+```
+
+不另建 `logs/`、`tmp/`、`generated/`。帮助在运行时打出，不落成仓库文件。缓存仍在 `run/cache/`。忽略 `run/`、`__pycache__/`、`*.pyc`、`.local/share/test/access/lab/var/`。
+
+## 文件
+
+上限是天花板，不是目标。到了就按上面的模块拆，不发明新层。
+
+| 文件 | 职责 | 上限 |
+| --- | --- | --- |
+| `bin/axs` | 找到根目录并 exec Python | 30 行 |
+| `bin/mihomo-run` | 校验 PID，原子写 PID，exec 内核 | 30 行 |
+| `axs/__init__.py` | 包标记 | 20 行 |
+| `axs/__main__.py` | 记下真实终端，再调 cli | 40 行 |
+| `axs/codes.py` | 退出码常量 | 20 行 |
+| `axs/sections.py` | 帮助节正文。不解析、不分发 | 80 行 |
+| `axs/catalog.py` | 命令树数据与子命令签名。不解析、不分发、不排版 | 160 行 |
+| `axs/cli.py` | 前缀解析、用法、分发。命令树在 catalog | 330 行 |
+| `axs/nodecmd.py` | node 子命令编排。不画视图、不测速、不持有数据 | 180 行 |
+| `axs/render.py` | 颜色、对齐、帮助排版。命令树在 catalog | 300 行 |
+| `axs/config.py` | 默认值、路径、端口、内核路径、内置网段、原子写 | 200 行 |
+| `axs/core.py` | 锁、持锁、进程存活、安装、快照、systemd、会话探测 | 400 行 |
+| `axs/mihomo.py` | 控制器 HTTP，规则类型词和来源表。不是内核二进制 | 285 行 |
+| `axs/service.py` | 启停、ensure、health、清理、status | 400 行 |
+| `axs/subslist.py` | 订阅列表的解析与写入。不拉取 | 200 行 |
+| `axs/subscription.py` | 拉取、校验、合并、安装与回滚 | 400 行 |
+| `axs/rulelist.py` | `RID`、来源分类、`rule show` 行、删除参数解析 | 200 行 |
+| `axs/routes.py` | 规则目标链与条数，以及 select 的根。不排版 | 160 行 |
+| `axs/rules.py` | 规则增删、安装回滚 | 220 行 |
+| `axs/nodes.py` | 编号、切换、测速缓存。列表在 nodelist | 330 行 |
+| `axs/nodelist.py` | 组/节点列表与测速行渲染。不持有数据、不测速 | 200 行 |
+| `axs/nodetest.py` | 叶子测速。不切换、不改配置 | 220 行 |
+| `axs/grouptest.py` | 组测速。不切换、不改配置 | 170 行 |
+| `axs/leafdelay.py` | 延迟超时、HTTP 等待与原因分类。不发请求、不写缓存 | 120 行 |
+| `axs/progress.py` | 可复用进度条。非 TTY 不输出 | 100 行 |
+| `axs/nodeview.py` | 默认页与成员表。不画拓扑 | 160 行 |
+| `axs/selectview.py` | `node show` 板块。不画完整拓扑 | 200 行 |
+| `axs/tree.py` | `--full` 拓扑。编号仍问 nodes | 250 行 |
+| `axs/net.py` | 连通、出口、入站是否打开 | 250 行 |
+| `axs/proxy.py` | 三层开关和状态词 | 300 行 |
+| `axs/proxylan.py` | 局域网监听。不改三层开关 | 150 行 |
+| `units/*` | 已安装单元的模板。外部行为不改 | 各 40 行 |
+| `.local/share/test/access/run.sh` | 先单元，再集成。不含 lab | 40 行 |
+| `.local/share/test/access/unit/test_<模块>.py` | 该模块的 import 断言 | 各 400 行；`test_rules.py` 450 |
+| `.local/share/test/access/unit/test_render.py` | help、usage、别名着色。解析仍在 `test_cli.py` | 200 行 |
+| `.local/share/test/access/integration/<模块>.sh` | 该模块的假环境断言 | 各 400 行 |
+| `.local/share/test/access/lab/run.sh` | 真内核场景驱动 | 450 行 |
+| `.local/share/test/access/lab/lab.py` | 回环替身 | 400 行 |
+| `.local/share/test/access/lab/audit.py` | 内核套接字审计 | 400 行 |
+| `.local/share/test/access/fixtures/fake-*` | 一个真实命令一个文件 | 各 80 行 |
+| `.local/share/test/access/golden/<命令>--<状态>.txt` | 无色快照 | 单份 200 行 |
+| `.local/share/test/access/support/prep.py` | 造临时运行目录 | 40 行 |
+| `.local/share/test/access/support/snap.py` | 重打或比对 golden | 120 行 |
+| `.local/share/docs/project/access-system.md` | 使用者看：怎么用、契约在哪 | — |
+| `.local/share/docs/project/access-design.md` | 维护者看的行为契约 | — |
+| `.local/share/docs/project/access-architecture.md` | 本文件。文件结构只写在这里 | — |
+| `.local/share/docs/project/access-constraints.md` | 隐私、仓库边界、回滚、明确不做 | — |
+| `.local/share/docs/project/access-roadmap.md` | 还没授权的事 | — |
+| `.local/share/docs/project/access-testing.md` | 离线套件与 lab | — |
+
+不另建命令参考。要看命令，跑 `axs help`。
+
+## 命名
+
+- 包内文件名就是模块名。函数小写加下划线，动词开头。
+- 退出码常量只在 `codes.py`。颜色函数只在 `render.py`。端口、默认值和 `run/` 文件名的字面量只在 `config.py`。
+- 已有的 `AXS_*` 不改名，不新增第二套同义变量。
+- 测试文件 `test_<模块>.py`。夹具 `fake-<真实命令>`。快照 `<命令>--<状态>.txt`。
+- 不留 `common.sh` 或 `merge.py` 这种转发层。
+
+## 测试
+
+- 单元：import 包，不启动子进程。
+- 集成：假命令、假控制器下跑 `bin/axs`。假命令的输出复刻真实工具的字段。systemd 定时器用 JSON 的 `next` 与 `left`。
+- golden：`AXS_COLOR=never` 的纯文本，逐字节比对。例外只存在于当时的提交说明，不在这里再开一张过程表。步 22：select 视图自动组行尾改为「自动·手选会被覆盖」，只重打 select 系节点快照。
+- lab：能 bind 的环境里跑真内核。不进 `.local/share/test/access/run.sh`。
+- 离线套件里的裸数字退出只减不增。
+
+快照和夹具不写真实订阅、密钥、节点名。测试用的运行目录放系统临时目录或 `.local/share/test/access/lab/var/`，不入库。

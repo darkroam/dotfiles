@@ -6,7 +6,7 @@
 维护；通用外部依赖由[依赖清单](dependencies.md)维护。其他文档中的“服务域”只用于导航，不改变
 本文登记的产物所有权。
 
-访问子系统：网络访问与控制。实现已跟踪于 `.local/lib/access/`，主域 U06，与 xdisplay 的实现同域；契约在该目录的 `docs/`。
+访问子系统：网络访问与控制。实现在 `.local/lib/access/`，主域 U06，与 xdisplay 的实现同域。契约是 `.local/share/docs/project/access-system.md` 及同目录 `access-design.md`、`access-architecture.md`、`access-constraints.md`、`access-roadmap.md`、`access-testing.md`。测试在 `.local/share/test/access/`。
 
 ## 判定规则
 
@@ -68,9 +68,10 @@
 | `.local/lib/dotfiles/**` | S01 | S02 | dotcfg 安装实现；测试归 S02，不改变实现主域。 |
 | `.local/lib/project-tools/**` | S04 | S02、S03 | 仓库开发过程内部工具。 |
 | `.local/lib/xdisplay/**` | U06 | U02、S02 | 共享显示实现；测试仍单独归 S02。 |
-| `.local/lib/access/**` | U06 | S02、S03 | 访问实现。树内测试关联 S02，契约文档关联 S03。 |
+| `.local/lib/access/**` | U06 | S02 | 访问实现。测试单独归 S02，契约在公开文档。 |
 | `.local/share/test/collab/**` | S02 | S03、S04 | 协作子系统 fixture。 |
 | `.local/share/test/display/**` | S02 | U06 | 显示子系统 fixture。 |
+| `.local/share/test/access/**` | S02 | U06 | 访问子系统测试。 |
 | `.local/share/test/installation/**` | S02 | S01 | 安装子系统 Bats 与辅助文件。 |
 | `.local/share/docs/**` | S03 | - | 公开设计、用户、平台、planning 和审计文档。 |
 | `.local/share/applications/**` | U05 | U03、U04、U07、U08 | MIME/桌面入口由桌面处理能力所有。 |

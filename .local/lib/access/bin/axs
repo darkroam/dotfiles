@@ -9,5 +9,5 @@ if [ -L "$BIN" ]; then
     esac
 fi
 ROOT=$(cd "$(dirname "$BIN")/.." && pwd)
-export PYTHONPATH="$ROOT/lib${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}"
 exec python3 -m axs "$@"

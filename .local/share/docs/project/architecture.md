@@ -146,7 +146,7 @@ category、安装节点、目录结构或发行版软件包组。路径的唯一
 穷举清单；不是每个能力域都必须成为子系统。部署 category 是文件集合，节点和 Fresh 是安装历史与
 恢复模型，它们同样不承担架构分类。
 
-访问子系统：网络访问与控制。实现已跟踪于 `.local/lib/access/`，主域 U06，与 xdisplay 的实现同域。`run/` 不入库。
+访问子系统：网络访问与控制。实现在 `.local/lib/access/`（包 `axs/`），测试在 `.local/share/test/access/`，契约在 `.local/share/docs/project/access-system.md` 及其余五份 `access-*.md`。主域 U06，与 xdisplay 的实现同域。`run/` 不入库。
 
 ### 术语边界
 
