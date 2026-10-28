@@ -180,7 +180,9 @@ def check_node_args():
                 code = exc.code if isinstance(exc.code, int) else 1
             if code != want or err_buf.getvalue() != err or out_buf.getvalue():
                 raise SystemExit(f"{argv} -> {code} {err_buf.getvalue()!r} {out_buf.getvalue()!r}")
+        from axs.config import LOOPBACK
         from axs.render import layer_text
+        bare = (GOLDEN / "proxy--bare.txt").read_text(encoding="utf-8")
         for name in ("node", "group", "rule", "subscription", "proxy", "service", "network"):
             out_buf, err_buf = io.StringIO(), io.StringIO()
             code = 0
@@ -189,12 +191,10 @@ def check_node_args():
                     cli_main([name])
             except SystemExit as exc:
                 code = exc.code if isinstance(exc.code, int) else 1
-            if code != 0 or err_buf.getvalue() or out_buf.getvalue() != layer_text(name):
+            want = layer_text(name, LOOPBACK)
+            drifted = name == "proxy" and bare != f"exit: 0\n--- stdout\n{want}--- stderr\n"
+            if code != 0 or err_buf.getvalue() or out_buf.getvalue() != want or drifted:
                 raise SystemExit(f"bare {name} -> {code} {err_buf.getvalue()!r} {out_buf.getvalue()!r}")
-        tunnel = layer_text("proxy")
-        for needle in ("ssh -L <端口>", "ssh -R <端口>", "AllowTcpForwarding", "GatewayPorts", "sshd -T"):
-            if needle not in tunnel:
-                raise SystemExit("proxy tunnel missing " + needle)
         old_in = sys.stdin
         sys.stdin = io.StringIO("")
         try:

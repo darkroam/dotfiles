@@ -6,19 +6,6 @@ import unicodedata
 
 from axs.catalog import GROUPS, INTRO, MORE, RETIRED, SECTIONS, SIG, USE
 
-PROXY_TUNNEL = (
-    "隧道（远程设备使用本机代理）",
-    "  正向：对方执行 ssh -L <端口>:<回环地址>:<端口> <用户>@<本机>",
-    "        # 本机 sshd 需 AllowTcpForwarding local/all/yes",
-    "  反向：本机执行 ssh -R <端口>:<回环地址>:<端口> <用户>@<对方>",
-    "        # 对方 sshd 需 AllowTcpForwarding remote/all/yes",
-    "        # 仅对方局域网连 -R 的非 loopback 才需 GatewayPorts yes/clientspecified",
-    "  对方终端：export http_proxy=http://<回环地址>:<端口>",
-    "            export https_proxy=$http_proxy",
-    "        # 端口见 axs status / axs proxy status",
-    "  检查：sshd -T | grep -E 'allowtcpforwarding|gatewayports'",
-)
-
 
 def use_color(fd=1):
     mode = os.environ.get("AXS_COLOR")
@@ -166,7 +153,23 @@ def row(cmd, alias, desc):
     return f"{ident(pad(cmd, 24))}  {dim(pad(alias, 6))}  {dim(desc)}"
 
 
-def layer_text(group):
+def proxy_tunnel(host):
+    return (
+        "隧道（远程设备使用本机代理）",
+        f"  正向：对方执行 ssh -L <对方端口>:{host}:<本机端口> <用户>@<本机>",
+        "        # 本机 sshd 需 AllowTcpForwarding local/all/yes",
+        f"  反向：本机执行 ssh -R <对方端口>:{host}:<本机端口> <用户>@<对方>",
+        "        # 对方 sshd 需 AllowTcpForwarding remote/all/yes",
+        "        # 仅对方局域网连 -R 的非 loopback 才需 GatewayPorts",
+        "        # yes 强制全接口；clientspecified 需显式 0.0.0.0:",
+        f"  对方终端：export http_proxy=http://{host}:<本机端口>",
+        "            export https_proxy=$http_proxy",
+        "        # 这两行等于本机的 proxy user，不是 system/session",
+        "  检查：sshd -T | grep -E 'allowtcpforwarding|gatewayports'",
+    )
+
+
+def layer_text(group, host=""):
     lines = []
     for _title, rows, _notes in SECTIONS:
         for cmd, _alias, desc in rows:
@@ -175,8 +178,14 @@ def layer_text(group):
                 lines.append(f"{cmd}  {desc}")
     if group == "proxy":
         lines.append("")
-        for line in PROXY_TUNNEL:
-            lines.append(dim(line) if line.lstrip().startswith("#") else line)
+        tunnel = proxy_tunnel(host)
+        for index, line in enumerate(tunnel):
+            if index == 0:
+                lines.append(bold(line))
+            elif line.lstrip().startswith("#"):
+                lines.append(dim(line))
+            else:
+                lines.append(line)
     return "\n".join(lines) + "\n"
 
 

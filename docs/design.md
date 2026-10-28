@@ -268,7 +268,7 @@
 
 会话环境读 dwm 进程的 environ。`AXS_SESSION_PID` 可以指定测哪个进程。
 
-`axs proxy` 的裸命令说明后附隧道用法：正向 `ssh -L 7897:127.0.0.1:7897 用户@本机`（本机 sshd 需 `AllowTcpForwarding local/all/yes`）；反向 `ssh -R 7897:127.0.0.1:7897 用户@对方`（对方 sshd 需 `remote/all/yes`；仅对方局域网连非 loopback 时才需 `GatewayPorts yes/clientspecified`）。检查命令是 `sshd -T | grep -E 'allowtcpforwarding|gatewayports'`。注释行暗色，命令普通色。
+`axs proxy` 裸命令在子命令说明后另起隧道段。默认帮助、`help --verbose` 和未知命令回执都不附。标题粗体，注释暗色，命令普通色，正文两格缩进。回环取 config 的回环地址，帮助里不写默认端口。正向：对方执行 `ssh -L <对方端口>:127.0.0.1:<本机端口> <用户>@<本机>`，本机 sshd 需 `AllowTcpForwarding local/all/yes`。反向：本机执行 `ssh -R <对方端口>:127.0.0.1:<本机端口> <用户>@<对方>`，对方 sshd 需 `AllowTcpForwarding remote/all/yes`；仅对方局域网连 `-R` 的非 loopback 才需 `GatewayPorts`：`yes` 强制全接口，`clientspecified` 需显式 `0.0.0.0:`。对方终端 `export http_proxy=http://127.0.0.1:<本机端口>` 与 `export https_proxy=$http_proxy` 等于本机的 `proxy user`，不是 `system`/`session`。本机端口见 `axs status` 或 `service status` 的端口行，不在 `proxy status`。检查命令是 `sshd -T | grep -E 'allowtcpforwarding|gatewayports'`。
 
 登录脚本有两块，插入时都要判重。会话开关在时导出代理变量。系统开关在时导出 `XDG_CURRENT_DESKTOP=GNOME`。都要重登 X 才生效。`no_proxy` 只含 config 里的回环名单，私网例外由内核规则承担。
 
