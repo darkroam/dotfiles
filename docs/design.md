@@ -276,6 +276,8 @@
 | proxy lan off | `allow-lan` 设为 false，`bind-address` 设为回环。同样重载并做回环校验 |
 | proxy lan status | 输出 allow-lan、bind、端口、LAN 地址，以及固定警告「混合端口无认证，仅限可信局域网」。退出 0 |
 
+LAN v1 无认证；`--yes` 与 status 警告是防误开和防遗忘，不是认证。长期开启即局域网内开放中继，v2 候选是 `authentication` 自动生成口令并存 `run/`（0600）。
+
 会话环境读 dwm 进程的 environ。`AXS_SESSION_PID` 可以指定测哪个进程。
 
 `axs proxy` 裸命令在子命令说明后另起隧道段。默认帮助、`help --verbose` 和未知命令回执都不附。标题粗体，注释暗色，命令普通色，正文两格缩进。回环取 config 的回环地址，帮助里不写默认端口。正向：对方执行 `ssh -L <对方端口>:127.0.0.1:<本机端口> <用户>@<本机>`，本机 sshd 需 `AllowTcpForwarding local/all/yes`。反向：本机执行 `ssh -R <对方端口>:127.0.0.1:<本机端口> <用户>@<对方>`，对方 sshd 需 `AllowTcpForwarding remote/all/yes`；仅对方局域网连 `-R` 的非 loopback 才需 `GatewayPorts`：`yes` 强制全接口，`clientspecified` 需显式 `0.0.0.0:`。对方终端 `export http_proxy=http://127.0.0.1:<本机端口>` 与 `export https_proxy=$http_proxy` 等于本机的 `proxy user`，不是 `system`/`session`。验证行 `curl -x http://127.0.0.1:<本机端口> https://ipinfo.io/ip` 普通色，紧跟这段说明。本机端口见 `axs status` 或 `service status` 的端口行，不在 `proxy status`。检查命令是 `sshd -T | grep -E 'allowtcpforwarding|gatewayports'`。
