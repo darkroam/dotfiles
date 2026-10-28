@@ -77,7 +77,7 @@ def usage_text():
         flags = "|".join(_usage_word(flag) for flag in ("--full", "--all"))
         lines = [
             "用法：axs " + _usage_word("service", "top") + " " + _pipes(["status", "start", "stop", "restart", "ensure", "enable", "disable"], "service"),
-            "      axs " + _usage_word("subscription", "top") + " " + _pipes(["status", "refresh", "clean"], "subscription"),
+            "      axs " + _usage_word("subscription", "top") + " " + _pipes(["status", "show", "add", "rm", "switch", "refresh", "clean"], "subscription"),
             "      axs " + _usage_word("rule", "top") + " " + _pipes(["status", "show", "add", "del"], "rule"),
             "      axs " + _usage_word("group", "top") + " " + _pipes(["status", "members", "switch", "test"], "group"),
             "      axs " + _usage_word("node", "top") + " " + _pipes(["status", "show", "test"], "node") + " " + flags + " " + _usage_word("--depth") + " N",
@@ -214,10 +214,8 @@ def main(argv):
     from axs.rulelist import cmd_list
     from axs.rules import cmd_add, cmd_del
     from axs.service import boot, clean, ensure, health, prime, restart, run_dir, service_status, start, status, stop
-    from axs.subscription import refresh_run as _refresh, show_userinfo
-    from axs.core import unix_now
-    from axs.config import LOOPBACK, USERINFO
-    from pathlib import Path
+    from axs.subscription import dispatch as sub_dispatch
+    from axs.config import LOOPBACK
 
     prime()
     if not argv:
@@ -254,12 +252,10 @@ def main(argv):
             boot(run, op)
     elif cmd == "subscription":
         op, extra = _take("subscription", rest)
-        if op == "status":
-            show_userinfo(Path(run) / USERINFO, unix_now())
-        elif op == "refresh":
-            _refresh(run)
-        elif op == "clean":
+        if op == "clean":
             clean(run, "sub", extra)
+        else:
+            sub_dispatch(run, op, extra)
     elif cmd == "rule":
         op, extra = _take("rule", rest)
         if op == "status":

@@ -87,7 +87,8 @@ new_run
 printf '%s\n' "$CANARY" >"$RUN/subscription.url"
 export AXS_FETCH="$ROOT/tests/fixtures/fake-fetch" FIXTURE_SUB="$FIX"
 "$AXS" subscription refresh >/dev/null
-perms=$(stat -c '%a %n' "$RUN" "$RUN/subscription.url" "$RUN/secret" "$RUN/config.yaml" "$RUN/override.yaml" "$RUN/userinfo")
+perms=$(stat -c '%a %n' "$RUN" "$RUN/subscriptions.list" "$RUN/secret" "$RUN/config.yaml" "$RUN/override.yaml" "$RUN/userinfo")
+test ! -e "$RUN/subscription.url" || fail 'refresh left legacy url'
 printf '%s\n' "$perms" | grep -q '^700 ' || fail "run perms: $perms"
 printf '%s\n' "$perms" | grep -q '^600 ' || fail "file perms: $perms"
 test "$(stat -c '%a' "$RUN/secret")" = 600 || fail 'secret mode'

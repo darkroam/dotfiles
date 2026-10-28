@@ -200,14 +200,17 @@ clean_cases() {
     rm -f "$AXS_RUN/mihomo.pid"
     printf '%s\n' body >"$AXS_RUN/subscription.yaml"
     code_of clean --yes
-    if [ "$CODE" -ne 0 ] || [ -e "$AXS_RUN/config.yaml" ] || [ ! -f "$AXS_RUN/subscription.url" ] || [ ! -f "$AXS_RUN/subscription.yaml" ]; then
+    if [ "$CODE" -ne 0 ] || [ -e "$AXS_RUN/config.yaml" ] || [ -e "$AXS_RUN/subscription.url" ] || [ -e "$AXS_RUN/subscription.yaml" ]; then
         say "FAIL lab clean keeps url"
         restore
         return 1
     fi
     printf '%s\n' sentinel >"$AXS_RUN/config.yaml"
+    printf '%s\n' url >"$AXS_RUN/subscription.url"
+    printf '%s\n' list >"$AXS_RUN/subscriptions.list"
+    printf '%s\n' body >"$AXS_RUN/subscription.yaml"
     code_of subscription clean --yes
-    if [ "$CODE" -ne 0 ] || [ -e "$AXS_RUN/subscription.url" ] || [ -e "$AXS_RUN/subscription.yaml" ] || [ "$(cat "$AXS_RUN/config.yaml")" != sentinel ]; then
+    if [ "$CODE" -ne 0 ] || [ ! -f "$AXS_RUN/subscription.url" ] || [ ! -f "$AXS_RUN/subscriptions.list" ] || [ -e "$AXS_RUN/subscription.yaml" ] || [ "$(cat "$AXS_RUN/config.yaml")" != sentinel ]; then
         say "FAIL lab subscription clean"
         restore
         return 1

@@ -1,6 +1,6 @@
 """Fetch, check, merge, install, roll back, and clean a subscription."""
 
-from axs.codes import FAIL
+from axs.codes import FAIL, USAGE
 import os
 import sys
 import urllib.error
@@ -19,11 +19,14 @@ from axs.config import (
     SUBSCRIPTION,
     LOOPBACK,
     CIDRS,
+    LIST,
     URL,
     USERINFO,
 )
-from axs.core import atomic_write, fail, install_file, restore_snapshot, snapshot
-from axs.render import dim, emph
+from axs.core import atomic_write, fail, hold_lock, install_file, restore_snapshot, snapshot, unix_now
+from axs.render import die
+from axs.subslist import classify, subscription_line
+import axs.subslist as subslist
 
 
 take_snapshot = snapshot
@@ -197,83 +200,10 @@ def write_userinfo(header_path, out_path):
             lines.append(f"{key}={fields[key]}")
     atomic_write(out_path, ("\n".join(lines) + ("\n" if lines else "")))
 
-def classify(userinfo_path, now):
-    path = Path(userinfo_path)
-    if not path.is_file():
-        return "unknown", None
-    fields = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if "=" in line:
-            key, value = line.split("=", 1)
-            fields[key] = value
-    if "expire" not in fields:
-        return "unknown", None
-    expire = int(fields["expire"])
-    now = int(now)
-    if expire <= now:
-        return "expired", 0
-    days = (expire - now) // 86400
-    if expire - now < 3 * 86400:
-        return "soon", days
-    return "ok", days
-
-def human_bytes(raw):
-    # shortcut: float 在约 9 PB 以上会偏，流量真到那种量级再改整数
-    try:
-        value = int(raw)
-    except (TypeError, ValueError):
-        return str(raw)
-    if value < 0:
-        return str(raw)
-    scaled = float(value)
-    unit = "B"
-    for name in ("K", "M", "G", "T"):
-        if scaled < 1024:
-            break
-        scaled /= 1024
-        unit = name
-    return f"{scaled:.1f}{unit}"
-
-def subscription_line(path, now):
-    kind, days = classify(path, now)
-    if kind == "expired":
-        rest = emph("31", "已过期")
-    elif kind == "soon":
-        rest = emph("33", f"{days} 天（警告）")
-    elif kind == "ok":
-        rest = emph("32", f"{days} 天")
-    else:
-        rest = dim("未知")
-    bits = []
-    fields = _userinfo_fields(path)
-    for key, lab in (("upload", "上传"), ("download", "下载"), ("total", "总量")):
-        if key in fields and fields[key] != "":
-            bits.append(f"{lab} {human_bytes(fields[key])}")
-    text = "剩余 " + rest
-    if bits:
-        text += " · " + " · ".join(bits)
-    return text, kind
-
-def show_userinfo(path, now):
-    text, _kind = subscription_line(path, now)
-    sys.stdout.write(text + "\n")
-
-def _userinfo_fields(path):
-    fields = {}
-    file = Path(path)
-    if not file.is_file():
-        return fields
-    for line in file.read_text(encoding="utf-8").splitlines():
-        if "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        fields[key] = value
-    return fields
-
 def clean_names(kind):
     if kind == "config":
-        return (CONFIG, CONFIG_BAK, USERINFO, FETCH_BODY, FETCH_HEADER, PID)
-    return (URL, SUBSCRIPTION, USERINFO, FETCH_BODY, FETCH_HEADER)
+        return (CONFIG, CONFIG_BAK, USERINFO, FETCH_BODY, FETCH_HEADER, PID, LIST, SUBSCRIPTION, URL)
+    return (SUBSCRIPTION, USERINFO, FETCH_BODY, FETCH_HEADER)
 
 
 def clear_fetch(run):
@@ -285,50 +215,145 @@ def clear_fetch(run):
         (snap / name).unlink(missing_ok=True)
 
 
-def refresh_run(run):
+def migrate(run):
+    run = Path(run)
+    legacy = run / URL
+    if (run / LIST).is_file() or not legacy.is_file():
+        return
+    check_url(legacy)
+    url = legacy.read_text(encoding="utf-8").strip("\r\n")
+    subslist.save(run, 2, [("S1", True, url)])
+    legacy.unlink()
+
+
+def _checked_url(run, raw):
+    dest = Path(run) / (URL + ".chk")
+    try:
+        atomic_write(dest, raw + "\n")
+        check_url(dest)
+        return dest.read_text(encoding="utf-8").strip("\r\n")
+    finally:
+        dest.unlink(missing_ok=True)
+
+
+def _refresh_locked(run, url=None):
     import subprocess
 
     from axs.config import CONFIG_NEW, OVERRIDE, RULES, SECRET, ensure_override, read_ports
-    from axs.core import gen_secret, hold_lock, service_up
+    from axs.core import gen_secret, service_up
     from axs.mihomo import reload_core
-    from axs.render import die
 
     runp = Path(run)
-    hold_lock(run)
-    url = runp / URL
-    if not url.is_file():
-        die(FAIL, "没有订阅")
-    os.chmod(url, 0o600)
-    check_url(url)
-    body = str(runp / FETCH_BODY)
-    hdr = str(runp / FETCH_HEADER)
-    helper = os.environ.get("AXS_FETCH")
-    if helper:
-        if subprocess.run([helper, str(url), body, hdr]).returncode != 0:
-            die(FAIL, "拉取失败")
-    else:
-        try:
-            fetch(str(url), body, hdr)
-        except SystemExit:
-            die(FAIL, "拉取失败")
-    check_fetched(body, hdr)
-    ensure_override(run)
-    gen_secret(runp / SECRET)
-    _mixed, api = read_ports(run)
-    snapshot(runp)
+    migrate(runp)
+    if url is None:
+        _nxt, rows = subslist.load(runp)
+        chosen = [row for row in rows if row[1]]
+        if len(chosen) != 1:
+            die(FAIL, "没有订阅")
+        url = chosen[0][2]
+    staged = runp / (URL + ".tmp")
     try:
-        build_file(body, runp / OVERRIDE, runp / SECRET, runp / RULES, runp / CONFIG_NEW)
-    except SystemExit:
-        restore_snapshot(runp)
-        die(FAIL, "校验失败")
-    install_file(runp / CONFIG_NEW, runp / CONFIG)
-    if Path(body) != runp / SUBSCRIPTION:
-        install_file(body, runp / SUBSCRIPTION)
-    if service_up(run):
+        atomic_write(staged, url + "\n")
+        check_url(staged)
+        body, hdr = str(runp / FETCH_BODY), str(runp / FETCH_HEADER)
+        helper = os.environ.get("AXS_FETCH")
+        if helper:
+            if subprocess.run([helper, str(staged), body, hdr]).returncode != 0:
+                die(FAIL, "拉取失败")
+        else:
+            try:
+                fetch(str(staged), body, hdr)
+            except SystemExit:
+                die(FAIL, "拉取失败")
+        check_fetched(body, hdr)
+        ensure_override(run)
+        gen_secret(runp / SECRET)
+        _mixed, api = read_ports(run)
+        snapshot(runp)
         try:
-            reload_core(runp / SECRET, api, runp / CONFIG)
+            build_file(body, runp / OVERRIDE, runp / SECRET, runp / RULES, runp / CONFIG_NEW)
         except SystemExit:
             restore_snapshot(runp)
-            die(FAIL, "重载失败")
-    write_userinfo(hdr, runp / USERINFO)
-    clear_fetch(run)
+            die(FAIL, "校验失败")
+        install_file(runp / CONFIG_NEW, runp / CONFIG)
+        if Path(body) != runp / SUBSCRIPTION:
+            install_file(body, runp / SUBSCRIPTION)
+        if service_up(run):
+            try:
+                reload_core(runp / SECRET, api, runp / CONFIG)
+            except SystemExit:
+                restore_snapshot(runp)
+                die(FAIL, "重载失败")
+        write_userinfo(hdr, runp / USERINFO)
+        clear_fetch(run)
+    finally:
+        staged.unlink(missing_ok=True)
+
+
+def refresh_run(run, url=None):
+    hold_lock(run)
+    _refresh_locked(run, url)
+
+
+def _locked(run):
+    hold_lock(run)
+    migrate(run)
+    return subslist.load(run)
+
+
+def cmd_add(run, args):
+    nxt, rows = _locked(run)
+    subslist.save(run, *subslist.added(nxt, rows, _checked_url(run, args[0])))
+
+
+def cmd_rm(run, args):
+    nxt, rows = _locked(run)
+    subslist.save(run, *subslist.removed(nxt, rows, args[0]))
+
+
+def _read(run):
+    runp = Path(run)
+    if not (runp / LIST).is_file() and (runp / URL).is_file():
+        hold_lock(run)
+    migrate(runp)
+    return subslist.load(runp)
+
+
+def cmd_show(run):
+    _nxt, rows = _read(run)
+    for sid, active, url in rows:
+        sys.stdout.write(sid + (" * " if active else " - ") + subslist.host_of(url) + "\n")
+
+
+def cmd_status(run):
+    _nxt, rows = _read(run)
+    chosen = [row for row in rows if row[1]]
+    prefix = ""
+    if len(chosen) == 1:
+        prefix = chosen[0][0] + " · " + subslist.host_of(chosen[0][2]) + " · "
+    text, _kind = subscription_line(Path(run) / USERINFO, unix_now())
+    sys.stdout.write(prefix + text + "\n")
+
+
+def cmd_switch(run, args):
+    nxt, rows = _locked(run)
+    row = subslist.find(rows, args[0])
+    _refresh_locked(run, row[2])
+    subslist.save(run, nxt, subslist.activated(rows, row[0]))
+
+
+def dispatch(run, op, extra):
+    if op == "status":
+        cmd_status(run)
+    elif op == "show":
+        cmd_show(run)
+    elif op == "refresh":
+        refresh_run(run)
+    elif op == "add":
+        cmd_add(run, extra)
+    elif op == "rm":
+        cmd_rm(run, extra)
+    elif op == "switch":
+        cmd_switch(run, extra)
+    else:
+        die(USAGE, "用法错误")

@@ -25,7 +25,7 @@ bin/axs  bin/mihomo-run
     |
  subscription  rules  proxy
     |
- leafdelay   progress
+ leafdelay   progress   subslist
     |
  routes   nodelist
     |
@@ -36,7 +36,7 @@ bin/axs  bin/mihomo-run
  config    codes    catalog
 ```
 
-`render` 不在这条链上，也不得引用任何 axs 模块。唯一例外是只读 `catalog`。为了输出调用它，不算斜边。`catalog` 在最底层，只放命令树，不引用任何模块。`service` 是编排，可以调用它下面的模块。除 `nodecmd` 外，命令模块不调用 `service`。`nodecmd` 编排 node 与 group 的视图命令。`tree`、`nodeview`、`selectview` 只被 `nodecmd` 调用。`nodetest` 与 `grouptest` 只被 `cli` 调用，彼此不引用。`nodetest` 逐叶请求 `/proxies`。`grouptest` 请求 `/group`。进度在 `progress`。`leafdelay` 提供查询超时和 HTTP 等待。`nodes` 不再拥有 delay，只留测速缓存格式。 `nodelist` 画组表、节点列表与测速行，只问 `nodes` 的编号、延迟和选择。
+`render` 不在这条链上，也不得引用任何 axs 模块。唯一例外是只读 `catalog`。为了输出调用它，不算斜边。`catalog` 在最底层，只放命令树，不引用任何模块。`service` 是编排，可以调用它下面的模块。除 `nodecmd` 外，命令模块不调用 `service`。`nodecmd` 编排 node 与 group 的视图命令。`tree`、`nodeview`、`selectview` 只被 `nodecmd` 调用。`nodetest` 与 `grouptest` 只被 `cli` 调用，彼此不引用。`nodetest` 逐叶请求 `/proxies`。`grouptest` 请求 `/group`。进度在 `progress`。`subslist` 只解析订阅列表，不拉取。`leafdelay` 提供查询超时和 HTTP 等待。`nodes` 不再拥有 delay，只留测速缓存格式。 `nodelist` 画组表、节点列表与测速行，只问 `nodes` 的编号、延迟和选择。
 
 斜边台账：
 
@@ -53,7 +53,8 @@ bin/axs  bin/mihomo-run
 | core | 锁、持锁、进程存活、安装、快照与回滚、systemd 探测、会话 environ | 订阅正文、命令模块、端口探测、原子写 |
 | mihomo | 控制器 HTTP、探活、重载请求 | 回滚、规则语义 |
 | service | 启停、health、清理、status 编排 | 订阅解析、锁、进程探测、端口探测、默认页 |
-| subscription | 拉取、校验、合并、流量与到期 | status 排版 |
+| subslist | 订阅列表的解析、编号、写入，以及到期行 | 拉取、刷新、锁 |
+| subscription | 拉取、校验、合并、安装与回滚 | 列表语法、status 排版 |
 | rulelist | `RID`、来源分类、`rule show` 行、删除参数解析 | 安装、重载、回滚 |
 | routes | 规则目标链、条数分布、链尾自动组、select 根 | 着色、排版、改配置 |
 | rules | 规则增删，以及合并后的安装、重载、回滚 | 读端口、再写一遍锁、`RID` |
@@ -112,7 +113,8 @@ run/                         运行时。不入库
 | `lib/axs/core.py` | 锁、持锁、进程存活、安装、快照、systemd、会话探测 | 400 行 |
 | `lib/axs/mihomo.py` | 控制器 HTTP，规则类型词和来源表。不是内核二进制 | 285 行 |
 | `lib/axs/service.py` | 启停、ensure、health、清理、status | 400 行 |
-| `lib/axs/subscription.py` | 拉取、校验、合并、流量与到期 | 400 行 |
+| `lib/axs/subslist.py` | 订阅列表的解析与写入。不拉取 | 200 行 |
+| `lib/axs/subscription.py` | 拉取、校验、合并、安装与回滚 | 400 行 |
 | `lib/axs/rulelist.py` | `RID`、来源分类、`rule show` 行、删除参数解析 | 200 行 |
 | `lib/axs/routes.py` | 规则目标链与条数，以及 select 的根。不排版 | 160 行 |
 | `lib/axs/rules.py` | 规则增删、安装回滚 | 220 行 |

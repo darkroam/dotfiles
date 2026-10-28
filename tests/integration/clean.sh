@@ -138,7 +138,8 @@ code=0
 pty_answer y clean || code=$?
 test "$code" -eq 0 || fail "pty yes want 0 got $code"
 test ! -e "$RUN/config.yaml" || fail 'pty yes kept config'
-test -f "$RUN/subscription.url" || fail 'pty yes dropped the url'
+test ! -e "$RUN/subscription.url" || fail 'pty yes kept the url'
+test ! -e "$RUN/subscriptions.list" || fail 'pty yes kept the list'
 
 new_run
 seed_clean
@@ -147,8 +148,11 @@ grep -q '已删除' "$RUN/out" || fail 'clean yes silent'
 for name in config.yaml config.yaml.bak userinfo fetch.yaml fetch.hdr mihomo.pid; do
     test ! -e "$RUN/$name" || fail "clean kept $name"
 done
-for name in subscription.url secret rules.list override.yaml subscription.yaml; do
+for name in secret rules.list override.yaml; do
     test -f "$RUN/$name" || fail "clean dropped $name"
+done
+for name in subscription.url subscription.yaml subscriptions.list; do
+    test ! -e "$RUN/$name" || fail "clean kept $name"
 done
 assert_code 'clean again' 0 clean --yes
 
@@ -162,10 +166,10 @@ new_run
 seed_clean
 assert_code 'subscription clean yes' 0 subscription clean --yes
 grep -q '已删除' "$RUN/out" || fail 'subscription clean silent'
-for name in subscription.url subscription.yaml userinfo fetch.yaml fetch.hdr; do
+for name in subscription.yaml userinfo fetch.yaml fetch.hdr; do
     test ! -e "$RUN/$name" || fail "subscription clean kept $name"
 done
-for name in config.yaml config.yaml.bak secret rules.list override.yaml mihomo.pid; do
+for name in subscription.url subscriptions.list config.yaml config.yaml.bak secret rules.list override.yaml mihomo.pid; do
     test -f "$RUN/$name" || fail "subscription clean dropped $name"
 done
 assert_code 'subscription clean again' 0 subscription clean --yes
