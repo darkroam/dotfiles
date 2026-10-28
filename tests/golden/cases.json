@@ -193,6 +193,12 @@
     }
   },
   {
+    "name": "proxy--bare.txt",
+    "argv": [
+      "proxy"
+    ]
+  },
+  {
     "name": "proxy-user--off.txt",
     "argv": [
       "proxy",

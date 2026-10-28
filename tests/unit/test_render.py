@@ -12,7 +12,7 @@ sys.path.insert(0, str(ROOT / "lib"))
 
 from axs.catalog import GROUPS, SECTIONS
 from axs.cli import _alias_marks, _usage_word, main as cli_main, usage_text
-from axs.render import bold, display_width, emph, help_text
+from axs.render import bold, command_error, display_width, emph, help_text
 
 GOLDEN = ROOT / "tests" / "golden"
 
@@ -142,6 +142,8 @@ def main():
         raise SystemExit("verbose gap")
     if "更多入口：axs help --verbose" in verbose:
         raise SystemExit("verbose pointer")
+    if "隧道" in help_plain + verbose + usage_text() + command_error("proxy", "nope"):
+        raise SystemExit("tunnel leaked")
 
     def grab(argv):
         out, err = io.StringIO(), io.StringIO()

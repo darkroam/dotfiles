@@ -216,7 +216,7 @@ def main(argv):
     from axs.service import boot, clean, ensure, health, prime, restart, run_dir, service_status, start, status, stop
     from axs.subscription import refresh_run as _refresh, show_userinfo
     from axs.core import unix_now
-    from axs.config import USERINFO
+    from axs.config import LOOPBACK, USERINFO
     from pathlib import Path
 
     prime()
@@ -225,7 +225,7 @@ def main(argv):
     cmd, rest = _take("top", argv)
     run = run_dir()
     if cmd in {"service", "node", "group", "rule", "subscription", "proxy", "network"} and not rest:
-        sys.stdout.write(layer_text(cmd))
+        sys.stdout.write(layer_text(cmd, LOOPBACK))
         return
     if cmd == "help":
         sys.stdout.write(help_text(bool(rest)))

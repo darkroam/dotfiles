@@ -1,0 +1,19 @@
+exit: 0
+--- stdout
+axs proxy status  三层汇总
+axs proxy user  当前 shell 环境（on|off|status）
+axs proxy system  运行时 on|off；持久 enable|disable
+axs proxy session  登录持久 enable|disable|status
+
+隧道（远程设备使用本机代理）
+  正向：对方执行 ssh -L <对方端口>:127.0.0.1:<本机端口> <用户>@<本机>
+        # 本机 sshd 需 AllowTcpForwarding local/all/yes
+  反向：本机执行 ssh -R <对方端口>:127.0.0.1:<本机端口> <用户>@<对方>
+        # 对方 sshd 需 AllowTcpForwarding remote/all/yes
+        # 仅对方局域网连 -R 的非 loopback 才需 GatewayPorts
+        # yes 强制全接口；clientspecified 需显式 0.0.0.0:
+  对方终端：export http_proxy=http://127.0.0.1:<本机端口>
+            export https_proxy=$http_proxy
+        # 这两行等于本机的 proxy user，不是 system/session
+  检查：sshd -T | grep -E 'allowtcpforwarding|gatewayports'
+--- stderr
