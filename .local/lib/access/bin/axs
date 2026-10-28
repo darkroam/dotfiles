@@ -1,5 +1,13 @@
 #!/bin/sh
 set -eu
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+BIN=$0
+if [ -L "$BIN" ]; then
+    dest=$(readlink "$BIN")
+    case $dest in
+        /*) BIN=$dest ;;
+        *) BIN=$(cd "$(dirname "$BIN")" && pwd)/$dest ;;
+    esac
+fi
+ROOT=$(cd "$(dirname "$BIN")/.." && pwd)
 export PYTHONPATH="$ROOT/lib${PYTHONPATH:+:$PYTHONPATH}"
 exec python3 -m axs "$@"

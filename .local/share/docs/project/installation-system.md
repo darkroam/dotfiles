@@ -1014,6 +1014,8 @@ bootstrap 自举能力。
 `.local/bin/dotcfg` 与 `.local/lib/dotfiles/` 是 category 外的不变量：所有状态均保留，undeploy 和
 uninstall 都不会删除；完全清除时只输出手动删除提示。
 
+access 不是不变量。`min` 不得包含会拉起网络守护进程的入口，因此不检出 `.local/bin/axs`，也不检出 `.local/lib/access/**`。`dotcfg switch` 不创建 `run/`、不安装 user unit、不 enable timer。根 `.gitignore` 只忽略 `.local/lib/access/run/` 与 `.local/lib/access/tests/lab/var/`；`__pycache__` 由 access 自带 `.gitignore` 忽略。并入的撤回命令是 `git revert -m 1 <subtree merge>`。只读归档在 `~/src/access-2026-10-28.git`。
+
 ### deploy.sh — 部署
 
 详见上方"部署与卸载"章节。

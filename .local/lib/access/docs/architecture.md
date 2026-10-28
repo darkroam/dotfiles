@@ -8,7 +8,13 @@
 
 ## 并入
 
-并入 dotfiles 时，再把包从 `lib/axs/` 迁到顶层 `axs/`，并改入口的模块路径。在那之前保持现在的位置。不在本文件之外另写一份布局。
+代码在 dotfiles 的 `.local/lib/access/`。包仍是 `lib/axs/`，不迁到仓库根上的 `axs/`。PATH 入口是相对链接 `.local/bin/axs` → `../lib/access/bin/axs`。`bin/axs` 若经符号链接调用，先解析链接再找根目录；直接调用时根目录不变。
+
+`run/` 与 `tests/lab/var/` 不入库。根 `.gitignore` 忽略这两处。本目录 `.gitignore` 是第二道，并忽略 `__pycache__/` 与 `*.pyc`。
+
+只读归档是 `~/src/access-2026-10-28.git`。撤回这次并入用 `git revert -m 1 <subtree merge>`，不要用不带 `-m` 的 revert。
+
+golden 是 63 份 `.txt` = 62 份 `cases.json` 重放 + `network-test--ok.txt` 单测专用。
 
 ## 依赖
 
@@ -152,7 +158,7 @@ run/                         运行时。不入库
 | `tests/support/snap.py` | 重打或比对 golden | 120 行 |
 | `docs/README.md` | 使用者看：怎么用、怎么测、契约在哪 | — |
 | `docs/design.md` | 维护者看的行为契约 | — |
-| `docs/constraints.md` | 隐私、不入库、回滚、明确不做 | — |
+| `docs/constraints.md` | 隐私、仓库边界、回滚、明确不做 | — |
 | `docs/roadmap.md` | 还没授权的事 | — |
 | `docs/architecture.md` | 本文件。文件结构只写在这里 | — |
 

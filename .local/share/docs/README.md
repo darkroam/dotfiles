@@ -28,6 +28,7 @@
 - [显示管理设计](project/display-management.md) — X11 显示引擎的状态模型、显示布局策略和验证矩阵
 - [显示设备适配器指引](project/display-device-adapter.md) — 非标准硬件扩展接口规范
 - [显示管理测试](project/display-testing.md) — 状态、显示布局、配置和适配器的测试方案与验收步骤
+- [访问子系统](../../lib/access/docs/README.md) — 网络访问控制的契约；实现在 `.local/lib/access/`
 - [协作规约](project/collaboration.md) — 用户 × dsh × qoder × codex 四角色协作流程、两级审查标准与提交纪律；轮次档案保存在本机私有目录 `.local/share/collab/`
 
 ### 约束速查

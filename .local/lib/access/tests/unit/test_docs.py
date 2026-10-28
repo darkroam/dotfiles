@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Docs: links resolve, banned words stay out, help is not copied."""
+import json
 import re
 import sys
 from pathlib import Path
@@ -207,6 +208,13 @@ def main():
             fail(name + " missing the term link")
         if "术语表" in other or "悬空名不是成员" in other:
             fail(name + " redefines terms")
+    cases = json.loads((ROOT / "tests" / "golden" / "cases.json").read_text(encoding="utf-8"))
+    unit_only = ("network-test--ok.txt",)
+    txts = list((ROOT / "tests" / "golden").glob("*.txt"))
+    if len(cases) + len(unit_only) != len(txts):
+        fail("golden count")
+    if set(unit_only) != {path.name for path in txts} - {case["name"] for case in cases}:
+        fail("unit-only list")
     print("docs")
     return 0
 

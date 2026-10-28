@@ -2,7 +2,7 @@
 
 本机的网络访问控制。`axs` 用来启停 mihomo、刷新订阅、测节点、管理域名规则。其它工具保持原来的用法。
 
-主仓库不跟踪本目录。本目录有本地 git，无远端。
+代码在 dotfiles 的 `.local/lib/access/`。`full` 检出；`min` 不含会拉起网络守护进程的入口。
 
 ## 依赖
 
@@ -10,7 +10,7 @@ python3 是全部命令的硬依赖。没有它，`axs` 不能启动。还需要
 
 ## 安装
 
-本目录就是安装位置。把 `bin/axs` 放到 `PATH` 上，或直接调用它。用户服务模板在 `units/`，复制到用户级 systemd 后再 enable。
+PATH 上的 `axs` 是相对链接 `.local/bin/axs` → `bin/axs`。用户服务模板在 `units/`，复制到用户级 systemd 后再 enable。`dotcfg switch` 不 enable 服务，也不创建 `run/`。
 
 ## 常用命令
 

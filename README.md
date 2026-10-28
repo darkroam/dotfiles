@@ -49,6 +49,8 @@ dotcfg switch min        # Linux command-line configuration
 dotcfg switch macos      # cross-platform shell/Git/Tmux core
 ```
 
+`full` includes the access subsystem at `.local/lib/access/`. `min` does not: min must not include an entry that starts a network daemon. `.local/lib/access/run/` stays untracked. `dotcfg switch` does not enable that service.
+
 Bootstrap clones the bare repository directly to `$HOME/.cfg`, installs `dotcfg`
 and its library, and creates a `fresh_root` node containing a filtered backup of
 the pre-installation `$HOME`; the root backup directory is mode `0700`.

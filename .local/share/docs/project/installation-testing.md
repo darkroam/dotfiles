@@ -90,6 +90,7 @@ setup_bootstrap_env() # 从当前工作树构造自举安装用的临时 remote
     ├── refactor-contract.bats  ← 重构期间的用户接口契约
     ├── uninstall.bats          ← 卸载与恢复
     ├── validate.bats           ← 仓库验证
+    ├── access-entry.bats       ← access 入口链接解析并跑通
     └── generate-conflicts.sh   ← 冲突文件生成器
 ```
 
@@ -97,6 +98,10 @@ setup_bootstrap_env() # 从当前工作树构造自举安装用的临时 remote
 `git --git-dir="$HOME/.cfg" ls-files .local/share/test/installation/` 核对纳管状态，再运行套件。
 当前目录包含 `nodes-lifecycle.bats`、`refactor-contract.bats` 等新增回归用例，不依赖真实
 `$HOME`，也不应把测试产物或缓存加入仓库。
+
+### TC-AXS01：access 入口（access-entry.bats）
+
+`.local/bin/axs` 的链接文本是 `../lib/access/bin/axs`。测试从本仓库根解析该链接并执行 `axs help`，退出码 0。不使用真实 `$HOME`，也不启动服务。
 
 ---
 
