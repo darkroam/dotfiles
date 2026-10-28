@@ -1,0 +1,4 @@
+exit: 0
+--- stdout
+剩余 未知
+--- stderr

@@ -139,6 +139,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | `geoiplookup` | 可选 IP 地理位置状态模块 |
 | `xinput` | DWM 触控板开关（`Mod+Ctrl+t` 和触摸板硬件键）。按设备名查找后设置 `libinput Send Events Mode Enabled`。不再使用 `synclient` 或 Synaptics 驱动 |
 | `screenkey` | 为单独构建 DWM 绑定保留的可选按键覆盖层；无已跟踪 dotfiles 运行调用 |
+| 本机 `mihomo`、python3、PyYAML | 访问子系统的内核与命令运行时；二进制和订阅不入库 |
 
 `.local/bin/dmenumountcifs` 只处理 Avahi 发布且允许 guest 访问的匿名共享，挂载目标限制在
 `/mnt/cifs-<UID>/` 下；它不读取、保存或提示输入认证共享的凭据。认证共享和专用 CIFS 卸载入口

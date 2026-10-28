@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+test -f "$1"
+cp -- "$FIXTURE_SUB" "$2"
+printf '%s\n' "subscription-userinfo: upload=1; download=2; total=9; expire=${FIXTURE_EXPIRE:-1893456000}" > "$3"

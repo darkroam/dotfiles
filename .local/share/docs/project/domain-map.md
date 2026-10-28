@@ -6,7 +6,7 @@
 维护；通用外部依赖由[依赖清单](dependencies.md)维护。其他文档中的“服务域”只用于导航，不改变
 本文登记的产物所有权。
 
-访问子系统：网络访问与控制；文档存于本机私有开发区 `~/.local/lib/access/docs/`（未跟踪）；实现不入库。
+访问子系统：网络访问与控制。实现已跟踪于 `.local/lib/access/`，主域 U06，与 xdisplay 的实现同域；契约在该目录的 `docs/`。
 
 ## 判定规则
 
@@ -68,6 +68,7 @@
 | `.local/lib/dotfiles/**` | S01 | S02 | dotcfg 安装实现；测试归 S02，不改变实现主域。 |
 | `.local/lib/project-tools/**` | S04 | S02、S03 | 仓库开发过程内部工具。 |
 | `.local/lib/xdisplay/**` | U06 | U02、S02 | 共享显示实现；测试仍单独归 S02。 |
+| `.local/lib/access/**` | U06 | S02、S03 | 访问实现。树内测试关联 S02，契约文档关联 S03。 |
 | `.local/share/test/collab/**` | S02 | S03、S04 | 协作子系统 fixture。 |
 | `.local/share/test/display/**` | S02 | U06 | 显示子系统 fixture。 |
 | `.local/share/test/installation/**` | S02 | S01 | 安装子系统 Bats 与辅助文件。 |
@@ -109,6 +110,7 @@
 | `dmenurecord`、`maimpick` | U04 | U02 |
 | `lfub`、`otp`、`passmenu` | U05 | U02 |
 | `displayselect`、`dmenumount`、`dmenumountcifs`、`dmenuumount`、`sysact`、`xdisplay`、`xdisplay.sh`、`xlight` | U06 | U02、U04 |
+| `axs` | U06 | - |
 | `statusbar/{sb-kbselect}` | U07 | U02 |
 | `statusbar/{sb-mpdup,sb-music,sb-volume}` | U07 | U04 |
 | `statusbar/{sb-torrent}` | U07 | U08 |

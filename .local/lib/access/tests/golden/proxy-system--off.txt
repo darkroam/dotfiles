@@ -1,0 +1,6 @@
+exit: 1
+--- stdout
+system: off (mode= host= port=)
+persist: disabled
+desktop: no x session
+--- stderr

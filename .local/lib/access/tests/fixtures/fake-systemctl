@@ -1,0 +1,62 @@
+#!/bin/sh
+set -eu
+log=$AXS_RUN/systemctl.log
+printf '%s\n' "$*" >>"$log"
+if [ "${1:-}" = "--user" ]; then
+    if [ $# -gt 0 ]; then
+        shift
+    fi
+fi
+cmd=${1:-}
+if [ $# -gt 0 ]; then
+    shift
+fi
+case $cmd in
+    is-active)
+        if [ -f "$AXS_RUN/systemctl.active" ]; then
+            exit 0
+        fi
+        exit 3
+        ;;
+    show)
+        prop=
+        while [ $# -gt 0 ]; do
+            case $1 in
+                -p)
+                    prop=$2
+                    shift
+                    shift
+                    ;;
+                --value) shift ;;
+                *) shift ;;
+            esac
+        done
+        if [ "$prop" = "MainPID" ]; then
+            printf '%s\n' 4242
+        elif [ "$prop" = "LoadState" ]; then
+            printf '%s\n' loaded
+        fi
+        ;;
+    list-timers)
+        # Monotonic timers leave NextElapseUSecRealtime empty. JSON next/left are absolute realtime usec.
+        if [ -f "$AXS_RUN/timer.json" ]; then
+            cat "$AXS_RUN/timer.json"
+        else
+            printf '%s\n' '[{"next":4102444800000000,"left":4102444800000000,"last":null,"passed":null,"unit":"axs-refresh.timer","activates":"axs-refresh.service"}]'
+        fi
+        ;;
+    start|stop|restart|enable|disable)
+        exit 0
+        ;;
+    is-enabled)
+        if [ -f "$AXS_RUN/systemctl.enabled" ]; then
+            printf '%s\n' enabled
+            exit 0
+        fi
+        printf '%s\n' disabled
+        exit 1
+        ;;
+    *)
+        exit 0
+        ;;
+esac

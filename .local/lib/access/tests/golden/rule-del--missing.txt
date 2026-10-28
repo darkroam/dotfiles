@@ -1,0 +1,4 @@
+exit: 3
+--- stdout
+--- stderr
+规则不存在

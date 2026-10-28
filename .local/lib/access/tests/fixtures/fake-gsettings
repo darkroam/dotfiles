@@ -1,0 +1,24 @@
+#!/bin/sh
+# Minimal gsettings double: set/get against a file store in $AXS_GS_DB.
+set -eu
+db=${AXS_GS_DB:?}
+cmd=${1:?}
+schema=${2:?}
+key=${3:?}
+mkdir -p "$db"
+name=$(printf '%s.%s' "$schema" "$key" | tr './' '__')
+case $cmd in
+    set)
+        printf '%s\n' "${4:-}" >"$db/$name"
+        ;;
+    get)
+        if [ -f "$db/$name" ]; then
+            printf "'%s'\n" "$(cat "$db/$name")"
+        else
+            printf "''\n"
+        fi
+        ;;
+    *)
+        exit 1
+        ;;
+esac

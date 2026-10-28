@@ -136,3 +136,7 @@ wps-office-prometheus.desktop
 
 # ── 多 Agent 协作档案（本机私有，不入库）────────────
 .local/share/collab/
+
+# access 运行时。嵌套 .gitignore 是第二道。
+.local/lib/access/run/
+.local/lib/access/tests/lab/var/

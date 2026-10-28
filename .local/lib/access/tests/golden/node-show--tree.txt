@@ -1,0 +1,14 @@
+exit: 0
+--- stdout
+当前规则路径：
+
+完整拓扑：
+G1 GLOBAL [Selector]
+└─ G2 主代理 [Selector] *
+   ├─ G3 自动 [URLTest] *
+   │  ├─ N3 甲 [Shadowsocks] [*]  N2 乙 [Shadowsocks]
+   │  └─ ↩ G2 主代理（回到上层）
+   └─ N3 甲 [Shadowsocks]  N2 乙 [Shadowsocks]  N1 丙 [Vless]
+
+说明：完整拓扑；每组只在最小深度处展开一次，不带延迟。
+--- stderr

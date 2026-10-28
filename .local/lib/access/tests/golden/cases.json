@@ -1,0 +1,620 @@
+[
+  {
+    "name": "help--default.txt",
+    "argv": [
+      "help"
+    ]
+  },
+  {
+    "name": "help--verbose.txt",
+    "argv": [
+      "help",
+      "--verbose"
+    ]
+  },
+  {
+    "name": "usage--bare.txt",
+    "argv": []
+  },
+  {
+    "name": "usage--unknown.txt",
+    "argv": [
+      "nope"
+    ]
+  },
+  {
+    "name": "usage--missing.txt",
+    "argv": [
+      "group",
+      "members"
+    ]
+  },
+  {
+    "name": "usage--option.txt",
+    "argv": [
+      "node",
+      "show",
+      "--zz"
+    ]
+  },
+  {
+    "name": "usage--subcommand.txt",
+    "argv": [
+      "group",
+      "nope"
+    ]
+  },
+  {
+    "name": "status--manual-down.txt",
+    "argv": [
+      "status"
+    ]
+  },
+  {
+    "name": "status--systemd-down.txt",
+    "argv": [
+      "status"
+    ],
+    "systemd": true
+  },
+  {
+    "name": "node-status--down.txt",
+    "argv": [
+      "node",
+      "status"
+    ]
+  },
+  {
+    "name": "group-status--down.txt",
+    "argv": [
+      "group",
+      "status"
+    ]
+  },
+  {
+    "name": "node-status--up.txt",
+    "argv": [
+      "node",
+      "status"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"入口\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\"]}, \"旁路\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"乙\", \"all\": [\"甲\", \"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Shadowsocks\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - MATCH,入口\n  - DOMAIN,a.example,旁路\n"
+    }
+  },
+  {
+    "name": "node-show--all.txt",
+    "argv": [
+      "node",
+      "show",
+      "--all"
+    ],
+    "up": true
+  },
+  {
+    "name": "node-show--all-down.txt",
+    "argv": [
+      "node",
+      "show",
+      "--all"
+    ]
+  },
+  {
+    "name": "node-show--tree.txt",
+    "argv": [
+      "node",
+      "show",
+      "--full"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"GLOBAL\": {\"type\": \"Selector\", \"now\": \"主代理\", \"all\": [\"主代理\"]}, \"主代理\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\", \"甲\", \"乙\", \"丙\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"甲\", \"all\": [\"甲\", \"乙\", \"主代理\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Shadowsocks\"}, \"丙\": {\"type\": \"Vless\"}}}\n"
+  },
+  {
+    "name": "node-show--full-shared.txt",
+    "argv": [
+      "node",
+      "show",
+      "--full"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"左\": {\"type\": \"Selector\", \"now\": \"甲\", \"all\": [\"共享\", \"甲\"]}, \"右\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"共享\", \"乙\"]}, \"共享\": {\"type\": \"Selector\", \"now\": \"丙\", \"all\": [\"丙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Shadowsocks\"}, \"丙\": {\"type\": \"Vless\"}}}\n"
+  },
+  {
+    "name": "node-show--full-cycle.txt",
+    "argv": [
+      "node",
+      "show",
+      "--full"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"A\": {\"type\": \"Selector\", \"now\": \"B\", \"all\": [\"B\", \"甲\"]}, \"B\": {\"type\": \"Selector\", \"now\": \"A\", \"all\": [\"A\", \"甲\"]}, \"甲\": {\"type\": \"Shadowsocks\"}}}\n"
+  },
+  {
+    "name": "node-show--full-min-depth.txt",
+    "argv": [
+      "node",
+      "show",
+      "--full"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"根\": {\"type\": \"Selector\", \"all\": [\"深\", \"浅\"]}, \"深\": {\"type\": \"Selector\", \"all\": [\"中\"]}, \"中\": {\"type\": \"Selector\", \"all\": [\"目标\"]}, \"浅\": {\"type\": \"Selector\", \"all\": [\"目标\"]}, \"目标\": {\"type\": \"Selector\", \"all\": [\"甲\"]}, \"甲\": {\"type\": \"Shadowsocks\"}}}\n"
+  },
+  {
+    "name": "group-status--up.txt",
+    "argv": [
+      "group",
+      "status"
+    ],
+    "up": true
+  },
+  {
+    "name": "subscription-status--missing.txt",
+    "argv": [
+      "subscription",
+      "status"
+    ]
+  },
+  {
+    "name": "subscription-status--expired.txt",
+    "argv": [
+      "subscription",
+      "status"
+    ],
+    "expired": true
+  },
+  {
+    "name": "subscription-status--soon.txt",
+    "argv": [
+      "subscription",
+      "status"
+    ],
+    "files": {
+      "run/userinfo": "expire=1700086400\n"
+    }
+  },
+  {
+    "name": "network-test--forbid.txt",
+    "argv": [
+      "network",
+      "test"
+    ]
+  },
+  {
+    "name": "network-test--loop.txt",
+    "argv": [
+      "network",
+      "test",
+      "http://127.0.0.1:9/"
+    ],
+    "files": {
+      "run/fake/open-ports": "18080\n",
+      "run/fake/net-result": "拒绝\n"
+    }
+  },
+  {
+    "name": "proxy--bare.txt",
+    "argv": [
+      "proxy"
+    ]
+  },
+  {
+    "name": "proxy-user--off.txt",
+    "argv": [
+      "proxy",
+      "user",
+      "status"
+    ]
+  },
+  {
+    "name": "proxy-user--on.txt",
+    "argv": [
+      "proxy",
+      "user",
+      "on"
+    ]
+  },
+  {
+    "name": "proxy-system--off.txt",
+    "argv": [
+      "proxy",
+      "system",
+      "status"
+    ]
+  },
+  {
+    "name": "proxy-session--off.txt",
+    "argv": [
+      "proxy",
+      "session",
+      "status"
+    ]
+  },
+  {
+    "name": "proxy-session--hook-missing.txt",
+    "argv": [
+      "proxy",
+      "session",
+      "status"
+    ],
+    "session_flag": true
+  },
+  {
+    "name": "proxy-status.txt",
+    "argv": [
+      "proxy",
+      "status"
+    ]
+  },
+  {
+    "name": "rule-show--runtime.txt",
+    "argv": [
+      "rule",
+      "show"
+    ],
+    "up": true,
+    "files": {
+      "run/rules.list": "DOMAIN mine.example PROXY\n",
+      "run/override.yaml": "prepend-rules:\n  - DOMAIN-SUFFIX,local,DIRECT\n",
+      "run/fake/rules.json": "{\"rules\": [{\"type\": \"IPCIDR\", \"payload\": \"10.0.0.0/8\", \"proxy\": \"DIRECT\"}, {\"type\": \"DomainSuffix\", \"payload\": \"local\", \"proxy\": \"DIRECT\"}, {\"type\": \"Domain\", \"payload\": \"mine.example\", \"proxy\": \"PROXY\"}, {\"type\": \"GeoSite\", \"payload\": \"ads\", \"proxy\": \"REJECT\"}, {\"type\": \"Match\", \"payload\": \"\", \"proxy\": \"PROXY\"}]}",
+      "run/config.yaml": "rules:\n  - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve\n  - DOMAIN-SUFFIX,local,DIRECT\n  - DOMAIN,mine.example,PROXY\n  - GEOSITE,ads,REJECT\n  - MATCH,PROXY\n"
+    }
+  },
+  {
+    "name": "rule-show--local.txt",
+    "argv": [
+      "rule",
+      "show",
+      "--local"
+    ],
+    "files": {
+      "run/rules.list": "DOMAIN mine.example PROXY\n# keep\n"
+    }
+  },
+  {
+    "name": "node-show.txt",
+    "argv": [
+      "node",
+      "show"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"GLOBAL\": {\"type\": \"Selector\", \"now\": \"主代理\", \"all\": [\"主代理\", \"旁路\"]}, \"旁路\": {\"type\": \"Selector\", \"all\": [\"甲\"]}, \"主代理\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\", \"甲\", \"GONE\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"隐藏\", \"all\": [\"隐藏\", \"甲\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"隐藏\": {\"type\": \"Shadowsocks\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - DOMAIN,a.example,主代理\n  - DOMAIN,b.example,DIRECT\n  - MATCH,主代理\n"
+    }
+  },
+  {
+    "name": "node-show--auto-root.txt",
+    "argv": [
+      "node",
+      "show"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"负载\", \"all\": [\"自动\", \"负载\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"甲\", \"all\": [\"甲\", \"乙\"]}, \"负载\": {\"type\": \"LoadBalance\", \"all\": [\"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Shadowsocks\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - DOMAIN,a.example,自动\n  - MATCH,负载\n"
+    }
+  },
+  {
+    "name": "node-show--ref.txt",
+    "argv": [
+      "node",
+      "show"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"甲\", \"all\": [\"甲\", \"手动\"]}, \"手动\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - MATCH,主代理\n"
+    }
+  },
+  {
+    "name": "node-show--two-roots.txt",
+    "argv": [
+      "node",
+      "show"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"左\": {\"type\": \"Selector\", \"now\": \"甲\", \"all\": [\"共享\", \"甲\"]}, \"右\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"共享\", \"乙\"]}, \"共享\": {\"type\": \"Selector\", \"now\": \"丙\", \"all\": [\"丙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Shadowsocks\"}, \"丙\": {\"type\": \"Vless\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - DOMAIN,a.example,左\n  - MATCH,右\n"
+    }
+  },
+  {
+    "name": "node-show--auto-member.txt",
+    "argv": [
+      "node",
+      "show"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"甲\", \"all\": [\"甲\", \"手动\"]}, \"手动\": {\"type\": \"Selector\", \"all\": [\"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - MATCH,自动\n"
+    }
+  },
+  {
+    "name": "node-show--nested.txt",
+    "argv": [
+      "node",
+      "show"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"子\", \"all\": [\"子\", \"甲\"]}, \"子\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"乙\", \"孙\"]}, \"孙\": {\"type\": \"Selector\", \"now\": \"丙\", \"all\": [\"丙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}, \"丙\": {\"type\": \"Shadowsocks\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - MATCH,主代理\n"
+    }
+  },
+  {
+    "name": "node-show--depth.txt",
+    "argv": [
+      "node",
+      "show",
+      "--depth",
+      "1"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"子\", \"all\": [\"子\", \"甲\"]}, \"子\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"乙\", \"孙\"]}, \"孙\": {\"type\": \"Selector\", \"now\": \"丙\", \"all\": [\"丙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}, \"丙\": {\"type\": \"Shadowsocks\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - MATCH,主代理\n"
+    }
+  },
+  {
+    "name": "node-show--relay.txt",
+    "argv": [
+      "node",
+      "show"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"中继\", \"all\": [\"中继\"]}, \"中继\": {\"type\": \"Relay\", \"now\": \"手动\", \"all\": [\"手动\", \"甲\"]}, \"手动\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - MATCH,主代理\n"
+    }
+  },
+  {
+    "name": "node-show--cycle.txt",
+    "argv": [
+      "node",
+      "show"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"甲组\": {\"type\": \"Selector\", \"now\": \"乙组\", \"all\": [\"乙组\", \"甲\"]}, \"乙组\": {\"type\": \"Selector\", \"now\": \"甲组\", \"all\": [\"甲组\", \"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - MATCH,甲组\n"
+    }
+  },
+  {
+    "name": "node-show--narrow.txt",
+    "columns": 40,
+    "argv": [
+      "node",
+      "show"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"甲\", \"all\": [\"手动\", \"中继\", \"甲\", \"乙\", \"丙\", \"丁\", \"戊\", \"己\", \"庚\", \"辛\", \"GONE\"]}, \"手动\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"乙\"]}, \"中继\": {\"type\": \"Relay\", \"all\": [\"甲\"]}, \"乙\": {\"type\": \"Shadowsocks\"}, \"甲\": {\"type\": \"Shadowsocks\"}, \"丙\": {\"type\": \"Shadowsocks\"}, \"丁\": {\"type\": \"Shadowsocks\"}, \"戊\": {\"type\": \"Shadowsocks\"}, \"己\": {\"type\": \"Shadowsocks\"}, \"庚\": {\"type\": \"Shadowsocks\"}, \"辛\": {\"type\": \"Shadowsocks\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - MATCH,主代理\n"
+    }
+  },
+  {
+    "name": "node-show--wide.txt",
+    "columns": 160,
+    "argv": [
+      "node",
+      "show"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"甲\", \"all\": [\"手动\", \"中继\", \"甲\", \"乙\", \"丙\", \"丁\", \"戊\", \"己\", \"庚\", \"辛\", \"GONE\"]}, \"手动\": {\"type\": \"Selector\", \"now\": \"乙\", \"all\": [\"乙\"]}, \"中继\": {\"type\": \"Relay\", \"all\": [\"甲\"]}, \"乙\": {\"type\": \"Shadowsocks\"}, \"甲\": {\"type\": \"Shadowsocks\"}, \"丙\": {\"type\": \"Shadowsocks\"}, \"丁\": {\"type\": \"Shadowsocks\"}, \"戊\": {\"type\": \"Shadowsocks\"}, \"己\": {\"type\": \"Shadowsocks\"}, \"庚\": {\"type\": \"Shadowsocks\"}, \"辛\": {\"type\": \"Shadowsocks\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - MATCH,主代理\n"
+    }
+  },
+  {
+    "name": "group-members--up.txt",
+    "argv": [
+      "group",
+      "members",
+      "主代理"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"GLOBAL\": {\"type\": \"Selector\", \"now\": \"主代理\", \"all\": [\"主代理\"]}, \"主代理\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\", \"甲\", \"乙\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"甲\", \"all\": [\"甲\"]}, \"空\": {\"type\": \"Selector\", \"all\": []}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Vless\"}}}\n",
+    "files": {
+      "run/cache/node-test": "ts=1\nresult=ok\n{\"甲\": 42}\n"
+    }
+  },
+  {
+    "name": "service-status--stopped.txt",
+    "argv": [
+      "service",
+      "status"
+    ]
+  },
+  {
+    "name": "service-status--running.txt",
+    "argv": [
+      "service",
+      "status"
+    ],
+    "systemd": true,
+    "files": {
+      "run/systemctl.active": "active\n"
+    }
+  },
+  {
+    "name": "rule-add-node--ok.txt",
+    "argv": [
+      "rule",
+      "add",
+      "node",
+      "leaf.example",
+      "leaf"
+    ]
+  },
+  {
+    "name": "rule-show--node.txt",
+    "argv": [
+      "rule",
+      "show"
+    ],
+    "up": true,
+    "files": {
+      "run/rules.list": "DOMAIN leaf.example leaf\n",
+      "run/fake/rules.json": "{\"rules\": [{\"type\": \"Domain\", \"payload\": \"leaf.example\", \"proxy\": \"leaf\"}, {\"type\": \"Match\", \"payload\": \"\", \"proxy\": \"DIRECT\"}]}",
+      "run/config.yaml": "rules:\n  - DOMAIN,leaf.example,leaf\n  - MATCH,DIRECT\n"
+    }
+  },
+  {
+    "name": "rule-del--by-id.txt",
+    "argv": [
+      "rule",
+      "del",
+      "R9e5c06"
+    ],
+    "files": {
+      "run/rules.list": "DOMAIN mine.example PROXY\nDOMAIN other.example DIRECT\n",
+      "run/config.yaml": "rules:\n  - DOMAIN,mine.example,PROXY\n  - DOMAIN,other.example,DIRECT\n"
+    }
+  },
+  {
+    "name": "rule-del--by-text.txt",
+    "argv": [
+      "rule",
+      "del",
+      "DOMAIN,mine.example,PROXY"
+    ],
+    "files": {
+      "run/rules.list": "DOMAIN mine.example PROXY\n",
+      "run/config.yaml": "rules:\n  - DOMAIN,mine.example,PROXY\n"
+    }
+  },
+  {
+    "name": "rule-del--nonlocal.txt",
+    "argv": [
+      "rule",
+      "del",
+      "Rf4d722"
+    ],
+    "files": {
+      "run/rules.list": "DOMAIN mine.example PROXY\n",
+      "run/config.yaml": "rules:\n  - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve\n  - DOMAIN,mine.example,PROXY\n"
+    }
+  },
+  {
+    "name": "rule-status.txt",
+    "argv": [
+      "rule",
+      "status"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\": {\"主代理\": {\"type\": \"Selector\", \"now\": \"自动\", \"all\": [\"自动\", \"甲\"]}, \"自动\": {\"type\": \"URLTest\", \"now\": \"甲\", \"all\": [\"甲\", \"乙\"]}, \"均衡\": {\"type\": \"LoadBalance\", \"all\": [\"乙\"]}, \"甲\": {\"type\": \"Shadowsocks\"}, \"乙\": {\"type\": \"Shadowsocks\"}}}\n",
+    "files": {
+      "run/config.yaml": "rules:\n  - DOMAIN,a.example,主代理\n  - DOMAIN-SUFFIX,b.example,主代理\n  - RULE-SET,ads,主代理\n  - MATCH,均衡\n  - DOMAIN,c.example,甲\n  - MATCH,DIRECT\n"
+    }
+  },
+  {
+    "name": "rule-del--missing.txt",
+    "argv": [
+      "rule",
+      "del",
+      "Rzzzzz"
+    ]
+  },
+  {
+    "name": "node-test--one.txt",
+    "argv": [
+      "node",
+      "test",
+      "N1"
+    ],
+    "up": true,
+    "files": {
+      "run/fake/delay.json": "{\"a\": 12, \"b\": 80}\n"
+    }
+  },
+  {
+    "name": "node-test--all.txt",
+    "argv": [
+      "node",
+      "test",
+      "--all"
+    ],
+    "up": true,
+    "files": {
+      "run/fake/delay.json": "{\"a\": 12, \"b\": 80}\n"
+    }
+  },
+  {
+    "name": "node-test--timeout.txt",
+    "argv": [
+      "node",
+      "test",
+      "--all"
+    ],
+    "up": true,
+    "files": {
+      "run/fake/delay.json": "{\"a\": 12}\n"
+    }
+  },
+  {
+    "name": "node-test--bad.txt",
+    "argv": [
+      "node",
+      "test",
+      "--all"
+    ],
+    "up": true,
+    "files": {
+      "run/fake/delay.json": "{\"a\": 12, \"b\": \"no\"}\n"
+    }
+  },
+  {
+    "name": "node-test--filter.txt",
+    "argv": [
+      "node",
+      "test",
+      "--all"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\":{\"主代理\":{\"all\":[\"a\",\"剩余流量：9\",\"网址:x\",\"过期时间：1\",\"回家页:y\",\"pass\"],\"now\":\"a\",\"type\":\"Selector\"},\"自动\":{\"type\":\"URLTest\",\"all\":[\"a\",\"orphan\"],\"now\":\"a\"},\"a\":{\"type\":\"Shadowsocks\"},\"剩余流量：9\":{\"type\":\"Shadowsocks\"},\"网址:x\":{\"type\":\"Shadowsocks\"},\"过期时间：1\":{\"type\":\"Shadowsocks\"},\"回家页:y\":{\"type\":\"Shadowsocks\"},\"pass\":{\"type\":\"Pass\"},\"drop\":{\"type\":\"RejectDrop\"},\"rej\":{\"type\":\"Reject\"},\"comp\":{\"type\":\"Compatible\"},\"DIRECT\":{\"type\":\"Direct\"},\"orphan\":{\"type\":\"Shadowsocks\"}}}\n",
+    "files": {
+      "run/fake/delay.json": "{\"a\": 12}\n"
+    }
+  },
+  {
+    "name": "node-test--hidden.txt",
+    "argv": [
+      "node",
+      "test",
+      "剩余流量：9"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\":{\"主代理\":{\"all\":[\"a\",\"剩余流量：9\",\"网址:x\",\"过期时间：1\",\"回家页:y\",\"pass\"],\"now\":\"a\",\"type\":\"Selector\"},\"自动\":{\"type\":\"URLTest\",\"all\":[\"a\",\"orphan\"],\"now\":\"a\"},\"a\":{\"type\":\"Shadowsocks\"},\"剩余流量：9\":{\"type\":\"Shadowsocks\"},\"网址:x\":{\"type\":\"Shadowsocks\"},\"过期时间：1\":{\"type\":\"Shadowsocks\"},\"回家页:y\":{\"type\":\"Shadowsocks\"},\"pass\":{\"type\":\"Pass\"},\"drop\":{\"type\":\"RejectDrop\"},\"rej\":{\"type\":\"Reject\"},\"comp\":{\"type\":\"Compatible\"},\"DIRECT\":{\"type\":\"Direct\"},\"orphan\":{\"type\":\"Shadowsocks\"}}}\n",
+    "files": {
+      "run/fake/delay.json": "{\"a\": 12}\n"
+    }
+  }
+,
+  {
+    "name": "group-test--one.txt",
+    "argv": [
+      "group",
+      "test",
+      "主代理"
+    ],
+    "up": true,
+    "files": {
+      "run/fake/delay.json": "{\"a\": 12, \"b\": 80}\n"
+    }
+  },
+  {
+    "name": "group-test--all.txt",
+    "argv": [
+      "group",
+      "test",
+      "--all"
+    ],
+    "up": true,
+    "proxies": "{\"proxies\":{\"A\":{\"type\":\"Selector\",\"all\":[\"a\",\"b\"],\"now\":\"a\"},\"B\":{\"type\":\"URLTest\",\"all\":[\"a\"],\"now\":\"a\"},\"a\":{\"type\":\"Shadowsocks\"},\"b\":{\"type\":\"Shadowsocks\"}}}\n",
+    "files": {
+      "run/fake/delay.json": "{\"a\": 12, \"b\": 80}\n"
+    }
+  }
+]

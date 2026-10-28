@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+test -f "$1"
+: > "$2"
+printf '%s\n' 'x-axs-status: 200' 'x-axs-content-type: text/html' > "$3"
