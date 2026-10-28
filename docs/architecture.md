@@ -61,7 +61,7 @@ bin/axs  bin/mihomo-run
 | nodelist | 组/节点列表与测速行渲染 | 数据、测速 |
 | nodetest | 叶子测速命令、可选叶子、进度接线 | 切换、改配置、缓存格式、组测速 |
 | grouptest | 组测速命令、全组分段 | 切换、改配置、缓存格式、叶子枚举 |
-| leafdelay | 查询超时、HTTP 等待、旧的组结果聚合 | 命令输出、缓存、进度条 |
+| leafdelay | 查询超时、HTTP 等待、原因分类 | 命令输出、缓存、进度条 |
 | progress | 进度条 | 测速、发请求 |
 | net | 连通性、出口地址、入站是否打开 | 写订阅 |
 | proxy | 三层开关和状态词 | 改内核进程 |
@@ -120,7 +120,7 @@ run/                         运行时。不入库
 | `lib/axs/nodelist.py` | 组/节点列表与测速行渲染。不持有数据、不测速 | 200 行 |
 | `lib/axs/nodetest.py` | 叶子测速。不切换、不改配置 | 220 行 |
 | `lib/axs/grouptest.py` | 组测速。不切换、不改配置 | 150 行 |
-| `lib/axs/leafdelay.py` | 组延迟聚合成叶子延迟。不输出、不写缓存 | 200 行 |
+| `lib/axs/leafdelay.py` | 延迟超时、HTTP 等待与原因分类。不发请求、不写缓存 | 120 行 |
 | `lib/axs/progress.py` | 可复用进度条。非 TTY 不输出 | 100 行 |
 | `lib/axs/nodeview.py` | 默认页与成员表。不画拓扑 | 160 行 |
 | `lib/axs/selectview.py` | `node show` 板块。不画完整拓扑 | 200 行 |
