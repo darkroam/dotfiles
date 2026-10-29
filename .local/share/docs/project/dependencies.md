@@ -82,6 +82,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | PipeWire、`pipewire-pulse`、WirePlumber、`wpctl` | 默认音频栈、输出音量和麦克风静音控制；`pipewire-pulse` 为需要它的应用提供 PulseAudio 兼容服务端 |
 | ALSA 库、`pipewire-alsa` 和可选 ALSA 工具 | 平台系统配置可将默认设备接入 PipeWire；显式 `hw:` 访问仍可用，但不承诺服务失效时自动回退；已跟踪 `asoundrc` 不固定硬件 |
 | `mpd`, `mpc`, `ncmpcpp` | 音乐守护进程、控制客户端和终端界面 |
+| `rtkit` / `rtkit-daemon` | 可选：为 PipeWire 申请实时调度；缺失时回退普通优先级，不影响播放；发行版包名见平台档案 |
 | `pulsemixer` | 已配置交互式音频混音器 |
 | `mpv`, `socat` | 视频播放和 MPV IPC 辅助 |
 | `ffmpeg`（含 `libx264`、AAC、FLAC 以及 ALSA、V4L2、X11 输入支持） | `dmenurecord` 的屏幕、音频、摄像头录制，以及其他媒体转码 |

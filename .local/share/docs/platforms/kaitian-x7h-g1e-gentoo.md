@@ -110,6 +110,7 @@ Debian 13 档案。没有在本系统重新核对的项目保持待填，不用 
 - `/etc/portage/make.conf`：`COMMON_FLAGS="-march=native -O2 -pipe"`，四个语言标志引用它；`MAKEOPTS="-j16"`（`nproc` 为 16）；`LC_MESSAGES=C.UTF-8`；镜像是清华和中科大；`USE="-qt5 -qt6 -gtk4"`。没有 `-gtk2`。
 - `CPU_FLAGS_X86` 来自 `cpuid2cpuflags`：`aes avx avx2 bmi1 bmi2 f16c fma3 mmx mmxext pclmul popcnt rdrand sha sse sse2 sse3 sse4_1 sse4_2 sse4a ssse3`。`-march=native` 不代替这一行。
 - `package.use` 现有 `fcitx`、`fh2m-xorg`、`x11`、`local`、`mail`、`pinentry`、`synergy`、`picom`、`nsxiv`。autounmask 文件已删。`X`、PipeWire、`poppler cairo`、`mpv -vulkan` 都在包级，不进 `make.conf`。`picom` 与 `nsxiv` 只有备注。
+- 2026-10-29 音频 USE：`media-video/pipewire` 加 `dbus bluetooth`（DBus 支持与蓝牙音频，后者仅蓝牙耳机/音箱需要）；`media-sound/ncmpcpp` 加 `visualizer`（拉入 `sci-libs/fftw`，`visualizer_type = "spectrum"` 才可用，否则用 `wave`）。`rtkit` 仍是可选，未加入必需依赖；缺失只回退实时调度。
 - 仓库模板 `make.conf.template` 是 `-j5`、`USE="-kde alsa X"`。不要用它覆盖本机。
 - 没有用 CFLAGS 或环境变量代替 USE。
 
