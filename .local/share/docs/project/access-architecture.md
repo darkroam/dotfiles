@@ -6,7 +6,7 @@
 
 入口是薄 shell：`bin/axs` 找到实现根，把该目录放进模块路径，再 `exec python3 -m axs`。逻辑在 `axs/`。不新增依赖，继续用已经在用的 PyYAML。`bin/mihomo-run` 仍是 shell，只校验 PID、写下 PID 文件、exec 内核。
 
-## 并入
+## 历史归档与回滚
 
 代码在 dotfiles 的 `.local/lib/access/`。包是该目录下的 `axs/`。测试在 `.local/share/test/access/`。六份文档在 `.local/share/docs/project/`，文件名以 `access-` 开头。PATH 入口是相对链接 `.local/bin/axs` → `../lib/access/bin/axs`。
 
