@@ -207,8 +207,7 @@ def _rule_status(run):
 
 def main(argv):
     import axs.nodecmd as nodecmd
-    import axs.grouptest as grouptest
-    import axs.nodetest as nodetest
+    import axs.speed as speed
     from axs.net import net_ip, net_test
     from axs.proxy import proxy_session, proxy_status, proxy_system, proxy_user
     from axs.proxylan import run as lan_run
@@ -273,13 +272,13 @@ def main(argv):
     elif cmd == "node":
         op, extra = _take("node", rest)
         if op == "test":
-            nodetest.cmd_test(run, extra)
+            speed.cmd_test(run, extra)
         else:
             nodecmd.run(run, "status" if op == "status" else "list", extra)
     elif cmd == "group":
         op, extra = _take("group", rest)
         if op == "test":
-            grouptest.run(run, extra)
+            speed.run(run, extra)
         else:
             kind = {"status": "groups", "members": "members", "switch": "switch"}[op]
             nodecmd.run(run, kind, extra)
