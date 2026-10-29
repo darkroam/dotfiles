@@ -136,7 +136,7 @@ def check_frames():
     from axs.nodelist import _show_nodes_full
     from axs.render import view_page
     from axs.rulelist import status_text
-    from axs.selectview import render_select
+    from axs.view import render_select
     from axs.tree import render_tree
 
     proxies = {"G": {"type": "Selector", "now": "a", "all": ["a"]}, "a": {"type": "Direct"}}

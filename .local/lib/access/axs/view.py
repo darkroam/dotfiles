@@ -1,4 +1,4 @@
-"""One-layer blocks for node show. Full topology stays in tree.py."""
+"""Screens. Data to text only: no controller calls and no speed tests."""
 
 from pathlib import Path
 
