@@ -4,8 +4,7 @@ import subprocess
 import sys
 import unicodedata
 
-from axs.catalog import GROUPS, INTRO, MORE, RETIRED, SIG, USE
-from axs.sections import SECTIONS
+from axs.catalog import GROUPS, INTRO, MORE, RETIRED, SECTIONS, SIG, USE
 
 
 def use_color(fd=1):

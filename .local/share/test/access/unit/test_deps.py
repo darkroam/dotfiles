@@ -12,7 +12,7 @@ LIB = ROOT / "axs"
 
 # Lower index is a lower layer. A module may import a strictly lower layer.
 LAYERS = (
-    ("config", "codes", "catalog", "sections"),
+    ("config", "codes", "catalog"),
     ("core", "render", "mihomo"),
     ("net", "nodes", "rulelist"),
     ("routes", "nodelist"),
@@ -25,8 +25,8 @@ LAYERS = (
     ("cli",),
     ("__main__",),
 )
-# Same-layer edges. render may import only catalog and sections.
-APPROVED = {("rules", "subscription"), ("catalog", "sections")}
+# Same-layer edges. render may import only catalog.
+APPROVED = {("rules", "subscription")}
 
 
 def fail(message):
@@ -103,11 +103,9 @@ def graph():
     found = edges()
     allowed_pairs = set()
     for src, dst, line in found:
-        if src == "catalog" and dst != "sections":
+        if src == "catalog":
             fail(f"catalog import {line} -> {dst}")
-        if src == "sections":
-            fail(f"sections import {line} -> {dst}")
-        if src == "render" and dst not in {"catalog", "sections"}:
+        if src == "render" and dst != "catalog":
             fail(f"render import {line} -> {dst}")
         if src not in rank or dst not in rank:
             fail(f"unlayered {src}:{line} -> {dst}")
@@ -125,8 +123,8 @@ def graph():
     pairs = {(src, dst) for src, dst, _line in found}
     if ("render", "catalog") not in pairs:
         fail("render lost catalog")
-    if ("render", "sections") not in pairs or ("catalog", "sections") not in pairs:
-        fail("sections edge missing")
+    if ("render", "sections") in pairs or ("catalog", "sections") in pairs:
+        fail("sections edge remains")
     seen = {}
     for src, dst, _line in found:
         seen.setdefault(src, set()).add(dst)
