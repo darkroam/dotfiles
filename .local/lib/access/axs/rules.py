@@ -59,8 +59,6 @@ def rule_line(kind, domain, group):
     return f"{form} {host} {group}"
 
 
-def parse_rule(kind, domain, group):
-    sys.stdout.write(rule_line(kind, domain, group) + "\n")
 
 
 def rules_add(path, line):

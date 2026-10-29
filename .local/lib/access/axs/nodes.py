@@ -49,12 +49,6 @@ def resolve_group_name(proxies, token):
                 return name, ""
     return None, "组不存在"
 
-def lookup_group(secret_path, api, token):
-    name, err = resolve_group_name(_proxies(secret_path, api), token)
-    if err:
-        sys.stderr.write(err + "\n")
-        raise SystemExit(FAIL)
-    sys.stdout.write(name + "\n")
 
 AUTO_LABEL = {"URLTest": "url-test", "Fallback": "fallback", "LoadBalance": "load-balance"}
 AUTO_TYPES = frozenset(AUTO_LABEL)

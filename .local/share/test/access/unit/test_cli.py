@@ -413,6 +413,12 @@ def main():
     check_color()
     check_sig()
     print(f"alias matrix {len(EXACT) + len(AMBIGUOUS) + len(UNKNOWN)}")
+    from axs import cli as cli_mod
+    from axs.catalog import ROUTE
+    for command, name in ROUTE.items():
+        fn = getattr(cli_mod, name, None)
+        if not callable(fn):
+            fail(f"route {command} -> {name}")
     return 0
 
 

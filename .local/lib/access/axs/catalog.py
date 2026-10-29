@@ -162,3 +162,18 @@ RETIRED = (
     ("group show", "group status", "策略组与当前选择"),
     ("rule show status", "rule status", "当前规则路径"),
 )
+
+# First-level command -> handler name in cli. Strings only; catalog imports nothing.
+ROUTE = {
+    "help": "cmd_help",
+    "status": "cmd_status",
+    "clean": "cmd_clean",
+    "health": "cmd_health",
+    "service": "cmd_service",
+    "subscription": "cmd_subscription",
+    "rule": "cmd_rule",
+    "node": "cmd_node",
+    "group": "cmd_group",
+    "network": "cmd_network",
+    "proxy": "cmd_proxy",
+}

@@ -205,19 +205,137 @@ def _rule_status(run):
     sys.stdout.write(status_text(data, header=True))
 
 
-def main(argv):
-    import axs.nodecmd as nodecmd
-    import axs.speed as speed
-    from axs.net import net_ip, net_test
-    from axs.proxy import proxy_session, proxy_status, proxy_system, proxy_user
-    from axs.proxylan import run as lan_run
+
+def cmd_help(run, rest):
+    del run
+    sys.stdout.write(help_text(bool(rest)))
+
+
+def cmd_status(run, rest):
+    del rest
+    from axs.status import status
+
+    status(run)
+
+
+def cmd_clean(run, rest):
+    from axs.service import clean
+
+    clean(run, "config", rest)
+
+
+def cmd_health(run, rest):
+    del rest
+    from axs.service import health
+
+    health(run)
+
+
+def cmd_service(run, rest):
+    from axs.service import boot, ensure, health, restart, start, stop
+    from axs.status import service_status
+
+    op, extra = _take("service", rest)
+    if op == "ensure":
+        ensure(run, extra)
+    elif op == "status":
+        service_status(run)
+    elif op == "start":
+        start(run)
+    elif op == "stop":
+        stop(run)
+    elif op == "restart":
+        restart(run)
+    elif op == "health":
+        health(run)
+    else:
+        boot(run, op)
+
+
+def cmd_subscription(run, rest):
+    from axs.service import clean
+    from axs.subscription import dispatch as sub_dispatch
+
+    op, extra = _take("subscription", rest)
+    if op == "clean":
+        clean(run, "sub", extra)
+    else:
+        sub_dispatch(run, op, extra)
+
+
+def cmd_rule(run, rest):
+    from axs.codes import USAGE
+    from axs.render import die
     from axs.rulelist import cmd_list
     from axs.rules import cmd_add, cmd_del
-    from axs.core import prime
-    from axs.service import boot, clean, ensure, health, restart, run_dir, start, stop
-    from axs.status import service_status, status
-    from axs.subscription import dispatch as sub_dispatch
+
+    op, extra = _take("rule", rest)
+    if op == "status":
+        _rule_status(run)
+    elif op == "show":
+        if extra not in ([], ["--local"]):
+            die(USAGE, "用法错误")
+        else:
+            cmd_list(run, extra == ["--local"])
+    elif op == "add":
+        cmd_add(run, extra)
+    elif op == "del":
+        cmd_del(run, extra)
+
+
+def cmd_node(run, rest):
+    import axs.nodecmd as nodecmd
+    import axs.speed as speed
+
+    op, extra = _take("node", rest)
+    if op == "test":
+        speed.cmd_test(run, extra)
+    else:
+        nodecmd.run(run, "status" if op == "status" else "list", extra)
+
+
+def cmd_group(run, rest):
+    import axs.nodecmd as nodecmd
+    import axs.speed as speed
+
+    op, extra = _take("group", rest)
+    if op == "test":
+        speed.run(run, extra)
+    else:
+        kind = {"status": "groups", "members": "members", "switch": "switch"}[op]
+        nodecmd.run(run, kind, extra)
+
+
+def cmd_network(run, rest):
+    from axs.net import net_ip, net_test
+
+    op, extra = _take("network", rest)
+    if op == "test":
+        net_test(run, extra)
+    elif op == "ip":
+        net_ip(run, extra)
+
+
+def cmd_proxy(run, rest):
+    from axs.proxy import proxy_session, proxy_status, proxy_system, proxy_user
+    from axs.proxylan import run as lan_run
+
+    op, extra = _take("proxy", rest)
+    if op == "status":
+        proxy_status(run)
+    elif op == "lan":
+        lan_run(run, extra)
+    else:
+        {"user": proxy_user, "system": proxy_system, "session": proxy_session}[op](run, extra)
+
+
+def main(argv):
+    import sys as _sys
+
+    from axs.catalog import ROUTE
     from axs.config import LOOPBACK
+    from axs.core import prime
+    from axs.service import run_dir
 
     prime()
     if not argv:
@@ -227,74 +345,4 @@ def main(argv):
     if cmd in {"service", "node", "group", "rule", "subscription", "proxy", "network"} and not rest:
         sys.stdout.write(layer_text(cmd, LOOPBACK))
         return
-    if cmd == "help":
-        sys.stdout.write(help_text(bool(rest)))
-        return
-    if cmd == "status":
-        status(run)
-    elif cmd == "clean":
-        clean(run, "config", rest)
-    elif cmd == "health":
-        health(run)
-    elif cmd == "service":
-        op, extra = _take("service", rest)
-        if op == "ensure":
-            ensure(run, extra)
-        elif op == "status":
-            service_status(run)
-        elif op == "start":
-            start(run)
-        elif op == "stop":
-            stop(run)
-        elif op == "restart":
-            restart(run)
-        elif op == "health":
-            health(run)
-        else:
-            boot(run, op)
-    elif cmd == "subscription":
-        op, extra = _take("subscription", rest)
-        if op == "clean":
-            clean(run, "sub", extra)
-        else:
-            sub_dispatch(run, op, extra)
-    elif cmd == "rule":
-        op, extra = _take("rule", rest)
-        if op == "status":
-            _rule_status(run)
-        elif op == "show":
-            if extra not in ([], ["--local"]):
-                die(USAGE, "用法错误")
-            else:
-                cmd_list(run, extra == ["--local"])
-        elif op == "add":
-            cmd_add(run, extra)
-        elif op == "del":
-            cmd_del(run, extra)
-    elif cmd == "node":
-        op, extra = _take("node", rest)
-        if op == "test":
-            speed.cmd_test(run, extra)
-        else:
-            nodecmd.run(run, "status" if op == "status" else "list", extra)
-    elif cmd == "group":
-        op, extra = _take("group", rest)
-        if op == "test":
-            speed.run(run, extra)
-        else:
-            kind = {"status": "groups", "members": "members", "switch": "switch"}[op]
-            nodecmd.run(run, kind, extra)
-    elif cmd == "network":
-        op, extra = _take("network", rest)
-        if op == "test":
-            net_test(run, extra)
-        elif op == "ip":
-            net_ip(run, extra)
-    elif cmd == "proxy":
-        op, extra = _take("proxy", rest)
-        if op == "status":
-            proxy_status(run)
-        elif op == "lan":
-            lan_run(run, extra)
-        else:
-            {"user": proxy_user, "system": proxy_system, "session": proxy_session}[op](run, extra)
+    getattr(_sys.modules[__name__], ROUTE[cmd])(run, rest)

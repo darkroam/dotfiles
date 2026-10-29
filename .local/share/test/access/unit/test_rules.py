@@ -243,9 +243,11 @@ def check_forward():
         fail("forwarding layer remains")
     source = (ROOT / "axs" / "rules.py").read_text(encoding="utf-8")
     listed = (ROOT / "axs" / "rulelist.py").read_text(encoding="utf-8")
-    for name in ("def has_group", "def parse_rule", "def rules_add", "def rules_del"):
+    for name in ("def has_group", "def rules_add", "def rules_del"):
         if name not in source:
             fail("rules lost " + name)
+    if "def parse_rule" in source or "def lookup_group" in (ROOT / "axs" / "nodes.py").read_text(encoding="utf-8"):
+        fail("dead helper remains")
     if "def rule_id" in source or "def cmd_list" in source:
         fail("rules kept the view")
     if any(name not in listed for name in ("def rule_id", "def cmd_list", "def resolve_delete")):
