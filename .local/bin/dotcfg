@@ -131,6 +131,9 @@ _dotcfg_load_business_libraries() {
 	if [ -f "$DOTFILES_LIB_DIR/utils/exclude.sh" ]; then
 		. "$DOTFILES_LIB_DIR/utils/exclude.sh"
 	fi
+	if [ -f "$DOTFILES_LIB_DIR/utils/files.sh" ]; then
+		. "$DOTFILES_LIB_DIR/utils/files.sh"
+	fi
 	if [ -f "$DOTFILES_LIB_DIR/utils/fresh.sh" ]; then
 		. "$DOTFILES_LIB_DIR/utils/fresh.sh"
 	fi

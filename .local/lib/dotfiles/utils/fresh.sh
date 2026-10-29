@@ -151,7 +151,7 @@ fresh_copy_to_backup() {
 	[ -f "$source" ] || [ -L "$source" ] || return 1
 
 	mkdir -p -- "$(dirname "$dest")"
-	cfg_portable_copy "$source" "$dest"
+	cfg_portable_copy "$source" "$dest" || return 1
 
 	local md5 size
 	md5=$(cfg_path_md5 "$source")
@@ -181,7 +181,7 @@ fresh_copy_source_to_backup() {
 
 	[ -f "$source" ] || [ -L "$source" ] || return 1
 	mkdir -p -- "$(dirname "$dest")"
-	cfg_portable_copy "$source" "$dest"
+	cfg_portable_copy "$source" "$dest" || return 1
 
 	local md5 size
 	md5=$(cfg_path_md5 "$source")
