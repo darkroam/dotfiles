@@ -1,9 +1,16 @@
 """Node and group view commands. Parsing stays in cli."""
 
+import contextlib
+import io
 import sys
 
 from axs.codes import DOWN, FAIL, USAGE
-from axs.render import die
+from axs.mihomo import load_proxies
+from axs.nodes import _as_exit3, current_selection, load_delays, node_numbers, speed_line
+from axs.render import die, display_width, layout_cells, term_cols, view_page
+from axs.routes import build
+from axs.rulelist import status_text
+from axs.view import _show_nodes_full, group_table, paint_cell, rule_page
 
 
 def _list_flags(args):
@@ -55,9 +62,8 @@ def run(run, kind, args):
     from pathlib import Path
 
     from axs.config import SECRET, api_address
-    from axs.nodelist import show_groups, show_nodes
+    from axs.view import show_members
     from axs.nodes import select_proxy
-    from axs.view import show_all, show_members, show_rule_nodes
     from axs.service import service_up
     list_mode, depth = "", None
     if kind == "list":
@@ -85,3 +91,73 @@ def run(run, kind, args):
         show_members(_proxies(secret, api), args[0], str(run))
     else:
         select_proxy(secret, api, args[0], args[1], str(run))
+
+
+def show_rule_nodes(run, secret, api):
+    try:
+        proxies = load_proxies(secret, api)
+    except SystemExit as exc:
+        code = exc.code if isinstance(exc.code, int) else USAGE
+        raise SystemExit(FAIL if code == USAGE else code)
+    data = build(proxies, run)
+    if data is None:
+        die(DOWN, "服务：未运行")
+    sys.stdout.write(rule_page(proxies, data, run))
+
+
+def show_all(run, secret, api):
+    import contextlib
+    import io
+
+    from axs.nodes import speed_line
+
+    data = None
+    try:
+        data = build(load_proxies(secret, api), run)
+    except SystemExit:
+        data = None
+    path = status_text(data).strip("\n") if data else ""
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        show_nodes(secret, api, str(run))
+    note = "说明：全部叶子节点；组关系见 --full。叶子含节点与内置策略，不含策略组。"
+    title = f"全部叶子端点（{speed_line(run)}）："
+    sys.stdout.write(view_page(path, [(title, buf.getvalue())], note))
+
+
+def show_groups(secret_path, api):
+    from axs.nodes import _proxies as read_proxies
+
+    sys.stdout.write(group_table(read_proxies(secret_path, api)))
+
+
+def show_nodes(secret_path, api, mode=""):
+    try:
+        proxies = load_proxies(secret_path, api)
+    except SystemExit as exc:
+        _as_exit3(exc)
+    if mode == "flat":
+        _show_nodes_full(proxies)
+        return
+    numbers = node_numbers(proxies)
+    star = current_selection(proxies, numbers)
+    delays = load_delays(mode)
+    shown = []
+    for name in sorted(numbers, key=numbers.get):
+        delay = delays.get(name, "-")
+        if delay is None or delay == "":
+            delay = "-"
+        shown.append((name, str(delay)))
+    num_width = len(f"N{max(numbers.values())}") if numbers else 1
+    delay_width = max((display_width(delay) for _, delay in shown), default=1)
+    entries = []
+    for name, delay in shown:
+        marker = "[*] " if name == star else "    "
+        num_text = f"{'N' + str(numbers[name]):>{num_width}}"
+        delay_text = f"{delay:>{delay_width}}"
+        plain = f"{marker}{num_text} {name} {delay_text}"
+        colored = paint_cell(marker, num_text, name, delay_text, name == star, delay)
+        entries.append((plain, colored))
+    lines = layout_cells(entries, term_cols())
+    sys.stdout.write("\n".join(lines) + "\n")
+

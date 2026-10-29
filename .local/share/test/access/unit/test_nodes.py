@@ -10,7 +10,7 @@ TEST = next(p for p in (_here.parent, *_here.parents) if (p / "run.sh").is_file(
 ROOT = next(p / ".local/lib/access" for p in _here.parents if (p / ".local/lib/access/bin/axs").is_file())
 sys.path.insert(0, str(ROOT))
 
-from axs.nodelist import group_table  # noqa: E402
+from axs.view import group_table  # noqa: E402
 from axs.nodes import resolve_group_name, resolve_switch_name, write_node_cache  # noqa: E402
 
 
@@ -24,8 +24,8 @@ def check_forward():
     from axs.core import gen_secret
     from axs.mihomo import group_names, reload_core
     from axs.net import egress, net_precheck
-    from axs.nodelist import show_nodes
-    if show_nodes.__module__ != "axs.nodelist" or group_names.__module__ != "axs.mihomo":
+    from axs.nodecmd import show_nodes
+    if show_nodes.__module__ != "axs.nodecmd" or group_names.__module__ != "axs.mihomo":
         fail("module")
     if reload_core.__module__ != "axs.mihomo" or gen_secret.__module__ != "axs.core":
         fail("debt module")

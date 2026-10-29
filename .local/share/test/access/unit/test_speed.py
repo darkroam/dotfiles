@@ -19,7 +19,7 @@ from axs.nodes import load_delays, node_numbers, write_node_cache
 import axs.speed as nodetest
 import axs.speed as grouptest
 import axs.speed as leafdelay
-from axs.nodelist import render_test_rows
+from axs.view import render_test_rows
 
 
 def fail(message):
@@ -392,7 +392,7 @@ def check_continue(tmp):
 
 
 def check_columns():
-    from axs.nodelist import render_group_block
+    from axs.view import render_group_block
 
     numbers = {"child": 1, "主代理": 2}
     members = [("child", 5, True), ("a", 12, False), ("b", 80, False)]

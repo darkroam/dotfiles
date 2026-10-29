@@ -133,7 +133,7 @@ def check_default():
 
 
 def check_frames():
-    from axs.nodelist import _show_nodes_full
+    from axs.view import _show_nodes_full
     from axs.render import view_page
     from axs.rulelist import status_text
     from axs.view import render_select

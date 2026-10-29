@@ -19,7 +19,7 @@ from axs.nodes import (
     resolve_group_name,
     write_node_cache,
 )
-from axs.nodelist import render_group_block, render_test_rows
+from axs.view import render_group_block, render_test_rows
 from axs.progress import Progress
 from axs.render import call_usage, die
 
