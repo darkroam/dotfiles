@@ -248,6 +248,15 @@ assert_contains() {
 	assert_contains "runtime username"
 }
 
+@test "quoted and code identity words are not runtime usernames" {
+	seed_valid
+	user=$(id -un)
+	printf 'result: `%s`\nquoted: "%s"\n' "$user" "$user" > "$COLLAB/R01-2026-08-31-topic-a/汇报.md"
+	run "$TOOL" "$COLLAB"
+	[ "$status" -eq 0 ]
+	[ -z "$output" ]
+}
+
 @test "runtime hostname is rejected without embedding it in fixtures" {
 	seed_valid
 	printf 'identity: %s\n' "$(hostname)" > "$COLLAB/R01-2026-08-31-topic-a/identity.md"

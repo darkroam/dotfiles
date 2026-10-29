@@ -422,9 +422,32 @@ scan_privacy() {
 			function problem(kind) {
 				print program ": sensitive data (" kind ") at " rel ":" NR >> errors_file
 			}
+			function is_quote(ch) {
+				return ch == sprintf("%c", 96) || ch == sprintf("%c", 34) || ch == sprintf("%c", 39)
+			}
+			function strip_quoted(text,    out, i, n, ch, fence) {
+				out = ""
+				n = length(text)
+				fence = ""
+				for (i = 1; i <= n; i++) {
+					ch = substr(text, i, 1)
+					if (fence != "") {
+						if (ch == fence) fence = ""
+						else out = out " "
+						continue
+					}
+					if (is_quote(ch)) {
+						fence = ch
+						out = out " "
+						continue
+					}
+					out = out ch
+				}
+				return out
+			}
 			function identity_present(text, identity,    normalized, count, item, i) {
 				if (identity == "") return 0
-				normalized = tolower(text)
+				normalized = tolower(strip_quoted(text))
 				identity = tolower(identity)
 				gsub(/[^[:alnum:]_.-]+/, " ", normalized)
 				count = split(normalized, item, /[[:space:]]+/)
