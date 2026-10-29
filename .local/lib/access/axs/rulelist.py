@@ -16,7 +16,7 @@ _RID = re.compile(r"^R[0-9a-f]{6}$")
 def rule_id(source, line):
     basis = line
     if source == "local":
-        from axs.mihomo import rule_parts
+        from axs.profile import rule_parts
 
         parsed = rule_parts(line)
         if parsed is not None:
@@ -35,7 +35,7 @@ def _kept_lines(path):
 
 
 def _classify(run, lines, source=None):
-    from axs.mihomo import _rule_key, _sources, rule_parts
+    from axs.profile import _rule_key, _sources, rule_parts
 
     prepend, local = (set(), set()) if source else _sources(run)
     labeled = []
@@ -93,7 +93,7 @@ def has_local(run, domain):
 
 
 def resolve_delete(run, token):
-    from axs.mihomo import rule_parts
+    from axs.profile import rule_parts
     from axs.render import die
 
     run = Path(run)

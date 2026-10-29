@@ -6,7 +6,7 @@ from pathlib import Path
 
 from axs.config import CONFIG, CONFIG_NEW, OVERRIDE, RULES, SECRET, SUBSCRIPTION
 from axs.core import atomic_write, install_file, restore_snapshot, snapshot
-from axs.subscription import build_file
+from axs.profile import build_file
 
 
 def _fail(message):

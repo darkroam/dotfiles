@@ -1,9 +1,8 @@
 """Controller client. Rollback and rule meaning stay with the caller."""
 
 from axs.codes import USAGE
-from axs.config import CIDRS, LOOPBACK, OVERRIDE, RULES
+from axs.config import LOOPBACK
 import contextvars
-import yaml
 import json
 import os
 import sys
@@ -216,69 +215,3 @@ def version_ok(secret_path, api):
         raise SystemExit(failed)
 
 
-_RULE_WORDS = dict(
-    pair.split()
-    for pair in (
-        "Domain DOMAIN|DomainSuffix DOMAIN-SUFFIX|DomainKeyword DOMAIN-KEYWORD|"
-        "DomainRegex DOMAIN-REGEX|DomainWildcard DOMAIN-WILDCARD|GeoSite GEOSITE|"
-        "GeoIP GEOIP|SrcGeoIP SRC-GEOIP|IPASN IP-ASN|SrcIPASN SRC-IP-ASN|"
-        "IPCIDR IP-CIDR|SrcIPCIDR SRC-IP-CIDR|IPSuffix IP-SUFFIX|SrcIPSuffix SRC-IP-SUFFIX|"
-        "SrcPort SRC-PORT|DstPort DST-PORT|InPort IN-PORT|DSCP DSCP|InUser IN-USER|"
-        "InName IN-NAME|InType IN-TYPE|ProcessName PROCESS-NAME|ProcessPath PROCESS-PATH|"
-        "ProcessNameRegex PROCESS-NAME-REGEX|ProcessPathRegex PROCESS-PATH-REGEX|"
-        "ProcessNameWildcard PROCESS-NAME-WILDCARD|ProcessPathWildcard PROCESS-PATH-WILDCARD|"
-        "RuleSet RULE-SET|Network NETWORK|Uid UID|SubRules SUB-RULE|Match MATCH|"
-        "AND AND|OR OR|NOT NOT"
-    ).split("|")
-)
-
-
-def rule_word(kind):
-    text = "" if kind is None else str(kind)
-    return _RULE_WORDS.get(text, text.upper())
-
-
-def _rule_key(kind, payload, policy):
-    word = rule_word("" if kind is None else str(kind))
-    if word == "IP-CIDR6":
-        word = "IP-CIDR"
-    return word, "" if payload is None else str(payload), "" if policy is None else str(policy)
-
-
-def rule_parts(text):
-    if not isinstance(text, str) or not text.strip() or text.lstrip().startswith("#"):
-        return None
-    bits = [bit.strip() for bit in text.split(",")] if "," in text else text.split()
-    if len(bits) >= 3:
-        return bits[0], bits[1], bits[2]
-    if len(bits) == 2 and bits[0].upper() == "MATCH":
-        return bits[0], "", bits[1]
-    return None
-
-
-def _bag(lines):
-    found = set()
-    for line in lines:
-        if not isinstance(line, str):
-            continue
-        parsed = rule_parts(line)
-        if parsed:
-            found.add(_rule_key(*parsed))
-    return found
-
-
-def _sources(run):
-    run = Path(run)
-    lines = list(CIDRS)
-    path = run / OVERRIDE
-    data = None
-    if path.is_file():
-        try:
-            data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except yaml.YAMLError:
-            data = None
-    extra = data.get("prepend-rules") if isinstance(data, dict) else None
-    if isinstance(extra, list):
-        lines.extend(extra)
-    local = (run / RULES).read_text(encoding="utf-8").splitlines() if (run / RULES).is_file() else []
-    return _bag(lines), _bag(local)

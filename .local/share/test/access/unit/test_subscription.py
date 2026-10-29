@@ -28,8 +28,8 @@ from axs.config import (  # noqa: E402
     USERINFO,
 )
 from axs.core import write_defaults  # noqa: E402
+from axs.profile import build_file  # noqa: E402
 from axs.subscription import (  # noqa: E402
-    build_file,
     check_url,
     clean_names,
     clear_fetch,
@@ -90,12 +90,22 @@ def check_merge(work):
     text = merged.read_text(encoding="utf-8")
     if "from-sub-should-not-win" in text or "canary.invalid" in text:
         fail("subscription secret leaked into config")
+    tops = [
+        line.split(":", 1)[0]
+        for line in text.splitlines()
+        if line and not line[0].isspace() and not line.startswith("-")
+    ]
+    if tops != [
+        "mixed-port", "mode", "ipv6", "allow-lan", "external-controller", "secret",
+        "tun", "dns", "proxies", "proxy-groups", "rules", "log-level",
+    ]:
+        fail(f"yaml key order {tops}")
 
 
 def check_forward():
     if (ROOT / "lib" / "merge.py").exists():
         fail("merge remains")
-    if build_file.__module__ != "axs.subscription":
+    if build_file.__module__ != "axs.profile":
         fail("build module")
 
 

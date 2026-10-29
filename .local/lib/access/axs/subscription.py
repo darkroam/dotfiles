@@ -7,7 +7,6 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-import yaml
 
 from axs.config import (
     CONFIG,
@@ -17,13 +16,12 @@ from axs.config import (
     PID,
     SNAP,
     SUBSCRIPTION,
-    LOOPBACK,
-    CIDRS,
     LIST,
     URL,
     USERINFO,
 )
 from axs.core import atomic_write, fail, hold_lock, install_file, restore_snapshot, snapshot, unix_now
+from axs.profile import build_file
 from axs.render import die
 from axs.subslist import classify, subscription_line
 import axs.subslist as subslist
@@ -32,85 +30,6 @@ import axs.subslist as subslist
 take_snapshot = snapshot
 rollback = restore_snapshot
 install_merged = install_file
-
-DROP_PORTS = ("port", "socks-port", "redir-port", "tproxy-port")
-
-def merge_dict(base, over):
-    if not isinstance(base, dict) or not isinstance(over, dict):
-        return over
-    out = dict(base)
-    for key, value in over.items():
-        if key == "prepend-rules":
-            continue
-        if isinstance(out.get(key), dict) and isinstance(value, dict):
-            out[key] = merge_dict(out[key], value)
-        else:
-            out[key] = value
-    return out
-
-def load_profile(path):
-    raw = Path(path).read_bytes()
-    if raw.lstrip().startswith(b"<"):
-        fail("校验失败")
-    try:
-        data = yaml.safe_load(raw)
-    except yaml.YAMLError:
-        fail("校验失败")
-    proxies = data.get("proxies") if isinstance(data, dict) else None
-    if not isinstance(proxies, list) or not proxies:
-        fail("校验失败")
-    if not all(isinstance(item, dict) and item.get("server") for item in proxies):
-        fail("校验失败")
-    return data
-
-def load_local_rules(path):
-    path = Path(path)
-    if not path.is_file():
-        return []
-    rules = []
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        parts = line.split()
-        if len(parts) != 3 or parts[0] not in ("DOMAIN", "DOMAIN-SUFFIX"):
-            fail("校验失败")
-        rules.append(f"{parts[0]},{parts[1]},{parts[2]}")
-    return rules
-
-def dedupe(items):
-    seen = []
-    for item in items:
-        if item not in seen:
-            seen.append(item)
-    return seen
-
-def build_file(sub_path, override_path, secret_path, rules_path, out_path):
-    sub = load_profile(sub_path)
-    over = yaml.safe_load(Path(override_path).read_text(encoding="utf-8"))
-    if not isinstance(over, dict):
-        fail("校验失败")
-    secret = Path(secret_path).read_text(encoding="utf-8").strip()
-    if len(secret) < 8:
-        fail("校验失败")
-    merged = merge_dict(sub, over)
-    controller = merged.get("external-controller")
-    if not isinstance(controller, str) or not controller.startswith(LOOPBACK + ":"):
-        fail("校验失败")
-    extra = over.get("prepend-rules") or []
-    if not isinstance(extra, list):
-        fail("校验失败")
-    base_rules = merged.get("rules") or []
-    if not isinstance(base_rules, list):
-        fail("校验失败")
-    merged["rules"] = dedupe(CIDRS + extra + load_local_rules(rules_path) + base_rules)
-    merged.pop("prepend-rules", None)
-    for key in DROP_PORTS:
-        merged.pop(key, None)
-    merged["tun"] = {"enable": False}
-    merged["secret"] = secret
-    merged["mode"] = over.get("mode") or "rule"
-    atomic_write(out_path, yaml.safe_dump(merged, allow_unicode=True, sort_keys=False))
 
 YAML_TYPES = {
     "text/yaml",

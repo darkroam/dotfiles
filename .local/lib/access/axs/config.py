@@ -30,6 +30,22 @@ CIDRS = [
     "IP-CIDR6,fc00::/7,DIRECT,no-resolve",
     "IP-CIDR6,fe80::/10,DIRECT,no-resolve",
 ]
+RULE_WORDS = dict(
+    pair.split()
+    for pair in (
+        "Domain DOMAIN|DomainSuffix DOMAIN-SUFFIX|DomainKeyword DOMAIN-KEYWORD|"
+        "DomainRegex DOMAIN-REGEX|DomainWildcard DOMAIN-WILDCARD|GeoSite GEOSITE|"
+        "GeoIP GEOIP|SrcGeoIP SRC-GEOIP|IPASN IP-ASN|SrcIPASN SRC-IP-ASN|"
+        "IPCIDR IP-CIDR|SrcIPCIDR SRC-IP-CIDR|IPSuffix IP-SUFFIX|SrcIPSuffix SRC-IP-SUFFIX|"
+        "SrcPort SRC-PORT|DstPort DST-PORT|InPort IN-PORT|DSCP DSCP|InUser IN-USER|"
+        "InName IN-NAME|InType IN-TYPE|ProcessName PROCESS-NAME|ProcessPath PROCESS-PATH|"
+        "ProcessNameRegex PROCESS-NAME-REGEX|ProcessPathRegex PROCESS-PATH-REGEX|"
+        "ProcessNameWildcard PROCESS-NAME-WILDCARD|ProcessPathWildcard PROCESS-PATH-WILDCARD|"
+        "RuleSet RULE-SET|Network NETWORK|Uid UID|SubRules SUB-RULE|Match MATCH|"
+        "AND AND|OR OR|NOT NOT"
+    ).split("|")
+)
+
 OVERRIDE = "override.yaml"
 CONFIG = "config.yaml"
 SUBSCRIPTION = "subscription.yaml"

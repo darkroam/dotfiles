@@ -5,7 +5,8 @@ from pathlib import Path
 import yaml
 
 from axs.config import CONFIG
-from axs.mihomo import GROUP_TYPES, rule_parts
+from axs.mihomo import GROUP_TYPES
+from axs.profile import rule_parts
 from axs.nodes import AUTO_TYPES, _is_group, follow_leaf, group_numbers, node_numbers
 
 _YAML = {
@@ -137,7 +138,7 @@ def build(proxies, run):
     return {"live": live, "other": other, "terminals": terminals, "targets": targets}
 
 def select_roots(proxies, origin):
-    from axs.mihomo import rule_parts
+    from axs.profile import rule_parts
 
     path = None if origin is None else Path(origin).parent / CONFIG
     if path is None or not path.is_file():

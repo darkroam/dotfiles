@@ -14,6 +14,7 @@ LIB = ROOT / "axs"
 LAYERS = (
     ("config", "codes", "catalog"),
     ("core", "render", "mihomo"),
+    ("profile",),
     ("net", "nodes", "rulelist"),
     ("routes", "nodelist"),
     ("leafdelay", "progress", "subslist"),
@@ -25,8 +26,6 @@ LAYERS = (
     ("cli",),
     ("__main__",),
 )
-# Same-layer edges. render may import only catalog.
-APPROVED = {("rules", "subscription")}
 
 
 def fail(message):
@@ -114,12 +113,9 @@ def graph():
         if rank[dst] < rank[src]:
             allowed_pairs.add((src, dst))
             continue
-        if rank[dst] == rank[src] and (src, dst) in APPROVED:
-            allowed_pairs.add((src, dst))
-            continue
         fail(f"layer {src}:{line} -> {dst}")
-    if ("rules", "subscription") not in allowed_pairs:
-        fail("approved edge missing")
+    if ("rules", "subscription") in {(src, dst) for src, dst, _line in found}:
+        fail("rules still imports subscription")
     pairs = {(src, dst) for src, dst, _line in found}
     if ("render", "catalog") not in pairs:
         fail("render lost catalog")

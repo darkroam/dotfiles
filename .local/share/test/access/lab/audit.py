@@ -202,7 +202,7 @@ def merge_check(standin):
     sys.path.insert(0, str(ROOT))
     from axs.config import write_override
     from axs.core import gen_secret
-    from axs.subscription import build_file
+    from axs.profile import build_file
 
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
@@ -231,6 +231,17 @@ def merge_check(standin):
         return 1
     if "hosts:" in body or "DOMAIN,target.test,PROXY" not in body or LOOPBACK + ":18095" not in body or "redir-host" not in body:
         sys.stderr.write("merged shape\n")
+        return 1
+    tops = [
+        line.split(":", 1)[0]
+        for line in body.splitlines()
+        if line and not line[0].isspace() and not line.startswith("-")
+    ]
+    if tops != [
+        "mixed-port", "mode", "allow-lan", "ipv6", "external-controller", "secret",
+        "geo-auto-update", "tun", "dns", "proxies", "proxy-groups", "rules", "log-level",
+    ]:
+        sys.stderr.write("yaml key order\n")
         return 1
     return 0
 

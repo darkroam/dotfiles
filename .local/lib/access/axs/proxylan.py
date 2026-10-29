@@ -66,7 +66,7 @@ def status_text(run):
 def _apply(run, enable):
     from axs.config import CONFIG_NEW, RULES, SUBSCRIPTION
     from axs.core import hold_lock, install_file
-    from axs.subscription import build_file
+    from axs.profile import build_file
 
     hold_lock(run)
     run = Path(run)
