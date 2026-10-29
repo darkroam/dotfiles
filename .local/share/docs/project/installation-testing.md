@@ -38,7 +38,7 @@ setup_test_home() {
     export HOME="$TEST_HOME"
     export GIT_CONFIG_GLOBAL="$TEST_HOME/.gitconfig-test"
     export GIT_CONFIG_SYSTEM=/dev/null
-    export DOTFILES_LIB_DIR="$REAL_HOME/.local/lib/dotfiles"
+    export DOTFILES_LIB_DIR="$REAL_HOME/.local/lib/installation"
     export DOTCFG_BIN_DIR="$DOTFILES_ROOT/.local/bin"
 }
 ```
@@ -242,7 +242,7 @@ setup_bootstrap_env() # 从当前工作树构造自举安装用的临时 remote
 ### TC-CB01..CB05：配置驱动边界（config-boundary.bats）
 
 固定配置存在时的 category 定义、配置缺失时的内置回退、`full` 动态展开及不可覆盖语义，并验证
-`.local/bin/dotcfg` 和 `.local/lib/dotfiles/` 安装基础设施在所有 category 中保持不变。
+`.local/bin/dotcfg` 和 `.local/lib/installation/` 安装基础设施在所有 category 中保持不变。
 
 ### TC-CL01..CL09：命令生命周期（commands-lifecycle.bats）
 

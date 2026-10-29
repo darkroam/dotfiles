@@ -4,15 +4,15 @@
 
 load helpers.bash
 
-NODES_LIB="$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
-REMOVE_SH="$DOTFILES_ROOT/.local/lib/dotfiles/commands/remove.sh"
-UNREMOVE_SH="$DOTFILES_ROOT/.local/lib/dotfiles/commands/unremove.sh"
-AUTOCLEAN_SH="$DOTFILES_ROOT/.local/lib/dotfiles/commands/autoclean.sh"
+NODES_LIB="$DOTFILES_ROOT/.local/lib/installation/utils/nodes.sh"
+REMOVE_SH="$DOTFILES_ROOT/.local/lib/installation/commands/remove.sh"
+UNREMOVE_SH="$DOTFILES_ROOT/.local/lib/installation/commands/unremove.sh"
+AUTOCLEAN_SH="$DOTFILES_ROOT/.local/lib/installation/commands/autoclean.sh"
 
 setup() {
 	setup_test_home
 	local test_lib="$HOME/dotfiles-lib"
-	cp -r "$REAL_HOME/.local/lib/dotfiles" "$test_lib"
+	cp -r "$REAL_HOME/.local/lib/installation" "$test_lib"
 	rm -f -- "$test_lib"/categories-*.conf
 	export DOTFILES_LIB_DIR="$test_lib"
 	source_nodes_lib

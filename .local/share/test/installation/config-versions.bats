@@ -4,13 +4,13 @@
 
 load helpers.bash
 
-NODES_LIB="$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
+NODES_LIB="$DOTFILES_ROOT/.local/lib/installation/utils/nodes.sh"
 TEST_VERSION_FILES=()
 
 setup() {
 	setup_test_home
 	local test_lib="$HOME/dotfiles-lib"
-	cp -r "$REAL_HOME/.local/lib/dotfiles" "$test_lib"
+	cp -r "$REAL_HOME/.local/lib/installation" "$test_lib"
 	rm -f -- "$test_lib"/categories-*.conf
 	export DOTFILES_LIB_DIR="$test_lib"
 	source_nodes_lib

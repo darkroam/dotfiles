@@ -7,7 +7,7 @@ load helpers.bash
 setup() {
 	setup_test_home
 	local test_lib="$HOME/dotfiles-lib"
-	cp -r "$REAL_HOME/.local/lib/dotfiles" "$test_lib"
+	cp -r "$REAL_HOME/.local/lib/installation" "$test_lib"
 	rm -f -- "$test_lib"/categories-*.conf "$test_lib/categories.conf"
 	export DOTFILES_LIB_DIR="$test_lib"
 	unset _CFG_COMMON_LOADED _CFG_CATEGORIES_LOADED _CFG_FILES_LOADED
@@ -72,7 +72,7 @@ CONF
 
 @test "TC-CB05: installation infrastructure is invariant across categories" {
 	create_mock_cfg_repo ".bashrc" ".other" ".local/bin/dotcfg" \
-		".local/lib/dotfiles/cfg-validate.sh"
+		".local/lib/installation/cfg-validate.sh"
 	write_custom_config <<'CONF'
 category = tiny
 + .bashrc
@@ -83,10 +83,10 @@ CONF
 	selected=$(cfg_get_tracked_files_for_state "$HOME/.cfg" tiny)
 	printf '%s\n' "$selected" | grep -qFx ".bashrc"
 	printf '%s\n' "$selected" | grep -qFx ".local/bin/dotcfg"
-	printf '%s\n' "$selected" | grep -qFx ".local/lib/dotfiles/cfg-validate.sh"
+	printf '%s\n' "$selected" | grep -qFx ".local/lib/installation/cfg-validate.sh"
 
 	removed=$(cfg_get_files_to_remove "$HOME/.cfg" full tiny)
 	printf '%s\n' "$removed" | grep -qFx ".other"
 	! printf '%s\n' "$removed" | grep -qF ".local/bin/dotcfg"
-	! printf '%s\n' "$removed" | grep -qF ".local/lib/dotfiles/"
+	! printf '%s\n' "$removed" | grep -qF ".local/lib/installation/"
 }

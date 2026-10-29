@@ -4,7 +4,7 @@
 
 load helpers.bash
 
-NODES_LIB="$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
+NODES_LIB="$DOTFILES_ROOT/.local/lib/installation/utils/nodes.sh"
 
 setup() {
 	setup_test_home

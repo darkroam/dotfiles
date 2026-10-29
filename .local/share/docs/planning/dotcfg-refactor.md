@@ -88,7 +88,7 @@ exclude 或 fresh 业务库；bootstrap 路径保持原有自举逻辑。
 
 ### 阶段 2：外部化配置性硬编码（已完成）
 
-- 将初始 23 项策略性排除规则迁移到 `.local/lib/dotfiles/exclude.conf`；后续补齐 7 项 macOS
+- 将初始 23 项策略性排除规则迁移到 `.local/lib/installation/exclude.conf`；后续补齐 7 项 macOS
   用户目录与 Finder 元数据规则，当前共 30 项
 - 7 项安装基础设施保护继续硬编码并始终生效
 - 保留缺失配置文件时的默认回退
@@ -111,7 +111,7 @@ exclude 或 fresh 业务库；bootstrap 路径保持原有自举逻辑。
 ### 阶段 4：入口和命令拆分（已完成）
 
 - 将入口内嵌的 status/list/history/categories 实现拆为薄命令模块：
-  `.local/lib/dotfiles/commands/status.sh`、`list.sh`、`history.sh`、`categories.sh`
+  `.local/lib/installation/commands/status.sh`、`list.sh`、`history.sh`、`categories.sh`
 - dotcfg 保留 bootstrap、按需加载、参数分发、动态 switch 校验和 help/validate 入口
 - 现有命令路径先保留兼容包装，验证一个模块后再迁移下一个
 - 不删除 `switch-desktop.sh`、`switch-server.sh` 和 `bootstrap-lib.sh`

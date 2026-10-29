@@ -63,7 +63,7 @@ teardown() {
 }
 
 @test "TC-48: list shows header row" {
-	source "$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
+	source "$DOTFILES_ROOT/.local/lib/installation/utils/nodes.sh"
 	cfg_nodes_init "$HOME/.config-backup"
 	root_code=$(cfg_node_create "fresh" "null")
 	cfg_node_create "desktop" "$root_code" >/dev/null
@@ -164,7 +164,7 @@ teardown() {
 @test "TC-56b: released desktop name works when defined as an ordinary category" {
 	setup_source_repo ".bashrc" ".local/bin/dotcfg"
 	local dlib="$HOME/dlib"
-	cp -r "$REAL_HOME/.local/lib/dotfiles" "$dlib"
+	cp -r "$REAL_HOME/.local/lib/installation" "$dlib"
 	cat > "$dlib/categories-2.0.0.conf" <<'CONF'
 # VERSION = "2.0.0"
 category = desktop
@@ -219,7 +219,7 @@ CONF
 
 @test "TC-60: category TAGs are displayed and warned on destructive actions" {
 	local test_lib="$HOME/dotfiles-lib"
-	cp -r "$REAL_HOME/.local/lib/dotfiles" "$test_lib"
+	cp -r "$REAL_HOME/.local/lib/installation" "$test_lib"
 	rm -f -- "$test_lib"/categories-*.conf
 	cat > "$test_lib/categories-90.0.0.conf" <<'EOF'
 # VERSION = "90.0.0"
@@ -275,7 +275,7 @@ EOF
 }
 
 @test "TC-61: official category version exposes full, min and macos only" {
-	export DOTFILES_LIB_DIR="$REAL_HOME/.local/lib/dotfiles"
+	export DOTFILES_LIB_DIR="$REAL_HOME/.local/lib/installation"
 	run run_dotcfg categories show 1.0.0
 	[ "$status" -eq 0 ]
 	assert_output_contains "Tag: stable"
@@ -302,7 +302,7 @@ EOF
 }
 
 @test "TC-63: categories show identifies full as a dynamic category" {
-	export DOTFILES_LIB_DIR="$REAL_HOME/.local/lib/dotfiles"
+	export DOTFILES_LIB_DIR="$REAL_HOME/.local/lib/installation"
 	run run_dotcfg categories show 1.0.0
 	[ "$status" -eq 0 ]
 	assert_output_contains "full"

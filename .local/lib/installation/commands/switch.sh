@@ -3,7 +3,7 @@
 # Usage: switch.sh --type=<category> [--dry-run] [--reinstall] [--force] [--auto-stash]
 set -euo pipefail
 
-DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
+DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/installation}"
 . "$DOTFILES_LIB_DIR/utils/common.sh"
 
 # ── Parse arguments ────────────────────────────────────────────────────

@@ -87,7 +87,7 @@
   `desktop`、`server` 和 `empty` 当前未定义且没有特殊地位，以后可作为普通 category 恢复。
   历史节点 type 原样保留，旧直接脚本包装不建立同名 category 映射。当前 `min` 和 `macos`
   不部署普通 `.local/bin/` 脚本。
-- `.local/bin/dotcfg` 与 `.local/lib/dotfiles/` 独立于 category，在 fresh、切换、undeploy 和
+- `.local/bin/dotcfg` 与 `.local/lib/installation/` 独立于 category，在 fresh、切换、undeploy 和
   uninstall 中始终保留；彻底清除只能提示用户手动执行。
 - `.config-backup.bak` 是用户急救备份，Fresh 扫描和旧备份采纳均不得读取、修改、移动或删除；
   只有用户在验证稳定后自行清理。浏览器/NVM 可变状态及 macOS 标准用户数据目录按 Fresh

@@ -368,7 +368,7 @@ sudo /root/networkmanager-transition-20260719/networkmanager-transition.sh rollb
 - Fresh 根节点使用特殊 `bootstrap` 版本标识；当前 full 子节点绑定稳定 category 版本 `1.0.0`，
   checkout state 记录 227 项。
 - 切换前发现的 11 个受管文件差异已先保存到 full 子节点备份，再恢复为仓库版本。
-- `.local/bin/dotcfg` 和 `.local/lib/dotfiles/` 保持可用；`dotcfg doctor` 九项检查全部通过，
+- `.local/bin/dotcfg` 和 `.local/lib/installation/` 保持可用；`dotcfg doctor` 九项检查全部通过，
   `.cfg` 工作树干净。
 - 远程 fetch 当时因网络或 SSH 条件失败，切换按设计继续使用本地已提交 HEAD；后续联网时可单独
   验证远程同步，不影响本次节点链。

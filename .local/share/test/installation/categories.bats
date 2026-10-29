@@ -8,7 +8,7 @@ setup() {
 	setup_test_home
 	local test_lib="$HOME/dotfiles-lib"
 	mkdir -p "$test_lib/utils"
-	cp "$REAL_HOME/.local/lib/dotfiles/utils/categories.sh" "$test_lib/utils/categories.sh"
+	cp "$REAL_HOME/.local/lib/installation/utils/categories.sh" "$test_lib/utils/categories.sh"
 	export DOTFILES_LIB_DIR="$test_lib"
 	source_categories_lib
 }
@@ -189,7 +189,7 @@ CONF
 
 @test "TC-C12: cfg_exclude_match matches globs" {
 	cfg_categories_load
-	cfg_exclude_match ".local/lib/dotfiles/cfg-validate.sh"
+	cfg_exclude_match ".local/lib/installation/cfg-validate.sh"
 	cfg_exclude_match ".cfg/something"
 	! cfg_exclude_match ".bashrc"
 }
@@ -198,7 +198,7 @@ CONF
 
 @test "TC-C13: built-in exclude protects dotfiles library" {
 	cfg_categories_load
-	cfg_exclude_match ".local/lib/dotfiles/utils/files.sh"
+	cfg_exclude_match ".local/lib/installation/utils/files.sh"
 	cfg_exclude_match ".config-backup/nodes/abc/backup/file"
 	cfg_exclude_match ".cfg-checkout-state"
 }
@@ -237,7 +237,7 @@ CONF
 	fallback_macos=$(cfg_category_get_files "macos")
 	fallback_min=$(cfg_category_get_files "min")
 
-	cp "$REAL_HOME/.local/lib/dotfiles/categories-1.0.0.conf" \
+	cp "$REAL_HOME/.local/lib/installation/categories-1.0.0.conf" \
 		"$DOTFILES_LIB_DIR/categories-1.0.0.conf"
 	cfg_categories_invalidate
 	cfg_categories_load "1.0.0"

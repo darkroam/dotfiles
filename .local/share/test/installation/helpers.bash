@@ -9,10 +9,10 @@ REAL_HOME="${REAL_HOME:-$HOME}"
 
 # ── Paths ──────────────────────────────────────────────────────────────
 DOTFILES_ROOT="${DOTFILES_ROOT:-$(cd "$(dirname "${BATS_TEST_FILENAME:-}")/../../../.." && pwd)}"
-VALIDATE_LIB="$DOTFILES_ROOT/.local/lib/dotfiles/cfg-validate.sh"
-SWITCH_DESKTOP="$DOTFILES_ROOT/.local/lib/dotfiles/commands/switch-desktop.sh"
-SWITCH_SERVER="$DOTFILES_ROOT/.local/lib/dotfiles/commands/switch-server.sh"
-COMMANDS_UNINSTALL="$DOTFILES_ROOT/.local/lib/dotfiles/commands/uninstall.sh"
+VALIDATE_LIB="$DOTFILES_ROOT/.local/lib/installation/cfg-validate.sh"
+SWITCH_DESKTOP="$DOTFILES_ROOT/.local/lib/installation/commands/switch-desktop.sh"
+SWITCH_SERVER="$DOTFILES_ROOT/.local/lib/installation/commands/switch-server.sh"
+COMMANDS_UNINSTALL="$DOTFILES_ROOT/.local/lib/installation/commands/uninstall.sh"
 DOTCFG="$DOTFILES_ROOT/.local/bin/dotcfg"
 
 # ── Source repository for integration tests ────────────────────────────
@@ -45,7 +45,7 @@ setup_source_repo() {
 			".local/bin/dotcfg"
 			".local/share/docs/README.md"
 			".local/share/docs/user/desktop-guide-zh.md"
-			".local/lib/dotfiles/cfg-validate.sh"
+			".local/lib/installation/cfg-validate.sh"
 		)
 	fi
 	local temp_work
@@ -81,7 +81,7 @@ teardown_source_repo() {
 # DOTCFG_BIN_DIR into the test HOME so a bootstrap install lands there.
 BOOTSTRAP_REMOTE_DIR=""
 setup_bootstrap_env() {
-	export DOTFILES_LIB_DIR="$HOME/.local/lib/dotfiles"
+	export DOTFILES_LIB_DIR="$HOME/.local/lib/installation"
 	export DOTCFG_BIN_DIR="$HOME/.local/bin"
 
 	local temp_work
@@ -98,8 +98,8 @@ setup_bootstrap_env() {
 		printf 'tracked local data\n' > .local/share/tracked-test.conf
 		printf '#!/bin/sh\n' > .local/bin/ordinary-tool
 		cp "$REAL_HOME/.local/bin/dotcfg" .local/bin/dotcfg
-		cp -r "$REAL_HOME/.local/lib/dotfiles" .local/lib/dotfiles
-		printf '.config/ignored/*\n' > .local/lib/dotfiles/exclude.conf
+		cp -r "$REAL_HOME/.local/lib/installation" .local/lib/installation
+		printf '.config/ignored/*\n' > .local/lib/installation/exclude.conf
 		git add -A
 		git commit -m "bootstrap remote" >/dev/null 2>&1
 	})
@@ -183,7 +183,7 @@ setup_test_home() {
 	export GIT_CONFIG_GLOBAL="$TEST_HOME/.gitconfig-test"
 	export GIT_CONFIG_SYSTEM=/dev/null
 	touch "$GIT_CONFIG_GLOBAL"
-	export DOTFILES_LIB_DIR="$REAL_HOME/.local/lib/dotfiles"
+	export DOTFILES_LIB_DIR="$REAL_HOME/.local/lib/installation"
 	export DOTCFG_BIN_DIR="$DOTFILES_ROOT/.local/bin"
 
 	mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME"

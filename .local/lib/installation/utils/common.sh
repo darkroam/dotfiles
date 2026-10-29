@@ -7,7 +7,7 @@ if [ -n "${_CFG_COMMON_LOADED:-}" ]; then
 fi
 _CFG_COMMON_LOADED=1
 
-DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
+DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/installation}"
 
 if [ ! -f "$DOTFILES_LIB_DIR/cfg-validate.sh" ]; then
 	printf 'ERROR: dotfiles library not found at %s/cfg-validate.sh\n' "$DOTFILES_LIB_DIR" >&2

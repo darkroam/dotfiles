@@ -46,7 +46,7 @@
   默认恢复必须优先使用 `fresh_root/backup/`；只有目标文件在 Fresh 中不存在时，才可回退到子节点
   备份链。显式使用 `--latest` 时按备份链选择最新版本，不采用 Fresh 优先规则。不得因为某个子节点
   更新或删除而消费、移动或隐式替换 Fresh 备份。
-- **系统自保原则**：运行时库 `.local/lib/dotfiles/`、入口 `.local/bin/dotcfg`、bare 仓库
+- **系统自保原则**：运行时库 `.local/lib/installation/`、入口 `.local/bin/dotcfg`、bare 仓库
   `.cfg/` 和备份根目录 `.config-backup/` 不得作为 category 或普通用户配置目标被覆盖、移动或整体
   删除；`switch`、`autoclean` 和 `uninstall` 均必须遵守。`.config-backup/` 内部仅允许节点/备份 API
   按既定协议更新元数据和受管节点；例如 `autoclean` 只能删除已确认可清理的节点，不能删除备份根
@@ -129,7 +129,7 @@
 
 ### 共享验证库
 
-`.local/lib/dotfiles/cfg-validate.sh` 提供所有脚本共享的核心函数：
+`.local/lib/installation/cfg-validate.sh` 提供所有脚本共享的核心函数：
 
 | 函数 | 用途 |
 |------|------|
@@ -139,7 +139,7 @@
 | `cfg_check_updates()` | 检查远程是否有新提交 |
 | `cfg_print_validation_result()` | 人类可读的验证结果输出 |
 
-安装脚本通过 `DOTFILES_LIB_DIR` 加载此库。命令脚本位于 `.local/lib/dotfiles/commands/`，通过 `.local/lib/dotfiles/utils/common.sh` 加载所有工具库。
+安装脚本通过 `DOTFILES_LIB_DIR` 加载此库。命令脚本位于 `.local/lib/installation/commands/`，通过 `.local/lib/installation/utils/common.sh` 加载所有工具库。
 
 ---
 
@@ -755,7 +755,7 @@ bootstrap 流程（内联实现，只依赖 git/md5sum/coreutils）：
    |------|----------|
    | `~/.config/` | 全量遍历所有普通文件和符号链接，应用排除规则 |
    | `~/.config/` 以外 | 只备份 `git ls-tree -r --name-only HEAD` 返回且当前存在的跟踪文件 |
-   | `~/.local/` | 只备份当前存在的跟踪文件；`~/.local/bin/dotcfg` 和 `~/.local/lib/dotfiles/` 始终排除 |
+   | `~/.local/` | 只备份当前存在的跟踪文件；`~/.local/bin/dotcfg` 和 `~/.local/lib/installation/` 始终排除 |
 
    仓库跟踪文件不受普通排除规则影响，因此被排除规则命中的跟踪配置仍进入备份；安装基础设施
    是强制例外。选择结果分为 `.config`、其他跟踪文件和 `.local` 跟踪文件三组，实际复制完成后
@@ -930,7 +930,7 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 
 ### 脚本总览
 
-**命令脚本**（位于 `.local/lib/dotfiles/commands/`）：
+**命令脚本**（位于 `.local/lib/installation/commands/`）：
 
 | 脚本 | 用途 |
 |------|------|
@@ -958,7 +958,7 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 | `check-exclude.sh` | 查询路径的排除规则来源 |
 | `bootstrap-lib.sh` | bootstrap 安装收尾逻辑（供 dotcfg 自举调用） |
 
-**工具库**（位于 `.local/lib/dotfiles/utils/`）：
+**工具库**（位于 `.local/lib/installation/utils/`）：
 
 | 文件 | 职责 |
 |------|------|
@@ -1011,7 +1011,7 @@ bootstrap 自举能力。
 13. 按目标 category 过滤并记录 `.cfg-checkout-state`，设置 `showUntrackedFiles = no`
 14. **创建新节点**，更新 HEAD，设置 `DEPLOY_STATUS = deployed`
 
-`.local/bin/dotcfg` 与 `.local/lib/dotfiles/` 是 category 外的不变量：所有状态均保留，undeploy 和
+`.local/bin/dotcfg` 与 `.local/lib/installation/` 是 category 外的不变量：所有状态均保留，undeploy 和
 uninstall 都不会删除；完全清除时只输出手动删除提示。
 
 access 不是不变量。`min` 不得包含会拉起网络守护进程的入口，因此不检出 `.local/bin/axs`，也不检出 `.local/lib/access/**`。`dotcfg switch` 不创建 `run/`、不安装 user unit、不 enable timer。根 `.gitignore` 忽略 `.local/lib/access/run/`、`.local/share/test/access/lab/var/` 和 `.local/share/test/access/**/__pycache__/`。实现目录的 `.gitignore` 再忽略 `run/`、`__pycache__/` 和 `*.pyc`。并入的撤回命令是 `git revert -m 1 <subtree merge>`。只读归档在 `~/src/access-2026-10-28.git`。
@@ -1388,7 +1388,7 @@ macOS 的 `Applications/`、`Library/`、`Movies/`、`Public/`、`Sites/`、`.Tr
 
 | 模式 | 说明 |
 |------|------|
-| `.local/lib/dotfiles/*` | 运行时库目录（含 `categories.conf`、`exclude.conf`） |
+| `.local/lib/installation/*` | 运行时库目录（含 `categories.conf`、`exclude.conf`） |
 | `.cfg/*` | bare 仓库本身 |
 | `.config-backup/*` | 节点备份目录 |
 | `.config-backup.bak/*` | 用户急救备份，迁移和 Fresh 扫描均不得触碰 |

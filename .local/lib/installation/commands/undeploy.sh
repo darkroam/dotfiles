@@ -3,7 +3,7 @@
 # Usage: undeploy.sh [--force] [--dry-run]
 set -euo pipefail
 
-DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
+DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/installation}"
 . "$DOTFILES_LIB_DIR/utils/common.sh"
 
 cfg_parse_common_args "$@"

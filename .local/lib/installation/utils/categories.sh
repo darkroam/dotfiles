@@ -7,7 +7,7 @@ if [ -n "${_CFG_CATEGORIES_LOADED:-}" ]; then
 fi
 _CFG_CATEGORIES_LOADED=1
 
-DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
+DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/installation}"
 
 # ── Global data structures ──────────────────────────────────────────────
 
@@ -77,7 +77,8 @@ include = macos
 # ── Built-in exclude protections ────────────────────────────────────────
 
 _CFG_EXCLUDE_BUILTIN=(
-	".local/lib/dotfiles/*"
+	".local/lib/installation/*"
+	".local/lib/dotfiles/*" # 遗留保护
 	".cfg/*"
 	".config-backup/*"
 	".config-backup.bak/*"
@@ -687,7 +688,7 @@ cfg_category_diff() {
 # Installation infrastructure is available in every state and category.
 cfg_is_installation_path() {
 	case "${1:-}" in
-		.local/bin/dotcfg|.local/lib/dotfiles/*) return 0 ;;
+		.local/bin/dotcfg|.local/lib/installation/*|.local/lib/dotfiles/*) return 0 ;; # 遗留保护
 		*) return 1 ;;
 	esac
 }

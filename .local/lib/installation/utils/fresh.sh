@@ -260,7 +260,7 @@ fresh_collect_backup_files() {
 
 	for rel in "${tracked_paths[@]}"; do
 		case "$rel" in
-			.local/bin/dotcfg|.local/lib/dotfiles/*) continue ;;
+			.local/bin/dotcfg|.local/lib/installation/*|.local/lib/dotfiles/*) continue ;; # 遗留保护
 		esac
 		source="$HOME/$rel"
 		[ -f "$source" ] || [ -L "$source" ] || continue

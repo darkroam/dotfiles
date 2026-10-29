@@ -13,8 +13,8 @@ load helpers.bash
 
 @test "TC-AXS02: min excludes the access entry and tree" {
 	# dotfiles 当前无 category 清单命令，出现后再换判据。
-	! grep -qF '.local/bin/axs' "$DOTFILES_ROOT/.local/lib/dotfiles/categories-1.0.0.conf"
-	! grep -qF '.local/lib/access' "$DOTFILES_ROOT/.local/lib/dotfiles/categories-1.0.0.conf"
+	! grep -qF '.local/bin/axs' "$DOTFILES_ROOT/.local/lib/installation/categories-1.0.0.conf"
+	! grep -qF '.local/lib/access' "$DOTFILES_ROOT/.local/lib/installation/categories-1.0.0.conf"
 }
 
 @test "TC-AXS03: unit templates stay in the library and do not enable themselves" {

@@ -3,9 +3,9 @@
 
 load helpers.bash
 
-DEPLOY_CMD="$DOTFILES_ROOT/.local/lib/dotfiles/commands/deploy.sh"
-UNDEPLOY_CMD="$DOTFILES_ROOT/.local/lib/dotfiles/commands/undeploy.sh"
-NODES_LIB="$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
+DEPLOY_CMD="$DOTFILES_ROOT/.local/lib/installation/commands/deploy.sh"
+UNDEPLOY_CMD="$DOTFILES_ROOT/.local/lib/installation/commands/undeploy.sh"
+NODES_LIB="$DOTFILES_ROOT/.local/lib/installation/utils/nodes.sh"
 
 setup() {
 	setup_test_home
@@ -167,5 +167,5 @@ run_undeploy() {
 	[ "$status" -eq 0 ]
 	[ "$(cfg_deploy_status_get)" = "uninstalled" ]
 	assert_file_exists ".local/bin/dotcfg"
-	assert_file_exists ".local/lib/dotfiles/cfg-validate.sh"
+	assert_file_exists ".local/lib/installation/cfg-validate.sh"
 }

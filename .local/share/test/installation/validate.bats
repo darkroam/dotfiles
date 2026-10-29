@@ -106,7 +106,7 @@ teardown() {
 
 @test "TC-35: consolidated scripts require validation library" {
 	# Verify the unified switch.sh sources utils/common.sh
-	local switch_sh="$DOTFILES_ROOT/.local/lib/dotfiles/commands/switch.sh"
+	local switch_sh="$DOTFILES_ROOT/.local/lib/installation/commands/switch.sh"
 	grep -q "utils/common.sh" "$switch_sh"
 	grep -q "utils/common.sh" "$COMMANDS_UNINSTALL"
 	# Forwarder scripts reference switch.sh

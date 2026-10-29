@@ -18,7 +18,7 @@ GIT_DIR="${DOTCFG_GIT_DIR:-$HOME/.cfg}"
 BACKUP_ROOT="$HOME/.config-backup"
 BIN_DIR="${DOTCFG_BIN_DIR:-$HOME/.local/bin}"
 
-DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
+DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/installation}"
 
 # ── Bootstrap installation (self-contained, no library dependencies) ───
 
@@ -67,8 +67,8 @@ _bootstrap_install() {
     local p rel
     while IFS= read -r p; do
         case "$p" in
-            .local/lib/dotfiles/cfg-validate.sh|.local/lib/dotfiles/utils/*|.local/lib/dotfiles/commands/*|.local/lib/dotfiles/categories*.conf|.local/lib/dotfiles/exclude.conf)
-                rel="${p#.local/lib/dotfiles/}"
+            .local/lib/installation/cfg-validate.sh|.local/lib/installation/utils/*|.local/lib/installation/commands/*|.local/lib/installation/categories*.conf|.local/lib/installation/exclude.conf)
+                rel="${p#.local/lib/installation/}"
                 git --git-dir="$GIT_DIR" show "HEAD:$p" > "$DOTFILES_LIB_DIR/$rel"
                 ;;
         esac

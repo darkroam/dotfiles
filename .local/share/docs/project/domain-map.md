@@ -65,7 +65,7 @@
 | `.config/{alsa,mpd,mpv,ncmpcpp}/**` | U04 | - | 音频、音乐和媒体配置。 |
 | `.config/{lf,nsxiv,zathura}/**` | U05 | U03、U04 | 文件、图像和文档处理。 |
 | `.config/newsboat/**` | U08 | U07 | RSS 阅读/动作，关联通信状态。 |
-| `.local/lib/dotfiles/**` | S01 | S02 | dotcfg 安装实现；测试归 S02，不改变实现主域。 |
+| `.local/lib/installation/**` | S01 | S02 | dotcfg 安装实现；测试归 S02，不改变实现主域。 |
 | `.local/lib/project-tools/**` | S04 | S02、S03 | 仓库开发过程内部工具。 |
 | `.local/lib/xdisplay/**` | U06 | U02、S02 | 共享显示实现；测试仍单独归 S02。 |
 | `.local/lib/access/**` | U06 | S02 | 访问实现。测试单独归 S02，契约在公开文档。 |

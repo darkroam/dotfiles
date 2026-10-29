@@ -4,7 +4,7 @@
 # shellcheck disable=SC2034  # FORCE is retained for the documented interface.
 set -euo pipefail
 
-DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
+DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/installation}"
 . "$DOTFILES_LIB_DIR/utils/common.sh"
 
 DRY_RUN=false

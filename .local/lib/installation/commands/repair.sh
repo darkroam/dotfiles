@@ -4,7 +4,7 @@
 # Usage: repair.sh [--force]
 set -euo pipefail
 
-DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
+DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/installation}"
 . "$DOTFILES_LIB_DIR/utils/common.sh"
 
 FORCE=false

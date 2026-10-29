@@ -38,7 +38,7 @@ teardown() {
 	# .cfg should still exist (manual removal required)
 	assert_cfg_exists
 	assert_file_exists ".local/bin/dotcfg"
-	assert_file_exists ".local/lib/dotfiles/cfg-validate.sh"
+	assert_file_exists ".local/lib/installation/cfg-validate.sh"
 
 	# Checkout state should be removed
 	assert_checkout_state_not_exists

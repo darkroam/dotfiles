@@ -40,7 +40,7 @@ teardown() {
 
 @test "TC-E03: exclude.conf rule excludes matching paths" {
 	# Work on a private copy of the library so the real exclude.conf is untouched
-	cp -r "$REAL_HOME/.local/lib/dotfiles" "$HOME/dlib"
+	cp -r "$REAL_HOME/.local/lib/installation" "$HOME/dlib"
 	printf '.config/private/*\n' > "$HOME/dlib/exclude.conf"
 
 	run env DOTFILES_LIB_DIR="$HOME/dlib" bash "$HOME/dlib/commands/check-exclude.sh" ".config/private/secret"
@@ -51,7 +51,7 @@ teardown() {
 # TC-E04: absolute paths in exclude.conf are ignored
 
 @test "TC-E04: absolute path in exclude.conf is ignored with warning" {
-	cp -r "$REAL_HOME/.local/lib/dotfiles" "$HOME/dlib"
+	cp -r "$REAL_HOME/.local/lib/installation" "$HOME/dlib"
 	printf '/etc/passwd\n' > "$HOME/dlib/exclude.conf"
 
 	run env DOTFILES_LIB_DIR="$HOME/dlib" bash "$HOME/dlib/commands/check-exclude.sh" "etc/passwd"
@@ -62,7 +62,7 @@ teardown() {
 @test "TC-E05: cfg_is_path_tracked checks repository HEAD" {
 	create_mock_cfg_repo ".bashrc" ".local/bin/dotcfg"
 	unset _CFG_EXCLUDE_LOADED
-	. "$DOTFILES_ROOT/.local/lib/dotfiles/utils/exclude.sh"
+	. "$DOTFILES_ROOT/.local/lib/installation/utils/exclude.sh"
 
 	run cfg_is_path_tracked "$HOME/.bashrc" "$HOME/.cfg"
 	[ "$status" -eq 0 ]
@@ -86,7 +86,7 @@ teardown() {
 
 @test "TC-E07: missing exclude.conf uses the compatibility fallback" {
 	local dlib="$HOME/dlib"
-	cp -r "$REAL_HOME/.local/lib/dotfiles" "$dlib"
+	cp -r "$REAL_HOME/.local/lib/installation" "$dlib"
 	rm -f "$dlib/exclude.conf"
 
 	run env DOTFILES_LIB_DIR="$dlib" bash "$dlib/commands/check-exclude.sh" "Downloads/file.pdf"
@@ -101,7 +101,7 @@ teardown() {
 
 @test "TC-E08: compatibility and user rules keep distinct labels" {
 	local dlib="$HOME/dlib"
-	cp -r "$REAL_HOME/.local/lib/dotfiles" "$dlib"
+	cp -r "$REAL_HOME/.local/lib/installation" "$dlib"
 	cat > "$dlib/exclude.conf" <<'CONF'
 # DOTCFG_COMPATIBILITY_RULES_BEGIN
 .config/policy/*
@@ -136,7 +136,7 @@ CONF
 	done
 
 	unset _CFG_EXCLUDE_LOADED
-	. "$DOTFILES_ROOT/.local/lib/dotfiles/utils/exclude.sh"
+	. "$DOTFILES_ROOT/.local/lib/installation/utils/exclude.sh"
 	fresh_exclude_invalidate
 	_fresh_exclude_load_conf
 	[ "${#_FRESH_EXCLUDE_COMPAT_PATTERNS[@]}" -eq 30 ]

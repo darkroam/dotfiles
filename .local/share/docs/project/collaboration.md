@@ -57,7 +57,7 @@
     `.gnupg/`、`.password-store/` 等，本就不入库）；用户急救备份 `.config-backup.bak`；历史存档
     与已完结审计原文（`audits/`、`planning/history.md`）。
   - **默认保护**（默认不可修改，仅当提示词明确批准精确路径范围后才可改）：影响实机生效的核心
-    配置——`.config/x11/`、`.config/shell/`、安装系统（`.local/bin/dotcfg`、`.local/lib/dotfiles/`）、
+    配置——`.config/x11/`、`.config/shell/`、安装系统（`.local/bin/dotcfg`、`.local/lib/installation/`）、
     平台档案 `.local/share/docs/platforms/`、`~/.gitignore`。
   - **自由范围**：其余跟踪文件，但须遵守 §六 门禁与本仓库既有规范（维护策略、文档质量规范、
     平台事实规则）。

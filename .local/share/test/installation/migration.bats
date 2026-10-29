@@ -36,7 +36,7 @@ create_old_session() {
 }
 
 run_migrate() {
-	bash "$DOTFILES_ROOT/.local/lib/dotfiles/commands/migrate.sh" "$@" 2>&1
+	bash "$DOTFILES_ROOT/.local/lib/installation/commands/migrate.sh" "$@" 2>&1
 }
 
 assert_node_exists() {
@@ -92,7 +92,7 @@ assert_session_moved() {
 # ── TC-M02: Already migrated (index exists) → no-op ────────────────────
 
 @test "TC-M02: migrate with existing index is no-op" {
-	source "$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
+	source "$DOTFILES_ROOT/.local/lib/installation/utils/nodes.sh"
 	cfg_nodes_init "$HOME/.config-backup"
 	cfg_node_create "fresh" "null" >/dev/null
 
@@ -111,7 +111,7 @@ assert_session_moved() {
 	[[ "$output" == *"Migration Complete"* ]]
 	[[ "$output" == *"Nodes created: 2"* ]]
 
-	source "$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
+	source "$DOTFILES_ROOT/.local/lib/installation/utils/nodes.sh"
 	cfg_nodes_init "$HOME/.config-backup"
 	cfg_nodes_read_index
 	[ ${#_CFG_NODE_CODES[@]} -eq 2 ]
@@ -131,7 +131,7 @@ assert_session_moved() {
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"Nodes created: 4"* ]]
 
-	source "$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
+	source "$DOTFILES_ROOT/.local/lib/installation/utils/nodes.sh"
 	cfg_nodes_init "$HOME/.config-backup"
 	cfg_nodes_read_index
 	[ ${#_CFG_NODE_CODES[@]} -eq 4 ]
@@ -150,7 +150,7 @@ assert_session_moved() {
 	run run_migrate
 	[ "$status" -eq 0 ]
 
-	source "$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
+	source "$DOTFILES_ROOT/.local/lib/installation/utils/nodes.sh"
 	cfg_nodes_init "$HOME/.config-backup"
 	cfg_nodes_read_index
 
@@ -171,7 +171,7 @@ assert_session_moved() {
 	run run_migrate
 	[ "$status" -eq 0 ]
 
-	source "$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
+	source "$DOTFILES_ROOT/.local/lib/installation/utils/nodes.sh"
 	cfg_nodes_init "$HOME/.config-backup"
 	cfg_nodes_read_index
 
@@ -187,7 +187,7 @@ assert_session_moved() {
 	run run_migrate
 	[ "$status" -eq 0 ]
 
-	source "$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
+	source "$DOTFILES_ROOT/.local/lib/installation/utils/nodes.sh"
 	cfg_nodes_init "$HOME/.config-backup"
 	cfg_nodes_read_index
 
@@ -204,7 +204,7 @@ assert_session_moved() {
 	run run_migrate
 	[ "$status" -eq 0 ]
 
-	source "$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
+	source "$DOTFILES_ROOT/.local/lib/installation/utils/nodes.sh"
 	cfg_nodes_init "$HOME/.config-backup"
 	cfg_nodes_read_index
 
@@ -267,7 +267,7 @@ assert_session_moved() {
 	[ -d "$HOME/.config-backup/random-dir" ]
 	[ -d "$HOME/.config-backup/another-dir" ]
 
-	source "$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
+	source "$DOTFILES_ROOT/.local/lib/installation/utils/nodes.sh"
 	cfg_nodes_init "$HOME/.config-backup"
 	cfg_nodes_read_index
 	[ ${#_CFG_NODE_CODES[@]} -eq 2 ]
@@ -283,7 +283,7 @@ assert_session_moved() {
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"migration"* ]] || [[ "$output" == *"Migrating"* ]] || [[ "$output" == *"Old backup"* ]]
 
-	source "$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
+	source "$DOTFILES_ROOT/.local/lib/installation/utils/nodes.sh"
 	cfg_nodes_init "$HOME/.config-backup"
 	[ -f "$CFG_NODES_INDEX" ]
 }
@@ -321,7 +321,7 @@ assert_session_moved() {
 	run run_migrate
 	[ "$status" -eq 0 ]
 
-	source "$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
+	source "$DOTFILES_ROOT/.local/lib/installation/utils/nodes.sh"
 	cfg_nodes_init "$HOME/.config-backup"
 	cfg_nodes_read_index
 
@@ -339,7 +339,7 @@ assert_session_moved() {
 	run run_migrate
 	[ "$status" -eq 0 ]
 
-	source "$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
+	source "$DOTFILES_ROOT/.local/lib/installation/utils/nodes.sh"
 	cfg_nodes_init "$HOME/.config-backup"
 	cfg_nodes_read_index
 

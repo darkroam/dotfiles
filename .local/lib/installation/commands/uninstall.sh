@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}"
+DOTFILES_LIB_DIR="${DOTFILES_LIB_DIR:-$HOME/.local/lib/installation}"
 . "$DOTFILES_LIB_DIR/utils/common.sh"
 
 cfg_parse_common_args "$@"
@@ -18,7 +18,8 @@ is_installation_file() {
 	local path="$1"
 	case "$path" in
 		.local/bin/dotcfg|\
-		.local/lib/dotfiles/*)
+		.local/lib/installation/*|\
+		.local/lib/dotfiles/*) # 遗留保护
 			return 0
 			;;
 		*)

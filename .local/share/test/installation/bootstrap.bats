@@ -31,9 +31,9 @@ teardown() {
 	[ -x "$HOME/.local/bin/dotcfg" ]
 
 	# Library installed into test HOME
-	[ -f "$HOME/.local/lib/dotfiles/cfg-validate.sh" ]
-	[ -f "$HOME/.local/lib/dotfiles/utils/fresh.sh" ]
-	[ -f "$HOME/.local/lib/dotfiles/utils/exclude.sh" ]
+	[ -f "$HOME/.local/lib/installation/cfg-validate.sh" ]
+	[ -f "$HOME/.local/lib/installation/utils/fresh.sh" ]
+	[ -f "$HOME/.local/lib/installation/utils/exclude.sh" ]
 	[ ! -e "$HOME/.local/bin/ordinary-tool" ]
 
 	# Repository cloned

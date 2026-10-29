@@ -85,7 +85,7 @@ teardown() {
 
 @test "TC-03e: category metadata supplies custom state indicators" {
 	local dlib="$HOME/dlib"
-	cp -r "$REAL_HOME/.local/lib/dotfiles" "$dlib"
+	cp -r "$REAL_HOME/.local/lib/installation" "$dlib"
 	cat > "$dlib/categories-99.0.0.conf" <<'CONF'
 # VERSION = "99.0.0"
 # STATE_DEFAULT = "terminal"

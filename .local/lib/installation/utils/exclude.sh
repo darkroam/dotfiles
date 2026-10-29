@@ -16,7 +16,8 @@ _FRESH_EXCLUDE_HARDCODED=(
 	".config-backup.bak/*"
 	".cfg-checkout-state"
 	".local/bin/dotcfg"
-	".local/lib/dotfiles/*"
+	".local/lib/installation/*"
+	".local/lib/dotfiles/*" # 遗留保护
 	".local/share/test/*"
 )
 
@@ -50,7 +51,7 @@ _fresh_exclude_load_conf() {
 	_FRESH_EXCLUDE_COMPAT_PATTERNS=()
 	_FRESH_EXCLUDE_CONF_PATTERNS=()
 
-	local conf="${DOTFILES_LIB_DIR:-$HOME/.local/lib/dotfiles}/exclude.conf"
+	local conf="${DOTFILES_LIB_DIR:-$HOME/.local/lib/installation}/exclude.conf"
 	if [ ! -f "$conf" ]; then
 		_FRESH_EXCLUDE_COMPAT_PATTERNS=("${_FRESH_EXCLUDE_POLICY_FALLBACK[@]}")
 		return 0

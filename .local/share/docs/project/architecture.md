@@ -22,7 +22,7 @@
 `min` 继承 `macos`，两者都不部署普通 `.local/bin/` 辅助脚本。`categories-0.1.0.conf` 标记为
 `TAG=test`，只承担解析、继承和展示测试，不是生产部署默认值。
 
-category 只控制用户配置集合。`.local/bin/dotcfg` 与 `.local/lib/dotfiles/` 是独立安装基础设施，
+category 只控制用户配置集合。`.local/bin/dotcfg` 与 `.local/lib/installation/` 是独立安装基础设施，
 在 fresh、full、min、macos 及 undeploy/uninstall 中都保留；完全移除由用户按命令提示手动执行。
 只有 `full` 是代码保留 category，始终动态表示 HEAD 的全部跟踪文件；配置正文和别名均不能覆盖。
 `min`、`macos`、`desktop`、`server` 和 `empty` 均为普通可配置名称；正式 `1.0.0` 目前只定义
@@ -32,7 +32,7 @@ category 只控制用户配置集合。`.local/bin/dotcfg` 与 `.local/lib/dotfi
 类别版本文件头部还可以声明 `VALID_TAGS`、`CATEGORY_ALIASES`、`STATE_DEFAULT` 和
 `STATE_INDICATORS`。这些字段只提供可选策略元数据；`CATEGORY_ALIASES` 缺失时默认为空，其他字段
 缺失时使用兼容默认值。Fresh 备份的 30 项跨 Linux/macOS 策略性排除规则位于
-`.local/lib/dotfiles/exclude.conf`，其中兼容区段保持旧 `check-exclude` 的
+`.local/lib/installation/exclude.conf`，其中兼容区段保持旧 `check-exclude` 的
 `hardcoded rule` 标签；安装基础设施保护仍由 `utils/exclude.sh` 硬编码维护。正常运行以配置文件
 为权威来源，代码中的 category、元数据和策略排除同值回退只在配置缺失时生效；协议标识、动态
 `full` 语义和自保路径必须留在代码。完整边界和扩展步骤见[安装系统](installation-system.md#配置驱动与硬编码边界)。

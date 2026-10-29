@@ -94,7 +94,7 @@ EOF
 @test "TC-R05: help does not load business libraries" {
 	local test_lib="$HOME/dotfiles-lib"
 	local marker="$HOME/business-library-loaded"
-	cp -r "$REAL_HOME/.local/lib/dotfiles" "$test_lib"
+	cp -r "$REAL_HOME/.local/lib/installation" "$test_lib"
 	printf '\nprintf "loaded" > %q\n' "$marker" >> "$test_lib/utils/nodes.sh"
 
 	run env DOTFILES_LIB_DIR="$test_lib" bash "$DOTCFG" help
@@ -103,7 +103,7 @@ EOF
 }
 
 @test "TC-R06: list aligns columns for long category and version values" {
-	source "$DOTFILES_ROOT/.local/lib/dotfiles/utils/nodes.sh"
+	source "$DOTFILES_ROOT/.local/lib/installation/utils/nodes.sh"
 	cfg_nodes_init "$HOME/.config-backup"
 	local root child
 	root=$(cfg_node_create "fresh" "null" "bootstrap")
