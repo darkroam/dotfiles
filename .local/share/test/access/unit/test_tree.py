@@ -16,7 +16,7 @@ from axs.codes import USAGE  # noqa: E402
 from axs.nodelist import _show_nodes_full  # noqa: E402
 from axs.nodes import group_numbers, node_numbers  # noqa: E402
 from axs.render import display_width  # noqa: E402
-from axs.tree import render_tree, tree_roots  # noqa: E402
+from axs.view import render_tree, tree_roots  # noqa: E402
 
 
 def fail(message):

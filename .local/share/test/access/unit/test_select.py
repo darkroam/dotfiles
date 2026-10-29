@@ -16,7 +16,7 @@ from axs.nodecmd import _list_flags  # noqa: E402
 from axs.codes import USAGE  # noqa: E402
 from axs.nodes import group_numbers, node_numbers  # noqa: E402
 from axs.view import render_select  # noqa: E402
-from axs.tree import render_tree  # noqa: E402
+from axs.view import render_tree  # noqa: E402
 
 
 def fail(message):

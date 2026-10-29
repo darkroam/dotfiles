@@ -47,7 +47,7 @@ def _show_tree(secret, api, mode, depth):
     if mode == "select":
         from axs.view import render_select as draw
     else:
-        from axs.tree import render_tree as draw
+        from axs.view import render_tree as draw
     sys.stdout.write(draw(proxies, depth, origin=secret, view=True))
 
 

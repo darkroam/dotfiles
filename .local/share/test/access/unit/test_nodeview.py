@@ -137,7 +137,7 @@ def check_frames():
     from axs.render import view_page
     from axs.rulelist import status_text
     from axs.view import render_select
-    from axs.tree import render_tree
+    from axs.view import render_tree
 
     proxies = {"G": {"type": "Selector", "now": "a", "all": ["a"]}, "a": {"type": "Direct"}}
     code, flat, _err = _capture(_show_nodes_full, proxies)
