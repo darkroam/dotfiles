@@ -6,4 +6,3 @@
 - 规则变多之后的本地规则集文件。
 - 登录前就提供代理。
 - 第二台机器。
-文件布局上还没做的事只记在 [access-architecture.md](access-architecture.md#并入)。

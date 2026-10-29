@@ -114,42 +114,36 @@ def main():
     if "警告只出现在" not in design:
         fail("design missing warning ownership")
     arch = (DOCS / "access-architecture.md").read_text(encoding="utf-8")
-    if "tree     service" not in arch:
-        fail("layer diagram lost tree")
-    if "| rules | subscription |" not in arch:
-        fail("ledger")
+    if "service    speed" not in arch or " nodecmd    status" not in arch:
+        fail("layer diagram")
+    if "| rules | subscription |" in arch:
+        fail("old ledger")
     if "不得引用任何 axs 模块" not in arch:
         fail("render sink")
-    if "`axs/tree.py`" not in arch:
-        fail("tree file row")
-    if "`axs/selectview.py`" not in arch:
-        fail("selectview file row")
-    if "`axs/nodeview.py`" not in arch:
-        fail("nodeview file row")
-    if "`axs/nodetest.py`" not in arch:
-        fail("nodetest file row")
-    if "| `axs/nodetest.py` | 叶子测速。不切换、不改配置 | 220 行 |" not in arch:
-        fail("nodetest ceiling")
-    if "| `axs/grouptest.py` | 组测速。不切换、不改配置 | 170 行 |" not in arch:
-        fail("grouptest ceiling")
-    if "| `axs/leafdelay.py` | 延迟超时、HTTP 等待与原因分类。不发请求、不写缓存 | 120 行 |" not in arch:
-        fail("leafdelay file row")
-    if "| `axs/progress.py` | 可复用进度条。非 TTY 不输出 | 100 行 |" not in arch:
-        fail("progress file row")
-    if "`axs/nodelist.py`" not in arch:
-        fail("nodelist file row")
-    if "| `axs/nodecmd.py` | node 子命令编排。不画视图、不测速、不持有数据 | 180 行 |" not in arch:
-        fail("nodecmd file row")
-    if "| `axs/cli.py` | 前缀解析、用法、分发。命令树在 catalog | 330 行 |" not in arch:
-        fail("cli ceiling")
-    if "| `axs/catalog.py` | 命令树数据与子命令签名。不解析、不分发、不排版 | 160 行 |" not in arch:
-        fail("catalog ceiling")
-    if "| `axs/sections.py` | 帮助节正文。不解析、不分发 | 80 行 |" not in arch:
-        fail("sections ceiling")
-    if "| `axs/subslist.py` | 订阅列表的解析与写入。不拉取 | 200 行 |" not in arch:
-        fail("subslist ceiling")
-    if "| `axs/proxylan.py` | 局域网监听。不改三层开关 | 150 行 |" not in arch:
-        fail("proxylan ceiling")
+    if "行数是警戒线" not in arch or "| 警戒 |" not in arch:
+        fail("line warning")
+    if "`axs/sections.py`" in arch:
+        fail("old file row sections")
+    if "`axs/selectview.py`" in arch:
+        fail("old file row selectview")
+    if "`axs/nodelist.py`" in arch:
+        fail("old file row nodelist")
+    if "`axs/nodetest.py`" in arch:
+        fail("old file row nodetest")
+    if "`axs/tree.py`" in arch:
+        fail("old file row tree")
+    if "`axs/view.py`" not in arch:
+        fail("missing view")
+    if "`axs/speed.py`" not in arch:
+        fail("missing speed")
+    if "`axs/profile.py`" not in arch:
+        fail("missing profile")
+    if "`axs/status.py`" not in arch:
+        fail("missing status")
+    if "`axs/catalog.py`" not in arch:
+        fail("missing catalog")
+    if "不自动拆" not in arch:
+        fail("auto split")
     sentence = "用法：axs group members <组>（先看 group status）"
     if design.count(sentence) != 2:
         fail("members hint")
