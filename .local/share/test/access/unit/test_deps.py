@@ -23,7 +23,7 @@ LAYERS = (
     ("proxy",),
     ("view",),
     ("service", "speed"),
-    ("nodecmd",),
+    ("nodecmd", "status"),
     ("cli",),
     ("__main__",),
 )
@@ -144,7 +144,7 @@ def graph():
 
 def service_imports():
     bad = []
-    hits = {"cli.py": 0, "nodecmd.py": 0}
+    hits = {"cli.py": 0, "nodecmd.py": 0, "status.py": 0}
     for path in sorted(LIB.glob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
@@ -168,6 +168,8 @@ def service_imports():
         fail("cli lost service")
     if hits["nodecmd.py"] == 0:
         fail("nodecmd lost service")
+    if hits["status.py"] == 0:
+        fail("status lost service")
 
 
 def auto_set():

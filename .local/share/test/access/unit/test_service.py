@@ -16,16 +16,8 @@ sys.path.insert(0, str(ROOT))
 from axs.codes import DOWN, FAIL, USAGE  # noqa: E402
 from axs.routes import build  # noqa: E402
 from axs.rulelist import status_text  # noqa: E402
-from axs.service import (  # noqa: E402
-    boot,
-    clean,
-    ensure,
-    health,
-    node_status_lines,
-    start,
-    status,
-    write_node_status,
-)
+from axs.service import boot, clean, ensure, health, start  # noqa: E402
+from axs.status import node_status_lines, status, write_node_status  # noqa: E402
 
 
 def fail(message):

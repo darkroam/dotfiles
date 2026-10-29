@@ -213,7 +213,9 @@ def main(argv):
     from axs.proxylan import run as lan_run
     from axs.rulelist import cmd_list
     from axs.rules import cmd_add, cmd_del
-    from axs.service import boot, clean, ensure, health, prime, restart, run_dir, service_status, start, status, stop
+    from axs.core import prime
+    from axs.service import boot, clean, ensure, health, restart, run_dir, start, stop
+    from axs.status import service_status, status
     from axs.subscription import dispatch as sub_dispatch
     from axs.config import LOOPBACK
 
