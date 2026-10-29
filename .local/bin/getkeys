@@ -4,6 +4,11 @@ case "$1" in
 	*/*|..*|.* ) echo "Invalid key name." >&2; exit 1 ;;
 esac
 
+case "$1" in
+	ncmpcpp) set -- music ;;
+	mutt) set -- neomutt ;;
+esac
+
 keysdir="${XDG_DATA_HOME:-$HOME/.local/share}/larbs/getkeys"
 
 show_list() {
@@ -37,14 +42,14 @@ show_list() {
 	done
 
 	printf '\n  \033[1;4mMedia & Documents\033[0m\n'
-	for name in nsxiv ncmpcpp zathura; do
+	for name in nsxiv music zathura; do
 		[ -f "$keysdir/$name" ] || continue
 		desc=$(grep -m1 ' is the ' "$keysdir/$name" | sed 's/^[[:space:]]*//')
 		printf '    %-10s %s\n' "$name" "$desc"
 	done
 
 	printf '\n  \033[1;4mCommunication\033[0m\n'
-	for name in mutt newsboat; do
+	for name in neomutt newsboat; do
 		[ -f "$keysdir/$name" ] || continue
 		desc=$(grep -m1 ' is the ' "$keysdir/$name" | sed 's/^[[:space:]]*//')
 		printf '    %-10s %s\n' "$name" "$desc"

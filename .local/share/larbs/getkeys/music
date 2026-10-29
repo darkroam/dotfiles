@@ -5,7 +5,10 @@
 |_| |_|\___|_| |_| |_| .__/ \___| .__/| .__/
                      |_|        |_|   |_|
 
-ncmpcpp is the music player.
+music (ncmpcpp) is the music player.
+
+Launch:
+	Mod+m - Open ncmpcpp
 
 Navigation:
 	h/j/k/l - Left/down/up/right

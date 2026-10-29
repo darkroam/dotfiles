@@ -4,7 +4,10 @@
 | | | | | | |_| | |_| |_
 |_| |_| |_|\__,_|\__|\__|
 
-mutt is the email client.
+neomutt is the email client.
+
+Launch:
+	Mod+e - Open neomutt
 
 Navigation:
 	j/k - Move down/up
