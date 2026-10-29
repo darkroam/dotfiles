@@ -5,7 +5,7 @@
 # selection" which opens arandr.
 
 displayselect_bin_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd) || exit 1
-XDISPLAY_LIB_DIR=${XDISPLAY_LIB_DIR:-$displayselect_bin_dir/../lib/xdisplay}
+XDISPLAY_LIB_DIR=${XDISPLAY_LIB_DIR:-$displayselect_bin_dir/../lib/display}
 . "$XDISPLAY_LIB_DIR/init.sh" || exit 1
 
 displayselect_usage() {

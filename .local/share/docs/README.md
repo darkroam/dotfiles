@@ -62,7 +62,7 @@
 | U03 外观、字体与壁纸 | `.config/{fontconfig,gtk-2.0,gtk-3.0,dunst,wal}/`、`setbg` | [架构](project/architecture.md) · [桌面指南](user/desktop-guide-zh.md) |
 | U04 音频、音乐、录制与视频 | `.config/{alsa,mpd,mpv,ncmpcpp}/`、媒体辅助命令 | [架构](project/architecture.md) · [依赖](project/dependencies.md) |
 | U05 文件、文档、密码与桌面处理 | `.config/{lf,nsxiv,zathura}/`、MIME/密码命令、桌面入口 | [架构](project/architecture.md) · [桌面指南](user/desktop-guide-zh.md) |
-| U06 显示、网络、挂载与系统控制 | `xdisplay`、`displayselect`、`.local/lib/xdisplay/`、系统辅助命令 | [架构](project/architecture.md) · [显示设计](project/display-management.md) |
+| U06 显示、网络、挂载与系统控制 | `xdisplay`、`displayselect`、`.local/lib/display/`、系统辅助命令 | [架构](project/architecture.md) · [显示设计](project/display-management.md) |
 | U07 状态栏、通信与网络服务 | `.local/bin/statusbar/`、`weath` | [架构](project/architecture.md) · [依赖](project/dependencies.md) |
 | U08 下载、种子与文本浏览 | `.config/newsboat/`、下载/RSS/种子辅助命令 | [架构](project/architecture.md) · [依赖](project/dependencies.md) |
 | U09 编译、排版与数据辅助 | `compiler`、`getbib`、`texroot`、`opout`、`texclear` | [架构](project/architecture.md) · [依赖](project/dependencies.md) |

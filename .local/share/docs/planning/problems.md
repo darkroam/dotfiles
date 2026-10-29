@@ -192,19 +192,19 @@
   - **用户回忆**：登录界面外屏正常，`startx` 后出现“正常一瞬→黑屏→轮询恢复”或“恢复但分辨率过大”；
     开盖再合盖可以触发恢复。
   - **源码/配置审查**：R11 确认首轮必然使用 `--query`；R12 在
-    `.local/lib/xdisplay/lib-engine.sh:201-223` 落地 A′：保存最近一次 `--query` 的权威能力快照，
+    `.local/lib/display/lib-engine.sh:201-223` 落地 A′：保存最近一次 `--query` 的权威能力快照，
     `--current` 连接投影未变时沿用该快照，投影变化时挂起 apply 并强制下一 tick probe。
-    `.local/lib/xdisplay/lib-topology.sh:20-36` 将能力签名、连接投影和完整拓扑签名分开计算。
-  - **源码/配置审查**：`.local/lib/xdisplay/lib-snapshot.sh:165-184` 仅以“connected 且有首个模式”
+    `.local/lib/display/lib-topology.sh:20-36` 将能力签名、连接投影和完整拓扑签名分开计算。
+  - **源码/配置审查**：`.local/lib/display/lib-snapshot.sh:165-184` 仅以“connected 且有首个模式”
     判定 mode_ready，目标模式按 preferred、否则 first mode 选择；适配器有效 expected mode 由
-    `.local/lib/xdisplay/lib-adapter-query.sh:124-184` 覆盖目标。preferred 标记或完整模式表迟到时，
+    `.local/lib/display/lib-adapter-query.sh:124-184` 覆盖目标。preferred 标记或完整模式表迟到时，
     first mode 可能不是用户期望值。
-  - **源码/配置审查**：`.local/lib/xdisplay/lib-layout-configure.sh:58-149`（legacy/extend-chain）
-    和 `.local/lib/xdisplay/lib-layout.sh:95-136` 会设置外屏 primary、目标模式、位置，并在合盖路径
+  - **源码/配置审查**：`.local/lib/display/lib-layout-configure.sh:58-149`（legacy/extend-chain）
+    和 `.local/lib/display/lib-layout.sh:95-136` 会设置外屏 primary、目标模式、位置，并在合盖路径
     对内屏执行 `--off`；这些是潜在的 Xorg/驱动 modeset 黑屏窗口。xdisplay 库没有 DPMS、背光或物理
     出图调用，当前 health 只反映 RandR 的 stale/pending/no-connected-output。
-  - **源码/配置审查**：`.local/lib/xdisplay/lib-topology.sh:20-36` 的拓扑键包含连接、首项模式和
-    mode_signature，但不包含当前几何/当前模式；R12 在 `.local/lib/xdisplay/lib-engine.sh:245-294`
+  - **源码/配置审查**：`.local/lib/display/lib-topology.sh:20-36` 的拓扑键包含连接、首项模式和
+    mode_signature，但不包含当前几何/当前模式；R12 在 `.local/lib/display/lib-engine.sh:245-294`
     增加 preferred-ready + N=2 + 10 tick 首轮门禁，并在 apply 成功后使用归一 key。apply 期间连接
     投影变化时保留新观测、安排强制 probe，使下一 tick 重新规划；现有布局后重读验证未改变。
   - **实测**：`.local/share/test/display/xdisplay-adapter.sh` 的 G-01 至 G-06 使用现有 RandR 状态机

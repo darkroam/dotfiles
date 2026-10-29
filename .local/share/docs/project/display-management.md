@@ -32,7 +32,7 @@
 1. **引擎管策略，适配器管设备差异。** 通用引擎统一负责状态、显示布局、锁、验证和重试；适配器只
    报告非标准内屏身份、预期模式或执行一次设备恢复。（“内屏、lid 与设备适配器”）
 2. **用户命令只分派，共享实现统一进入库。** `xdisplay` 和 `displayselect` 保持窄入口，复用
-   `.local/lib/xdisplay/` 中带 `xdisplay_` 前缀的函数，避免入口间复制策略。（“命令、库与所有权”）
+   `.local/lib/display/` 中带 `xdisplay_` 前缀的函数，避免入口间复制策略。（“命令、库与所有权”）
 3. **状态来自只读快照计算，不靠副作用猜测。** lid、内屏和外屏列表只产生明确枚举，状态计算本身
    不修改 RandR，自定义显示布局也不覆盖物理状态名。（“快照与状态模型”）
 4. **多外屏是列表问题，不是固定接口或固定数量问题。** 输出由运行时快照发现并按接口顺序形成
@@ -69,7 +69,7 @@ Mod+F3 ----------------> displayselect -> 交互显示布局或 Arandr
 | `.local/bin/xdisplay` | `apply`、`watch`、`status`、`version`、`help` 的用户入口 |
 | `.local/bin/xdisplay.sh` | 旧参数兼容包装，原样转发到 `xdisplay` |
 | `.local/bin/displayselect` | 交互选屏及 `save`、`list`、`delete` 自定义显示布局命令 |
-| `.local/lib/xdisplay/` | 状态、配置、显示布局、适配器、自定义显示布局、日志和 watcher 的共享实现 |
+| `.local/lib/display/` | 状态、配置、显示布局、适配器、自定义显示布局、日志和 watcher 的共享实现 |
 | `.config/x11/xprofile` | 在正确的 X11 会话环境中启动唯一 `xdisplay watch` |
 
 所有共享库函数使用 `xdisplay_` 前缀。自动和手动入口共用 `apply.lock`；每个规范化 X server 只有

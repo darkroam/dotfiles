@@ -3,7 +3,7 @@
 > 服务域：S02 验证；关联 U06 显示、网络、挂载与系统控制、U02 X11 桌面与输入
 
 本文是显示管理系统的可操作验收方案，覆盖 `.local/bin/xdisplay`、兼容包装
-`.local/bin/xdisplay.sh`、`.local/bin/displayselect`、`.local/lib/xdisplay/`、可选设备适配器以及
+`.local/bin/xdisplay.sh`、`.local/bin/displayselect`、`.local/lib/display/`、可选设备适配器以及
 两个可选配置文件。状态、配置和显示布局的权威定义见
 [`display-management.md`](display-management.md)，设备扩展调用契约见
 [`display-device-adapter.md`](display-device-adapter.md)。
@@ -41,7 +41,7 @@ sh .local/share/test/display/xdisplay-adapter.sh
 语法检查：
 
 ```sh
-for file in .local/lib/xdisplay/*.sh; do sh -n "$file"; done
+for file in .local/lib/display/*.sh; do sh -n "$file"; done
 sh -n .local/bin/xdisplay
 sh -n .local/bin/xdisplay.sh
 sh -n .local/bin/displayselect
