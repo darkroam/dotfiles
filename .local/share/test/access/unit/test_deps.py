@@ -21,7 +21,7 @@ LAYERS = (
     ("subscription", "rules"),
     ("proxylan",),
     ("proxy",),
-    ("service", "nodeview", "view", "speed"),
+    ("service", "view", "speed"),
     ("nodecmd",),
     ("cli",),
     ("__main__",),

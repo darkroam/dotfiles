@@ -13,7 +13,7 @@ ROOT = next(p / ".local/lib/access" for p in _here.parents if (p / ".local/lib/a
 sys.path.insert(0, str(ROOT))
 
 from axs.codes import FAIL  # noqa: E402
-from axs.nodeview import render_members, show_members, terminal_text  # noqa: E402
+from axs.view import render_members, show_members, terminal_text  # noqa: E402
 from axs.nodes import group_numbers, node_numbers  # noqa: E402
 from axs.render import emph, tone  # noqa: E402
 from axs.routes import build  # noqa: E402
@@ -172,7 +172,7 @@ def check_frames():
             fail("rule status\n" + headed)
         if headed.split("\n", 1)[1] != status_text(data):
             fail("header changed body")
-        from axs.nodeview import rule_page
+        from axs.view import rule_page
         auto = {
             "入口": {"type": "Selector", "now": "自动", "all": ["自动"]},
             "自动": {"type": "URLTest", "now": "a", "all": ["a"]},

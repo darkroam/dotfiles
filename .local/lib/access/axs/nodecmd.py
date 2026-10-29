@@ -57,7 +57,7 @@ def run(run, kind, args):
     from axs.config import SECRET, api_address
     from axs.nodelist import show_groups, show_nodes
     from axs.nodes import select_proxy
-    from axs.nodeview import show_all, show_members, show_rule_nodes
+    from axs.view import show_all, show_members, show_rule_nodes
     from axs.service import service_up
     list_mode, depth = "", None
     if kind == "list":
