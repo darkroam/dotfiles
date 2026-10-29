@@ -73,7 +73,7 @@
 | 域 | 主要位置 | 文档入口 |
 | --- | --- | --- |
 | S01 安装与交付 | `.local/bin/{dotcfg,install.sh}`、`.local/lib/installation/` | [安装系统](project/installation-system.md) |
-| S02 验证 | `.local/share/test/` | [安装测试](project/installation-testing.md) · [显示测试](project/display-testing.md) · [协作规约](project/collaboration.md) |
+| S02 验证 | `.local/share/test/` | [安装测试](project/installation-testing.md) · [显示测试](project/display-testing.md) · [project-tools 测试](project/collaboration.md) |
 | S03 文档与治理 | `README.md`、`.local/share/docs/` | [文档质量规范](project/docs-standard.md) · [维护策略](project/maintenance-policy.md) |
 | S04 内部工程工具 | `.local/lib/project-tools/` | [协作规约](project/collaboration.md) |
 | S05 元数据与来源 | `.gitignore`、LARBS 许可证/迁移来源 | [架构域归属表](project/domain-map.md) · [维护策略](project/maintenance-policy.md) |

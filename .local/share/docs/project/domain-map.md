@@ -69,7 +69,7 @@
 | `.local/lib/project-tools/**` | S04 | S02、S03 | 仓库开发过程内部工具。 |
 | `.local/lib/display/**` | U06 | U02、S02 | 共享显示实现；测试仍单独归 S02。 |
 | `.local/lib/access/**` | U06 | S02 | 访问实现。测试单独归 S02，契约在公开文档。 |
-| `.local/share/test/collab/**` | S02 | S03、S04 | 协作子系统 fixture。 |
+| `.local/share/test/project-tools/**` | S02 | S04 | project-tools 测试。 |
 | `.local/share/test/display/**` | S02 | U06 | 显示子系统 fixture。 |
 | `.local/share/test/access/**` | S02 | U06 | 访问子系统测试。 |
 | `.local/share/test/installation/**` | S02 | S01 | 安装子系统 Bats 与辅助文件。 |

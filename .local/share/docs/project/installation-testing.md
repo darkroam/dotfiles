@@ -24,7 +24,7 @@
 
 - **Bats 版本**：>= 1.11.0
 - **安装子系统**：`bats .local/share/test/installation/`（本文的权威测试范围）
-- **全仓 Bats**：`bats -r .local/share/test/`（installation 与 collab；不包含 shell 形式的显示 fixture）
+- **全仓 Bats**：`bats -r .local/share/test/`（installation 与 project-tools；不包含 shell 形式的显示 fixture）
 - **过滤运行**：`bats --filter "TC-11" .local/share/test/installation/`
 - **TAP 输出**：`bats -r .local/share/test/ --tap`（CI 适用）
 
@@ -407,7 +407,7 @@ Fresh 选择集；TC-E07 验证配置缺失时 Linux 与 macOS 规则的默认�
 # 运行安装子系统全部测试
 bats .local/share/test/installation/
 
-# 运行全仓 Bats（installation + collab，不包含显示 shell fixture）
+# 运行全仓 Bats（installation + project-tools，不包含显示 shell fixture）
 bats -r .local/share/test/
 
 # 只运行仓库跟踪的安装系统测试（不受本机未跟踪夹具影响）
@@ -438,9 +438,9 @@ Passed: 272
 Failed: 0
 ```
 
-协作子系统由[协作规约](collaboration.md)维护自己的 Bats 基线；显示子系统由
+project-tools 测试由[协作规约](collaboration.md)维护自己的 Bats 基线；显示子系统由
 [显示管理测试](display-testing.md)维护独立 shell fixture 基线。只有同时写明组成与递归命令时，
-才把 installation 与 collab 合称全仓 Bats。2026-08-31 使用 `bats --count` 分别枚举为 272 和
+才把 installation 与 project-tools 合称全仓 Bats。2026-08-31 使用 `bats --count` 分别枚举为 272 和
 35，因此 `bats -r .local/share/test/` 当前覆盖 307 个 Bats；该数字不包含显示 fixture。
 
 ---
