@@ -52,7 +52,7 @@ Debian 13 档案。没有在本系统重新核对的项目保持待填，不用 
 | U03 | Noto CJK 与 Noto Color Emoji、Adwaita 图标已装。缺 `media-fonts/libertine`、`media-fonts/fontawesome`。Arc 主题未装。`wal` 是本地命令 |
 | U04 | 没有 PipeWire、WirePlumber、mpv、ffmpeg、mpd。ALSA 库已装 |
 | U05 | GnuPG、pinentry、xdg-utils 已装。`lf`、`nsxiv`、`opustags` 官方仓库无 ebuild。PDF 工具、zathura、邮件和 RSS 客户端都未装 |
-| U06 | NetworkManager、wpa_supplicant、systemd-logind、`bc` 已装。缺 `xbacklight`。Avahi/CIFS、sensors、arandr 未装 |
+| U06 | NetworkManager、wpa_supplicant、systemd-logind、`bc` 已装。当时 PATH 上没有 `xbacklight`。2026-10-30 起由仓库 `.local/bin/xbacklight` 提供，不装 Portage 包。Avahi/CIFS、sensors、arandr 未装 |
 | U07–U08 | `cal` 已有。htop、calcurse、新闻和种子相关命令都未装。`urlscan`、`urlview`、`tsp` 官方仓库无 ebuild |
 | U09 | gcc、make、groff、cargo 已有。TeX、pandoc、emacs、R、Go、Java、mono 未装 |
 | U10 | `networkctl` 已有。`cron`/`crontab` 没有。`checkup` 仍只调用 apt |
@@ -74,7 +74,7 @@ Debian 13 档案。没有在本系统重新核对的项目保持待填，不用 
 | U03 | `libertine`、`fontawesome`、`arc-theme` 已装 |
 | U04 | `pipewire`、`wireplumber`、`mpv`、`ffmpeg`、`mpd` 已装。没有核对 user 服务是否已启用 |
 | U05 | `zathura`、`poppler`、`isync`、`neomutt`、`mutt-wizard`、`newsboat`、`maim`、`ueberzug` 已装。办公用手动安装的 WPS 12.1.2（deb，`/opt/kingsoft/wps-office`，2026-10-12，捆绑库）。已卸 Portage 旧版 `app-office/wps-office` 及其 19 个孤儿依赖。命令仍是 `et`、`wps`、`wpp`。没有 LibreOffice。`lf` 在 `~/.local/bin/lf`，`nsxiv` 在 `/usr/local/bin/nsxiv`，都不是 Portage 包。`opustags` 仍无官方 ebuild |
-| U06 | `xbacklight`、`avahi`、`cifs-utils`、`lm-sensors`、`arandr` 已装。`bluez` 保留并在 `@world` |
+| U06 | `avahi`、`cifs-utils`、`lm-sensors`、`arandr` 已装。`bluez` 保留并在 `@world`。`xbacklight` 不是 Portage 包；见「内屏背光」 |
 | U07–U09 | `htop`、`calcurse` 已装。`urlscan` 仍无官方 ebuild。`go` 已装；`pandoc`、`emacs` 未装。`rust-bin` 仍在，`go-bootstrap` 已不在 |
 | U10 | `crontab` 仍没有。不要启用 APT 版 `checkup` |
 | 清理 | 2026-10-12 已看不到 `ruby`、`nano`、`libayatana-appindicator`、`libsdl2`、`wayland`、`go-bootstrap`、`brotli`、`libjxl`。没有重跑 `--depclean --pretend`，不能把这当作完整清理清单 |
@@ -176,6 +176,21 @@ Debian 档案里的包映射、服务所有权和实测结果仍只属于 Debian
   - `sb-volume`：阶段五在会话外实跑退出 2，是权限限制，不是模块故障。2026-10-12 用户在图形会话复验，输出 `🔉56%`。
 - 显示回传见「显示硬件」。这是 2026-10-12 快照；画面问题已随 R18 于 2026-10-14 结项，现行结论见文首和 P6。
 - 2026-10-12 阶段六：`sb-internet` 把多块网卡拼成一行，避免 `🌐` 落在 dwmblocks 读不到的第二行。本机当时无线 down、一块有线 down、一块有线 up，实跑是一行，同时有 `❎` 和 `🌐`。
+
+
+## 内屏背光
+
+2026-10-30：写入 `/sys/class/backlight/panel_backlight/brightness` 会改变笔记本内屏亮度。`max_brightness` 为 100。仓库命令 `.local/bin/xbacklight` 按 1–100 的百分比写该节点（读取可到 0）；没有 `panel_backlight` 时用第一个背光节点。不调用 sudo。`xlight` 只把上次百分比记到 `~/.xbacklight.conf`，再交给这个命令。
+
+状态栏块是 `sb-brightness`，信号 9，每 5 秒读一次。亮度键仍调用 `xbacklight -inc 15` / `-dec 15`，不发信号，所以间隔不能是 0。滚轮成功后由 dwmblocks 立刻发信号 9。
+
+`brightness` 默认只有 root 可写，用户 `ok` 在 `video` 组。规则只针对 `panel_backlight`，不放进仓库。文件是 `/etc/udev/rules.d/90-panel-backlight.rules`：
+
+```
+ACTION=="add", SUBSYSTEM=="backlight", KERNEL=="panel_backlight", RUN+="/bin/chgrp video /sys/class/backlight/%k/brightness", RUN+="/bin/chmod g+w /sys/class/backlight/%k/brightness"
+```
+
+安装后执行 `udevadm control --reload` 和 `udevadm trigger --subsystem-match=backlight`。已经存在的节点还要当场改一次组权限，否则要等下次 add。验证：不用 sudo，`xbacklight -get` 有数字，再 `xbacklight -set` 写回同一百分比，退出码 0。本会话没有 root，规则还没装上。
 
 ## 显示硬件与本机钩子
 

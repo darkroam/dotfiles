@@ -130,7 +130,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | `systemd-analyze`, `udevadm` | 可选的 logind 合并配置检查和显示迁移规则维护工具；不属于 watcher 运行依赖 |
 | NetworkManager 守护进程、`nmtui`、`nmcli` | 网络连接、自动连接、地址/路由/DNS 所有权、交互式设置和诊断；选择该栈时，同一接口不能再由其他网络管理器接管 |
 | `wpa_supplicant` | 可供 NetworkManager 选用的全局 D-Bus Wi-Fi 认证后端，也是已跟踪接口模板的实现；平台可选择 NetworkManager 支持的其他认证后端，选用时仍不取代 NetworkManager 的连接和三层网络所有权 |
-| `xbacklight` | 亮度键和状态栏滚轮动作 |
+| `.local/bin/xbacklight` | 仓库自带。按百分比读写内屏背光（-get 可到 0，写入下限 1），优先 `panel_backlight`，否则第一个节点。不调用 sudo，不依赖发行版 `xorg-xbacklight` |
 | `lm-sensors` | 硬件导出 CPU 传感器时的 CPU 温度模块 |
 | `mount`、`umount`、`lsblk` | 普通块设备挂载、卸载和发现 |
 | `avahi-browse`、Avahi 守护进程 | mDNS/DNS-SD 的 SMB 服务发现；守护进程必须运行 |
@@ -274,7 +274,7 @@ cron 辅助命令需要 `cron`、`crontab`、`notify-send`、`xdotool`、`newsbo
 | `zathura-pdf-mupdf` | Zathura PDF backend | 历史后端专属条目；当前配置需要发行版提供的 Zathura PDF 后端，而非特定 MuPDF。 |
 | `python-ueberzug` | Terminal image previews | 活跃预览能力由当前 `ueberzug` 命令表示；来源包名是历史的。 |
 | `poppler` | PDF manipulation and previews | 活跃 PDF 预览/工具能力由 `pdftoppm`、`pdftotext`、`pdfinfo` 和 `pdffonts` 表示。 |
-| `mediainfo`, `atool`, `fzf`, `highlight`, `xorg-xbacklight` | Media info, archive handling, fuzzy finding, highlighting, brightness | 活跃依赖；`xorg-xbacklight` 映射为当前 `xbacklight`。 |
+| `mediainfo`, `atool`, `fzf`, `highlight` | Media info, archive handling, fuzzy finding, highlighting | 活跃依赖。亮度不在此列；命令是仓库自带的 `xbacklight`。 |
 | `zsh-syntax-highlighting` | Fish-like shell highlighting | 活跃已配置 Oh My Zsh/zplug 插件。 |
 | `task-spooler`, `ts` | Background command queue | 活跃 `tsp` 队列依赖；`ts` 是历史命令/包拼写。 |
 | `setxkbmap`, `xset` | Keyboard layout and X repeat settings | 活跃 X11 输入辅助。 |

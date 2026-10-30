@@ -1,0 +1,100 @@
+#!/bin/sh
+# Percent backlight on sysfs. Prefers panel_backlight. No sudo.
+# Installed in .local/bin so it intentionally shadows distro xbacklight.
+set -eu
+
+no_device() {
+	printf '%s\n' 'xbacklight: no backlight device' >&2
+	exit 1
+}
+
+perm() {
+	printf '%s\n' 'xbacklight: permission denied' >&2
+	exit 1
+}
+
+bad_value() {
+	printf '%s\n' 'xbacklight: bad percent' >&2
+	exit 1
+}
+
+root=${XBACKLIGHT_ROOT:-/sys/class/backlight}
+dev=
+if [ -n "${XBACKLIGHT_DEVICE:-}" ]; then
+	dev=$root/$XBACKLIGHT_DEVICE
+elif [ -d "$root/panel_backlight" ]; then
+	dev=$root/panel_backlight
+else
+	for node in "$root"/*; do
+		if [ -d "$node" ]; then
+			dev=$node
+			break
+		fi
+	done
+fi
+
+[ -n "$dev" ] && [ -r "$dev/brightness" ] && [ -r "$dev/max_brightness" ] || no_device
+
+action='get'
+percent=
+while [ "$#" -gt 0 ]; do
+	case $1 in
+	-get)
+		action='get'
+		;;
+	-set|-inc|-dec)
+		action=${1#-}
+		shift
+		[ "$#" -ge 1 ] || bad_value
+		percent=$1
+		;;
+	-time|-steps)
+		if [ "$#" -ge 2 ]; then
+			case $2 in
+			-*) ;;
+			*) shift ;;
+			esac
+		fi
+		;;
+	*)
+		printf '%s\n' 'xbacklight: unknown argument' >&2
+		exit 1
+		;;
+	esac
+	shift
+done
+
+cur=$(cat "$dev/brightness")
+max=$(cat "$dev/max_brightness")
+case $max in
+''|*[!0-9]*|0) no_device ;;
+esac
+
+if [ "$action" = get ]; then
+	awk -v cur="$cur" -v max="$max" 'BEGIN { printf "%d\n", int(cur * 100 / max + 0.5) }'
+	exit 0
+fi
+
+case $percent in
+*[!0-9.]*) bad_value ;;
+*.*.*) bad_value ;;
+*[0-9]*) ;;
+*) bad_value ;;
+esac
+
+raw=$(awk -v cur="$cur" -v max="$max" -v action="$action" -v step="$percent" 'BEGIN {
+	pct = int(cur * 100 / max + 0.5)
+	if (action == "set") n = step + 0
+	else if (action == "inc") n = pct + step
+	else n = pct - step
+	if (n < 1) n = 1
+	if (n > 100) n = 100
+	out = int(n * max / 100 + 0.5)
+	if (out < 1) out = 1
+	if (out > max) out = max
+	printf "%d\n", out
+}')
+
+[ -w "$dev/brightness" ] || perm
+printf '%s\n' "$raw" > "$dev/brightness" || perm
+exit 0

@@ -1,0 +1,46 @@
+#!/bin/sh
+# Status block. Signal 9, interval 5. Keys call xbacklight and do not signal.
+# .local/bin/xbacklight shadows any distro command so dwm, xlight and this
+# block all use the same sysfs backend.
+
+warn() {
+	stampdir=${XDG_RUNTIME_DIR:-/tmp}/sb-brightness.$(id -u)
+	stamp=$stampdir/warn
+	mkdir -p "$stampdir" 2>/dev/null || true
+	chmod 700 "$stampdir" 2>/dev/null || true
+	now=$(date +%s)
+	prev=0
+	if [ -f "$stamp" ]; then
+		prev=$(cat "$stamp" 2>/dev/null || printf '%s\n' 0)
+	fi
+	case $prev in
+	''|*[!0-9]*) prev=0 ;;
+	esac
+	if [ "$((now - prev))" -ge 60 ]; then
+		notify-send "亮度" "无法写入背光。" 2>/dev/null || true
+		printf '%s\n' "$now" > "$stamp" 2>/dev/null || true
+	fi
+}
+
+case ${BLOCK_BUTTON:-} in
+3)
+	notify-send "亮度" "滚轮调节亮度。
+亮度键仍调用 xbacklight，增减 15。
+右键：本说明"
+	;;
+4)
+	xbacklight -inc 1 || warn
+	;;
+5)
+	xbacklight -dec 1 || warn
+	;;
+6)
+	"$TERMINAL" -e "$EDITOR" "$0"
+	;;
+esac
+
+pct=$(xbacklight -get 2>/dev/null) || exit 0
+case $pct in
+''|*[!0-9]*) exit 0 ;;
+esac
+printf '🔆%s%%\n' "$pct"
