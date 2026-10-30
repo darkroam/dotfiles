@@ -72,6 +72,7 @@
 | `.local/share/test/project-tools/**` | S02 | S04 | project-tools 测试。 |
 | `.local/share/test/display/**` | S02 | U06 | 显示子系统 fixture。 |
 | `.local/share/test/access/**` | S02 | U06 | 访问子系统测试。 |
+| `.local/share/test/desktop/**` | S02 | U07、U02 | 蓝牙 dmenu 与状态栏块测试。 |
 | `.local/share/test/installation/**` | S02 | S01 | 安装子系统 Bats 与辅助文件。 |
 | `.local/share/docs/**` | S03 | - | 公开设计、用户、平台、planning 和审计文档。 |
 | `.local/share/applications/**` | U05 | U03、U04、U07、U08 | MIME/桌面入口由桌面处理能力所有。 |
@@ -112,6 +113,8 @@
 | `lfub`、`otp`、`passmenu` | U05 | U02 |
 | `displayselect`、`dmenumount`、`dmenumountcifs`、`dmenuumount`、`sysact`、`xdisplay`、`xdisplay.sh`、`xlight` | U06 | U02、U04 |
 | `axs` | U06 | - |
+| `btmenu` | U06 | U02、U07 |
+| `statusbar/{sb-bluetooth}` | U07 | U04、U06 |
 | `statusbar/{sb-kbselect}` | U07 | U02 |
 | `statusbar/{sb-mpdup,sb-music,sb-volume}` | U07 | U04 |
 | `statusbar/{sb-torrent}` | U07 | U08 |

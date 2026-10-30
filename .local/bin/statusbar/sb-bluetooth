@@ -1,0 +1,14 @@
+#!/bin/sh
+# Status block for dwmblocks. Signal 2. Buttons 1/2/3 only.
+
+case ${BLOCK_BUTTON:-0} in
+	1) btmenu && pkill -RTMIN+2 "${STATUSBAR:-dwmblocks}" ;;
+	2) btmenu --connected && pkill -RTMIN+2 "${STATUSBAR:-dwmblocks}" ;;
+	3) notify-send "蓝牙" "左键：主菜单
+中键：已连接设备
+右键：本说明
+🔵N 已连接 N 台
+🔵 适配器可用、无连接
+⛔ 无适配器或蓝牙关闭" ;;
+esac
+btmenu --status

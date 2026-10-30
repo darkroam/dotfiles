@@ -72,6 +72,17 @@ DWM 部分以当前 `~/src/dwm/config.h` 为准，st 鼠标操作以当前 `~/sr
 | `Shift+左键` | 把第六种点击信号交给当前状态模块 |
 | `Shift+右键` | 在 Nvim 中打开 `~/src/dwmblocks/config.h` |
 
+蓝牙块 `sb-bluetooth`（信号 2，每 10 秒刷新）只使用前三种点击。`Shift+右键` 仍由 DWM 全局打开上面的 `config.h`，该块不绑定第六种点击。
+
+| 点击 | `BLOCK_BUTTON` | 动作 |
+| --- | --- | --- |
+| 左键 | 1 | `btmenu` 主菜单 |
+| 中键 | 2 | 已连接设备列表 |
+| 右键 | 3 | `notify-send` 模块说明 |
+
+用法详情见 `getkeys btmenu`。
+
+
 ## 启动器与常用程序
 
 | 快捷键 | 动作 |

@@ -92,6 +92,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | `sox` | `noisereduce` 辅助工具 |
 | ImageMagick（`magick`） | `slider` 和图像转换 |
 | `vorbiscomment`, `opustags`, `eyeD3`, `metaflac` | `tag` 元数据辅助工具 |
+| `bluez`（`bluetoothctl`）、`dmenu`、`notify-send` | `btmenu` 的配对、连接和状态栏蓝牙块；`dmenu` 选择设备，`notify-send` 报告错误和模块说明 |
 
 ## U05 · 文件、文档、密码与桌面处理
 

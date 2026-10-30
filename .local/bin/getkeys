@@ -63,7 +63,7 @@ show_list() {
 	done
 
 	printf '\n  \033[1;4mLauncher & Selector\033[0m\n'
-	for name in dmenu; do
+	for name in dmenu btmenu; do
 		[ -f "$keysdir/$name" ] || continue
 		desc=$(grep -m1 ' is the ' "$keysdir/$name" | sed 's/^[[:space:]]*//')
 		printf '    %-10s %s\n' "$name" "$desc"

@@ -1,0 +1,223 @@
+#!/bin/sh
+# Bluetooth menu. Queries use bluetoothctl; pairing does not ask for a PIN.
+
+refresh() {
+	pkill -RTMIN+2 "${STATUSBAR:-dwmblocks}" 2>/dev/null || true
+}
+
+notify() {
+	notify-send "蓝牙" "$1"
+}
+
+adapter_state() {
+	state=none
+	command -v bluetoothctl >/dev/null 2>&1 || return 0
+	list=$(bluetoothctl --timeout 5 list 2>/dev/null) || list=
+	printf '%s\n' "$list" | grep -q '^Controller ' || return 0
+	show=$(bluetoothctl --timeout 5 show 2>/dev/null) || show=
+	powered=$(printf '%s\n' "$show" | awk '$1 == "Powered:" { print $2; exit }')
+	case $powered in
+		yes) state=on ;;
+		no) state=off ;;
+		*) state=on ;;
+	esac
+}
+
+prop() {
+	bluetoothctl --timeout 5 info "$1" 2>/dev/null | awk -v key="$2" '$1 == key { print $2; exit }'
+}
+
+parse_devices() {
+	awk '$1 == "Device" && $2 ~ /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/ {
+		mac = $2
+		sub(/^Device[ \t]+[^ \t]+[ \t]*/, "")
+		if ($0 == "")
+			$0 = mac
+		printf "%s\t%s\n", mac, $0
+	}'
+}
+
+devices() {
+	if [ -n "${1:-}" ]; then
+		bluetoothctl --timeout 5 devices "$1" 2>/dev/null | parse_devices
+	else
+		bluetoothctl --timeout 5 devices 2>/dev/null | parse_devices
+	fi
+}
+
+menu_lines() {
+	printf '%s\n' "$1" | awk -F '\t' 'NF { printf "%s\t%s\n", $2, $1 }'
+}
+
+pick() {
+	choice=$(printf '%s\n' "$2" | dmenu -i -l 8 -p "$1") || return 1
+	[ -n "$choice" ] || return 1
+	return 0
+}
+
+mac_of() {
+	printf '%s\n' "$1" | awk -F '\t' '{ print $2 }'
+}
+
+fail() {
+	notify "${1:-蓝牙命令失败}"
+	exit 1
+}
+
+run_bt() {
+	out=$(bluetoothctl "$@" 2>&1) && return 0
+	fail "${out:-蓝牙命令失败}"
+}
+
+need_adapter() {
+	command -v bluetoothctl >/dev/null 2>&1 || fail "未安装 bluetoothctl"
+	adapter_state
+	[ "$state" = none ] && fail "无蓝牙适配器"
+}
+
+power() {
+	need_adapter
+	run_bt --timeout 5 power "$1"
+	refresh
+}
+
+connect_mac() {
+	if [ "$(prop "$1" "Connected:")" = yes ]; then
+		notify "已连接"
+		return 0
+	fi
+	run_bt --timeout 20 connect "$1"
+	refresh
+}
+
+disconnect_mac() {
+	if [ "$(prop "$1" "Connected:")" != yes ]; then
+		notify "未连接"
+		return 0
+	fi
+	run_bt --timeout 20 disconnect "$1"
+	refresh
+}
+
+trust_mac() {
+	if [ "$(prop "$1" "Trusted:")" = yes ]; then
+		notify "已信任"
+		return 0
+	fi
+	run_bt --timeout 5 trust "$1"
+}
+
+remove_mac() {
+	ok=$(printf '%s\n' "移除" "取消" | dmenu -i -p "移除该设备？") || exit 0
+	[ "$ok" = "移除" ] || exit 0
+	if [ "$(prop "$1" "Connected:")" = yes ]; then
+		run_bt --timeout 20 disconnect "$1"
+	fi
+	run_bt --timeout 5 remove "$1"
+	refresh
+}
+
+bring_up() {
+	if [ "$(prop "$1" "Paired:")" != yes ]; then
+		run_bt --agent NoInputNoOutput --timeout 20 pair "$1"
+	fi
+	if [ "$(prop "$1" "Trusted:")" != yes ]; then
+		run_bt --timeout 5 trust "$1"
+	fi
+	connect_mac "$1"
+}
+
+act_on() {
+	mac=$(mac_of "$1")
+	[ -n "$mac" ] || exit 0
+	acts=$(printf '%s\n' "连接" "断开" "信任" "移除")
+	pick "动作" "$acts" || exit 0
+	case $choice in
+		连接) connect_mac "$mac" ;;
+		断开) disconnect_mac "$mac" ;;
+		信任) trust_mac "$mac" ;;
+		移除) remove_mac "$mac" ;;
+		*) exit 0 ;;
+	esac
+}
+
+paired_menu() {
+	need_adapter
+	[ "$state" = off ] && fail "蓝牙已关闭"
+	raw=$(devices Paired)
+	[ -n "$raw" ] || { notify "无已配对设备"; exit 0; }
+	pick "已配对" "$(menu_lines "$raw")" || exit 0
+	act_on "$choice"
+}
+
+connected_menu() {
+	need_adapter
+	[ "$state" = off ] && { notify "蓝牙已关闭"; exit 0; }
+	raw=$(devices Connected)
+	[ -n "$raw" ] || { notify "无已连接设备"; exit 0; }
+	pick "已连接" "$(menu_lines "$raw")" || exit 0
+	mac=$(mac_of "$choice")
+	[ -n "$mac" ] || exit 0
+	ok=$(printf '%s\n' "断开" "取消" | dmenu -i -p "断开该设备？") || exit 0
+	[ "$ok" = "断开" ] || exit 0
+	disconnect_mac "$mac"
+}
+
+scan_pair() {
+	need_adapter
+	[ "$state" = off ] && fail "蓝牙已关闭"
+	lock=${XDG_RUNTIME_DIR:-/tmp}/btmenu-scan.lock
+	exec 9>"$lock" || fail "无法锁定扫描"
+	flock -n 9 || { notify "已在扫描"; exit 0; }
+	tmp=$(mktemp -d) || fail "无法创建临时目录"
+	trap 'rm -rf "$tmp"' EXIT
+	notify "扫描 8 秒"
+	devices > "$tmp/before"
+	run_bt --timeout 8 scan on
+	bluetoothctl --timeout 5 scan off >/dev/null 2>&1 || true
+	devices > "$tmp/after"
+	raw=$(awk -F '\t' 'FILENAME == ARGV[1] { if ($1 != "") seen[$1] = 1; next }
+		$1 != "" && !($1 in seen)' "$tmp/before" "$tmp/after")
+	[ -n "$raw" ] || { notify "未发现新设备"; exit 0; }
+	pick "配对" "$(menu_lines "$raw")" || exit 0
+	mac=$(mac_of "$choice")
+	[ -n "$mac" ] || exit 0
+	bring_up "$mac"
+}
+
+status_line() {
+	adapter_state
+	case $state in
+		none|off) printf '⛔\n'; return 0 ;;
+	esac
+	n=$(devices Connected | awk 'END { print NR + 0 }')
+	if [ "$n" -gt 0 ]; then
+		printf '🔵%s\n' "$n"
+	else
+		printf '🔵\n'
+	fi
+}
+
+main_menu() {
+	need_adapter
+	if [ "$state" = off ]; then
+		items="打开蓝牙"
+	else
+		items=$(printf '%s\n' "关闭蓝牙" "扫描并配对" "已配对设备")
+	fi
+	pick "蓝牙" "$items" || exit 0
+	case $choice in
+		打开蓝牙) power on ;;
+		关闭蓝牙) power off ;;
+		扫描并配对) scan_pair ;;
+		已配对设备) paired_menu ;;
+		*) exit 0 ;;
+	esac
+}
+
+case ${1:-} in
+	--status) status_line ;;
+	--connected) connected_menu ;;
+	"") main_menu ;;
+	*) fail "用法：btmenu [--status|--connected]" ;;
+esac

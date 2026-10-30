@@ -1,0 +1,18 @@
+btmenu is the dmenu bluetooth controller.
+
+Status bar block sb-bluetooth, signal 2, every 10 seconds:
+	1 left click   - main menu
+	2 middle click - connected devices
+	3 right click  - notify-send help
+	button 6 is unused; Shift+right opens dwmblocks config.h
+
+Bar:
+	🔵N  N devices connected
+	🔵   adapter on, nothing connected
+	⛔   no adapter or powered off
+
+Menu:
+	打开蓝牙 / 关闭蓝牙
+	扫描并配对
+	已配对设备: 连接, 断开, 信任, 移除
+	Cancel exits 0. No adapter exits non-zero. No PIN prompt.
