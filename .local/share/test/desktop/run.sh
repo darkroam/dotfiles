@@ -5,7 +5,7 @@ set -u
 
 HOME_BIN=${HOME}/.local/bin
 BTMENU=$HOME_BIN/btmenu
-SB=$HOME_BIN/statusbar/sb-bluetooth
+sb_bluetooth=$HOME_BIN/statusbar/sb-bluetooth
 fail=0
 
 bad() {
@@ -35,6 +35,7 @@ new_env() {
 	: > "$BT_PKILL"
 	cat > "$root/bin/bluetoothctl" << 'EOS'
 #!/bin/sh
+printf '%s\n' "$*" >> "$BT_LOG"
 while [ $# -gt 0 ]; do
 	case $1 in
 		--timeout|--agent) shift 2 ;;
@@ -43,7 +44,6 @@ while [ $# -gt 0 ]; do
 		*) break ;;
 	esac
 done
-printf '%s\n' "$*" >> "$BT_LOG"
 cmd=$1
 shift
 case $cmd in
@@ -117,6 +117,7 @@ EOS
 }
 
 finish() {
+	rm -f "${XDG_RUNTIME_DIR:-}/btmenu-scan.lock"
 	rm -rf "$root"
 }
 
@@ -128,6 +129,14 @@ assert_eq() {
 	fi
 }
 
+assert_no_timeout() {
+	if grep -q -- '--timeout' "$BT_LOG"; then
+		bad "$1 has timeout"
+	else
+		ok "$1 has no timeout"
+	fi
+}
+
 assert_rc() {
 	if [ "$1" -eq "$2" ]; then
 		ok "$3"
@@ -136,12 +145,12 @@ assert_rc() {
 	fi
 }
 
-# no adapter: one list, no show, menu fails, status is ⛔
+# no adapter: one list, no show, menu fails, status is empty
 new_env
 : > "$BT_STATE/list"
 out=$( "$BTMENU" --status ); rc=$?
 assert_rc "$rc" 0 "no-adapter status rc"
-assert_eq "$out" "⛔" "no-adapter status"
+assert_eq "$out" "" "no-adapter empty"
 if grep -q '^show$' "$BT_LOG" || grep -q SHOW_WITHOUT_ADAPTER "$BT_LOG"; then
 	bad "no-adapter called show"
 else
@@ -160,6 +169,7 @@ if grep -q '^show$' "$BT_LOG"; then
 else
 	ok "no-adapter menu one list"
 fi
+assert_no_timeout "no-adapter"
 finish
 
 # adapter on, no devices
@@ -169,6 +179,7 @@ printf '%s\n' '	Powered: yes' > "$BT_STATE/show"
 : > "$BT_STATE/devices.Connected"
 out=$( "$BTMENU" --status )
 assert_eq "$out" "🔵" "no-device status"
+assert_no_timeout "no-device"
 finish
 
 # powered off
@@ -177,6 +188,7 @@ printf '%s\n' 'Controller 00:00:00:00:00:01 Test' > "$BT_STATE/list"
 printf '%s\n' '	Powered: no' > "$BT_STATE/show"
 out=$( "$BTMENU" --status )
 assert_eq "$out" "⛔" "powered-off status"
+assert_no_timeout "powered-off"
 finish
 
 # Powered missing, list non-empty
@@ -186,6 +198,7 @@ printf '%s\n' '	Name: Test' > "$BT_STATE/show"
 : > "$BT_STATE/devices.Connected"
 out=$( "$BTMENU" --status )
 assert_eq "$out" "🔵" "powered-missing status"
+assert_no_timeout "powered-missing"
 finish
 
 # connected
@@ -195,6 +208,11 @@ printf '%s\n' '	Powered: yes' > "$BT_STATE/show"
 printf '%s\n' 'Device 00:11:22:33:44:55 Headphones' > "$BT_STATE/devices.Connected"
 out=$( "$BTMENU" --status )
 assert_eq "$out" "🔵1" "connected status"
+if grep -q -- '--timeout' "$BT_LOG"; then
+	bad "connected query timeout"
+else
+	ok "connected query has no timeout"
+fi
 finish
 
 # dmenu cancel exits 0
@@ -233,6 +251,22 @@ if grep -q 'Failed to pair' "$BT_NOTIFY"; then
 else
 	bad "pair-fail notify missing"
 fi
+if grep -qx -- '--timeout 8 scan on' "$BT_LOG" \
+	&& grep -q -- '--timeout 20 pair ' "$BT_LOG"; then
+	ok "pair-fail keeps scan and pair timeouts"
+else
+	bad "pair-fail timeout shape"
+fi
+if grep -- '--timeout' "$BT_LOG" | grep -Ev -e '--timeout 8 scan on' -e '--timeout 20 pair ' | grep -q .; then
+	bad "pair-fail extra timeout"
+else
+	ok "pair-fail queries have no timeout"
+fi
+if [ -e "$XDG_RUNTIME_DIR/btmenu-scan.lock" ]; then
+	bad "scan lock left behind"
+else
+	ok "scan lock removed"
+fi
 finish
 
 # middle click lists connected devices and still signals on cancel
@@ -241,7 +275,7 @@ printf '%s\n' 'Controller 00:00:00:00:00:01 Test' > "$BT_STATE/list"
 printf '%s\n' '	Powered: yes' > "$BT_STATE/show"
 printf '%s\n' 'Device 00:11:22:33:44:55 Headphones' > "$BT_STATE/devices.Connected"
 printf '%s\n' CANCEL > "$BT_PICKS"
-BLOCK_BUTTON=2 "$SB" >/dev/null; rc=$?
+BLOCK_BUTTON=2 "$sb_bluetooth" >/dev/null; rc=$?
 assert_rc "$rc" 0 "middle-click rc"
 if grep -q 'Headphones' "$BT_DMENU_LOG"; then
 	ok "middle-click list"
@@ -260,7 +294,7 @@ new_env
 printf '%s\n' 'Controller 00:00:00:00:00:01 Test' > "$BT_STATE/list"
 printf '%s\n' '	Powered: yes' > "$BT_STATE/show"
 printf '%s\n' 'Device 00:11:22:33:44:55 Headphones' > "$BT_STATE/devices.Connected"
-out=$(BLOCK_BUTTON=3 "$SB"); rc=$?
+out=$(BLOCK_BUTTON=3 "$sb_bluetooth"); rc=$?
 assert_rc "$rc" 0 "right-click rc"
 assert_eq "$out" "🔵1" "right-click status"
 if grep -q '左键：主菜单' "$BT_NOTIFY" && ! [ -s "$BT_DMENU_LOG" ]; then
@@ -269,7 +303,7 @@ else
 	bad "right-click help"
 fi
 : > "$BT_DMENU_LOG"
-out=$(BLOCK_BUTTON=6 "$SB")
+out=$(BLOCK_BUTTON=6 "$sb_bluetooth")
 assert_eq "$out" "🔵1" "button-6 status only"
 if [ -s "$BT_DMENU_LOG" ]; then
 	bad "button-6 opened dmenu"
@@ -281,9 +315,9 @@ finish
 # no adapter from the bar does not signal
 new_env
 : > "$BT_STATE/list"
-out=$(BLOCK_BUTTON=1 "$SB"); rc=$?
+out=$(BLOCK_BUTTON=1 "$sb_bluetooth"); rc=$?
 assert_rc "$rc" 0 "bar no-adapter rc"
-assert_eq "$out" "⛔" "bar no-adapter status"
+assert_eq "$out" "" "bar no-adapter empty"
 if [ -s "$BT_PKILL" ]; then
 	bad "bar no-adapter signaled"
 else

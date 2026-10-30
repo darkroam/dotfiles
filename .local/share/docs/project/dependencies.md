@@ -92,7 +92,6 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | `sox` | `noisereduce` 辅助工具 |
 | ImageMagick（`magick`） | `slider` 和图像转换 |
 | `vorbiscomment`, `opustags`, `eyeD3`, `metaflac` | `tag` 元数据辅助工具 |
-| `bluez`（`bluetoothctl`）、`dmenu`、`notify-send` | `btmenu` 的配对、连接和状态栏蓝牙块；`dmenu` 选择设备，`notify-send` 报告错误和模块说明 |
 
 ## U05 · 文件、文档、密码与桌面处理
 
@@ -141,6 +140,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | `geoiplookup` | 可选 IP 地理位置状态模块 |
 | `xinput` | DWM 触控板开关（`Mod+Ctrl+t` 和触摸板硬件键）。按设备名查找后设置 `libinput Send Events Mode Enabled`。不再使用 `synclient` 或 Synaptics 驱动 |
 | `screenkey` | 为单独构建 DWM 绑定保留的可选按键覆盖层；无已跟踪 dotfiles 运行调用 |
+| `bluez`（`bluetoothctl`） | `btmenu` 的适配器、扫描、配对和连接；状态栏块只读同一状态 |
 | 本机 `mihomo`、python3、PyYAML | 访问子系统的内核与命令运行时；二进制和订阅不入库 |
 
 `.local/bin/dmenumountcifs` 只处理 Avahi 发布且允许 guest 访问的匿名共享，挂载目标限制在

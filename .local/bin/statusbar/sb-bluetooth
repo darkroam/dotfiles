@@ -9,6 +9,7 @@ case ${BLOCK_BUTTON:-0} in
 右键：本说明
 🔵N 已连接 N 台
 🔵 适配器可用、无连接
-⛔ 无适配器或蓝牙关闭" ;;
+⛔ 适配器关闭
+无适配器时不显示" ;;
 esac
 btmenu --status

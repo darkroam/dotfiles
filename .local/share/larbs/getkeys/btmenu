@@ -7,9 +7,10 @@ Status bar block sb-bluetooth, signal 2, every 10 seconds:
 	button 6 is unused; Shift+right opens dwmblocks config.h
 
 Bar:
-	🔵N  N devices connected
+	(empty)  no adapter
+	⛔   powered off
 	🔵   adapter on, nothing connected
-	⛔   no adapter or powered off
+	🔵N  N devices connected
 
 Menu:
 	打开蓝牙 / 关闭蓝牙
