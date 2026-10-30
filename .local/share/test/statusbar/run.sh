@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC2086,SC2015
 # Status bar memory cells, plus music pause/play text. No waveform.
 
 set -u
@@ -74,16 +75,16 @@ EOF
 		printf ' got %s\n' "$(cat "$root/got")" >&2
 	fi
 }
-mem_case '████▓▓░░' 'Mem:           1000         500         200           0         300         400'
-mem_case '███▓▓▓░░' 'Mem:              3           1           1           0           1           1'
-mem_case '░░░░░░░░' 'Mem:              0           0           0           0           0           0'
+mem_case '█████▓▓▓░░' 'Mem:           1000         500         200           0         300         400'
+mem_case '████▓▓▓░░░' 'Mem:              3           1           1           0           1           1'
+mem_case '░░░░░░░░░░' 'Mem:              0           0           0           0           0           0'
 
 new_root
 export FREE_OUT=$root/free.out
 export NOTIFY_LOG=$root/notify
 printf '%s\n%s\n' '              total        used        free      shared  buff/cache   available' 'Mem:           1000         500         200           0         300         400' > "$FREE_OUT"
 BLOCK_BUTTON=1 "$SB_MEM" > "$root/got"
-if [ "$(cat "$root/got")" = '████▓▓░░' ] && [ -s "$NOTIFY_LOG" ]; then
+if [ "$(cat "$root/got")" = '█████▓▓▓░░' ] && [ -s "$NOTIFY_LOG" ]; then
 	ok 'memory button kept'
 else
 	bad 'memory button kept'

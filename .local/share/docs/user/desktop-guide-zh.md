@@ -155,6 +155,10 @@ Arc、Noto CJK、Linux Libertine、FontAwesome 和 Dunst 构成默认外观。�
 音量和麦克风静音使用 `wpctl`；`Mod+F4` 打开 Pulsemixer。MPD 音乐服务运行后，`Mod+m` 打开 Ncmpcpp，
 媒体键和状态栏通过 `mpc` 控制播放。没有音乐输出时，先检查默认音频设备和 MPD 是否运行。
 
+本机播放设备自动选择，2026-10-30 已验证：有蓝牙输出就用蓝牙，否则用板载声卡。板载 3.5 毫米孔插上走耳机，拔掉走喇叭。扩展坞 USB 耳机不参与自动选择，需要时在 Pulsemixer 或 `wpctl` 里单独选。手动 `wpctl set-default` 不再被记住，否则会挡住这个顺序。规则在 `.config/wireplumber/wireplumber.conf.d/51-sink-order.conf`，原因见平台档案「音频输出顺序」。
+
+音乐状态栏只显示正在播放的标题；暂停时在标题后加暂停符号，没有波形。`Mod+p` 切换播放后，由 `sb-mpdup` 通知状态栏。若切换后状态栏迟迟不变，先重启 `sb-mpdup`，再重启 `dwmblocks`。细节见平台档案「状态栏音乐」。
+
 `Print` 通过 `maimpick full` 将全屏截图保存为唯一 PNG；默认目录是
 `${MAIMPICK_DIR:-$HOME/Pictures}`，不存在时自动创建。`Shift+Print` 打开六项菜单，可对选区、
 当前窗口或全屏执行保存或复制。复制结果以 `image/png` 写入 X11 `CLIPBOARD`，应粘贴到支持图片
