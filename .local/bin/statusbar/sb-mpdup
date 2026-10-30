@@ -6,5 +6,7 @@
 command -v mpc >/dev/null 2>&1 || { notify-send "❌ mpc not installed"; exit 0; }
 
 while : ; do
-	mpc idle >/dev/null && pkill -RTMIN+11 "${STATUSBAR:-dwmblocks}" || break
+	mpc idle >/dev/null || { sleep 2; continue; }
+	# pkill misses while dwmblocks is restarting; do not exit the watcher.
+	pkill -RTMIN+11 "${STATUSBAR:-dwmblocks}" >/dev/null 2>&1 || true
 done

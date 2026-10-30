@@ -63,6 +63,7 @@
 | `.config/{herdr,powershell,shell,tmux,wget,zsh}/**` | U01 | - | Shell、终端工作区及开发环境。 |
 | `.config/{dunst,fontconfig,gtk-2.0,gtk-3.0,wal}/**` | U03 | U02 | 桌面外观、字体、通知和可选配色。 |
 | `.config/{alsa,mpd,mpv,ncmpcpp}/**` | U04 | - | 音频、音乐和媒体配置。 |
+| `.config/wireplumber/**` | U04 | U07 | PipeWire 会话策略与默认输出顺序。 |
 | `.config/{lf,nsxiv,zathura}/**` | U05 | U03、U04 | 文件、图像和文档处理。 |
 | `.config/newsboat/**` | U08 | U07 | RSS 阅读/动作，关联通信状态。 |
 | `.local/lib/installation/**` | S01 | S02 | dotcfg 安装实现；测试归 S02，不改变实现主域。 |
@@ -73,6 +74,7 @@
 | `.local/share/test/display/**` | S02 | U06 | 显示子系统 fixture。 |
 | `.local/share/test/access/**` | S02 | U06 | 访问子系统测试。 |
 | `.local/share/test/desktop/**` | S02 | U07、U02 | 蓝牙 dmenu 与状态栏块测试。 |
+| `.local/share/test/statusbar/**` | S02 | U07 | 状态栏内存条测试。 |
 | `.local/share/test/installation/**` | S02 | S01 | 安装子系统 Bats 与辅助文件。 |
 | `.local/share/docs/**` | S03 | - | 公开设计、用户、平台、planning 和审计文档。 |
 | `.local/share/applications/**` | U05 | U03、U04、U07、U08 | MIME/桌面入口由桌面处理能力所有。 |

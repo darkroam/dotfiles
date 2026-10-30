@@ -196,6 +196,39 @@ Debian 档案里的包映射、服务所有权和实测结果仍只属于 Debian
 电池同一次回传：`BAT0` 状态 Full，电量 99。这只是这一次快照，不是充放电策略。
 
 
+
+## 音频输出顺序
+
+2026-10-30 用户验证通过。只记本机，不写进通用依赖。
+
+自动顺序：
+
+1. 蓝牙输出节点在，就用蓝牙。
+2. 否则用板载模拟输出。这是同一个节点：3.5 毫米孔插上走耳机口，拔掉走喇叭。板载 codec 有插孔检测。
+3. 扩展坞 USB 耳机不自动选。要听它时单独用 `wpctl` 或 Pulsemixer 选。
+
+扩展坞是 HP Thunderbolt Dock 声卡 `03f0:0269`。UCM 写了 `Headsets Playback Jack`，混音器里没有这个控件，只有播放音量和开关。耳机拔掉，USB 节点还在。若把它的优先级放到板载之上，空耳机口会一直占着默认输出，板载喇叭不响。所以该节点优先级低于板载。
+
+实现文件：`.config/wireplumber/wireplumber.conf.d/51-sink-order.conf`。
+
+- `node.restore-default-targets = false`。手动 `wpctl set-default` 会被记住并加很高的优先级，会挡住上面的顺序。
+- `bluez_output.*` 的 `priority.session` 为 3000。
+- 板载 `alsa_output.pci-0000_06_00.6.analog-stereo` 为 1500。
+- 坞上 `alsa_output.usb-.*-Generic_USB_Audio-.*-00.*` 为 900。
+
+改文件后要 `systemctl --user restart wireplumber`。已经在播的流要重新接一次，例如 `mpc stop; mpc play`。之后跟着默认输出的流会随默认设备切换。
+
+
+## 状态栏音乐
+
+2026-10-30 用户验证通过。不要再加波形。
+
+- 音乐块只显示播放和暂停：播放是标题，暂停是标题加暂停符号。没有 cava 波形，也没有滚动标题。`sb-musicwave` 和 `.config/cava/statusbar` 已删除。
+- `dwmblocks` 里 `sb-music` 的刷新间隔是 0，只在收到信号 11 时更新。间隔改成 1 是为波形每秒重画，已退回。源码在 `~/src/dwmblocks/config.h`，装到 `/usr/local/bin/dwmblocks` 后必须重启进程，否则内存里仍是旧间隔。
+- `Mod+p` 只执行 `mpc toggle`，不直接刷新状态栏。`sb-mpdup` 用 `mpc idle` 看到状态变化后发信号 11。看守进程在找不到 `dwmblocks` 时不能退出，否则播放暂停不再马上反映到状态栏。
+- 状态栏不跟手时执行：`pkill -x sb-mpdup`，再 `sb-mpdup >/dev/null 2>&1 &`，然后 `killall dwmblocks` 并重新启动 `dwmblocks`。2026-10-30 这样做之后用户确认跟手。
+- 内存条仍是 8 格：█ 已用、▓ 缓存、░ 空闲。这和波形无关，不要一起退掉。
+
 ## 临时隔离与恢复
 
 待填。没有已验证的本机恢复步骤。
@@ -211,6 +244,8 @@ Debian 档案里的包映射、服务所有权和实测结果仍只属于 Debian
 - WPS 12 统一类名，三应用共入标签 6（xprop 实测 2026-10-12）。
 - 状态栏：2026-10-12 阶段五实跑见该节。同日 `sb-volume` 已复验；`sb-internet` 多网卡改为单行。
 - PipeWire：2026-10-12 阶段五，用户服务在跑（invocation 与套接字）。mpd 没有这些痕迹，进程未证实。正文同此，不另写一套结论。
+- 默认输出顺序：2026-10-30 已验证，见「音频输出顺序」。扩展坞 USB 耳机保持手动。
+- 状态栏音乐：2026-10-30 退回播放/暂停，不要波形。`sb-music` 间隔 0。`sb-mpdup` 找不到状态栏时不退出。见「状态栏音乐」。
 - 2026-10-12：`cronie` 为 `enabled`，用户 crontab 里已有每天 9:00 的 `checkup` 和每 6 小时的 `sb-forecast2 --refresh`。命令细节见会话核对。本会话 `crontab -l` 被 pam 拒绝，没有重读。
 - fantgpu overlay 在 `/var/db/repos/fantgpu`，`repos.conf` 指向这里。家目录保持 `700`。`profiles/thirdpartymirrors` 仍然没有，Portage 把它当空表。
 
