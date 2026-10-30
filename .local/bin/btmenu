@@ -255,8 +255,10 @@ stop_dynamic() {
 	[ -n "${reloader:-}" ] && kill "$reloader" 2>/dev/null || true
 	[ -n "${scan_pid:-}" ] && kill "$scan_pid" 2>/dev/null || true
 	bluetoothctl scan off >/dev/null 2>&1 || true
-	rm -f "${sock:-}"
-	[ -n "${dir:-}" ] && rmdir "$dir" 2>/dev/null || true
+	if [ -n "${dir:-}" ]; then
+		rm -f "$dir/list" "$dir/choice" "${sock:-}"
+		rmdir "$dir" 2>/dev/null || true
+	fi
 }
 
 dynamic_scan() {
@@ -286,8 +288,11 @@ dynamic_scan() {
 		done
 	) &
 	reloader=$!
-	choice=$(btmenu --list | env -u FZF_DEFAULT_OPTS -u FZF_DEFAULT_COMMAND -u FZF_API_KEY \
-		timeout 30 fzf --listen="$sock" --sync --prompt '动态扫描> ') || choice=
+	btmenu --list > "$dir/list" || true
+	timeout 30 env -u FZF_DEFAULT_OPTS -u FZF_DEFAULT_COMMAND -u FZF_API_KEY \
+		fzf --listen="$sock" --sync --prompt '动态扫描> ' \
+		< "$dir/list" > "$dir/choice" || true
+	choice=$(cat "$dir/choice" 2>/dev/null) || choice=
 	kill "$reloader" "$scan_pid" 2>/dev/null || true
 	bluetoothctl scan off >/dev/null 2>&1 || true
 	[ -n "$choice" ] || exit 0
