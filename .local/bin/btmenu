@@ -299,7 +299,7 @@ dynamic_scan() {
 case ${1:-} in
 	--status) status_line ;;
 	--connected) connected_menu ;;
-	--list) devices | menu_lines ;;
+	--list) menu_lines "$(devices)" ;;
 	--dynamic) dynamic_scan ;;
 	"") main_menu ;;
 	*) fail "用法：btmenu [--status|--connected|--dynamic|--list]" ;;
