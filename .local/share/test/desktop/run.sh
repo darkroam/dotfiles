@@ -29,6 +29,7 @@ new_env() {
 	export BT_FZF="$root/fzf"
 	export BT_ST="$root/st"
 	export BT_HTTP="$root/http"
+	export BT_MODES="$root/modes"
 	export XDG_RUNTIME_DIR="$root/run"
 	mkdir -p "$BT_STATE" "$root/bin" "$XDG_RUNTIME_DIR"
 	: > "$BT_LOG"
@@ -39,6 +40,7 @@ new_env() {
 	: > "$BT_FZF"
 	: > "$BT_ST"
 	: > "$BT_HTTP"
+	: > "$BT_MODES"
 	cat > "$root/bin/bluetoothctl" << 'EOS'
 #!/bin/sh
 printf '%s\n' "$*" >> "$BT_LOG"
@@ -151,8 +153,19 @@ for arg in "$@"; do
 	esac
 done
 if [ -f "$BT_STATE/fzf.hold" ] && [ -n "$sock" ]; then
+	stat -c 0%a "${sock%/*}" > "$BT_MODES"
 	: > "$sock"
-	sleep 2
+	n=0
+	while [ "$n" -lt 30 ]; do
+		mode=$(stat -c 0%a "$sock" 2>/dev/null || true)
+		if [ "$mode" = 0600 ]; then
+			printf '%s\n' "$mode" >> "$BT_MODES"
+			break
+		fi
+		n=$((n + 1))
+		sleep 0.1
+	done
+	sleep 1
 fi
 if [ -f "$BT_STATE/fzf.out" ]; then
 	cat "$BT_STATE/fzf.out"
@@ -414,6 +427,16 @@ out=$( "$BTMENU" --status )
 assert_eq "$out" "🎧 2" "duplicate-type status"
 finish
 
+# BlueZ headphones icon uses the same mark as a headset
+new_env
+printf '%s\n' 'Controller 00:00:00:00:00:01 Test' > "$BT_STATE/list"
+printf '%s\n' '	Powered: yes' > "$BT_STATE/show"
+printf '%s\n' 'Device 11:11:11:11:11:06 Buds' > "$BT_STATE/devices.Connected"
+icon_file 11:11:11:11:11:06 audio-headphones
+out=$( "$BTMENU" --status )
+assert_eq "$out" "🎧 1" "headphones status"
+finish
+
 # unknown icons keep the old compact form
 new_env
 printf '%s\n' 'Controller 00:00:00:00:00:01 Test' > "$BT_STATE/list"
@@ -505,10 +528,15 @@ if grep -q -- '--listen=' "$BT_FZF" && grep -q '\.sock' "$BT_FZF" && ! grep -q '
 else
 	bad "dynamic listen socket"
 fi
-if [ -e "$XDG_RUNTIME_DIR/btmenu-fzf.sock" ] || [ -e "$XDG_RUNTIME_DIR/btmenu-scan.lock" ]; then
-	bad "dynamic cancel left socket or lock"
+if find "$XDG_RUNTIME_DIR" -maxdepth 1 -type d -name 'btmenu.*' -print | grep -q .; then
+	bad "dynamic cancel left private dir"
 else
-	ok "dynamic cancel cleaned up"
+	ok "dynamic cancel removed private dir"
+fi
+if [ -f "$XDG_RUNTIME_DIR/btmenu-scan.lock" ]; then
+	ok "dynamic cancel kept lock file"
+else
+	bad "dynamic cancel removed lock file"
 fi
 finish
 
@@ -544,10 +572,26 @@ printf '%s\n' 1 > "$BT_STATE/fzf.rc"
 : > "$BT_STATE/fzf.hold"
 "$BTMENU" --dynamic >/dev/null 2>&1; rc=$?
 assert_rc "$rc" 0 "dynamic reload rc"
-if grep -q -- '--unix-socket' "$BT_HTTP" 	&& grep -q 'reload(btmenu --list)' "$BT_HTTP" 	&& grep -q '\.sock' "$BT_HTTP" 	&& ! grep -q 'listen-unsafe' "$BT_FZF"; then
+if grep -q -- '--unix-socket' "$BT_HTTP" \
+	&& grep -q 'reload(btmenu --list)' "$BT_HTTP" \
+	&& grep -q '\.sock' "$BT_HTTP" \
+	&& ! grep -q 'listen-unsafe' "$BT_FZF"; then
 	ok "dynamic reload post"
 else
 	bad "dynamic reload post: $(cat "$BT_HTTP") / $(cat "$BT_FZF")"
+fi
+want=$(printf '%s\n' 0700 0600)
+assert_eq "$(cat "$BT_MODES")" "$want" "dynamic private modes"
+finish
+
+# unknown flag names --list in the usage line
+new_env
+"$BTMENU" --nope >/dev/null 2>&1; rc=$?
+assert_rc "$rc" 1 "usage rc"
+if grep -q -- '--list' "$BT_NOTIFY" && grep -q -- '--dynamic' "$BT_NOTIFY"; then
+	ok "usage lists internal --list"
+else
+	bad "usage lists internal --list"
 fi
 finish
 

@@ -187,12 +187,11 @@ scan_pair() {
 }
 
 type_mark() {
-	# shortcut: BlueZ audio-headphones is not in this map, so it falls back to 🔵N
 	case $1 in
 		input-keyboard) printf '⌨️\n' ;;
 		input-mouse) printf '🖱️\n' ;;
 		phone) printf '📱\n' ;;
-		audio-headset|audio-card) printf '🎧\n' ;;
+		audio-headset|audio-headphones|audio-card) printf '🎧\n' ;;
 		audio-speakers) printf '🔊\n' ;;
 		computer) printf '💻\n' ;;
 		input-gaming) printf '🎮\n' ;;
@@ -256,7 +255,8 @@ stop_dynamic() {
 	[ -n "${reloader:-}" ] && kill "$reloader" 2>/dev/null || true
 	[ -n "${scan_pid:-}" ] && kill "$scan_pid" 2>/dev/null || true
 	bluetoothctl scan off >/dev/null 2>&1 || true
-	rm -f "${sock:-}" "${lock:-}"
+	rm -f "${sock:-}"
+	[ -n "${dir:-}" ] && rmdir "$dir" 2>/dev/null || true
 }
 
 dynamic_scan() {
@@ -267,8 +267,10 @@ dynamic_scan() {
 	lock=${XDG_RUNTIME_DIR:-/tmp}/btmenu-scan.lock
 	exec 9>"$lock" || fail "无法锁定扫描"
 	flock -n 9 || { notify "已在扫描"; exit 0; }
-	sock=${XDG_RUNTIME_DIR:-/tmp}/btmenu-fzf.sock
-	rm -f "$sock"
+	runtime=${XDG_RUNTIME_DIR:-/tmp}
+	dir=$(mktemp -d "$runtime/btmenu.XXXXXX") || fail "无法创建临时目录"
+	chmod 700 "$dir" || { rmdir "$dir"; fail "无法保护临时目录"; }
+	sock=$dir/fzf.sock
 	trap stop_dynamic EXIT INT TERM
 	bluetoothctl scan on >/dev/null 2>&1 &
 	scan_pid=$!
@@ -276,6 +278,7 @@ dynamic_scan() {
 		deadline=$(( $(date +%s) + 30 ))
 		while [ "$(date +%s)" -lt "$deadline" ]; do
 			if [ -e "$sock" ]; then
+				chmod 600 "$sock" 2>/dev/null || true
 				curl -fsS --max-time 2 --unix-socket "$sock" http://localhost/ \
 					-d 'reload(btmenu --list)' >/dev/null 2>&1 || true
 			fi
@@ -299,5 +302,5 @@ case ${1:-} in
 	--list) devices | menu_lines ;;
 	--dynamic) dynamic_scan ;;
 	"") main_menu ;;
-	*) fail "用法：btmenu [--status|--connected|--dynamic]" ;;
+	*) fail "用法：btmenu [--status|--connected|--dynamic|--list]" ;;
 esac
