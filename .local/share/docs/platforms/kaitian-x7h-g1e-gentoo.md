@@ -190,7 +190,7 @@ Debian 档案里的包映射、服务所有权和实测结果仍只属于 Debian
 ACTION=="add", SUBSYSTEM=="backlight", KERNEL=="panel_backlight", RUN+="/bin/chgrp video /sys/class/backlight/%k/brightness", RUN+="/bin/chmod g+w /sys/class/backlight/%k/brightness"
 ```
 
-安装后执行 `udevadm control --reload` 和 `udevadm trigger --subsystem-match=backlight`。已经存在的节点还要当场改一次组权限，否则要等下次 add。验证：不用 sudo，`xbacklight -get` 有数字，再 `xbacklight -set` 写回同一百分比，退出码 0。本会话没有 root，规则还没装上。
+安装后执行 `udevadm control --reload` 和 `udevadm trigger --action=add --subsystem-match=backlight`。已经存在的节点还要当场改一次组权限，否则要等下次 add。验证：不用 sudo，`xbacklight -get` 有数字，再 `xbacklight -inc 1` / `-dec 1` 退出码 0。2026-10-30 本机已安装并验证：节点为 `root:video 0664`，读写正常，状态栏显示 `🔆30%`。
 
 ## 显示硬件与本机钩子
 
