@@ -26,6 +26,9 @@ new_env() {
 	export BT_PICKS="$root/picks"
 	export BT_STATE="$root/state"
 	export BT_PKILL="$root/pkill"
+	export BT_FZF="$root/fzf"
+	export BT_ST="$root/st"
+	export BT_HTTP="$root/http"
 	export XDG_RUNTIME_DIR="$root/run"
 	mkdir -p "$BT_STATE" "$root/bin" "$XDG_RUNTIME_DIR"
 	: > "$BT_LOG"
@@ -33,6 +36,9 @@ new_env() {
 	: > "$BT_DMENU_LOG"
 	: > "$BT_PICKS"
 	: > "$BT_PKILL"
+	: > "$BT_FZF"
+	: > "$BT_ST"
+	: > "$BT_HTTP"
 	cat > "$root/bin/bluetoothctl" << 'EOS'
 #!/bin/sh
 printf '%s\n' "$*" >> "$BT_LOG"
@@ -78,7 +84,15 @@ case $cmd in
 		rc=$(cat "$BT_STATE/pair.rc" 2>/dev/null || printf '%s\n' 0)
 		exit "$rc"
 		;;
-	info) cat "$BT_STATE/info" 2>/dev/null; exit 0 ;;
+	info)
+		mac=${1:-}
+		if [ -n "$mac" ] && [ -f "$BT_STATE/info.$mac" ]; then
+			cat "$BT_STATE/info.$mac"
+		else
+			cat "$BT_STATE/info" 2>/dev/null
+		fi
+		exit 0
+		;;
 	*) exit 0 ;;
 esac
 EOS
@@ -111,8 +125,49 @@ EOS
 printf '%s\n' "$*" >> "$BT_PKILL"
 exit 0
 EOS
+	cat > "$root/bin/timeout" << 'EOS'
+#!/bin/sh
+printf '%s\n' "timeout $*" >> "$BT_LOG"
+shift
+"$@"
+EOS
+	cat > "$root/bin/st" << 'EOS'
+#!/bin/sh
+printf '%s\n' "$*" >> "$BT_ST"
+exit 0
+EOS
+	cat > "$root/bin/curl" << 'EOS'
+#!/bin/sh
+printf '%s\n' "$*" >> "$BT_HTTP"
+exit 0
+EOS
+	cat > "$root/bin/fzf" << 'EOS'
+#!/bin/sh
+printf '%s\n' "$*" >> "$BT_FZF"
+sock=
+for arg in "$@"; do
+	case $arg in
+		--listen=*) sock=${arg#--listen=} ;;
+	esac
+done
+if [ -f "$BT_STATE/fzf.hold" ] && [ -n "$sock" ]; then
+	: > "$sock"
+	sleep 2
+fi
+if [ -f "$BT_STATE/fzf.out" ]; then
+	cat "$BT_STATE/fzf.out"
+fi
+if [ -f "$BT_STATE/fzf.rc" ]; then
+	exit "$(cat "$BT_STATE/fzf.rc")"
+fi
+exit 1
+EOS
 	chmod 755 "$root/bin/"*
-	export PATH="$root/bin:$HOME_BIN:$HOME_BIN/statusbar:$PATH"
+	if [ -z "${BT_BASE_PATH:-}" ]; then
+		BT_BASE_PATH=$PATH
+		export BT_BASE_PATH
+	fi
+	export PATH="$root/bin:$HOME_BIN:$HOME_BIN/statusbar:$BT_BASE_PATH"
 	export STATUSBAR=dwmblocks
 }
 
@@ -322,6 +377,177 @@ if [ -s "$BT_PKILL" ]; then
 	bad "bar no-adapter signaled"
 else
 	ok "bar no-adapter no signal"
+fi
+finish
+
+
+icon_file() {
+	printf '%s\n' "	Icon: $2" > "$BT_STATE/info.$1"
+}
+
+# known type icons, deduped, with a space before the count
+new_env
+printf '%s\n' 'Controller 00:00:00:00:00:01 Test' > "$BT_STATE/list"
+printf '%s\n' '	Powered: yes' > "$BT_STATE/show"
+printf '%s\n' 'Device 11:11:11:11:11:01 Keys' 'Device 11:11:11:11:11:02 Phone' > "$BT_STATE/devices.Connected"
+icon_file 11:11:11:11:11:01 input-keyboard
+icon_file 11:11:11:11:11:02 phone
+out=$( "$BTMENU" --status )
+assert_eq "$out" "⌨️📱 2" "two-type status"
+if grep -q 'timeout 5 bluetoothctl info 11:11:11:11:11:01' "$BT_LOG" \
+	&& grep -q 'timeout 5 bluetoothctl info 11:11:11:11:11:02' "$BT_LOG"; then
+	ok "icon info uses timeout 5"
+else
+	bad "icon info timeout shape"
+fi
+assert_no_timeout "icon info"
+finish
+
+# same type twice counts both devices and keeps one icon
+new_env
+printf '%s\n' 'Controller 00:00:00:00:00:01 Test' > "$BT_STATE/list"
+printf '%s\n' '	Powered: yes' > "$BT_STATE/show"
+printf '%s\n' 'Device 11:11:11:11:11:03 A' 'Device 11:11:11:11:11:04 B' > "$BT_STATE/devices.Connected"
+icon_file 11:11:11:11:11:03 audio-headset
+icon_file 11:11:11:11:11:04 audio-card
+out=$( "$BTMENU" --status )
+assert_eq "$out" "🎧 2" "duplicate-type status"
+finish
+
+# unknown icons keep the old compact form
+new_env
+printf '%s\n' 'Controller 00:00:00:00:00:01 Test' > "$BT_STATE/list"
+printf '%s\n' '	Powered: yes' > "$BT_STATE/show"
+printf '%s\n' 'Device 11:11:11:11:11:05 Cam' > "$BT_STATE/devices.Connected"
+icon_file 11:11:11:11:11:05 camera-photo
+out=$( "$BTMENU" --status )
+assert_eq "$out" "🔵1" "unknown-icon status"
+finish
+
+# a known type keeps one unknown icon; five types overflow
+new_env
+printf '%s\n' 'Controller 00:00:00:00:00:01 Test' > "$BT_STATE/list"
+printf '%s\n' '	Powered: yes' > "$BT_STATE/show"
+printf '%s\n' \
+	'Device 11:11:11:11:11:11 K' \
+	'Device 11:11:11:11:11:12 M' \
+	'Device 11:11:11:11:11:13 P' \
+	'Device 11:11:11:11:11:14 H' \
+	'Device 11:11:11:11:11:15 S' \
+	'Device 11:11:11:11:11:16 U' > "$BT_STATE/devices.Connected"
+icon_file 11:11:11:11:11:11 input-keyboard
+icon_file 11:11:11:11:11:12 input-mouse
+icon_file 11:11:11:11:11:13 phone
+icon_file 11:11:11:11:11:14 audio-headset
+icon_file 11:11:11:11:11:15 audio-speakers
+icon_file 11:11:11:11:11:16 camera-photo
+out=$( "$BTMENU" --status )
+assert_eq "$out" "⌨️🖱️📱🎧+2 6" "overflow status"
+finish
+
+# dynamic entry opens st and does not start the 8 second scan
+new_env
+printf '%s\n' 'Controller 00:00:00:00:00:01 Test' > "$BT_STATE/list"
+printf '%s\n' '	Powered: yes' > "$BT_STATE/show"
+printf '%s\n' '动态扫描（fzf）' > "$BT_PICKS"
+"$BTMENU"; rc=$?
+assert_rc "$rc" 0 "dynamic menu rc"
+assert_eq "$(cat "$BT_ST")" "-e btmenu --dynamic" "dynamic menu launches st"
+if grep -q 'scan on' "$BT_LOG"; then
+	bad "dynamic menu started scan"
+else
+	ok "dynamic menu did not scan"
+fi
+finish
+
+# missing fzf exits 0 and does not scan
+new_env
+printf '%s\n' 'Controller 00:00:00:00:00:01 Test' > "$BT_STATE/list"
+printf '%s\n' '	Powered: yes' > "$BT_STATE/show"
+mkdir -p "$root/sys"
+ln -s "$(command -v awk)" "$root/sys/awk"
+ln -s "$(command -v grep)" "$root/sys/grep"
+ln -s "$(command -v cat)" "$root/sys/cat"
+rm -f "$root/bin/fzf" "$root/bin/curl"
+PATH="$root/bin:$root/sys" "$BTMENU" --dynamic; rc=$?
+assert_rc "$rc" 0 "missing fzf rc"
+if grep -q '未安装 fzf' "$BT_NOTIFY"; then
+	ok "missing fzf notify"
+else
+	bad "missing fzf notify"
+fi
+if grep -q 'scan on' "$BT_LOG"; then
+	bad "missing fzf scanned"
+else
+	ok "missing fzf did not scan"
+fi
+finish
+
+# cancel stops the scan and does not pair
+new_env
+printf '%s\n' 'Controller 00:00:00:00:00:01 Test' > "$BT_STATE/list"
+printf '%s\n' '	Powered: yes' > "$BT_STATE/show"
+printf '%s\n' 1 > "$BT_STATE/fzf.rc"
+"$BTMENU" --dynamic; rc=$?
+assert_rc "$rc" 0 "dynamic cancel rc"
+if grep -q 'scan on' "$BT_LOG" && grep -qx 'scan off' "$BT_LOG"; then
+	ok "dynamic cancel scan off"
+else
+	bad "dynamic cancel scan off"
+fi
+if grep -q '^pair ' "$BT_LOG" || grep -q 'pair ' "$BT_LOG"; then
+	bad "dynamic cancel paired"
+else
+	ok "dynamic cancel did not pair"
+fi
+if grep -q -- '--listen=' "$BT_FZF" && grep -q '\.sock' "$BT_FZF" && ! grep -q 'listen-unsafe' "$BT_FZF"; then
+	ok "dynamic listen socket"
+else
+	bad "dynamic listen socket"
+fi
+if [ -e "$XDG_RUNTIME_DIR/btmenu-fzf.sock" ] || [ -e "$XDG_RUNTIME_DIR/btmenu-scan.lock" ]; then
+	bad "dynamic cancel left socket or lock"
+else
+	ok "dynamic cancel cleaned up"
+fi
+finish
+
+# a selection reuses pair, trust and connect
+new_env
+printf '%s\n' 'Controller 00:00:00:00:00:01 Test' > "$BT_STATE/list"
+printf '%s\n' '	Powered: yes' > "$BT_STATE/show"
+printf '%s\n' '	Paired: no' '	Trusted: no' '	Connected: no' > "$BT_STATE/info"
+printf '%s\n' 0 > "$BT_STATE/pair.rc"
+printf '%s\n' 0 > "$BT_STATE/fzf.rc"
+printf 'Headset\tAA:BB:CC:DD:EE:FF\n' > "$BT_STATE/fzf.out"
+"$BTMENU" --dynamic >/dev/null 2>&1; rc=$?
+assert_rc "$rc" 0 "dynamic select rc"
+if grep -q -- '--timeout 20 pair AA:BB:CC:DD:EE:FF' "$BT_LOG" \
+	&& grep -qx 'trust AA:BB:CC:DD:EE:FF' "$BT_LOG" \
+	&& grep -qx 'connect AA:BB:CC:DD:EE:FF' "$BT_LOG"; then
+	ok "dynamic select reuses bring-up"
+else
+	bad "dynamic select reuses bring-up"
+fi
+if grep -qx 'scan off' "$BT_LOG"; then
+	ok "dynamic select scan off"
+else
+	bad "dynamic select scan off"
+fi
+finish
+
+# reload is posted to the unix socket and does not open tcp
+new_env
+printf '%s\n' 'Controller 00:00:00:00:00:01 Test' > "$BT_STATE/list"
+printf '%s\n' '	Powered: yes' > "$BT_STATE/show"
+printf '%s\n' 1 > "$BT_STATE/fzf.rc"
+: > "$BT_STATE/fzf.hold"
+"$BTMENU" --dynamic >/dev/null 2>&1; rc=$?
+assert_rc "$rc" 0 "dynamic reload rc"
+if grep -q -- '--unix-socket' "$BT_HTTP" 	&& grep -q 'reload(btmenu --list)' "$BT_HTTP" 	&& grep -q '\.sock' "$BT_HTTP" 	&& ! grep -q 'listen-unsafe' "$BT_FZF"; then
+	ok "dynamic reload post"
+else
+	bad "dynamic reload post: $(cat "$BT_HTTP") / $(cat "$BT_FZF")"
 fi
 finish
 

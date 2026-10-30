@@ -10,10 +10,19 @@ Bar:
 	(empty)  no adapter
 	⛔   powered off
 	🔵   adapter on, nothing connected
-	🔵N  N devices connected
+	🎧📱 2  connected devices by type, deduped, at most four icons, then +N, then the count
+	🔵N  connected, but no known type
+	each Icon lookup is `timeout 5 bluetoothctl info`
 
 Menu:
 	打开蓝牙 / 关闭蓝牙
-	扫描并配对
+	扫描并配对 is the 8 second scan
+	动态扫描（fzf） runs `st -e btmenu --dynamic`
 	已配对设备: 连接, 断开, 信任, 移除
 	Cancel exits 0. No adapter exits non-zero. No PIN prompt.
+
+--dynamic:
+	scan at most 30 seconds and reload fzf once a second
+	reload uses --listen on a 0600 Unix socket, never TCP and never --listen-unsafe
+	a selection reuses pair, trust and connect
+	Esc, timeout, missing fzf or missing curl exits 0 and stops the scan

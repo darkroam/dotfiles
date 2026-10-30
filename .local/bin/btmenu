@@ -186,17 +186,48 @@ scan_pair() {
 	bring_up "$mac"
 }
 
+type_mark() {
+	# shortcut: BlueZ audio-headphones is not in this map, so it falls back to 🔵N
+	case $1 in
+		input-keyboard) printf '⌨️\n' ;;
+		input-mouse) printf '🖱️\n' ;;
+		phone) printf '📱\n' ;;
+		audio-headset|audio-card) printf '🎧\n' ;;
+		audio-speakers) printf '🔊\n' ;;
+		computer) printf '💻\n' ;;
+		input-gaming) printf '🎮\n' ;;
+		"") ;;
+		*) printf '🔵\n' ;;
+	esac
+}
+
 status_line() {
 	adapter_state
 	case $state in
 		none) return 0 ;;
 		off) printf '⛔\n'; return 0 ;;
 	esac
-	n=$(devices Connected | awk 'END { print NR + 0 }')
-	if [ "$n" -gt 0 ]; then
+	raw=$(devices Connected)
+	[ -n "$raw" ] || { printf '🔵\n'; return 0; }
+	n=$(printf '%s\n' "$raw" | awk 'END { print NR + 0 }')
+	# shortcut: timeout 5 runs once per device and can miss the 10s tick; batch if many stay connected
+	marks=$(printf '%s\n' "$raw" | awk -F '\t' 'NF && $1 != "" { print $1 }' |
+		while IFS= read -r mac; do
+			icon=$(timeout 5 bluetoothctl info "$mac" 2>/dev/null | awk '$1 == "Icon:" { print $2; exit }') || true
+			type_mark "$icon"
+		done)
+	uniq=$(printf '%s\n' "$marks" | awk 'NF && !seen[$0]++')
+	known=$(printf '%s\n' "$uniq" | awk 'NF && $0 != "🔵" { print; exit }')
+	if [ -z "$known" ]; then
 		printf '🔵%s\n' "$n"
+		return 0
+	fi
+	head=$(printf '%s\n' "$uniq" | awk 'NF { printf "%s", $0; if (++c == 4) exit }')
+	types=$(printf '%s\n' "$uniq" | awk 'NF { c++ } END { print c + 0 }')
+	if [ "$types" -gt 4 ]; then
+		printf '%s+%s %s\n' "$head" "$((types - 4))" "$n"
 	else
-		printf '🔵\n'
+		printf '%s %s\n' "$head" "$n"
 	fi
 }
 
@@ -205,21 +236,68 @@ main_menu() {
 	if [ "$state" = off ]; then
 		items="打开蓝牙"
 	else
-		items=$(printf '%s\n' "关闭蓝牙" "扫描并配对" "已配对设备")
+		items=$(printf '%s\n' "关闭蓝牙" "扫描并配对" "动态扫描（fzf）" "已配对设备")
 	fi
 	pick "蓝牙" "$items" || exit 0
 	case $choice in
 		打开蓝牙) power on ;;
 		关闭蓝牙) power off ;;
 		扫描并配对) scan_pair ;;
+		动态扫描（fzf）)
+			command -v st >/dev/null 2>&1 || { notify "未安装 st"; exit 0; }
+			st -e btmenu --dynamic
+			;;
 		已配对设备) paired_menu ;;
 		*) exit 0 ;;
 	esac
 }
 
+stop_dynamic() {
+	[ -n "${reloader:-}" ] && kill "$reloader" 2>/dev/null || true
+	[ -n "${scan_pid:-}" ] && kill "$scan_pid" 2>/dev/null || true
+	bluetoothctl scan off >/dev/null 2>&1 || true
+	rm -f "${sock:-}" "${lock:-}"
+}
+
+dynamic_scan() {
+	need_adapter
+	[ "$state" = off ] && fail "蓝牙已关闭"
+	command -v fzf >/dev/null 2>&1 || { notify "未安装 fzf"; exit 0; }
+	command -v curl >/dev/null 2>&1 || { notify "未安装 curl"; exit 0; }
+	lock=${XDG_RUNTIME_DIR:-/tmp}/btmenu-scan.lock
+	exec 9>"$lock" || fail "无法锁定扫描"
+	flock -n 9 || { notify "已在扫描"; exit 0; }
+	sock=${XDG_RUNTIME_DIR:-/tmp}/btmenu-fzf.sock
+	rm -f "$sock"
+	trap stop_dynamic EXIT INT TERM
+	bluetoothctl scan on >/dev/null 2>&1 &
+	scan_pid=$!
+	(
+		deadline=$(( $(date +%s) + 30 ))
+		while [ "$(date +%s)" -lt "$deadline" ]; do
+			if [ -e "$sock" ]; then
+				curl -fsS --max-time 2 --unix-socket "$sock" http://localhost/ \
+					-d 'reload(btmenu --list)' >/dev/null 2>&1 || true
+			fi
+			sleep 1
+		done
+	) &
+	reloader=$!
+	choice=$(btmenu --list | env -u FZF_DEFAULT_OPTS -u FZF_DEFAULT_COMMAND -u FZF_API_KEY \
+		timeout 30 fzf --listen="$sock" --sync --prompt '动态扫描> ') || choice=
+	kill "$reloader" "$scan_pid" 2>/dev/null || true
+	bluetoothctl scan off >/dev/null 2>&1 || true
+	[ -n "$choice" ] || exit 0
+	mac=$(mac_of "$choice")
+	[ -n "$mac" ] || exit 0
+	bring_up "$mac"
+}
+
 case ${1:-} in
 	--status) status_line ;;
 	--connected) connected_menu ;;
+	--list) devices | menu_lines ;;
+	--dynamic) dynamic_scan ;;
 	"") main_menu ;;
-	*) fail "用法：btmenu [--status|--connected]" ;;
+	*) fail "用法：btmenu [--status|--connected|--dynamic]" ;;
 esac
