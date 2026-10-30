@@ -52,6 +52,39 @@ while [ $# -gt 0 ]; do
 		*) break ;;
 	esac
 done
+set_prop() {
+	key=$1
+	val=$2
+	[ -f "$BT_STATE/info" ] || : > "$BT_STATE/info"
+	awk -v k="$key" -v v="$val" '
+		$1 == k { print "\t" k " " v; seen = 1; next }
+		{ print }
+		END { if (!seen) print "\t" k " " v }
+	' "$BT_STATE/info" > "$BT_STATE/info.new" && mv "$BT_STATE/info.new" "$BT_STATE/info"
+}
+do_pair() {
+	if [ -f "$BT_STATE/pair.err" ]; then
+		cat "$BT_STATE/pair.err"
+	fi
+	if [ -f "$BT_STATE/pair.lie" ]; then
+		exit 0
+	fi
+	rc=$(cat "$BT_STATE/pair.rc" 2>/dev/null || printf '%s\n' 0)
+	[ "$rc" -eq 0 ] || exit "$rc"
+	set_prop "Paired:" yes
+}
+if [ $# -eq 0 ]; then
+	printf 'Agent registered\n'
+	while IFS= read -r line; do
+		printf '%s\n' "$line" >> "$BT_LOG"
+		set -- $line
+		case ${1:-} in
+			pair) do_pair ;;
+			quit|exit) exit 0 ;;
+		esac
+	done
+	exit 0
+fi
 cmd=$1
 shift
 case $cmd in
@@ -80,13 +113,29 @@ case $cmd in
 		exit 0
 		;;
 	pair)
-		if [ -f "$BT_STATE/pair.err" ]; then
-			cat "$BT_STATE/pair.err" >&2
+		do_pair
+		exit 0
+		;;
+	trust)
+		set_prop "Trusted:" yes
+		exit 0
+		;;
+	connect)
+		if [ -f "$BT_STATE/connect.lie" ]; then
+			exit 0
 		fi
-		rc=$(cat "$BT_STATE/pair.rc" 2>/dev/null || printf '%s\n' 0)
-		exit "$rc"
+		set_prop "Connected:" yes
+		exit 0
 		;;
 	info)
+		if [ -f "$BT_STATE/connect.drop" ]; then
+			n=$(cat "$BT_STATE/connect.drop")
+			if [ "$n" -gt 0 ]; then
+				printf '%s\n' $((n - 1)) > "$BT_STATE/connect.drop"
+			else
+				set_prop "Connected:" no
+			fi
+		fi
 		mac=${1:-}
 		if [ -n "$mac" ] && [ -f "$BT_STATE/info.$mac" ]; then
 			cat "$BT_STATE/info.$mac"
@@ -130,6 +179,9 @@ EOS
 	cat > "$root/bin/timeout" << 'EOS'
 #!/bin/sh
 printf '%s\n' "timeout $*" >> "$BT_LOG"
+if [ "${1:-}" = --foreground ]; then
+	shift
+fi
 shift
 "$@"
 EOS
@@ -146,6 +198,30 @@ EOS
 	cat > "$root/bin/fzf" << 'EOS'
 #!/bin/sh
 printf '%s\n' "$*" >> "$BT_FZF"
+# An argv named timeout, not the letters inside some parent script.
+# Without --foreground a real fzf stops on SIGTTIN; do not invent a choice.
+pid=$PPID
+while [ "$pid" -gt 1 ]; do
+	if awk 'BEGIN { RS = "\0" }
+		{
+			n = $0
+			sub(/.*\//, "", n)
+			if (n == "timeout") { found = 1 }
+			if ($0 == "--foreground") { fg = 1 }
+		}
+		END { if (found) printf "%s", fg ? "fg" : "bg" }' "/proc/$pid/cmdline" > "$BT_FZF.job" 2>/dev/null
+	then
+		job=$(cat "$BT_FZF.job" 2>/dev/null || true)
+		if [ "$job" = bg ]; then
+			printf 'tty-stop\n' >> "$BT_FZF"
+			exit 0
+		fi
+		if [ "$job" = fg ]; then
+			break
+		fi
+	fi
+	pid=$(awk '/^PPid:/ { print $2; exit }' "/proc/$pid/status" 2>/dev/null) || break
+done
 sock=
 for arg in "$@"; do
 	case $arg in
@@ -307,33 +383,110 @@ printf '%s\n' '	Paired: no' > "$BT_STATE/info"
 printf '%s\n' 'Failed to pair' > "$BT_STATE/pair.err"
 printf '%s\n' 1 > "$BT_STATE/pair.rc"
 printf '%s\n' '扫描并配对' AUTO > "$BT_PICKS"
-"$BTMENU" >/dev/null 2>&1; rc=$?
+"$BTMENU" >"$root/out" 2>"$root/err"; rc=$?
 assert_rc "$rc" 1 "pair-fail rc"
-if grep -q '^trust ' "$BT_LOG" || grep -q '^connect ' "$BT_LOG"; then
+if grep -q '^trust ' "$BT_LOG" || grep -q '^connect ' "$BT_LOG" \
+	|| grep -q '^untrust ' "$BT_LOG" || grep -q '^remove ' "$BT_LOG"; then
 	bad "pair-fail continued"
 else
 	ok "pair-fail stopped"
 fi
-if grep -q 'Failed to pair' "$BT_NOTIFY"; then
+if grep -q 'Failed to pair' "$BT_NOTIFY" && grep -q 'Failed to pair' "$root/err"; then
 	ok "pair-fail notify"
 else
 	bad "pair-fail notify missing"
 fi
 if grep -qx -- '--timeout 8 scan on' "$BT_LOG" \
-	&& grep -q -- '--timeout 20 pair ' "$BT_LOG"; then
-	ok "pair-fail keeps scan and pair timeouts"
+	&& grep -qx 'pair AA:BB:CC:DD:EE:FF' "$BT_LOG" \
+	&& ! grep -q -- '--timeout 20 pair ' "$BT_LOG"; then
+	ok "pair-fail keeps scan timeout and interactive pair"
 else
 	bad "pair-fail timeout shape"
 fi
-if grep -- '--timeout' "$BT_LOG" | grep -Ev -e '--timeout 8 scan on' -e '--timeout 20 pair ' | grep -q .; then
+if grep -- '--timeout' "$BT_LOG" | grep -Ev -e '--timeout 8 scan on' | grep -q .; then
 	bad "pair-fail extra timeout"
 else
 	ok "pair-fail queries have no timeout"
 fi
 if [ -e "$XDG_RUNTIME_DIR/btmenu-scan.lock" ]; then
-	bad "scan lock left behind"
+	ok "scan lock kept"
 else
-	ok "scan lock removed"
+	bad "scan lock removed"
+fi
+finish
+
+# exit 0 from pair is still failure when Paired stays no; trust is left untouched
+new_env
+printf '%s\n' 'Controller 00:00:00:00:00:01 Test' > "$BT_STATE/list"
+printf '%s\n' '	Powered: yes' > "$BT_STATE/show"
+: > "$BT_STATE/devices.all"
+printf '%s\n' 'Device AA:BB:CC:DD:EE:FF Headset' > "$BT_STATE/devices.after"
+printf '%s\n' '	Paired: no' '	Trusted: yes' '	Connected: no' > "$BT_STATE/info"
+: > "$BT_STATE/pair.lie"
+printf '%s\n' 0 > "$BT_STATE/pair.rc"
+printf '%s\n' '扫描并配对' AUTO > "$BT_PICKS"
+"$BTMENU" >"$root/out" 2>"$root/err"; rc=$?
+assert_rc "$rc" 1 "pair-lie rc"
+if grep -q '配对失败' "$BT_NOTIFY" && grep -q '配对失败' "$root/err" \
+	&& ! grep -q '已配对并连接' "$BT_NOTIFY" "$root/out" "$root/err"; then
+	ok "pair-lie tells the terminal"
+else
+	bad "pair-lie tells the terminal"
+fi
+if grep -q '^trust ' "$BT_LOG" || grep -q '^connect ' "$BT_LOG" \
+	|| grep -q '^untrust ' "$BT_LOG" || grep -q '^remove ' "$BT_LOG"; then
+	bad "pair-lie changed trust"
+else
+	ok "pair-lie left trust"
+fi
+if grep -q 'Paired: yes' "$BT_STATE/info"; then
+	bad "pair-lie marked paired"
+else
+	ok "pair-lie stayed unpaired"
+fi
+finish
+
+# connect exit 0 is not success unless Connected is yes
+new_env
+printf '%s\n' 'Controller 00:00:00:00:00:01 Test' > "$BT_STATE/list"
+printf '%s\n' '	Powered: yes' > "$BT_STATE/show"
+: > "$BT_STATE/devices.all"
+printf '%s\n' 'Device AA:BB:CC:DD:EE:FF Headset' > "$BT_STATE/devices.after"
+printf '%s\n' '	Paired: no' '	Trusted: no' '	Connected: no' > "$BT_STATE/info"
+printf '%s\n' 0 > "$BT_STATE/pair.rc"
+: > "$BT_STATE/connect.lie"
+printf '%s\n' '扫描并配对' AUTO > "$BT_PICKS"
+"$BTMENU" >"$root/out" 2>"$root/err"; rc=$?
+assert_rc "$rc" 1 "connect-lie rc"
+if grep -q '未连接' "$BT_NOTIFY" && ! grep -q '已配对并连接' "$BT_NOTIFY"; then
+	ok "connect-lie is not success"
+else
+	bad "connect-lie is not success"
+fi
+if grep -q 'Paired: yes' "$BT_STATE/info" && ! grep -q 'Connected: yes' "$BT_STATE/info"; then
+	ok "connect-lie paired only"
+else
+	bad "connect-lie paired only"
+fi
+finish
+
+# Connected flickers yes and then drops: not a success
+new_env
+printf '%s\n' 'Controller 00:00:00:00:00:01 Test' > "$BT_STATE/list"
+printf '%s\n' '	Powered: yes' > "$BT_STATE/show"
+: > "$BT_STATE/devices.all"
+printf '%s\n' 'Device AA:BB:CC:DD:EE:FF Headset' > "$BT_STATE/devices.after"
+printf '%s\n' '	Paired: no' '	Trusted: no' '	Connected: no' > "$BT_STATE/info"
+printf '%s\n' 0 > "$BT_STATE/pair.rc"
+printf '%s\n' 2 > "$BT_STATE/connect.drop"
+printf '%s\n' '扫描并配对' AUTO > "$BT_PICKS"
+"$BTMENU" >"$root/out" 2>"$root/err"; rc=$?
+assert_rc "$rc" 1 "connect-drop rc"
+if grep -q '已配对但未连接' "$BT_NOTIFY" "$root/err" \
+	&& ! grep -q '已配对并连接' "$BT_NOTIFY" "$root/out" "$root/err"; then
+	ok "connect-drop is not success"
+else
+	bad "connect-drop is not success: $(cat "$BT_NOTIFY") / $(cat "$root/err")"
 fi
 finish
 
@@ -528,6 +681,16 @@ if grep -q -- '--listen=' "$BT_FZF" && grep -q '\.sock' "$BT_FZF" && ! grep -q '
 else
 	bad "dynamic listen socket"
 fi
+if grep -qx 'tty-stop' "$BT_FZF"; then
+	bad "dynamic fzf lost the tty"
+else
+	ok "dynamic fzf kept the tty"
+fi
+if grep -q 'timeout --foreground 30 ' "$BT_LOG"; then
+	ok "dynamic timeout stays foreground"
+else
+	bad "dynamic timeout stays foreground"
+fi
 if find "$XDG_RUNTIME_DIR" -maxdepth 1 -type d -name 'btmenu.*' -print | grep -q .; then
 	bad "dynamic cancel left private dir"
 else
@@ -550,17 +713,41 @@ printf '%s\n' 0 > "$BT_STATE/fzf.rc"
 printf 'Headset\tAA:BB:CC:DD:EE:FF\n' > "$BT_STATE/fzf.out"
 "$BTMENU" --dynamic >/dev/null 2>&1; rc=$?
 assert_rc "$rc" 0 "dynamic select rc"
-if grep -q -- '--timeout 20 pair AA:BB:CC:DD:EE:FF' "$BT_LOG" \
+if grep -qx 'pair AA:BB:CC:DD:EE:FF' "$BT_LOG" \
 	&& grep -qx 'trust AA:BB:CC:DD:EE:FF' "$BT_LOG" \
-	&& grep -qx 'connect AA:BB:CC:DD:EE:FF' "$BT_LOG"; then
+	&& grep -qx 'connect AA:BB:CC:DD:EE:FF' "$BT_LOG" \
+	&& grep -q 'Paired: yes' "$BT_STATE/info" \
+	&& grep -q 'Connected: yes' "$BT_STATE/info" \
+	&& ! grep -q -- '--timeout 20 pair ' "$BT_LOG"; then
 	ok "dynamic select reuses bring-up"
 else
 	bad "dynamic select reuses bring-up"
+fi
+if grep -q '正在配对 Headset' "$BT_NOTIFY" \
+	&& grep -q '已配对并连接 Headset' "$BT_NOTIFY"; then
+	ok "dynamic select reports pairing"
+else
+	bad "dynamic select reports pairing"
 fi
 if grep -qx 'scan off' "$BT_LOG"; then
 	ok "dynamic select scan off"
 else
 	bad "dynamic select scan off"
+fi
+finish
+
+# an unrecognised selection exits non-zero without pairing
+new_env
+printf '%s\n' 'Controller 00:00:00:00:00:01 Test' > "$BT_STATE/list"
+printf '%s\n' '	Powered: yes' > "$BT_STATE/show"
+printf '%s\n' 0 > "$BT_STATE/fzf.rc"
+printf '%s\n' 'not a device' > "$BT_STATE/fzf.out"
+"$BTMENU" --dynamic >/dev/null 2>&1; rc=$?
+assert_rc "$rc" 1 "dynamic unknown selection rc"
+if grep -q '无法识别所选设备' "$BT_NOTIFY" && ! grep -q '^pair ' "$BT_LOG"; then
+	ok "dynamic unknown selection rejected"
+else
+	bad "dynamic unknown selection rejected"
 fi
 finish
 
@@ -594,6 +781,14 @@ else
 	bad "usage lists internal --list"
 fi
 finish
+
+# shellcheck disable=SC1007
+here=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+if python3 "$here/pty-dynamic.py"; then
+	ok "pty dynamic"
+else
+	bad "pty dynamic"
+fi
 
 if [ "$fail" -ne 0 ]; then
 	printf 'desktop bluetooth tests failed\n' >&2

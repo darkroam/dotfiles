@@ -25,6 +25,7 @@ Menu:
 	scan at most 30 seconds and reload fzf once a second
 	socket lives in a 0700 directory under XDG_RUNTIME_DIR, then is chmod 0600
 	reload uses --listen on that Unix socket, never TCP and never --listen-unsafe
-	a selection reuses pair, trust and connect
+	a selection pairs with a live agent, then trusts and connects
+	success requires Paired and Connected both yes
 	Esc, timeout, missing fzf or missing curl exits 0 and stops the scan
 	--list prints name and mac for that reload; it is not a menu

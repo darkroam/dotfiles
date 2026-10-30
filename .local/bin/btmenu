@@ -24,7 +24,7 @@ adapter_state() {
 }
 
 prop() {
-	bluetoothctl info "$1" 2>/dev/null | awk -v key="$2" '$1 == key { print $2; exit }'
+	timeout 5 bluetoothctl info "$1" 2>/dev/null | awk -v key="$2" '$1 == key { print $2; exit }'
 }
 
 parse_devices() {
@@ -59,7 +59,34 @@ mac_of() {
 	printf '%s\n' "$1" | awk -F '\t' '{ print $2 }'
 }
 
+pair_stop() {
+	if [ "${pair_held:-}" = 1 ]; then
+		printf 'quit\n' >&8 2>/dev/null || true
+	fi
+	if [ -n "${pair_pid:-}" ]; then
+		n=0
+		while [ "$n" -lt 5 ]; do
+			kill -0 "$pair_pid" 2>/dev/null || break
+			sleep 0.1
+			n=$((n + 1))
+		done
+		kill "$pair_pid" 2>/dev/null || true
+		wait "$pair_pid" 2>/dev/null || true
+		pair_pid=
+	fi
+	if [ "${pair_held:-}" = 1 ]; then
+		exec 8>&-
+		pair_held=
+	fi
+	if [ -n "${pair_dir:-}" ]; then
+		rm -rf "$pair_dir"
+		pair_dir=
+	fi
+}
+
 fail() {
+	pair_stop
+	printf '%s\n' "${1:-蓝牙命令失败}" >&2
 	notify "${1:-蓝牙命令失败}"
 	exit 1
 }
@@ -117,14 +144,82 @@ remove_mac() {
 	refresh
 }
 
+pair_mac() {
+	mac=$1
+	pair_dir=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/btmenu-pair.XXXXXX") || fail "无法创建临时目录"
+	mkfifo "$pair_dir/in" || fail "无法创建配对通道"
+	# hold the fifo open: EOF makes bluetoothctl drop the agent before pair finishes
+	exec 8<>"$pair_dir/in" || fail "无法打开配对通道"
+	pair_held=1
+	# --agent on a one-shot command does not register; --timeout also hides the error
+	stdbuf -oL -eL bluetoothctl --agent NoInputNoOutput <"$pair_dir/in" >"$pair_dir/out" 2>&1 &
+	pair_pid=$!
+	printf 'agent NoInputNoOutput\ndefault-agent\n' >&8 || fail "无法发送配对命令"
+	i=0
+	while [ "$i" -lt 50 ]; do
+		if grep -q 'Agent registered' "$pair_dir/out" 2>/dev/null; then
+			break
+		fi
+		kill -0 "$pair_pid" 2>/dev/null || fail "代理未注册"
+		sleep 0.1
+		i=$((i + 1))
+	done
+	grep -q 'Agent registered' "$pair_dir/out" 2>/dev/null || fail "代理未注册"
+	printf 'pair %s\n' "$mac" >&8 || fail "无法发送配对命令"
+	end=$(( $(date +%s) + 25 ))
+	while [ "$(date +%s)" -lt "$end" ]; do
+		if [ "$(prop "$mac" "Paired:")" = yes ]; then
+			return 0
+		fi
+		if grep -q 'Failed to pair' "$pair_dir/out" 2>/dev/null; then
+			break
+		fi
+		kill -0 "$pair_pid" 2>/dev/null || break
+		sleep 0.2
+	done
+	why=$(awk '/Failed to pair/ { msg = $0 } END { print msg }' "$pair_dir/out" 2>/dev/null) || true
+	fail "${why:-配对失败}"
+}
+
+link_ready() {
+	[ "$(prop "$1" "Connected:")" = yes ] || return 1
+	resolved=$(prop "$1" "ServicesResolved:")
+	[ -z "$resolved" ] || [ "$resolved" = yes ]
+}
+
 bring_up() {
-	if [ "$(prop "$1" "Paired:")" != yes ]; then
-		run_bt --agent NoInputNoOutput --timeout 20 pair "$1"
+	mac=$1
+	if [ "$(prop "$mac" "Paired:")" != yes ]; then
+		pair_mac "$mac"
 	fi
-	if [ "$(prop "$1" "Trusted:")" != yes ]; then
-		run_bt trust "$1"
+	if [ "$(prop "$mac" "Trusted:")" != yes ]; then
+		run_bt trust "$mac"
 	fi
-	connect_mac "$1"
+	connect_mac "$mac"
+	# the headset prompt needs the link to stay up, not one sample
+	end=$(( $(date +%s) + 8 ))
+	held=0
+	seen=0
+	while [ "$(date +%s)" -lt "$end" ]; do
+		if link_ready "$mac"; then
+			seen=1
+			held=$((held + 1))
+			[ "$held" -ge 3 ] && break
+		elif [ "$seen" -eq 1 ]; then
+			break
+		else
+			held=0
+		fi
+		sleep 0.4
+	done
+	if [ "$held" -lt 3 ]; then
+		if [ "$(prop "$mac" "Paired:")" = yes ]; then
+			fail "已配对但未连接"
+		fi
+		fail "未连接"
+	fi
+	pair_stop
+	link_ready "$mac" || fail "已配对但未连接"
 }
 
 act_on() {
@@ -169,9 +264,8 @@ scan_pair() {
 	lock=${XDG_RUNTIME_DIR:-/tmp}/btmenu-scan.lock
 	exec 9>"$lock" || fail "无法锁定扫描"
 	flock -n 9 || { notify "已在扫描"; exit 0; }
-	trap 'rm -f "$lock"' EXIT
 	tmp=$(mktemp -d) || fail "无法创建临时目录"
-	trap 'rm -rf "$tmp"; rm -f "$lock"' EXIT
+	trap 'pair_stop; rm -rf "$tmp"' EXIT
 	notify "扫描 8 秒"
 	devices > "$tmp/before"
 	run_bt --timeout 8 scan on
@@ -184,6 +278,7 @@ scan_pair() {
 	mac=$(mac_of "$choice")
 	[ -n "$mac" ] || exit 0
 	bring_up "$mac"
+	notify "已配对并连接"
 }
 
 type_mark() {
@@ -252,9 +347,10 @@ main_menu() {
 }
 
 stop_dynamic() {
+	pair_stop
 	[ -n "${reloader:-}" ] && kill "$reloader" 2>/dev/null || true
 	[ -n "${scan_pid:-}" ] && kill "$scan_pid" 2>/dev/null || true
-	bluetoothctl scan off >/dev/null 2>&1 || true
+	bluetoothctl scan off </dev/null >/dev/null 2>&1 || true
 	if [ -n "${dir:-}" ]; then
 		rm -f "$dir/list" "$dir/choice" "${sock:-}"
 		rmdir "$dir" 2>/dev/null || true
@@ -274,7 +370,8 @@ dynamic_scan() {
 	chmod 700 "$dir" || { rmdir "$dir"; fail "无法保护临时目录"; }
 	sock=$dir/fzf.sock
 	trap stop_dynamic EXIT INT TERM
-	bluetoothctl scan on >/dev/null 2>&1 &
+	# bluetoothctl must not read the terminal; fzf is the only foreground reader
+	bluetoothctl --timeout 30 scan on </dev/null >/dev/null 2>&1 &
 	scan_pid=$!
 	(
 		deadline=$(( $(date +%s) + 30 ))
@@ -286,19 +383,30 @@ dynamic_scan() {
 			fi
 			sleep 1
 		done
-	) &
+	) </dev/null &
 	reloader=$!
 	btmenu --list > "$dir/list" || true
-	timeout 30 env -u FZF_DEFAULT_OPTS -u FZF_DEFAULT_COMMAND -u FZF_API_KEY \
+	# stdin is a file, so timeout would leave fzf in the background and SIGTTIN stops it
+	timeout --foreground 30 env -u FZF_DEFAULT_OPTS -u FZF_DEFAULT_COMMAND -u FZF_API_KEY \
 		fzf --listen="$sock" --sync --prompt '动态扫描> ' \
 		< "$dir/list" > "$dir/choice" || true
 	choice=$(cat "$dir/choice" 2>/dev/null) || choice=
 	kill "$reloader" "$scan_pid" 2>/dev/null || true
-	bluetoothctl scan off >/dev/null 2>&1 || true
+	bluetoothctl scan off </dev/null >/dev/null 2>&1 || true
 	[ -n "$choice" ] || exit 0
 	mac=$(mac_of "$choice")
-	[ -n "$mac" ] || exit 0
+	if [ -z "$mac" ]; then
+		notify "无法识别所选设备"
+		printf '无法识别所选设备\n'
+		exit 1
+	fi
+	name=$(printf '%s\n' "$choice" | awk -F '\t' 'NR == 1 { print $1 }')
+	[ -n "$name" ] || name=$mac
+	printf '正在配对 %s\n' "$name"
+	notify "正在配对 $name"
 	bring_up "$mac"
+	printf '已配对并连接 %s\n' "$name"
+	notify "已配对并连接 $name"
 }
 
 case ${1:-} in
