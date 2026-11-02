@@ -91,6 +91,7 @@ setup_bootstrap_env() # 从当前工作树构造自举安装用的临时 remote
     ├── uninstall.bats          ← 卸载与恢复
     ├── validate.bats           ← 仓库验证
     ├── access-entry.bats       ← access 入口链接解析
+    ├── offline.bats            ← 离线 bundle 打包与恢复
     └── generate-conflicts.sh   ← 冲突文件生成器
 ```
 
@@ -98,6 +99,22 @@ setup_bootstrap_env() # 从当前工作树构造自举安装用的临时 remote
 `git --git-dir="$HOME/.cfg" ls-files .local/share/test/installation/` 核对纳管状态，再运行套件。
 当前目录包含 `nodes-lifecycle.bats`、`refactor-contract.bats` 等新增回归用例，不依赖真实
 `$HOME`，也不应把测试产物或缓存加入仓库。
+
+
+### TC-OFF01..OFF08：离线包（offline.bats）
+
+临时 HOME 和真实 git。不访问网络，不调用 `dotcfg switch fresh`。
+
+| 用例 | 覆盖 |
+| --- | --- |
+| TC-OFF01 | 包成员只有安装脚本、bundle、MANIFEST，且 SHA 与 bundle verify 通过 |
+| TC-OFF02 | 已跟踪改动、领先 origin/master 都拒绝 |
+| TC-OFF03 | 未跟踪文件警告后仍打包 |
+| TC-OFF04 | 目标包已存在则拒绝覆盖 |
+| TC-OFF05 | 可达私钥拒绝打包，输出不含密钥正文 |
+| TC-OFF06 | tar 成员超出白名单则拒绝 |
+| TC-OFF07 | 远端第一次失败退出 2，第二次成功退出 0；不重复 clone/检出，不生成 fresh 备份 |
+| TC-OFF08 | 非终端需要改所有权时退出 1，不调用 sudo |
 
 ### TC-AXS01：access 入口（access-entry.bats）
 
@@ -429,8 +446,8 @@ bats -r .local/share/test/ --tap
 下面的通过数是 2026-08-12 的完整执行，不是后来的重跑。2026-08-31 只复核了条数。
 
 **验证环境**：2026-08-12 在[平台档案索引](../platforms/index.md)所列 Debian 平台完整执行；
-Bats 满足本文 `>= 1.11.0` 的前置要求。2026-08-31 用 `bats --count
-.local/share/test/installation` 复核当前清单仍为 272；该枚举不冒充一次新的完整执行。
+Bats 满足本文 `>= 1.11.0` 的前置要求。2026-08-31 的清单复核是 272。2026-11-02
+用 `bats --count .local/share/test/installation` 复核当前清单为 283；该枚举不冒充一次新的完整执行。
 
 ```
 Total:  272
@@ -440,8 +457,9 @@ Failed: 0
 
 project-tools 测试由[协作规约](collaboration.md)维护自己的 Bats 基线；显示子系统由
 [显示管理测试](display-testing.md)维护独立 shell fixture 基线。只有同时写明组成与递归命令时，
-才把 installation 与 project-tools 合称全仓 Bats。2026-08-31 使用 `bats --count` 分别枚举为 272 和
-35，因此 `bats -r .local/share/test/` 当前覆盖 307 个 Bats；该数字不包含显示 fixture。
+才把 installation 与 project-tools 合称全仓 Bats。2026-11-02 使用 `bats --count` 分别枚举为 283 和
+36，因此 `bats -r .local/share/test/` 当前覆盖 319 个 Bats；该数字不包含显示 fixture，也不包含
+`test/build` 的 shell 测试。
 
 ---
 
@@ -463,4 +481,4 @@ project-tools 测试由[协作规约](collaboration.md)维护自己的 Bats 基�
 ---
 
 **最后更新**: 2026-08-31
-**版本**: 5.5 — 272 个受管测试 + 配置驱动边界 + full/min/macos 切换专题
+**版本**: 5.5 — 283 个受管测试 + 配置驱动边界 + full/min/macos 切换专题

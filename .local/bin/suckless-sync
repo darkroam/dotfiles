@@ -1,0 +1,169 @@
+#!/bin/sh
+# Build or clean the four suckless trees. Never pulls, resets, or kills processes.
+
+set -eu
+
+src_root=${SUCKLESS_SRC:-$HOME/src}
+prefix_bin=${SUCKLESS_PREFIX_BIN:-/usr/local/bin}
+origin=${SUCKLESS_ORIGIN:-git@github.com:darkroam}
+proc_root=${SUCKLESS_PROC:-/proc}
+
+usage() {
+	printf '用法：suckless-sync [clean] [st|dmenu|dwm|dwmblocks]\n' >&2
+	exit 2
+}
+
+is_name() {
+	case $1 in
+		st|dmenu|dwm|dwmblocks) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
+need_cmd() {
+	command -v "$1" >/dev/null 2>&1 || {
+		printf '缺少命令：%s\n' "$1" >&2
+		exit 1
+	}
+}
+
+file_sha() {
+	sum=$(sha256sum -- "$1") || return 1
+	printf '%s\n' "${sum%% *}"
+}
+
+check_build_deps() {
+	need_cmd make
+	need_cmd gcc
+	need_cmd pkg-config
+	if ! pkg-config --exists x11 fontconfig freetype2; then
+		printf '缺少开发库：x11、fontconfig 或 freetype2\n' >&2
+		exit 1
+	fi
+	need_st=0
+	for name in "$@"; do
+		[ "$name" = st ] && need_st=1
+	done
+	if [ "$need_st" -eq 1 ]; then
+		need_cmd tic
+	fi
+}
+
+check_terminfo() {
+	if ! command -v infocmp >/dev/null 2>&1 || ! infocmp -q st-256color >/dev/null 2>&1; then
+		printf 'terminfo 风险：缺少 st-256color\n' >&2
+	fi
+}
+
+report_old() {
+	name=$1
+	prod=$2
+	if ! command -v pgrep >/dev/null 2>&1; then
+		printf '缺少命令：pgrep，跳过进程检查\n' >&2
+		return 0
+	fi
+	pids=$(pgrep -x "$name" || true)
+	[ -n "$pids" ] || return 0
+	new_sha=$(file_sha "$prod")
+	for pid in $pids; do
+		exe=$(readlink "$proc_root/$pid/exe" 2>/dev/null || true)
+		stale=0
+		case $exe in
+			*" (deleted)") stale=1 ;;
+			*)
+				if [ -n "$exe" ] && [ -f "$exe" ]; then
+					old_sha=$(file_sha "$exe")
+					[ "$old_sha" = "$new_sha" ] || stale=1
+				fi
+				;;
+		esac
+		if [ "$stale" -eq 1 ]; then
+			printf '旧进程仍在运行：%s pid %s（不结束进程）\n' "$name" "$pid" >&2
+		fi
+	done
+}
+
+clean_one() {
+	name=$1
+	dir=$src_root/$name
+	if [ ! -d "$dir" ]; then
+		printf '跳过：%s 源码不存在\n' "$name" >&2
+		return 0
+	fi
+	make -C "$dir" clean
+}
+
+sync_one() {
+	name=$1
+	dir=$src_root/$name
+	if [ ! -e "$dir" ]; then
+		git clone "$origin/$name.git" "$dir" || {
+			printf 'clone 失败：%s\n' "$name" >&2
+			exit 1
+		}
+	elif [ ! -d "$dir" ] || ! git -C "$dir" rev-parse --git-dir >/dev/null 2>&1; then
+		printf '不是 git 仓库：%s\n' "$dir" >&2
+		exit 1
+	fi
+	if [ -n "$(git -C "$dir" status --porcelain 2>/dev/null || true)" ]; then
+		printf '本地修改：%s\n' "$name" >&2
+	fi
+	make -C "$dir" || {
+		printf 'make 失败：%s\n' "$name" >&2
+		exit 1
+	}
+	prod=$dir/$name
+	if [ ! -f "$prod" ]; then
+		printf '没有产物：%s\n' "$prod" >&2
+		exit 1
+	fi
+	inst=$prefix_bin/$name
+	if [ -f "$inst" ] && [ "$(file_sha "$prod")" = "$(file_sha "$inst")" ]; then
+		printf '跳过安装：%s\n' "$name"
+		if [ "$name" = st ]; then
+			check_terminfo
+		fi
+	else
+		if [ ! -t 0 ] || [ ! -t 1 ]; then
+			printf '需要终端才能安装：%s\n' "$name" >&2
+			exit 1
+		fi
+		sudo -k make -C "$dir" install || {
+			printf '安装失败：%s\n' "$name" >&2
+			exit 1
+		}
+		if [ ! -f "$inst" ] || [ "$(file_sha "$prod")" != "$(file_sha "$inst")" ]; then
+			printf '安装后 SHA 不一致：%s\n' "$name" >&2
+			exit 1
+		fi
+		printf '已安装：%s\n' "$name"
+	fi
+	report_old "$name" "$prod"
+}
+
+mode=sync
+if [ "${1:-}" = clean ]; then
+	mode=clean
+	shift
+fi
+if [ "$#" -gt 1 ]; then
+	usage
+fi
+if [ "$#" -eq 0 ]; then
+	set -- st dmenu dwm dwmblocks
+elif ! is_name "$1"; then
+	usage
+fi
+
+if [ "$mode" = clean ]; then
+	need_cmd make
+	for name in "$@"; do
+		clean_one "$name"
+	done
+	exit 0
+fi
+
+check_build_deps "$@"
+for name in "$@"; do
+	sync_one "$name"
+done

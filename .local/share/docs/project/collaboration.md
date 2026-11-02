@@ -139,7 +139,7 @@
   具体赋值或已知凭据形态才命中，以避免本规约自身产生误报。诊断只输出文件与行号，不回显敏感值。
 - 退出码：`0` 表示通过且无输出（目录不存在同样通过），`1` 表示发现违规并逐行写入标准错误，`2`
   表示用法错误。持久 fixture 位于 `.local/share/test/project-tools/validate-collab.bats`；本子系统当前权威
-  清单为 35 个 Bats，用 `bats --count .local/share/test/project-tools` 复核，增删时只在本文更新该子系统基线。
+  清单为 36 个 Bats，用 `bats --count .local/share/test/project-tools` 复核，增删时只在本文更新该子系统基线。
 
 ## 六、审查标准（本仓库特化）
 

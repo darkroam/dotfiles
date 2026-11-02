@@ -1,0 +1,6 @@
+#!/bin/sh
+# Thin entry. Installation state stays in the installation library.
+
+set -eu
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/../lib/installation" && pwd)
+exec bash "$root/commands/offline.sh" "$@"
