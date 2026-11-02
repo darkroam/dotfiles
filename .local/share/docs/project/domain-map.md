@@ -49,7 +49,7 @@
 | --- | --- | --- | --- |
 | `.config/x11/display-engine.conf.example` | U06 | U02 | 显示引擎策略文件位于 X11 配置树，但由显示能力所有。 |
 | `.local/bin/dotcfg` | S01 | U01 | 安装状态机入口，不是普通用户辅助命令。 |
-| `.local/bin/dotfiles-offline` | S01 | - | 离线 bundle 打包入口；不进入 dotcfg 子命令。 |
+| `.local/bin/dotcfg-offline` | S01 | - | 离线 bundle 打包入口；不进入 dotcfg 子命令。 |
 | `.local/bin/install.sh` | S01 | U01 | 旧初始安装入口；D9 已裁定迁出 U01 主域。 |
 | `.local/bin/getbib` | U09 | U05 | 生成排版引用数据，同时消费 PDF/DOI 文档。 |
 | `.fbtermrc` | U02 | U03 | TTY/FbTerm 输入显示配置，字体外观是关联能力。 |
@@ -75,7 +75,7 @@
 | `.local/share/test/display/**` | S02 | U06 | 显示子系统 fixture。 |
 | `.local/share/test/access/**` | S02 | U06 | 访问子系统测试。 |
 | `.local/share/test/desktop/**` | S02 | U07、U02 | 蓝牙 dmenu 与状态栏块测试。 |
-| `.local/share/test/build/**` | S02 | U02 | suckless-sync 测试。 |
+| `.local/share/test/build/**` | S02 | U02 | suckless-rebuild 测试。 |
 | `.local/share/test/statusbar/**` | S02 | U07 | 状态栏块测试。 |
 | `.local/share/test/installation/**` | S02 | S01 | 安装子系统 Bats 与辅助文件。 |
 | `.local/share/docs/**` | S03 | - | 公开设计、用户、平台、planning 和审计文档。 |
@@ -111,7 +111,7 @@
 | `getkeys` | U01 | U02、U04、U05、U07、U08 |
 | `samedir`、`showclip` | U01 | U02、U05 |
 | `dmenupass`、`dmenuunicode`、`prompt`、`remaps`、`td-toggle` | U02 | U05、U06、U08 |
-| `suckless-sync` | U02 | - |
+| `suckless-rebuild` | U02 | - |
 | `setbg` | U03 | U02 |
 | `booksplit`、`noisereduce`、`pauseallmpv`、`rotdir`、`slider`、`tag` | U04 | - |
 | `dmenurecord`、`maimpick` | U04 | U02 |

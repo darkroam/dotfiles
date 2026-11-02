@@ -1,11 +1,11 @@
 #!/bin/sh
-# Fake git/make/sudo coverage for suckless-sync. No real compile or install.
+# Fake git/make/sudo coverage for suckless-rebuild. No real compile or install.
 
 set -u
 
 fail=0
 root=$(CDPATH='' cd -- "$(dirname -- "$0")/../../../.." && pwd)
-sync=$root/.local/bin/suckless-sync
+sync=$root/.local/bin/suckless-rebuild
 
 bad() {
 	printf 'FAIL %s\n' "$1" >&2
@@ -204,28 +204,17 @@ else
 	ok "non-tty refuses sudo"
 fi
 
-# clean
+# clean is not a command
 new_env
 seed_repo dwm
 if sync_run clean >/dev/null 2>"$base/err"; then
-	ok "clean exits 0"
+	bad "clean should fail"
+elif ! grep -q '用法：suckless-rebuild' "$base/err"; then
+	bad "clean usage: $(cat "$base/err")"
+elif [ -s "$MAKE_LOG" ]; then
+	bad "clean ran make"
 else
-	bad "clean failed"
-fi
-if ! grep -q -- '-C '"$SUCKLESS_SRC"'/dwm clean' "$MAKE_LOG"; then
-	bad "dwm not cleaned: $(cat "$MAKE_LOG")"
-else
-	ok "existing tree cleaned"
-fi
-if grep -q -- '-C '"$SUCKLESS_SRC"'/st clean' "$MAKE_LOG"; then
-	bad "missing st was cleaned"
-else
-	ok "missing tree skipped"
-fi
-if [ -s "$GIT_LOG" ]; then
-	bad "clean called git"
-else
-	ok "clean does not use git"
+	ok "clean rejected"
 fi
 
 # clone failure

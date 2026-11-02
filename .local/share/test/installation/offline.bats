@@ -11,7 +11,7 @@ setup() {
 	git config --file "$GIT_CONFIG_GLOBAL" init.defaultBranch master
 	export SUCKLESS_SRC="$HOME/src"
 	export OFFLINE_WORKTREE="$HOME/wt"
-	export OFFLINE_OUTPUT="$HOME/out/dotfiles-offline.tar.gz"
+	export OFFLINE_OUTPUT="$HOME/out/dotcfg-offline.tar.gz"
 	export DOTCFG_GIT_DIR="$HOME/.cfg"
 	mkdir -p "$HOME/src" "$HOME/remotes" "$HOME/out"
 	make_repo "$HOME/wt" "$HOME/remotes/dotfiles.git" 1
@@ -23,6 +23,7 @@ setup() {
 	local name
 	for name in st dmenu dwm dwmblocks; do
 		make_repo "$HOME/src/$name" "$HOME/remotes/$name.git" 0
+		printf 'clean:\n\t: > .cleaned\n' > "$HOME/src/$name/Makefile"
 	done
 }
 
@@ -48,49 +49,114 @@ make_repo() {
 }
 
 pack() {
-	run "$DOTFILES_ROOT/.local/bin/dotfiles-offline"
+	run "$DOTFILES_ROOT/.local/bin/dotcfg-offline" "$@"
+}
+
+assert_readme() {
+	local want=$1 dir rc
+	dir=$(mktemp -d)
+	tar -xzf "$OFFLINE_OUTPUT" -C "$dir"
+	git clone -q "$dir/dotfiles.bundle" "$dir/repo"
+	printf '%s' "$want" > "$dir/want"
+	git -C "$dir/repo" show HEAD:README > "$dir/got"
+	cmp -s "$dir/want" "$dir/got"
+	rc=$?
+	rm -rf "$dir"
+	return "$rc"
+}
+
+check_manifest() {
+	local dir=$1
+	(
+		cd "$dir"
+		awk '$1 ~ /\.bundle$/ { printf "%s  %s\n", $2, $1 }' MANIFEST > check
+		sha256sum -c --status check
+	)
 }
 
 @test "TC-OFF01: pack members are the installer, bundle, and manifest" {
 	pack
 	[ "$status" -eq 0 ]
-	local members
+	[[ "$output" != *"警告"* ]]
+	local members want tmp
 	members=$(tar -tzf "$OFFLINE_OUTPUT" | LC_ALL=C sort)
-	[ "$members" = $'MANIFEST\ndotfiles-offline-install\ndotfiles.bundle' ]
-	tar -xOf "$OFFLINE_OUTPUT" MANIFEST | grep -q '^bundle_sha256 '
-	local tmp hex
+	want=$(printf '%s\n' MANIFEST dotcfg-offline-install dotfiles.bundle | LC_ALL=C sort)
+	[ "$members" = "$want" ]
 	tmp=$(mktemp -d)
 	tar -xzf "$OFFLINE_OUTPUT" -C "$tmp"
-	hex=$(awk '$1 == "bundle_sha256" { print $2 }' "$tmp/MANIFEST")
-	(
-		cd "$tmp"
-		printf '%s  dotfiles.bundle\n' "$hex" > check
-		sha256sum -c check
-	)
+	grep -q '^time ' "$tmp/MANIFEST"
+	grep -q '^dotfiles ' "$tmp/MANIFEST"
+	check_manifest "$tmp"
 	git --git-dir="$DOTCFG_GIT_DIR" bundle verify "$tmp/dotfiles.bundle" >/dev/null
+	[ ! -e "$HOME/src/st/.cleaned" ]
 	rm -rf "$tmp"
 }
 
-@test "TC-OFF02: tracked dirt and unpushed commits are rejected" {
-	printf 'dirty\n' >> "$OFFLINE_WORKTREE/README"
-	pack
-	[ "$status" -eq 2 ]
-	[[ "$output" == *"拒绝：dotfiles 有未提交改动"* ]]
-	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" reset -q --hard HEAD
+@test "TC-OFF02: ahead, behind, and dirty still pack origin/master" {
 	printf 'ahead\n' >> "$OFFLINE_WORKTREE/README"
 	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" add README
 	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" commit -m ahead >/dev/null
 	pack
-	[ "$status" -eq 2 ]
-	[[ "$output" == *"拒绝：dotfiles 领先 origin/master "* ]]
-}
+	[ "$status" -eq 0 ]
+	assert_readme $'content\n'
 
-@test "TC-OFF03: untracked files warn and still pack" {
+	rm -f "$OFFLINE_OUTPUT"
+	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" push -q origin HEAD:master
+	git --git-dir="$DOTCFG_GIT_DIR" fetch -q origin
+	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" reset -q --hard HEAD~1
+	pack
+	[ "$status" -eq 0 ]
+	assert_readme $'content\nahead\n'
+
+	rm -f "$OFFLINE_OUTPUT"
+	printf 'dirty\n' >> "$OFFLINE_WORKTREE/README"
 	printf 'extra\n' > "$OFFLINE_WORKTREE/extra.txt"
 	pack
 	[ "$status" -eq 0 ]
-	[[ "$output" == *"警告：dotfiles 有未跟踪文件，继续打包"* ]]
-	[ -f "$OFFLINE_OUTPUT" ]
+	[[ "$output" == *"警告：dotfiles 有未提交改动，不进入包"* ]]
+	[[ "$output" != *"未跟踪"* ]]
+	assert_readme $'content\nahead\n'
+}
+
+@test "TC-OFF03: --with-suckless bundles origin/master after make clean" {
+	local origin_sha tmp new name members want
+	origin_sha=$(git -C "$HOME/src/st" rev-parse origin/master)
+	printf 'ahead\n' >> "$HOME/src/st/README"
+	git -C "$HOME/src/st" add README
+	git -C "$HOME/src/st" commit -m ahead >/dev/null
+	printf 'dirty\n' >> "$HOME/src/st/README"
+	pack --with-suckless
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"警告：st 有未提交改动，不进入包"* ]]
+	[[ "$output" != *"Makefile"* ]]
+	for name in st dmenu dwm dwmblocks; do
+		[ -f "$HOME/src/$name/.cleaned" ]
+	done
+	members=$(tar -tzf "$OFFLINE_OUTPUT" | LC_ALL=C sort)
+	want=$(printf '%s\n' MANIFEST dotcfg-offline-install dotfiles.bundle \
+		src/st.bundle src/dmenu.bundle src/dwm.bundle src/dwmblocks.bundle | LC_ALL=C sort)
+	[ "$members" = "$want" ]
+	tmp=$(mktemp -d)
+	tar -xzf "$OFFLINE_OUTPUT" -C "$tmp"
+	check_manifest "$tmp"
+	git clone -q "$tmp/src/st.bundle" "$tmp/st"
+	[ "$(git -C "$tmp/st" rev-parse HEAD)" = "$origin_sha" ]
+	new=$HOME/new
+	mkdir -p "$new"
+	install_fake_git "$new"
+	rm -f "$new/fail"
+	HOME=$new OFFLINE_HOME=$new DOTCFG_GIT_DIR=$new/.cfg PATH=$new/bin:$PATH \
+		run "$tmp/dotcfg-offline-install" </dev/null
+	[ "$status" -eq 0 ]
+	[[ "$output" != *"已有源码"* ]]
+	[ -d "$new/src/st/.git" ]
+	HOME=$new OFFLINE_HOME=$new DOTCFG_GIT_DIR=$new/.cfg PATH=$new/bin:$PATH \
+		run "$tmp/dotcfg-offline-install" </dev/null
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"已有源码，保留：st"* ]]
+	[[ "$output" == *"已有 dotcfg，跳过检出。"* ]]
+	[ "$(grep -c 'src/st.bundle' "$new/git.log")" -eq 1 ]
+	rm -rf "$tmp"
 }
 
 @test "TC-OFF04: an existing archive is not overwritten" {
@@ -104,12 +170,20 @@ pack() {
 	[ "$before" = "$(sha256sum "$OFFLINE_OUTPUT")" ]
 }
 
-@test "TC-OFF05: a reachable private key rejects the pack and is not printed" {
-	local marker=not-a-real-key-body-xyz
+@test "TC-OFF05: only a key reachable from origin/master is rejected" {
+	local marker=not-a-real-key-body-xyz dir
 	mkdir -p "$OFFLINE_WORKTREE/notes"
 	printf '%s\n' "-----BEGIN OPENSSH PRIVATE KEY-----" "$marker" "-----END OPENSSH PRIVATE KEY-----" > "$OFFLINE_WORKTREE/notes/leak.txt"
 	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" add notes/leak.txt
 	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" commit -m leak >/dev/null
+	pack
+	[ "$status" -eq 0 ]
+	[[ "$output" != *"$marker"* ]]
+	dir=$(mktemp -d)
+	tar -xzf "$OFFLINE_OUTPUT" -C "$dir"
+	git clone -q "$dir/dotfiles.bundle" "$dir/repo"
+	! git -C "$dir/repo" cat-file -e 'HEAD:notes/leak.txt'
+	rm -rf "$dir" "$OFFLINE_OUTPUT"
 	git --git-dir="$DOTCFG_GIT_DIR" update-ref refs/remotes/origin/master HEAD
 	pack
 	[ "$status" -eq 2 ]
@@ -118,13 +192,25 @@ pack() {
 	[[ "$output" != *"BEGIN OPENSSH PRIVATE KEY"* ]]
 }
 
-@test "TC-OFF06: illegal tar members are rejected" {
-	local tmp tar
+@test "TC-OFF06: illegal tar members and path escape are rejected" {
+	local tmp
 	tmp=$(mktemp -d)
 	printf 'x\n' > "$tmp/evil"
 	tar -C "$tmp" -czf "$tmp/bad.tgz" evil
 	run bash -c 'OFFLINE_LIB_ONLY=1 . "$1"; offline_tar_members_ok "$2"' _ \
 		"$DOTFILES_ROOT/.local/lib/installation/commands/offline.sh" "$tmp/bad.tgz"
+	[ "$status" -ne 0 ]
+	python3 - "$tmp/escape.tgz" << 'ENDTAR'
+import io, sys, tarfile
+tar = tarfile.open(sys.argv[1], "w:gz")
+data = b"x\n"
+info = tarfile.TarInfo("../secret")
+info.size = len(data)
+tar.addfile(info, io.BytesIO(data))
+tar.close()
+ENDTAR
+	run bash -c 'OFFLINE_LIB_ONLY=1 . "$1"; offline_tar_members_ok "$2"' _ \
+		"$DOTFILES_ROOT/.local/lib/installation/commands/offline.sh" "$tmp/escape.tgz"
 	[ "$status" -ne 0 ]
 	rm -rf "$tmp"
 }
@@ -138,19 +224,20 @@ pack() {
 	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
 	install_fake_git "$new"
 	HOME=$new OFFLINE_HOME=$new DOTCFG_GIT_DIR=$new/.cfg OFFLINE_LS_FAIL=$new/fail \
-		PATH=$new/bin:$PATH run "$new/dotfiles-offline-install" </dev/null
+		PATH=$new/bin:$PATH run "$new/dotcfg-offline-install" </dev/null
 	[ "$status" -eq 2 ]
 	[ -x "$new/.local/bin/dotcfg" ]
 	[ ! -e "$new/.config-backup" ]
 	[ "$(cat "$new/.config/canary")" = "canary" ]
 	[[ "$output" == *"已检出 dotcfg"* ]]
 	[[ "$output" != *"switch fresh"* ]]
+	[[ "$output" != *"bundle verify"* ]]
 	rm -f "$new/fail"
 	HOME=$new OFFLINE_HOME=$new DOTCFG_GIT_DIR=$new/.cfg \
-		PATH=$new/bin:$PATH run "$new/dotfiles-offline-install" </dev/null
+		PATH=$new/bin:$PATH run "$new/dotcfg-offline-install" </dev/null
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"已有 dotcfg，跳过检出。"* ]]
-	[ "$(grep -c 'clone --bare' "$new/git.log")" -eq 1 ]
+	[ "$(grep -c -- '--bare' "$new/git.log")" -eq 1 ]
 	[ "$(grep -c ' show ' "$new/git.log")" -eq 2 ]
 	[ ! -e "$new/.config-backup" ]
 }
@@ -179,7 +266,7 @@ EOS
 	: > "$new/sudo.log"
 	HOME=$new OFFLINE_HOME=$new DOTCFG_GIT_DIR=$new/.cfg SUDO_LOG=$new/sudo.log \
 		OFFLINE_LS_FAIL=$new/fail PATH=$new/bin:$PATH \
-		run "$new/dotfiles-offline-install" </dev/null
+		run "$new/dotcfg-offline-install" </dev/null
 	[ "$status" -eq 1 ]
 	[[ "$output" == *"需要终端才能修正 .cfg 所有权"* ]]
 	[ ! -s "$new/sudo.log" ]

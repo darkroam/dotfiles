@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
-# Pack ~/.cfg as a git bundle. The generated installer checks out dotcfg only.
-# It does not call bootstrap_finish_install, because that runs fresh_create_root_backup
-# and would copy the new machine's ~/.config.
+# Pack origin/master. The installer checks out dotcfg only and does not call
+# bootstrap_finish_install, because that runs fresh_create_root_backup.
 
 set -euo pipefail
 
 offline_names=(st dmenu dwm dwmblocks)
+offline_stage=
 
 offline_die() {
 	printf '%s\n' "$1" >&2
 	exit "${2:-1}"
+}
+
+offline_cleanup() {
+	[ -z "${offline_stage:-}" ] && return 0
+	rm -rf "$offline_stage"
+	offline_stage=
 }
 
 offline_cfg() {
@@ -25,44 +31,39 @@ offline_src() {
 }
 
 offline_output() {
-	printf '%s\n' "${OFFLINE_OUTPUT:-$HOME/src/dotfiles-offline.tar.gz}"
+	printf '%s\n' "${OFFLINE_OUTPUT:-$HOME/src/dotcfg-offline.tar.gz}"
 }
 
 offline_tar_members_ok() {
-	local tar=$1 got want
+	local tar=$1 with=${2:-0} got want
 	got=$(tar -tzf "$tar" | LC_ALL=C sort)
-	want=$(printf '%s\n' MANIFEST dotfiles.bundle dotfiles-offline-install | LC_ALL=C sort)
+	if [ "$with" -eq 1 ]; then
+		want=$(printf '%s\n' MANIFEST dotcfg-offline-install dotfiles.bundle \
+			src/st.bundle src/dmenu.bundle src/dwm.bundle src/dwmblocks.bundle | LC_ALL=C sort)
+	else
+		want=$(printf '%s\n' MANIFEST dotcfg-offline-install dotfiles.bundle | LC_ALL=C sort)
+	fi
 	[ "$got" = "$want" ]
 }
 
-offline_ahead() {
+offline_require_origin() {
 	local label=$1
 	shift
-	local n
-	if ! n=$("$@" rev-list --count origin/master..HEAD 2>/dev/null); then
-		offline_die "拒绝：${label} 无法比较 origin/master" 2
-	fi
-	if [ "$n" != 0 ]; then
-		offline_die "拒绝：${label} 领先 origin/master ${n} 个提交" 2
-	fi
+	"$@" rev-parse --verify origin/master >/dev/null 2>&1 ||
+		offline_die "拒绝：${label} 无法解析 origin/master" 2
 }
 
-offline_dirt() {
-	local label=$1
+offline_warn_dirt() {
+	local label=$1 tracked
 	shift
-	local tracked untracked
 	tracked=$("$@" status --porcelain --untracked-files=no)
 	if [ -n "$tracked" ]; then
-		offline_die "拒绝：${label} 有未提交改动" 2
-	fi
-	untracked=$("$@" status --porcelain --untracked-files=all || true)
-	if printf '%s\n' "$untracked" | grep -q '^??'; then
-		printf '警告：%s 有未跟踪文件，继续打包\n' "$label" >&2
+		printf '警告：%s 有未提交改动，不进入包\n' "$label" >&2
 	fi
 }
 
 offline_sensitive() {
-	local cfg=$1 sha path typ hit=0
+	local repo=$1 commit=$2 sha path typ hit=0
 	while read -r sha path; do
 		[ -n "${path:-}" ] || continue
 		case "$path" in
@@ -72,9 +73,9 @@ offline_sensitive() {
 				continue
 				;;
 		esac
-		typ=$(git --git-dir="$cfg" cat-file -t "$sha" 2>/dev/null || true)
+		typ=$(git -C "$repo" cat-file -t "$sha" 2>/dev/null || true)
 		[ "$typ" = blob ] || continue
-		if git --git-dir="$cfg" cat-file blob "$sha" | awk '
+		if git -C "$repo" cat-file blob "$sha" | awk '
 			/-----BEGIN ([A-Z0-9]+ )*PRIVATE KEY-----/ { found = 1 }
 			/ghp_[A-Za-z0-9]{20,}/ { found = 1 }
 			/github_pat_[A-Za-z0-9_]{20,}/ { found = 1 }
@@ -84,15 +85,36 @@ offline_sensitive() {
 			printf '敏感对象已拒绝：%s\n' "$path" >&2
 			hit=1
 		fi
-	done < <(git --git-dir="$cfg" rev-list --objects HEAD master)
+	done < <(git -C "$repo" rev-list --objects "$commit")
 	[ "$hit" -eq 0 ] || exit 2
+}
+
+# A shared clone does not carry the source's origin/master ref.
+offline_bundle_at() {
+	local repo=$1 dest=$2 commit scratch rc
+	commit=$(git -C "$repo" rev-parse --verify origin/master) || return 1
+	scratch=$(mktemp -d)
+	rc=0
+	git clone -q --shared --bare "$repo" "$scratch/repo" &&
+		git --git-dir="$scratch/repo" update-ref refs/heads/master "$commit" &&
+		git --git-dir="$scratch/repo" symbolic-ref HEAD refs/heads/master &&
+		git --git-dir="$scratch/repo" bundle create "$dest" master &&
+		git --git-dir="$scratch/repo" bundle verify "$dest" >/dev/null || rc=1
+	rm -rf "$scratch"
+	return "$rc"
+}
+
+offline_sha256() {
+	local sum
+	sum=$(sha256sum -- "$1") || return 1
+	printf '%s\n' "${sum%% *}"
 }
 
 offline_write_installer() {
 	local dest=$1
 	cat > "$dest" << 'INSTALLER'
 #!/bin/sh
-# Offline restore. Does not run dotcfg switch, and does not back up ~/.config.
+# Offline restore. Does not run dotcfg switch or bootstrap_finish_install.
 
 set -eu
 
@@ -109,8 +131,8 @@ origin=git@github.com:darkroam/dotfiles.git
 }
 
 check=$here/.bundle.sha256
-awk '$1 == "bundle_sha256" { printf "%s  dotfiles.bundle\n", $2 }' "$manifest" > "$check"
-if ! (cd "$here" && sha256sum -c "$check"); then
+awk '$1 ~ /\.bundle$/ { printf "%s  %s\n", $2, $1 }' "$manifest" > "$check"
+if [ ! -s "$check" ] || ! (cd "$here" && sha256sum -c --status "$check"); then
 	rm -f "$check"
 	printf 'MANIFEST 校验失败\n' >&2
 	exit 1
@@ -118,7 +140,7 @@ fi
 rm -f "$check"
 
 if [ ! -e "$cfg" ]; then
-	git clone --bare "$bundle" "$cfg"
+	git clone -q --bare "$bundle" "$cfg"
 elif ! git --git-dir="$cfg" rev-parse --git-dir >/dev/null 2>&1; then
 	printf '.cfg 不是 git 仓：%s\n' "$cfg" >&2
 	exit 1
@@ -186,6 +208,21 @@ else
 	printf '已有 dotcfg，跳过检出。\n'
 fi
 
+for name in st dmenu dwm dwmblocks; do
+	src_bundle=$here/src/$name.bundle
+	[ -f "$src_bundle" ] || continue
+	dest=$home/src/$name
+	if [ -e "$dest" ]; then
+		printf '已有源码，保留：%s\n' "$name"
+		continue
+	fi
+	mkdir -p "$home/src"
+	git clone -q "$src_bundle" "$dest" || {
+		printf '源码 clone 失败：%s\n' "$name" >&2
+		exit 1
+	}
+done
+
 if ! command -v timeout >/dev/null 2>&1; then
 	printf '缺少命令：timeout\n' >&2
 	exit 1
@@ -202,7 +239,7 @@ INSTALLER
 }
 
 offline_pack() {
-	local cfg work src out stage name dir bundle_sha head_sha repo_sha
+	local with=$1 cfg work src out name dir commit
 	cfg=$(offline_cfg)
 	work=$(offline_work)
 	src=$(offline_src)
@@ -210,53 +247,83 @@ offline_pack() {
 	if [ -e "$out" ]; then
 		offline_die "已存在，拒绝覆盖：$out" 2
 	fi
-	if [ ! -d "$cfg" ]; then
+	if [ ! -d "$cfg" ] || ! git --git-dir="$cfg" rev-parse --git-dir >/dev/null 2>&1; then
 		offline_die "拒绝：没有 $cfg" 2
 	fi
-	offline_ahead dotfiles git --git-dir="$cfg"
-	offline_dirt dotfiles git --git-dir="$cfg" --work-tree="$work"
-	for name in "${offline_names[@]}"; do
-		dir=$src/$name
-		if [ ! -d "$dir" ]; then
-			offline_die "拒绝：缺少源码仓 $name" 2
-		fi
-		offline_ahead "$name" git -C "$dir"
-		offline_dirt "$name" git -C "$dir"
-	done
-	offline_sensitive "$cfg"
-
-	stage=$(mktemp -d)
-	trap 'rm -rf "$stage"' RETURN
-	git --git-dir="$cfg" bundle create "$stage/dotfiles.bundle" HEAD master
-	git --git-dir="$cfg" bundle verify "$stage/dotfiles.bundle" >/dev/null
-	bundle_sha=$(sha256sum -- "$stage/dotfiles.bundle")
-	bundle_sha=${bundle_sha%% *}
-	head_sha=$(git --git-dir="$cfg" rev-parse HEAD)
-	{
-		printf 'bundle_sha256 %s\n' "$bundle_sha"
-		printf 'dotfiles %s\n' "$head_sha"
+	offline_require_origin dotfiles git --git-dir="$cfg"
+	offline_warn_dirt dotfiles git --git-dir="$cfg" --work-tree="$work"
+	if [ "$with" -eq 1 ]; then
+		command -v make >/dev/null 2>&1 || offline_die "缺少命令：make" 1
 		for name in "${offline_names[@]}"; do
-			repo_sha=$(git -C "$src/$name" rev-parse HEAD)
-			printf '%s %s\n' "$name" "$repo_sha"
+			dir=$src/$name
+			if [ ! -d "$dir" ]; then
+				offline_die "拒绝：缺少源码仓 $name" 2
+			fi
+			if ! git -C "$dir" rev-parse --git-dir >/dev/null 2>&1; then
+				offline_die "拒绝：${name} 不是 git 仓库" 2
+			fi
+			offline_require_origin "$name" git -C "$dir"
+			offline_warn_dirt "$name" git -C "$dir"
 		done
-	} > "$stage/MANIFEST"
-	offline_write_installer "$stage/dotfiles-offline-install"
-	tar -C "$stage" -czf "$stage/pack.tgz" dotfiles-offline-install dotfiles.bundle MANIFEST
-	offline_tar_members_ok "$stage/pack.tgz" || offline_die "tar 成员非法" 1
+	fi
+	commit=$(git --git-dir="$cfg" rev-parse --verify origin/master)
+	offline_sensitive "$cfg" "$commit"
+	if [ "$with" -eq 1 ]; then
+		for name in "${offline_names[@]}"; do
+			commit=$(git -C "$src/$name" rev-parse --verify origin/master)
+			offline_sensitive "$src/$name" "$commit"
+			make -C "$src/$name" clean || offline_die "make clean 失败：$name" 1
+		done
+	fi
+
+	offline_stage=$(mktemp -d)
+	trap offline_cleanup EXIT
+	offline_bundle_at "$cfg" "$offline_stage/dotfiles.bundle" || offline_die "bundle 失败：dotfiles" 1
+	if [ "$with" -eq 1 ]; then
+		mkdir -p "$offline_stage/src"
+		for name in "${offline_names[@]}"; do
+			offline_bundle_at "$src/$name" "$offline_stage/src/$name.bundle" ||
+				offline_die "bundle 失败：$name" 1
+		done
+	fi
+	{
+		printf 'time %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+		printf 'dotfiles %s\n' "$(git --git-dir="$cfg" rev-parse --verify origin/master)"
+		printf 'dotfiles.bundle %s\n' "$(offline_sha256 "$offline_stage/dotfiles.bundle")"
+		if [ "$with" -eq 1 ]; then
+			for name in "${offline_names[@]}"; do
+				printf '%s %s\n' "$name" "$(git -C "$src/$name" rev-parse --verify origin/master)"
+				printf 'src/%s.bundle %s\n' "$name" "$(offline_sha256 "$offline_stage/src/$name.bundle")"
+			done
+		fi
+	} > "$offline_stage/MANIFEST"
+	offline_write_installer "$offline_stage/dotcfg-offline-install"
+	if [ "$with" -eq 1 ]; then
+		tar -C "$offline_stage" -czf "$offline_stage/pack.tgz" \
+			dotcfg-offline-install dotfiles.bundle MANIFEST \
+			src/st.bundle src/dmenu.bundle src/dwm.bundle src/dwmblocks.bundle
+	else
+		tar -C "$offline_stage" -czf "$offline_stage/pack.tgz" \
+			dotcfg-offline-install dotfiles.bundle MANIFEST
+	fi
+	offline_tar_members_ok "$offline_stage/pack.tgz" "$with" || offline_die "tar 成员非法" 1
 	mkdir -p "$(dirname -- "$out")"
 	if [ -e "$out" ]; then
 		offline_die "已存在，拒绝覆盖：$out" 2
 	fi
-	mv -n "$stage/pack.tgz" "$out"
-	trap - RETURN
-	rm -rf "$stage"
+	mv -n "$offline_stage/pack.tgz" "$out"
+	offline_cleanup
+	trap - EXIT
 	printf '已打包：%s\n' "$out"
 }
 
 if [ "${OFFLINE_LIB_ONLY:-0}" != 1 ]; then
-	if [ "$#" -ne 0 ]; then
-		printf '用法：dotfiles-offline\n' >&2
+	if [ "$#" -eq 1 ] && [ "$1" = "--with-suckless" ]; then
+		offline_pack 1
+	elif [ "$#" -ne 0 ]; then
+		printf '用法：dotcfg-offline [--with-suckless]\n' >&2
 		exit 2
+	else
+		offline_pack 0
 	fi
-	offline_pack
 fi

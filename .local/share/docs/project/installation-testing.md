@@ -107,12 +107,12 @@ setup_bootstrap_env() # 从当前工作树构造自举安装用的临时 remote
 
 | 用例 | 覆盖 |
 | --- | --- |
-| TC-OFF01 | 包成员只有安装脚本、bundle、MANIFEST，且 SHA 与 bundle verify 通过 |
-| TC-OFF02 | 已跟踪改动、领先 origin/master 都拒绝 |
-| TC-OFF03 | 未跟踪文件警告后仍打包 |
+| TC-OFF01 | 默认包只有安装脚本、bundle、MANIFEST；SHA 可校验 |
+| TC-OFF02 | 领先、落后仍打包 origin/master；已跟踪脏文件警告且不入库；未跟踪不警告 |
+| TC-OFF03 | `--with-suckless` 含四个源码 bundle，先 make clean，已有源码不覆盖 |
 | TC-OFF04 | 目标包已存在则拒绝覆盖 |
-| TC-OFF05 | 可达私钥拒绝打包，输出不含密钥正文 |
-| TC-OFF06 | tar 成员超出白名单则拒绝 |
+| TC-OFF05 | 只有 origin/master 可达的私钥拒绝打包，输出不含密钥正文 |
+| TC-OFF06 | tar 成员超出白名单，或路径逃逸，则拒绝 |
 | TC-OFF07 | 远端第一次失败退出 2，第二次成功退出 0；不重复 clone/检出，不生成 fresh 备份 |
 | TC-OFF08 | 非终端需要改所有权时退出 1，不调用 sudo |
 

@@ -21,7 +21,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | 软件或命令 | 用途 |
 | --- | --- |
 | `git` | bare 配置仓库、`c` 命令和 Bash/Zsh 共用 Git 快捷命令 |
-| `dotfiles-offline` | 把 `~/.cfg` 的可达对象打成 git bundle 安装包。依赖 `tar`、`sha256sum`、`timeout`；不打包工作树 |
+| `dotcfg-offline` | 把 `origin/master` 打成 git bundle 安装包。`--with-suckless` 另附四个桌面源码 bundle。依赖 `tar`、`sha256sum`、`timeout`、`make`；不打包工作树 |
 | OpenSSH 客户端（`ssh`、`ssh-agent`） | 通过 GitHub SSH 部署配置，并在 `.xinitrc` 中启动 DWM 会话 |
 | `lazygit` | 可选 Git TUI 别名 |
 | `zsh`, `bash` | 交互式和 POSIX shell 支持 |
@@ -50,7 +50,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | Xorg/Xinit, `dbus-launch`, `dbus-update-activation-environment` | X11 会话启动 |
 | `dwm`, `dwmblocks`, `st`, `dmenu` | 窗口管理器、状态栏、终端和启动器；从 `~/src/` 单独构建 |
 | C99 编译器、`make`、`pkg-config` | 构建四个独立桌面源码仓库 |
-| `suckless-sync` | 仓库命令。比较产物 SHA 后按需 `sudo make install`；`clean` 只执行 `make clean`。不自动安装发行版包 |
+| `suckless-rebuild` | 仓库命令。比较产物 SHA 后按需 `sudo make install`。不自动安装发行版包 |
 | X11、Xft、Xrender、Xinerama、Fontconfig、FreeType、HarfBuzz 开发头文件和库 | DWM、DWMBlocks、dmenu 与 st 的编译、字体和渲染能力 |
 | X11-XCB、XCB、XCB Res 开发头文件和库 | 当前 DWM 补丁使用的进程/窗口资源能力 |
 | `tic` | 安装 st 的 terminfo 条目 |

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build or clean the four suckless trees. Never pulls, resets, or kills processes.
+# Build the four suckless trees. Never pulls, resets, or kills processes.
 
 set -eu
 
@@ -9,7 +9,7 @@ origin=${SUCKLESS_ORIGIN:-git@github.com:darkroam}
 proc_root=${SUCKLESS_PROC:-/proc}
 
 usage() {
-	printf '用法：suckless-sync [clean] [st|dmenu|dwm|dwmblocks]\n' >&2
+	printf '用法：suckless-rebuild [st|dmenu|dwm|dwmblocks]\n' >&2
 	exit 2
 }
 
@@ -83,15 +83,6 @@ report_old() {
 	done
 }
 
-clean_one() {
-	name=$1
-	dir=$src_root/$name
-	if [ ! -d "$dir" ]; then
-		printf '跳过：%s 源码不存在\n' "$name" >&2
-		return 0
-	fi
-	make -C "$dir" clean
-}
 
 sync_one() {
 	name=$1
@@ -141,11 +132,6 @@ sync_one() {
 	report_old "$name" "$prod"
 }
 
-mode=sync
-if [ "${1:-}" = clean ]; then
-	mode=clean
-	shift
-fi
 if [ "$#" -gt 1 ]; then
 	usage
 fi
@@ -155,13 +141,6 @@ elif ! is_name "$1"; then
 	usage
 fi
 
-if [ "$mode" = clean ]; then
-	need_cmd make
-	for name in "$@"; do
-		clean_one "$name"
-	done
-	exit 0
-fi
 
 check_build_deps "$@"
 for name in "$@"; do

@@ -928,19 +928,22 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 
 ## 离线打包
 
-`dotfiles-offline` 只打包，不改变 `dotcfg` 的子命令。产物固定为
-`~/src/dotfiles-offline.tar.gz`；文件已存在则退出 2，不覆盖。包内只有
-`dotfiles-offline-install`、`dotfiles.bundle` 和 `MANIFEST`。bundle 由
-`git bundle create HEAD master` 生成，不包含工作树、index、`FETCH_HEAD` 或不可达对象。
+`dotcfg-offline` 只打包，不改变 `dotcfg` 的子命令。产物固定为
+`~/src/dotcfg-offline.tar.gz`；文件已存在则退出 2，不覆盖。默认包内只有
+`dotcfg-offline-install`、`dotfiles.bundle` 和 `MANIFEST`。`--with-suckless`
+再加入 `src/{st,dmenu,dwm,dwmblocks}.bundle`。
 
-打包前，`~/.cfg` 和 `~/src` 的 st、dmenu、dwm、dwmblocks 必须没有领先
-`origin/master` 的提交。已跟踪改动拒绝；未跟踪文件只警告。敏感扫描只覆盖 bundle
-会带走的对象，命中时只打印路径。
+bundle 取 `origin/master`，不取本地 HEAD，也不打包工作树、index、`FETCH_HEAD`
+或不可达对象。打包侧执行 `git bundle verify`，不执行 `git gc --prune=now`。
+本地领先或落后不拒绝。已跟踪脏文件不进入包，但会警告；未跟踪文件直接忽略。
+`--with-suckless` 会先在四个已存在的 `~/src/<name>` 里执行 `make clean`；
+源码仓或 `origin/master` 缺失则停止。敏感扫描只覆盖将进入包的可达对象，命中时只打印路径。
 
-新机运行包内的 `dotfiles-offline-install`。它用 bundle 建立 bare `~/.cfg`，按
-MANIFEST 做 `sha256sum -c`，写出 `core.bare`、GitHub SSH origin 和
-`status.showUntrackedFiles=no`，并只检出 `dotcfg` 和安装库中尚不存在的文件。
-它不调用 `bootstrap_finish_install`：该函数会执行 `fresh_create_root_backup`，
+新机运行包内的 `dotcfg-offline-install`。它先按 MANIFEST 做 `sha256sum -c`，
+不在新机执行 `git bundle verify`。然后用 bundle 建立 bare `~/.cfg`，写出
+`core.bare`、GitHub SSH origin 和 `status.showUntrackedFiles=no`，并只检出
+`dotcfg` 和安装库中尚不存在的文件。带源码包时，只在 `~/src/<name>` 不存在时
+clone。它不调用 `bootstrap_finish_install`：该函数会执行 `fresh_create_root_backup`，
 从而把新机器的 `~/.config` 收进 fresh 备份。它也不执行 `dotcfg switch fresh`。
 因此新机不会自动建立 `fresh_root`。
 
@@ -950,7 +953,7 @@ MANIFEST 做 `sha256sum -c`，写出 `core.bare`、GitHub SSH origin 和
 
 `timeout 10 git ls-remote --heads origin` 看不到 `refs/heads/master` 时，本地结果保留，
 退出 2。远端可用时 `git fetch`，并确认 `refs/remotes/origin/master`，退出 0。
-重跑不重复 clone、chown 或检出。安装脚本留在新机上，由用户自己删除。
+重跑不重复 clone、chown、检出或源码 clone。安装脚本留在新机上，由用户自己删除。
 
 ## 核心脚本
 
@@ -983,7 +986,7 @@ MANIFEST 做 `sha256sum -c`，写出 `core.bare`、GitHub SSH origin 和
 | `repair.sh` | 自动修复 |
 | `check-exclude.sh` | 查询路径的排除规则来源 |
 | `bootstrap-lib.sh` | bootstrap 安装收尾逻辑（供 dotcfg 自举调用） |
-| `offline.sh` | 离线 bundle 打包；由 `.local/bin/dotfiles-offline` 调用 |
+| `offline.sh` | 离线 bundle 打包；由 `.local/bin/dotcfg-offline` 调用 |
 
 **工具库**（位于 `.local/lib/installation/utils/`）：
 
