@@ -23,7 +23,6 @@ setup() {
 	local name
 	for name in st dmenu dwm dwmblocks; do
 		make_repo "$HOME/src/$name" "$HOME/remotes/$name.git" 0
-		printf 'clean:\n\t: > .cleaned\n' > "$HOME/src/$name/Makefile"
 	done
 }
 
@@ -98,6 +97,7 @@ check_manifest() {
 	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" commit -m ahead >/dev/null
 	pack
 	[ "$status" -eq 0 ]
+	[[ "$output" == *"领先 origin/master"* ]]
 	assert_readme $'content\n'
 
 	rm -f "$OFFLINE_OUTPUT"
@@ -114,11 +114,11 @@ check_manifest() {
 	pack
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"警告：dotfiles 有未提交改动，不进入包"* ]]
-	[[ "$output" != *"未跟踪"* ]]
+	[[ "$output" == *"未跟踪"* ]]
 	assert_readme $'content\nahead\n'
 }
 
-@test "TC-OFF03: --with-suckless bundles origin/master after make clean" {
+@test "TC-OFF03: --with-suckless bundles origin/master" {
 	local origin_sha tmp new name members want
 	origin_sha=$(git -C "$HOME/src/st" rev-parse origin/master)
 	printf 'ahead\n' >> "$HOME/src/st/README"
@@ -129,9 +129,6 @@ check_manifest() {
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"警告：st 有未提交改动，不进入包"* ]]
 	[[ "$output" != *"Makefile"* ]]
-	for name in st dmenu dwm dwmblocks; do
-		[ -f "$HOME/src/$name/.cleaned" ]
-	done
 	members=$(tar -tzf "$OFFLINE_OUTPUT" | LC_ALL=C sort)
 	want=$(printf '%s\n' MANIFEST dotcfg-offline-install dotfiles.bundle \
 		src/st.bundle src/dmenu.bundle src/dwm.bundle src/dwmblocks.bundle | LC_ALL=C sort)
@@ -145,12 +142,13 @@ check_manifest() {
 	mkdir -p "$new"
 	install_fake_git "$new"
 	rm -f "$new/fail"
-	HOME=$new OFFLINE_HOME=$new DOTCFG_GIT_DIR=$new/.cfg PATH=$new/bin:$PATH \
+	OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git HOME=$new OFFLINE_HOME=$new DOTCFG_GIT_DIR=$new/.cfg PATH=$new/bin:$PATH \
 		run "$tmp/dotcfg-offline-install" </dev/null
 	[ "$status" -eq 0 ]
 	[[ "$output" != *"已有源码"* ]]
 	[ -d "$new/src/st/.git" ]
-	HOME=$new OFFLINE_HOME=$new DOTCFG_GIT_DIR=$new/.cfg PATH=$new/bin:$PATH \
+	[ "$(git -C "$new/src/st" remote get-url origin)" = "git@github.com:darkroam/st.git" ]
+	OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git HOME=$new OFFLINE_HOME=$new DOTCFG_GIT_DIR=$new/.cfg PATH=$new/bin:$PATH \
 		run "$tmp/dotcfg-offline-install" </dev/null
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"已有源码，保留：st"* ]]
@@ -223,7 +221,7 @@ ENDTAR
 	printf 'canary\n' > "$new/.config/canary"
 	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
 	install_fake_git "$new"
-	HOME=$new OFFLINE_HOME=$new DOTCFG_GIT_DIR=$new/.cfg OFFLINE_LS_FAIL=$new/fail \
+	OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git HOME=$new OFFLINE_HOME=$new DOTCFG_GIT_DIR=$new/.cfg OFFLINE_LS_FAIL=$new/fail \
 		PATH=$new/bin:$PATH run "$new/dotcfg-offline-install" </dev/null
 	[ "$status" -eq 2 ]
 	[ -x "$new/.local/bin/dotcfg" ]
@@ -237,6 +235,7 @@ ENDTAR
 		PATH=$new/bin:$PATH run "$new/dotcfg-offline-install" </dev/null
 	[ "$status" -eq 0 ]
 	[[ "$output" == *"已有 dotcfg，跳过检出。"* ]]
+	[[ "$(git --git-dir="$new/.cfg" config --get remote.origin.fetch)" == *refs/remotes/origin/* ]]
 	[ "$(grep -c -- '--bare' "$new/git.log")" -eq 1 ]
 	[ "$(grep -c ' show ' "$new/git.log")" -eq 2 ]
 	[ ! -e "$new/.config-backup" ]
@@ -286,10 +285,6 @@ case " $* " in
 			exit 1
 		fi
 		printf 'refs/heads/master\t0123456789abcdef\n'
-		exit 0
-		;;
-	*" fetch "*)
-		/usr/bin/git --git-dir="$DOTCFG_GIT_DIR" update-ref refs/remotes/origin/master HEAD
 		exit 0
 		;;
 esac

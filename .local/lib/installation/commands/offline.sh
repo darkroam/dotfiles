@@ -46,6 +46,20 @@ offline_tar_members_ok() {
 	[ "$got" = "$want" ]
 }
 
+offline_warn_ahead() {
+	local label=$1 count
+	shift
+	count=$("$@" rev-list --count origin/master..HEAD 2>/dev/null || printf '0')
+	[ "${count:-0}" -eq 0 ] || printf '警告：%s 领先 origin/master %s 笔，包取 origin/master\n' "$label" "$count" >&2
+}
+
+offline_warn_untracked() {
+	local label=$1 untracked
+	shift
+	untracked=$("$@" status --porcelain --untracked-files=normal 2>/dev/null | awk '$1 == "??" { print }')
+	[ -z "$untracked" ] || printf '警告：%s 有未跟踪文件，不进入包\n' "$label" >&2
+}
+
 offline_require_origin() {
 	local label=$1
 	shift
@@ -123,7 +137,7 @@ bundle=$here/dotfiles.bundle
 manifest=$here/MANIFEST
 home=${OFFLINE_HOME:-$HOME}
 cfg=${DOTCFG_GIT_DIR:-$home/.cfg}
-origin=git@github.com:darkroam/dotfiles.git
+origin=${OFFLINE_ORIGIN:-git@github.com:darkroam/dotfiles.git}
 
 [ -f "$bundle" ] && [ -f "$manifest" ] || {
 	printf '缺少 bundle 或 MANIFEST\n' >&2
@@ -140,7 +154,7 @@ fi
 rm -f "$check"
 
 if [ ! -e "$cfg" ]; then
-	git clone -q --bare "$bundle" "$cfg"
+	git clone -q --bare --config remote.origin.fetch='+refs/heads/*:refs/remotes/origin/*' "$bundle" "$cfg"
 elif ! git --git-dir="$cfg" rev-parse --git-dir >/dev/null 2>&1; then
 	printf '.cfg 不是 git 仓：%s\n' "$cfg" >&2
 	exit 1
@@ -166,14 +180,17 @@ current_bare=$(git --git-dir="$cfg" config --bool --get core.bare || true)
 [ "$current_bare" = true ] || git --git-dir="$cfg" config core.bare true
 
 current_origin=$(git --git-dir="$cfg" config --get remote.origin.url || true)
-if [ "$current_origin" != "$origin" ]; then
-	if [ -n "$current_origin" ]; then
-		git --git-dir="$cfg" remote set-url origin "$origin"
-	else
-		git --git-dir="$cfg" remote add origin "$origin"
-	fi
-fi
+case "$current_origin" in
+	""|"$bundle")
+		if [ -n "$current_origin" ]; then
+			git --git-dir="$cfg" remote set-url origin "$origin"
+		else
+			git --git-dir="$cfg" remote add origin "$origin"
+		fi
+		;;
+esac
 
+git --git-dir="$cfg" config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
 show_untracked=$(git --git-dir="$cfg" config --get status.showUntrackedFiles || true)
 [ "$show_untracked" = no ] || git --git-dir="$cfg" config status.showUntrackedFiles no
 
@@ -221,6 +238,7 @@ for name in st dmenu dwm dwmblocks; do
 		printf '源码 clone 失败：%s\n' "$name" >&2
 		exit 1
 	}
+	git -C "$dest" remote set-url origin "git@github.com:darkroam/$name.git"
 done
 
 if ! command -v timeout >/dev/null 2>&1; then
@@ -252,8 +270,9 @@ offline_pack() {
 	fi
 	offline_require_origin dotfiles git --git-dir="$cfg"
 	offline_warn_dirt dotfiles git --git-dir="$cfg" --work-tree="$work"
+	offline_warn_ahead dotfiles git --git-dir="$cfg" --work-tree="$work"
+	offline_warn_untracked dotfiles git --git-dir="$cfg" --work-tree="$work"
 	if [ "$with" -eq 1 ]; then
-		command -v make >/dev/null 2>&1 || offline_die "缺少命令：make" 1
 		for name in "${offline_names[@]}"; do
 			dir=$src/$name
 			if [ ! -d "$dir" ]; then
@@ -264,6 +283,8 @@ offline_pack() {
 			fi
 			offline_require_origin "$name" git -C "$dir"
 			offline_warn_dirt "$name" git -C "$dir"
+			offline_warn_ahead "$name" git -C "$dir"
+			offline_warn_untracked "$name" git -C "$dir"
 		done
 	fi
 	commit=$(git --git-dir="$cfg" rev-parse --verify origin/master)
@@ -272,7 +293,6 @@ offline_pack() {
 		for name in "${offline_names[@]}"; do
 			commit=$(git -C "$src/$name" rev-parse --verify origin/master)
 			offline_sensitive "$src/$name" "$commit"
-			make -C "$src/$name" clean || offline_die "make clean 失败：$name" 1
 		done
 	fi
 

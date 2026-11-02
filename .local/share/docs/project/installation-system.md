@@ -935,8 +935,8 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 
 bundle 取 `origin/master`，不取本地 HEAD，也不打包工作树、index、`FETCH_HEAD`
 或不可达对象。打包侧执行 `git bundle verify`，不执行 `git gc --prune=now`。
-本地领先或落后不拒绝。已跟踪脏文件不进入包，但会警告；未跟踪文件直接忽略。
-`--with-suckless` 会先在四个已存在的 `~/src/<name>` 里执行 `make clean`；
+本地领先或落后不拒绝。已跟踪脏文件不进入包，但会警告；未跟踪文件只警告。
+`--with-suckless` 不执行 `make clean`：bundle 只含提交对象，工作树构建产物本来就不在包内；
 源码仓或 `origin/master` 缺失则停止。敏感扫描只覆盖将进入包的可达对象，命中时只打印路径。
 
 新机运行包内的 `dotcfg-offline-install`。它先按 MANIFEST 做 `sha256sum -c`，
