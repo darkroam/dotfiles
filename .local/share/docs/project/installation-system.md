@@ -944,6 +944,10 @@ MANIFEST 做 `sha256sum -c`，写出 `core.bare`、GitHub SSH origin 和
 从而把新机器的 `~/.config` 收进 fresh 备份。它也不执行 `dotcfg switch fresh`。
 因此新机不会自动建立 `fresh_root`。
 
+注意：安装器本身不碰 `~/.config`，但安装后第一次执行 `dotcfg switch min`（或 full）时，
+`switch.sh` 仍会调用 `fresh_create_root_backup`，把当时的 `~/.config` 等混合模式文件
+备份到新的 `fresh_root/backup/`。这个豁免只属于安装器进程，不延伸到后续 switch。
+
 `timeout 10 git ls-remote --heads origin` 看不到 `refs/heads/master` 时，本地结果保留，
 退出 2。远端可用时 `git fetch`，并确认 `refs/remotes/origin/master`，退出 0。
 重跑不重复 clone、chown 或检出。安装脚本留在新机上，由用户自己删除。

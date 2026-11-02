@@ -4,7 +4,7 @@
 set -u
 
 fail=0
-root=$(CDPATH= cd -- "$(dirname -- "$0")/../../../.." && pwd)
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/../../../.." && pwd)
 sync=$root/.local/bin/suckless-sync
 
 bad() {
@@ -22,14 +22,14 @@ new_env() {
 	fi
 	unset PGREP_PID
 	base=$(mktemp -d)
-	export SUCKLESS_SRC=$base/src
-	export SUCKLESS_PREFIX_BIN=$base/prefix
-	export SUCKLESS_ORIGIN=$base/origin
-	export SUCKLESS_PROC=$base/proc
-	export MAKE_LOG=$base/make.log
-	export GIT_LOG=$base/git.log
-	export SUDO_LOG=$base/sudo.log
-	export INFOCMP_RC=${INFOCMP_RC:-1}
+	export SUCKLESS_SRC="$base/src"
+	export SUCKLESS_PREFIX_BIN="$base/prefix"
+	export SUCKLESS_ORIGIN="$base/origin"
+	export SUCKLESS_PROC="$base/proc"
+	export MAKE_LOG="$base/make.log"
+	export GIT_LOG="$base/git.log"
+	export SUDO_LOG="$base/sudo.log"
+	export INFOCMP_RC="${INFOCMP_RC:-1}"
 	mkdir -p "$SUCKLESS_SRC" "$SUCKLESS_PREFIX_BIN" "$base/bin" "$base/proc"
 	: > "$MAKE_LOG"
 	: > "$GIT_LOG"
