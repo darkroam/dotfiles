@@ -32,19 +32,6 @@ file_sha() {
 	printf '%s\n' "${sum%% *}"
 }
 
-run_logged() {
-	log=$1
-	shift
-	if "$@" >"$log" 2>&1; then
-		return 0
-	fi
-	keep_logs=1
-	printf '  命令失败，最近输出：\n' >&2
-	tail -n 30 "$log" >&2 || true
-	printf '  完整日志：%s\n' "$log" >&2
-	return 1
-}
-
 check_build_deps() {
 	need_cmd make
 	need_cmd gcc
@@ -101,7 +88,7 @@ sync_one() {
 	name=$1
 	dir=$src_root/$name
 	if [ ! -e "$dir" ]; then
-		if ! run_logged "$logdir/$name-clone.log" git clone "$origin/$name.git" "$dir"; then
+		if ! git clone "$origin/$name.git" "$dir"; then
 			printf 'clone 失败：%s\n' "$name" >&2
 			return 1
 		fi
@@ -136,7 +123,7 @@ sync_one() {
 			printf '需要终端才能安装：%s\n' "$name" >&2
 			return 1
 		fi
-		if ! run_logged "$logdir/$name-install.log" sudo -k make -C "$dir" install; then
+		if ! sudo -k make -C "$dir" install; then
 			printf '安装失败：%s\n' "$name" >&2
 			return 1
 		fi
@@ -162,13 +149,11 @@ elif ! is_name "$1"; then
 fi
 
 check_build_deps "$@"
-logdir=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/suckless-rebuild.XXXXXX") || {
-	printf '无法创建日志目录\n' >&2
+results=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/suckless-rebuild.XXXXXX") || {
+	printf '无法创建结果文件\n' >&2
 	exit 1
 }
-keep_logs=0
-trap 'if [ "$keep_logs" -eq 0 ]; then rm -rf "$logdir"; else printf "日志保留：%s\n" "$logdir" >&2; fi' EXIT
-results=$logdir/results
+trap 'rm -f "$results"' EXIT
 : > "$results"
 fail=0
 printf 'suckless-rebuild：%s\n' "$*"
