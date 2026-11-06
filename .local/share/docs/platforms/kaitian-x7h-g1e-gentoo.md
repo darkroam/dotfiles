@@ -19,6 +19,7 @@ Debian 的实测、包映射和待办仍只在 [Debian 13 档案](kaitian-x7h-g1
 | 内核 | 2026-10-12 正在运行 `6.12.111-gentoo-x86_64`。`@world` 含 `sys-kernel/gentoo-sources` 与 `sys-kernel/gentoo-sources:6.12.111`。`6.18.54` 的源码和模块也在，未核对其能否启动 |
 | init 与服务管理 | profile 选择 systemd。2026-10-12 用户回传 `ps -p 1` 的命令名是 systemd。不记录主机其他信息 |
 | 图形会话与桌面启动链 | 2026-10-12：`.zprofile` 只在本地第一控制台、没有 SSH、没有 `DISPLAY`、有显卡设备、且没有已在跑的 Xorg 时设置 `XINITRC` 并 `exec startx`。`~/.xinitrc` 指向 `.config/x11/xinitrc`，先 source `xprofile`，再 `ssh-agent dwm`。`xprofile` 拉起壁纸、xrdb、输入法、`xss-lock`、picom，以及 `mpd`、`dunst`、`unclutter`、`/opt/Synergy/synergy-service`。dwm 的 `runAutostart()` 执行 `killall -q dwmblocks; dwmblocks &` |
+| Wayland 能力（研究） | 2026-11-06 实测：fh2m `2.19.50278583` 上 `weston --backend=drm` 可启动，EGL/GLES、双输出和 dmabuf 协商正常；Vulkan 运行时无 `VK_KHR_wayland_surface`。详见 [Wayland 迁移研究](../project/wayland-migration.md) |
 | 使用人 | 本机日常账户。公开档案不记录用户名 |
 
 ## 适用范围与隐私边界

@@ -28,6 +28,7 @@
 - [显示管理设计](project/display-management.md) — X11 显示引擎的状态模型、显示布局策略和验证矩阵
 - [显示设备适配器指引](project/display-device-adapter.md) — 非标准硬件扩展接口规范
 - [显示管理测试](project/display-testing.md) — 状态、显示布局、配置和适配器的测试方案与验收步骤
+- [Wayland 迁移研究](project/wayland-migration.md) — R42 的硬件实测、输入法/Vulkan 限制、分支与未决问题（挂起）
 - [访问子系统](project/access-system.md) — 网络访问控制：怎么用；实现在 `.local/lib/access/`
 - [访问设计](project/access-design.md) — 命令行为、退出码和术语
 - [访问架构](project/access-architecture.md) — 文件怎么摆、分层和上限
