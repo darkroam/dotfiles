@@ -89,6 +89,15 @@ offline_sensitive() {
 		esac
 		typ=$(git -C "$repo" cat-file -t "$sha" 2>/dev/null || true)
 		[ "$typ" = blob ] || continue
+		# Historical offline.bats only: fixture PEM header plus fake marker
+		# not-a-real-key-body-xyz. Not key material. Exact blob SHA, not a path.
+		case $sha in
+		b5cff72a0acf8274a05680a6832486e5dd9de939|\
+		f4facf1406b833c92ff1dd7faabb18d55c2f860f|\
+		a116f41508aa7a424850964b82c0dbacfc8c47ca)
+			continue
+			;;
+		esac
 		if git -C "$repo" cat-file blob "$sha" | awk '
 			/-----BEGIN ([A-Z0-9]+ )*PRIVATE KEY-----/ { found = 1 }
 			/ghp_[A-Za-z0-9]{20,}/ { found = 1 }
@@ -225,11 +234,30 @@ else
 	printf '已有 dotcfg，跳过检出。\n'
 fi
 
+src_base=${origin%/}
+src_base=${src_base%.git}
+case $src_base in
+	*/dotfiles) src_base=${src_base%/dotfiles} ;;
+	*)
+		printf '无法从 OFFLINE_ORIGIN 推导源码地址：%s\n' "$origin" >&2
+		exit 1
+		;;
+esac
+
 for name in st dmenu dwm dwmblocks; do
 	src_bundle=$here/src/$name.bundle
 	[ -f "$src_bundle" ] || continue
+	src_url=$src_base/$name.git
 	dest=$home/src/$name
 	if [ -e "$dest" ]; then
+		if git -C "$dest" rev-parse --git-dir >/dev/null 2>&1; then
+			current_src=$(git -C "$dest" config --get remote.origin.url || true)
+			case $current_src in
+				"$src_bundle"|*"/src/$name.bundle")
+					git -C "$dest" remote set-url origin "$src_url"
+					;;
+			esac
+		fi
 		printf '已有源码，保留：%s\n' "$name"
 		continue
 	fi
@@ -238,7 +266,7 @@ for name in st dmenu dwm dwmblocks; do
 		printf '源码 clone 失败：%s\n' "$name" >&2
 		exit 1
 	}
-	git -C "$dest" remote set-url origin "git@github.com:darkroam/$name.git"
+	git -C "$dest" remote set-url origin "$src_url"
 done
 
 if ! command -v timeout >/dev/null 2>&1; then

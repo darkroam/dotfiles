@@ -147,7 +147,7 @@ check_manifest() {
 	[ "$status" -eq 0 ]
 	[[ "$output" != *"已有源码"* ]]
 	[ -d "$new/src/st/.git" ]
-	[ "$(git -C "$new/src/st" remote get-url origin)" = "git@github.com:darkroam/st.git" ]
+	[ "$(git -C "$new/src/st" remote get-url origin)" = "$HOME/remotes/st.git" ]
 	OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git HOME=$new OFFLINE_HOME=$new DOTCFG_GIT_DIR=$new/.cfg PATH=$new/bin:$PATH \
 		run "$tmp/dotcfg-offline-install" </dev/null
 	[ "$status" -eq 0 ]
@@ -169,9 +169,11 @@ check_manifest() {
 }
 
 @test "TC-OFF05: only a key reachable from origin/master is rejected" {
-	local marker=not-a-real-key-body-xyz dir
+	local marker=not-a-real-key-body-xyz dir begin end
+	begin=$(printf '%s%s%s' '-----BE' 'GIN OPENSSH ' 'PRIVATE KEY-----')
+	end=$(printf '%s%s%s' '-----E' 'ND OPENSSH ' 'PRIVATE KEY-----')
 	mkdir -p "$OFFLINE_WORKTREE/notes"
-	printf '%s\n' "-----BEGIN OPENSSH PRIVATE KEY-----" "$marker" "-----END OPENSSH PRIVATE KEY-----" > "$OFFLINE_WORKTREE/notes/leak.txt"
+	printf '%s\n' "$begin" "$marker" "$end" > "$OFFLINE_WORKTREE/notes/leak.txt"
 	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" add notes/leak.txt
 	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" commit -m leak >/dev/null
 	pack
@@ -187,7 +189,7 @@ check_manifest() {
 	[ "$status" -eq 2 ]
 	[[ "$output" == *"敏感对象已拒绝：notes/leak.txt"* ]]
 	[[ "$output" != *"$marker"* ]]
-	[[ "$output" != *"BEGIN OPENSSH PRIVATE KEY"* ]]
+	[[ "$output" != *"$begin"* ]]
 }
 
 @test "TC-OFF06: illegal tar members and path escape are rejected" {
@@ -269,6 +271,40 @@ EOS
 	[ "$status" -eq 1 ]
 	[[ "$output" == *"需要终端才能修正 .cfg 所有权"* ]]
 	[ ! -s "$new/sudo.log" ]
+}
+
+@test "TC-OFF09: invalid source origin fails before cloning sources" {
+	pack --with-suckless
+	[ "$status" -eq 0 ]
+	local new=$HOME/new
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	install_fake_git "$new"
+	OFFLINE_ORIGIN=https://mirror.invalid/group/notdotfiles HOME=$new OFFLINE_HOME=$new \
+		DOTCFG_GIT_DIR=$new/.cfg PATH=$new/bin:$PATH \
+		run "$new/dotcfg-offline-install" </dev/null
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"无法从 OFFLINE_ORIGIN 推导源码地址"* ]]
+	[ ! -e "$new/src/st" ]
+	rm -rf "$new"
+}
+
+@test "TC-OFF10: an existing source repo with bundle origin is repaired" {
+	pack --with-suckless
+	[ "$status" -eq 0 ]
+	local new=$HOME/new tmp
+	tmp=$(mktemp -d)
+	tar -xzf "$OFFLINE_OUTPUT" -C "$tmp"
+	mkdir -p "$new/src"
+	git clone -q "$tmp/src/st.bundle" "$new/src/st"
+	install_fake_git "$new"
+	OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git HOME=$new OFFLINE_HOME=$new \
+		DOTCFG_GIT_DIR=$new/.cfg PATH=$new/bin:$PATH \
+		run "$tmp/dotcfg-offline-install" </dev/null
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"已有源码，保留：st"* ]]
+	[ "$(git -C "$new/src/st" remote get-url origin)" = "$HOME/remotes/st.git" ]
+	rm -rf "$new" "$tmp"
 }
 
 install_fake_git() {

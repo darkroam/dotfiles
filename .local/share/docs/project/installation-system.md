@@ -943,7 +943,11 @@ bundle 取 `origin/master`，不取本地 HEAD，也不打包工作树、index�
 不在新机执行 `git bundle verify`。然后用 bundle 建立 bare `~/.cfg`，写出
 `core.bare`、GitHub SSH origin 和 `status.showUntrackedFiles=no`，并只检出
 `dotcfg` 和安装库中尚不存在的文件。带源码包时，只在 `~/src/<name>` 不存在时
-clone。它不调用 `bootstrap_finish_install`：该函数会执行 `fresh_create_root_backup`，
+clone。四个源码仓的 origin 从同一个 `OFFLINE_ORIGIN` 推导（把末尾
+`dotfiles` 或 `dotfiles.git` 换成 `<name>.git`），不另写 GitHub 前缀。
+源码地址在 clone 前统一推导；无法推导时退出 1，不留下半成品源目录。
+已存在的源码仓若 origin 仍指向包内 `.bundle`，重跑会 `set-url` 修正。
+它不调用 `bootstrap_finish_install`：该函数会执行 `fresh_create_root_backup`，
 从而把新机器的 `~/.config` 收进 fresh 备份。它也不执行 `dotcfg switch fresh`。
 因此新机不会自动建立 `fresh_root`。
 

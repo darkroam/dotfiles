@@ -101,7 +101,7 @@ setup_bootstrap_env() # 从当前工作树构造自举安装用的临时 remote
 `$HOME`，也不应把测试产物或缓存加入仓库。
 
 
-### TC-OFF01..OFF08：离线包（offline.bats）
+### TC-OFF01..OFF10：离线包（offline.bats）
 
 临时 HOME 和真实 git。不访问网络，不调用 `dotcfg switch fresh`。
 
@@ -115,9 +115,11 @@ setup_bootstrap_env() # 从当前工作树构造自举安装用的临时 remote
 | TC-OFF06 | tar 成员超出白名单，或路径逃逸，则拒绝 |
 | TC-OFF07 | 远端第一次失败退出 2，第二次成功退出 0；不重复 clone/检出，不生成 fresh 备份 |
 | TC-OFF08 | 非终端需要改所有权时退出 1，不调用 sudo |
+| TC-OFF09 | `OFFLINE_ORIGIN` 无法推导源码地址时，在 clone 前退出 1，不留下半成品 |
+| TC-OFF10 | 已存在源码仓的 origin 仍指向包内 bundle 时，重跑会修正为推导地址 |
 
 `suckless-rebuild` 的检查在 `.local/share/test/build/run.sh`，14 项。它不是 Bats，
-不计入 283，也不计入下面的 319。
+不计入 285，也不计入下面的 321。
 
 ### TC-AXS01：access 入口（access-entry.bats）
 
@@ -446,22 +448,23 @@ bats -r .local/share/test/ --tap
 
 ### 当前安装测试结果
 
-2026-08-12 的完整执行是 272/272。R40 收口记录的安装套件是 283/283，`offline.bats` 8/8，
-`.local/share/test/build/run.sh` 14 项通过，相关 shellcheck 为 0。这些数字来自该轮验证，
-不是本文一次新的重跑。
+2026-08-12 在[平台档案索引](../platforms/index.md)所列 Debian 平台完整执行是 272/272。
+2026-11-06 在同一索引所列 KaiTian X7h G1e + Gentoo 上、commit `e100bb7`，安装套件为 285/285。
+同一次还有 `offline.bats` 10/10、`.local/share/test/build/run.sh` 14 项通过；`.local/bin` 与 `.local/lib` 的 shellcheck 为 0（`.bats` 不直接以 shellcheck 检查）。
 
-**验证环境**：Bats 满足本文 `>= 1.11.0` 的前置要求。`bats --count` 对 installation 与
-project-tools 仍分别是 283 和 36。
+**验证环境**：2026-11-06，KaiTian X7h G1e + Gentoo，commit `e100bb7`；执行：qoder，验收：dsh。Bats 满足本文
+`>= 1.11.0` 的前置要求。`bats --count` 对 installation 与 project-tools 仍分别是 285 和 36。
 
 ```
-Total:  283
-Passed: 283
+# 2026-11-06 e100bb7，KaiTian X7h G1e + Gentoo
+Total:  285
+Passed: 285
 Failed: 0
 ```
 
 project-tools 测试由[协作规约](collaboration.md)维护自己的 Bats 基线；显示子系统由
 [显示管理测试](display-testing.md)维护独立 shell fixture 基线。只有同时写明组成与递归命令时，
-才把 installation 与 project-tools 合称全仓 Bats。二者合计 319 个 Bats；该数字不包含显示 fixture，
+才把 installation 与 project-tools 合称全仓 Bats。二者合计 321 个 Bats；该数字不包含显示 fixture，
 也不包含 `test/build` 的 14 项 shell 测试。
 
 ---
@@ -484,4 +487,4 @@ project-tools 测试由[协作规约](collaboration.md)维护自己的 Bats 基�
 ---
 
 **最后更新**: 2026-11-06
-**版本**: 5.6 — R40 收口：283/283，离线 8/8，build 14 项
+**版本**: 5.7 — R40 收口：285/285，离线 10/10，build 14 项
