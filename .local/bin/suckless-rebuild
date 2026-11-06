@@ -113,7 +113,7 @@ sync_one() {
 	if [ -n "$(git -C "$dir" status --porcelain 2>/dev/null || true)" ]; then
 		printf '本地修改：%s\n' "$name" >&2
 	fi
-	if ! run_logged "$logdir/$name-make.log" make -C "$dir"; then
+	if ! make -C "$dir"; then
 		printf '构建失败：%s\n' "$name" >&2
 		return 1
 	fi
