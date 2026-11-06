@@ -38,6 +38,7 @@ run_logged() {
 	if "$@" >"$log" 2>&1; then
 		return 0
 	fi
+	keep_logs=1
 	printf '  命令失败，最近输出：\n' >&2
 	tail -n 30 "$log" >&2 || true
 	printf '  完整日志：%s\n' "$log" >&2
@@ -165,7 +166,8 @@ logdir=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/suckless-rebuild.XXXXXX") || {
 	printf '无法创建日志目录\n' >&2
 	exit 1
 }
-trap 'rm -rf "$logdir"' EXIT
+keep_logs=0
+trap 'if [ "$keep_logs" -eq 0 ]; then rm -rf "$logdir"; else printf "日志保留：%s\n" "$logdir" >&2; fi' EXIT
 results=$logdir/results
 : > "$results"
 fail=0
