@@ -116,6 +116,9 @@ setup_bootstrap_env() # 从当前工作树构造自举安装用的临时 remote
 | TC-OFF07 | 远端第一次失败退出 2，第二次成功退出 0；不重复 clone/检出，不生成 fresh 备份 |
 | TC-OFF08 | 非终端需要改所有权时退出 1，不调用 sudo |
 
+`suckless-rebuild` 的检查在 `.local/share/test/build/run.sh`，14 项。它不是 Bats，
+不计入 283，也不计入下面的 319。
+
 ### TC-AXS01：access 入口（access-entry.bats）
 
 `.local/bin/axs` 的链接文本是 `../lib/access/bin/axs`。测试从本仓库根解析该链接，断言目标存在且可执行；不执行 axs。`axs help` 退出码 0 的验证在阶段 4 现场验收。不使用真实 `$HOME`，也不启动服务。
@@ -443,23 +446,23 @@ bats -r .local/share/test/ --tap
 
 ### 当前安装测试结果
 
-下面的通过数是 2026-08-12 的完整执行，不是后来的重跑。2026-08-31 只复核了条数。
+2026-08-12 的完整执行是 272/272。R40 收口记录的安装套件是 283/283，`offline.bats` 8/8，
+`.local/share/test/build/run.sh` 14 项通过，相关 shellcheck 为 0。这些数字来自该轮验证，
+不是本文一次新的重跑。
 
-**验证环境**：2026-08-12 在[平台档案索引](../platforms/index.md)所列 Debian 平台完整执行；
-Bats 满足本文 `>= 1.11.0` 的前置要求。2026-08-31 的清单复核是 272。2026-11-02
-用 `bats --count .local/share/test/installation` 复核当前清单为 283；该枚举不冒充一次新的完整执行。
+**验证环境**：Bats 满足本文 `>= 1.11.0` 的前置要求。`bats --count` 对 installation 与
+project-tools 仍分别是 283 和 36。
 
 ```
-Total:  272
-Passed: 272
+Total:  283
+Passed: 283
 Failed: 0
 ```
 
 project-tools 测试由[协作规约](collaboration.md)维护自己的 Bats 基线；显示子系统由
 [显示管理测试](display-testing.md)维护独立 shell fixture 基线。只有同时写明组成与递归命令时，
-才把 installation 与 project-tools 合称全仓 Bats。2026-11-02 使用 `bats --count` 分别枚举为 283 和
-36，因此 `bats -r .local/share/test/` 当前覆盖 319 个 Bats；该数字不包含显示 fixture，也不包含
-`test/build` 的 shell 测试。
+才把 installation 与 project-tools 合称全仓 Bats。二者合计 319 个 Bats；该数字不包含显示 fixture，
+也不包含 `test/build` 的 14 项 shell 测试。
 
 ---
 
@@ -480,5 +483,5 @@ project-tools 测试由[协作规约](collaboration.md)维护自己的 Bats 基�
 
 ---
 
-**最后更新**: 2026-08-31
-**版本**: 5.5 — 283 个受管测试 + 配置驱动边界 + full/min/macos 切换专题
+**最后更新**: 2026-11-06
+**版本**: 5.6 — R40 收口：283/283，离线 8/8，build 14 项

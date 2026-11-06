@@ -21,7 +21,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | 软件或命令 | 用途 |
 | --- | --- |
 | `git` | bare 配置仓库、`c` 命令和 Bash/Zsh 共用 Git 快捷命令 |
-| `dotcfg-offline` | 把 `origin/master` 打成 git bundle 安装包。`--with-suckless` 另附四个桌面源码 bundle。依赖 `tar`、`sha256sum`、`timeout`；不打包工作树 |
+| `dotcfg-offline` | 把 `origin/master` 打成 git bundle。默认成员是安装脚本、`dotfiles.bundle`、`MANIFEST`；`--with-suckless` 再加四个源码 bundle，不执行 `make clean`。打包侧 `git bundle verify`；新机只做 `sha256sum -c`，不运行 `git bundle verify`，也不调用 `dotcfg switch fresh`。依赖 `tar`、`sha256sum`、`timeout`；不打包工作树 |
 | OpenSSH 客户端（`ssh`、`ssh-agent`） | 通过 GitHub SSH 部署配置，并在 `.xinitrc` 中启动 DWM 会话 |
 | `lazygit` | 可选 Git TUI 别名 |
 | `zsh`, `bash` | 交互式和 POSIX shell 支持 |
