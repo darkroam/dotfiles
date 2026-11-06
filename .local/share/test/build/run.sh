@@ -22,6 +22,8 @@ new_env() {
 	fi
 	unset PGREP_PID
 	base=$(mktemp -d)
+	export XDG_RUNTIME_DIR="$base/run"
+	mkdir -p "$XDG_RUNTIME_DIR"
 	export SUCKLESS_SRC="$base/src"
 	export SUCKLESS_PREFIX_BIN="$base/prefix"
 	export SUCKLESS_ORIGIN="$base/origin"
@@ -35,6 +37,9 @@ new_env() {
 	: > "$GIT_LOG"
 	: > "$SUDO_LOG"
 	ln -s /usr/bin/sha256sum "$base/bin/sha256sum"
+	ln -s /usr/bin/mktemp "$base/bin/mktemp"
+	ln -s /usr/bin/tail "$base/bin/tail"
+	ln -s /usr/bin/rm "$base/bin/rm"
 	ln -s /bin/readlink "$base/bin/readlink" 2>/dev/null || ln -s /usr/bin/readlink "$base/bin/readlink"
 	cat > "$base/bin/git" << 'EOS'
 #!/bin/sh

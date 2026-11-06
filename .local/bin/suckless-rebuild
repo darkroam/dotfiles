@@ -32,6 +32,18 @@ file_sha() {
 	printf '%s\n' "${sum%% *}"
 }
 
+run_logged() {
+	log=$1
+	shift
+	if "$@" >"$log" 2>&1; then
+		return 0
+	fi
+	printf '  命令失败，最近输出：\n' >&2
+	tail -n 30 "$log" >&2 || true
+	printf '  完整日志：%s\n' "$log" >&2
+	return 1
+}
+
 check_build_deps() {
 	need_cmd make
 	need_cmd gcc
@@ -88,48 +100,55 @@ sync_one() {
 	name=$1
 	dir=$src_root/$name
 	if [ ! -e "$dir" ]; then
-		git clone "$origin/$name.git" "$dir" || {
+		if ! run_logged "$logdir/$name-clone.log" git clone "$origin/$name.git" "$dir"; then
 			printf 'clone 失败：%s\n' "$name" >&2
-			exit 1
-		}
+			return 1
+		fi
+		printf '  源码已 clone\n'
 	elif [ ! -d "$dir" ] || ! git -C "$dir" rev-parse --git-dir >/dev/null 2>&1; then
 		printf '不是 git 仓库：%s\n' "$dir" >&2
-		exit 1
+		return 1
 	fi
 	if [ -n "$(git -C "$dir" status --porcelain 2>/dev/null || true)" ]; then
 		printf '本地修改：%s\n' "$name" >&2
 	fi
-	make -C "$dir" || {
-		printf 'make 失败：%s\n' "$name" >&2
-		exit 1
-	}
+	if ! run_logged "$logdir/$name-make.log" make -C "$dir"; then
+		printf '构建失败：%s\n' "$name" >&2
+		return 1
+	fi
+	printf '  构建完成\n'
 	prod=$dir/$name
 	if [ ! -f "$prod" ]; then
 		printf '没有产物：%s\n' "$prod" >&2
-		exit 1
+		return 1
 	fi
 	inst=$prefix_bin/$name
+	status=unknown
 	if [ -f "$inst" ] && [ "$(file_sha "$prod")" = "$(file_sha "$inst")" ]; then
-		printf '跳过安装：%s\n' "$name"
+		printf '  跳过安装（已是最新）\n'
+		status=已是最新
 		if [ "$name" = st ]; then
 			check_terminfo
 		fi
 	else
 		if [ ! -t 0 ] || [ ! -t 1 ]; then
 			printf '需要终端才能安装：%s\n' "$name" >&2
-			exit 1
+			return 1
 		fi
-		sudo -k make -C "$dir" install || {
+		if ! run_logged "$logdir/$name-install.log" sudo -k make -C "$dir" install; then
 			printf '安装失败：%s\n' "$name" >&2
-			exit 1
-		}
+			return 1
+		fi
 		if [ ! -f "$inst" ] || [ "$(file_sha "$prod")" != "$(file_sha "$inst")" ]; then
 			printf '安装后 SHA 不一致：%s\n' "$name" >&2
-			exit 1
+			return 1
 		fi
-		printf '已安装：%s\n' "$name"
+		printf '  已安装\n'
+		status=已安装
 	fi
 	report_old "$name" "$prod"
+	printf '%s\t%s\n' "$name" "$status" >> "$results"
+	return 0
 }
 
 if [ "$#" -gt 1 ]; then
@@ -141,8 +160,25 @@ elif ! is_name "$1"; then
 	usage
 fi
 
-
 check_build_deps "$@"
+logdir=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/suckless-rebuild.XXXXXX") || {
+	printf '无法创建日志目录\n' >&2
+	exit 1
+}
+trap 'rm -rf "$logdir"' EXIT
+results=$logdir/results
+: > "$results"
+fail=0
+printf 'suckless-rebuild：%s\n' "$*"
 for name in "$@"; do
-	sync_one "$name"
+	printf '\n==> %s\n' "$name"
+	if ! sync_one "$name"; then
+		printf '%s\t失败\n' "$name" >> "$results"
+		fail=1
+	fi
 done
+printf '\n结果：\n'
+while IFS="$(printf '\t')" read -r name status; do
+	printf '  %-10s %s\n' "$name" "$status"
+done < "$results"
+exit "$fail"
