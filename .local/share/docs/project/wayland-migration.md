@@ -121,3 +121,4 @@ hyprland/niri/river、keyd 不在当前 Portage 树。
 - [依赖清单](dependencies.md)
 - [安装系统](installation-system.md)
 - [KaiTian X7h G1e + Gentoo 平台档案](../platforms/kaitian-x7h-g1e-gentoo.md)
+- [Wayland 桌面替代选型](wayland-desktop-alternatives.md)
