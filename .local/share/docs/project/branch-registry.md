@@ -12,9 +12,9 @@
 
 `head` 列是最近一次已审 head；审计以现场 `git rev-parse` 为准，允许任务分支比登记晚一笔。
 | R43 | 任务 | wayland | task/R43-wayland-desktop | 2172961 | 1f5420d | 开发中（部分完成，未合入） | Ghostty 配置初审通过 | wayland | - | 否 | 含 ea8a2b6、1f5420d；无 picom |
-| R44 | 治理 | master | master | - | 2172961 | 待审查 | qoder 二轮返工待复审 | master | 2172961 | 否 | v0.8 规约 |
-| R44 | 任务 | x11 | task/R44-x11-test-record | 2172961 | 2ee0544 | 待审查 | 待复审 | x11 | - | 否 | 测试标签 + 规约；head 为上次审计值 |
-| R44 | 任务 | wayland | task/R44-wayland-test-record | 2172961 | 9fa4183 | 待审查 | 待复审 | wayland | - | 否 | 测试标签 + 规约；cherry-pick 自 1fee43b；head 为上次审计值 |
+| R44 | 治理 | master | master | - | 2172961 | 通过 | qoder 复审通过，收尾项已修 | master | 2172961 | 否 | v0.9 规约 |
+| R44 | 任务 | x11 | task/R44-x11-test-record | 2172961 | b4924eb | 通过（待合并） | qoder 复审通过 | x11 | - | 否 | 测试标签 + 规约；head 为上次审计值 |
+| R44 | 任务 | wayland | task/R44-wayland-test-record | 2172961 | 1d94b46 | 通过（待合并） | qoder 复审通过 | wayland | - | 否 | 测试标签 + 规约；cherry-pick 自 1fee43b；head 为上次审计值 |
 
 ## 当前工作树
 
