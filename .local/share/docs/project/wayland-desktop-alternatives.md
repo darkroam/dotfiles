@@ -1,7 +1,7 @@
 # Wayland 下替代 dwm 的桌面选型
 
 本文面向维护者和 Agent，记录 R43 对 Wayland 平铺桌面方案的比较与替换清单。
-状态：**挂起**（2026-11-10 用户决定）；X11 主线继续使用 dwm，不替换。
+状态：**开发中（部分完成，未合入）**。暂停说明：2026-11-10 用户决定；X11 主线继续使用 dwm，不替换。
 
 ## 结论
 
@@ -55,6 +55,14 @@
 | `unclutter` | 隐藏鼠标 | compositor 自带 | 同左 | 同左 | 同左 |
 | `Synergy` | 跨机键鼠 | 需单独验证；可能用 Waynergy/Input Leap | 同左 | 同左 | 同左 |
 | X11 专用程序 | 兼容 | XWayland | `xwayland-satellite` | XWayland | XWayland |
+
+## Ghostty 试点（R43，2026-11-11）
+
+- 已安装 Ghostty 1.3.1，作为 `st` 的 Wayland 替代候选；
+- 配置在 `~/.config/ghostty/config.ghostty`，仍只在 `task/R43-wayland-desktop`，本阶段不合并该配置；
+- 目标：字体、16 色、transparency、cursor、term 与 `st` 对齐；
+- picom 规则属于 X11，不纳入 R43；R43 的 picom 工作已取消；
+- `tab-width` 在 Ghostty 1.3.1 不是可配置项，只能实测。
 
 ## 关键说明
 

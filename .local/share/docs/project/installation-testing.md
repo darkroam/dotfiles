@@ -101,25 +101,29 @@ setup_bootstrap_env() # 从当前工作树构造自举安装用的临时 remote
 `$HOME`，也不应把测试产物或缓存加入仓库。
 
 
-### TC-OFF01..OFF10：离线包（offline.bats）
+### TC-OFF01..OFF14：离线包（offline.bats）
 
 临时 HOME 和真实 git。不访问网络，不调用 `dotcfg switch fresh`。
 
 | 用例 | 覆盖 |
 | --- | --- |
-| TC-OFF01 | 默认包只有安装脚本、bundle、MANIFEST；SHA 可校验 |
-| TC-OFF02 | 领先、落后仍打包 origin/master；已跟踪脏文件警告且不入库；未跟踪只警告 |
-| TC-OFF03 | `--with-suckless` 含四个源码 bundle，已有源码不覆盖 |
+| TC-OFF01 | 当前分支为 x11 时默认包只有安装脚本、bundle、MANIFEST，并记录 target |
+| TC-OFF02 | 领先时警告为“警告：dotfiles 当前 HEAD 领先 origin/<target> N 笔（含未合并任务分支提交）”；落后仍打包；脏文件与未跟踪只警告 |
+| TC-OFF03 | `--with-suckless` 含四个源码 bundle，源码仍取 `origin/master`，已有源码不覆盖 |
 | TC-OFF04 | 目标包已存在则拒绝覆盖 |
-| TC-OFF05 | 只有 origin/master 可达的私钥拒绝打包，输出不含密钥正文 |
+| TC-OFF05 | 只有所选 target 可达的私钥拒绝打包，输出不含密钥正文 |
 | TC-OFF06 | tar 成员超出白名单，或路径逃逸，则拒绝 |
 | TC-OFF07 | 远端第一次失败退出 2，第二次成功退出 0；不重复 clone/检出，不生成 fresh 备份 |
 | TC-OFF08 | 非终端需要改所有权时退出 1，不调用 sudo |
 | TC-OFF09 | `OFFLINE_ORIGIN` 无法推导源码地址时，在 clone 前退出 1，不留下半成品 |
 | TC-OFF10 | 已存在源码仓的 origin 仍指向包内 bundle 时，重跑会修正为推导地址 |
+| TC-OFF11 | `--branch x11` 与 `--branch wayland` 打对应提交；wayland 不改变源码 bundle |
+| TC-OFF12 | master 默认拒绝；`--allow-stale-target` 仅当 HEAD 等于 `origin/master` 才放行；HEAD 不等，或在 x11/wayland 上使用该开关，都拒绝 |
+| TC-OFF13 | 安装器按 MANIFEST 的 x11 或 wayland 做远端门，不匹配则退出 2 |
+| TC-OFF14 | 已有 `.cfg` 把 `master` 改名为 target；双分支、外部分支、detached HEAD 都退出 1 且不改 HEAD；新机可再打包 |
 
 `suckless-rebuild` 的检查在 `.local/share/test/build/run.sh`，14 项。它不是 Bats，
-不计入 285，也不计入下面的 321。
+不计入 289，也不计入下面的 325。
 
 ### TC-AXS01：access 入口（access-entry.bats）
 
@@ -449,22 +453,35 @@ bats -r .local/share/test/ --tap
 ### 当前安装测试结果
 
 2026-08-12 在[平台档案索引](../platforms/index.md)所列 Debian 平台完整执行是 272/272。
-2026-11-06 在同一索引所列 KaiTian X7h G1e + Gentoo 上、commit `e100bb7`，安装套件为 285/285。
+2026-11-06 在同一索引所列 KaiTian X7h G1e + Gentoo 上、commit `b13f897`，安装套件为 285/285。
 同一次还有 `offline.bats` 10/10、`.local/share/test/build/run.sh` 14 项通过；`.local/bin` 与 `.local/lib` 的 shellcheck 为 0（`.bats` 不直接以 shellcheck 检查）。
 
-**验证环境**：2026-11-06，KaiTian X7h G1e + Gentoo，commit `e100bb7`；执行：qoder，验收：dsh。Bats 满足本文
-`>= 1.11.0` 的前置要求。`bats --count` 对 installation 与 project-tools 仍分别是 285 和 36。
+**验证环境**：2026-11-06，KaiTian X7h G1e + Gentoo，commit `b13f897`；执行：qoder，验收：dsh。Bats 满足本文
+`>= 1.11.0` 的前置要求。
 
 ```
-# 2026-11-06 e100bb7，KaiTian X7h G1e + Gentoo
+# 2026-11-06 b13f897，KaiTian X7h G1e + Gentoo
 Total:  285
 Passed: 285
 Failed: 0
 ```
 
+2026-11-11 在 KaiTian X7h G1e + Gentoo 上复跑当时清单：安装套件 288/288，`offline.bats` 13/13。
+
+2026-11-11 在同一台机器复跑当前清单，代码提交 `559efba`（含 `32f0e04`）：安装套件 289/289，
+`offline.bats` 14/14，project-tools 36/36。`bats --count` 对 installation 与 project-tools
+分别是 289 和 36，合计 325。
+
+```
+# 2026-11-11 559efba，KaiTian X7h G1e + Gentoo
+Total:  289
+Passed: 289
+Failed: 0
+```
+
 project-tools 测试由[协作规约](collaboration.md)维护自己的 Bats 基线；显示子系统由
 [显示管理测试](display-testing.md)维护独立 shell fixture 基线。只有同时写明组成与递归命令时，
-才把 installation 与 project-tools 合称全仓 Bats。二者合计 321 个 Bats；该数字不包含显示 fixture，
+才把 installation 与 project-tools 合称全仓 Bats。二者合计 325 个 Bats；该数字不包含显示 fixture，
 也不包含 `test/build` 的 14 项 shell 测试。
 
 ---
@@ -486,5 +503,5 @@ project-tools 测试由[协作规约](collaboration.md)维护自己的 Bats 基�
 
 ---
 
-**最后更新**: 2026-11-06
-**版本**: 5.7 — R40 收口：285/285，离线 10/10，build 14 项
+**最后更新**: 2026-11-11
+**版本**: 5.9 — 安装器改名与三种拒绝；安装套件 289/289，离线 14/14，合计 325
