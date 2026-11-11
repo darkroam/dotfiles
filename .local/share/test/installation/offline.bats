@@ -20,6 +20,11 @@ setup() {
 	git --git-dir="$HOME/.cfg" config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
 	git --git-dir="$HOME/.cfg" fetch origin >/dev/null
 	git --git-dir="$HOME/.cfg" --work-tree="$HOME/wt" reset -q --mixed HEAD
+	git --git-dir="$HOME/.cfg" branch x11 HEAD
+	git --git-dir="$HOME/.cfg" branch wayland HEAD
+	git --git-dir="$HOME/.cfg" symbolic-ref HEAD refs/heads/x11
+	git --git-dir="$HOME/.cfg" push -q origin x11 wayland
+	git --git-dir="$HOME/.cfg" fetch -q origin
 	local name
 	for name in st dmenu dwm dwmblocks; do
 		make_repo "$HOME/src/$name" "$HOME/remotes/$name.git" 0
@@ -84,6 +89,7 @@ check_manifest() {
 	tmp=$(mktemp -d)
 	tar -xzf "$OFFLINE_OUTPUT" -C "$tmp"
 	grep -q '^time ' "$tmp/MANIFEST"
+	grep -qx 'target x11' "$tmp/MANIFEST"
 	grep -q '^dotfiles ' "$tmp/MANIFEST"
 	check_manifest "$tmp"
 	git --git-dir="$DOTCFG_GIT_DIR" bundle verify "$tmp/dotfiles.bundle" >/dev/null
@@ -91,17 +97,17 @@ check_manifest() {
 	rm -rf "$tmp"
 }
 
-@test "TC-OFF02: ahead, behind, and dirty still pack origin/master" {
+@test "TC-OFF02: ahead, behind, and dirty still pack the current target" {
 	printf 'ahead\n' >> "$OFFLINE_WORKTREE/README"
 	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" add README
 	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" commit -m ahead >/dev/null
 	pack
 	[ "$status" -eq 0 ]
-	[[ "$output" == *"领先 origin/master"* ]]
+	[[ "$output" == *"领先 origin/x11"* ]]
 	assert_readme $'content\n'
 
 	rm -f "$OFFLINE_OUTPUT"
-	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" push -q origin HEAD:master
+	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" push -q origin HEAD:x11
 	git --git-dir="$DOTCFG_GIT_DIR" fetch -q origin
 	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" reset -q --hard HEAD~1
 	pack
@@ -168,7 +174,7 @@ check_manifest() {
 	[ "$before" = "$(sha256sum "$OFFLINE_OUTPUT")" ]
 }
 
-@test "TC-OFF05: only a key reachable from origin/master is rejected" {
+@test "TC-OFF05: only a key reachable from the target ref is rejected" {
 	local marker=not-a-real-key-body-xyz dir begin end
 	begin=$(printf '%s%s%s' '-----BE' 'GIN OPENSSH ' 'PRIVATE KEY-----')
 	end=$(printf '%s%s%s' '-----E' 'ND OPENSSH ' 'PRIVATE KEY-----')
@@ -184,7 +190,7 @@ check_manifest() {
 	git clone -q "$dir/dotfiles.bundle" "$dir/repo"
 	! git -C "$dir/repo" cat-file -e 'HEAD:notes/leak.txt'
 	rm -rf "$dir" "$OFFLINE_OUTPUT"
-	git --git-dir="$DOTCFG_GIT_DIR" update-ref refs/remotes/origin/master HEAD
+	git --git-dir="$DOTCFG_GIT_DIR" update-ref refs/remotes/origin/x11 HEAD
 	pack
 	[ "$status" -eq 2 ]
 	[[ "$output" == *"敏感对象已拒绝：notes/leak.txt"* ]]
@@ -307,6 +313,99 @@ EOS
 	rm -rf "$new" "$tmp"
 }
 
+
+@test "TC-OFF11: --branch selects x11 or wayland and does not retarget sources" {
+	local way_sha src_sha tmp
+	git --git-dir="$DOTCFG_GIT_DIR" symbolic-ref HEAD refs/heads/wayland
+	printf 'wayland\n' > "$OFFLINE_WORKTREE/README"
+	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" add README
+	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" commit -q -m wayland
+	way_sha=$(git --git-dir="$DOTCFG_GIT_DIR" rev-parse HEAD)
+	git --git-dir="$DOTCFG_GIT_DIR" push -q origin wayland
+	git --git-dir="$DOTCFG_GIT_DIR" fetch -q origin
+	git --git-dir="$DOTCFG_GIT_DIR" symbolic-ref HEAD refs/heads/x11
+	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" reset -q --hard x11
+	src_sha=$(git -C "$HOME/src/st" rev-parse origin/master)
+	pack --branch wayland --with-suckless
+	[ "$status" -eq 0 ]
+	tmp=$(mktemp -d)
+	tar -xzf "$OFFLINE_OUTPUT" -C "$tmp"
+	grep -qx 'target wayland' "$tmp/MANIFEST"
+	! grep -q '冻结锚点' "$tmp/MANIFEST"
+	git clone -q "$tmp/dotfiles.bundle" "$tmp/repo"
+	[ "$(git -C "$tmp/repo" rev-parse HEAD)" = "$way_sha" ]
+	git clone -q "$tmp/src/st.bundle" "$tmp/st"
+	[ "$(git -C "$tmp/st" rev-parse HEAD)" = "$src_sha" ]
+	rm -rf "$tmp" "$OFFLINE_OUTPUT"
+	pack --branch x11
+	[ "$status" -eq 0 ]
+	tmp=$(mktemp -d)
+	tar -xzf "$OFFLINE_OUTPUT" -C "$tmp"
+	grep -qx 'target x11' "$tmp/MANIFEST"
+	git clone -q "$tmp/dotfiles.bundle" "$tmp/repo"
+	git -C "$tmp/repo" show HEAD:README > "$tmp/got"
+	printf 'content\n' > "$tmp/want"
+	cmp -s "$tmp/want" "$tmp/got"
+	rm -rf "$tmp"
+}
+
+@test "TC-OFF12: master is refused unless the stale target is explicit" {
+	git --git-dir="$DOTCFG_GIT_DIR" symbolic-ref HEAD refs/heads/master
+	pack
+	[ "$status" -eq 2 ]
+	[[ "$output" == *"冻结锚点"* ]]
+	[ ! -e "$OFFLINE_OUTPUT" ]
+	pack --allow-stale-target
+	[ "$status" -eq 0 ]
+	local tmp
+	tmp=$(mktemp -d)
+	tar -xzf "$OFFLINE_OUTPUT" -C "$tmp"
+	grep -qx 'target master' "$tmp/MANIFEST"
+	grep -qx 'note 冻结锚点' "$tmp/MANIFEST"
+	rm -rf "$tmp"
+	git --git-dir="$DOTCFG_GIT_DIR" branch task/nope HEAD
+	git --git-dir="$DOTCFG_GIT_DIR" symbolic-ref HEAD refs/heads/task/nope
+	rm -f "$OFFLINE_OUTPUT"
+	pack
+	[ "$status" -eq 2 ]
+	[[ "$output" == *"无法确定"* ]]
+}
+
+@test "TC-OFF13: the installer remote gate follows the manifest target" {
+	local new=$HOME/new
+	pack --branch wayland
+	[ "$status" -eq 0 ]
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	install_fake_git "$new"
+	rm -f "$new/fail"
+	OFFLINE_LS_HEAD=x11 OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git HOME=$new OFFLINE_HOME=$new \
+		DOTCFG_GIT_DIR=$new/.cfg PATH=$new/bin:$PATH \
+		run "$new/dotcfg-offline-install" </dev/null
+	[ "$status" -eq 2 ]
+	[[ "$output" == *"wayland"* ]]
+	OFFLINE_LS_HEAD=wayland OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git HOME=$new OFFLINE_HOME=$new \
+		DOTCFG_GIT_DIR=$new/.cfg PATH=$new/bin:$PATH \
+		run "$new/dotcfg-offline-install" </dev/null
+	[ "$status" -eq 0 ]
+	rm -rf "$new" "$OFFLINE_OUTPUT"
+	pack --branch x11
+	[ "$status" -eq 0 ]
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	install_fake_git "$new"
+	rm -f "$new/fail"
+	OFFLINE_LS_HEAD=wayland OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git HOME=$new OFFLINE_HOME=$new \
+		DOTCFG_GIT_DIR=$new/.cfg PATH=$new/bin:$PATH \
+		run "$new/dotcfg-offline-install" </dev/null
+	[ "$status" -eq 2 ]
+	OFFLINE_LS_HEAD=x11 OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git HOME=$new OFFLINE_HOME=$new \
+		DOTCFG_GIT_DIR=$new/.cfg PATH=$new/bin:$PATH \
+		run "$new/dotcfg-offline-install" </dev/null
+	[ "$status" -eq 0 ]
+	rm -rf "$new"
+}
+
 install_fake_git() {
 	local new=$1
 	mkdir -p "$new/bin"
@@ -320,7 +419,7 @@ case " $* " in
 		if [ -f "${OFFLINE_LS_FAIL:-}" ]; then
 			exit 1
 		fi
-		printf 'refs/heads/master\t0123456789abcdef\n'
+		printf 'refs/heads/%s\t0123456789abcdef\n' "${OFFLINE_LS_HEAD:-x11}"
 		exit 0
 		;;
 esac
