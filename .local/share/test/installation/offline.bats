@@ -552,18 +552,6 @@ EOS
 	rm -rf "$new" "$bad" "$weird" "$det"
 }
 
-stacks_on_disk() {
-	local home=$1
-	if [ -d "$home/.local/share/docs/stacks" ]; then
-		find "$home/.local/share/docs/stacks" -type f | sed "s|^$home/||" | LC_ALL=C sort
-	fi
-}
-
-stacks_in_head() {
-	local gitdir=$1
-	git --git-dir="$gitdir" ls-tree -r --name-only HEAD -- .local/share/docs/stacks | LC_ALL=C sort
-}
-
 run_install() {
 	local new=$1 target=$2
 	install_fake_git "$new"
@@ -648,32 +636,52 @@ assert_same_line_blobs() {
 	[ ! -e "$new/.local/share/docs/stacks/x11" ]
 }
 
-@test "TC-OFF17: stack leftovers not in HEAD are removed and public docs stay" {
+@test "TC-OFF17: a line switch deletes only manifest files and warns" {
 	on_branch x11
 	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
 	printf 'display\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display.md"
 	publish x11 'clean x11' .local/share/docs/stacks/x11/display.md
-	pack
+	pack --branch x11
 	[ "$status" -eq 0 ]
-	local new=$HOME/new disk head
-	mkdir -p "$new/.local/share/docs/stacks/x11" "$new/.local/share/docs/stacks/wayland" \
-		"$new/.local/share/docs"
-	printf 'stale\n' > "$new/.local/share/docs/stacks/x11/stale.md"
-	printf 'old-line\n' > "$new/.local/share/docs/stacks/wayland/ghostty.md"
-	printf 'keep-public\n' > "$new/.local/share/docs/README.md"
-	printf 'keep-user\n' > "$new/.local/share/docs/user-note.md"
-	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
-	run_install "$new" x11
+	local x11home=$HOME/x11home way=$HOME/way
+	mkdir -p "$x11home"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$x11home"
+	run_install "$x11home" x11
 	[ "$status" -eq 0 ]
-	[ ! -e "$new/.local/share/docs/stacks/x11/stale.md" ]
-	[ ! -e "$new/.local/share/docs/stacks/wayland" ]
-	[ "$(cat "$new/.local/share/docs/stacks/x11/display.md")" = "display" ]
-	[ "$(cat "$new/.local/share/docs/README.md")" = "keep-public" ]
-	[ "$(cat "$new/.local/share/docs/user-note.md")" = "keep-user" ]
-	disk=$(stacks_on_disk "$new")
-	head=$(stacks_in_head "$new/.cfg")
-	[ "$disk" = "$head" ]
-	[ "$head" = ".local/share/docs/stacks/x11/display.md" ]
+	grep -qx '.local/share/docs/stacks/x11/display.md' \
+		"$x11home/.local/share/docs/.offline-docs-manifest"
+
+	on_branch wayland
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland"
+	printf 'ghostty\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland/ghostty.md"
+	publish wayland 'clean wayland' .local/share/docs/stacks/wayland/ghostty.md
+	rm -f "$OFFLINE_OUTPUT"
+	pack --branch wayland
+	[ "$status" -eq 0 ]
+	mkdir -p "$way/.local/share/docs/stacks/x11" "$way/.local/share/docs/stacks/wayland"
+	cp "$x11home/.local/share/docs/.offline-docs-manifest" \
+		"$way/.local/share/docs/.offline-docs-manifest"
+	cp "$x11home/.local/share/docs/stacks/x11/display.md" \
+		"$way/.local/share/docs/stacks/x11/display.md"
+	printf 'mine\n' > "$way/.local/share/docs/stacks/x11/user-note.md"
+	printf 'local\n' > "$way/.local/share/docs/stacks/wayland/local.md"
+	printf 'keep-public\n' > "$way/.local/share/docs/README.md"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$way"
+	run_install "$way" wayland
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"删除 .local/share/docs/stacks/x11/display.md"* ]]
+	[[ "$output" == *"删除 1 个清单文件"* ]]
+	[[ "$output" == *"警告：工作树仍有对面栈目录 .local/share/docs/stacks/x11"* ]]
+	[ ! -e "$way/.local/share/docs/stacks/x11/display.md" ]
+	[ "$(cat "$way/.local/share/docs/stacks/x11/user-note.md")" = "mine" ]
+	[ "$(cat "$way/.local/share/docs/stacks/wayland/local.md")" = "local" ]
+	[ "$(cat "$way/.local/share/docs/stacks/wayland/ghostty.md")" = "ghostty" ]
+	[ "$(cat "$way/.local/share/docs/README.md")" = "keep-public" ]
+	grep -qx '.local/share/docs/stacks/wayland/ghostty.md' \
+		"$way/.local/share/docs/.offline-docs-manifest"
+	! grep -q 'display.md' "$way/.local/share/docs/.offline-docs-manifest"
+	! grep -q 'user-note' "$way/.local/share/docs/.offline-docs-manifest"
+	! grep -q 'local.md' "$way/.local/share/docs/.offline-docs-manifest"
 }
 
 @test "TC-OFF18: master does not check out stacks" {
@@ -696,21 +704,24 @@ assert_same_line_blobs() {
 	[ ! -e "$new/.local/share/docs/stacks" ]
 }
 
-@test "TC-OFF19: opposite-stack links use hit count, not git grep status" {
-	pack
-	[ "$status" -eq 0 ]
+@test "TC-OFF19: only an opposite-stack markdown link is rejected" {
 	local new=$HOME/new
+	on_branch x11
+	printf 'see stacks/x11 and stacks/wayland\n' > "$OFFLINE_WORKTREE/.local/share/docs/README.md"
+	publish x11 'plain names' .local/share/docs/README.md
+	pack --branch x11
+	[ "$status" -eq 0 ]
 	mkdir -p "$new"
 	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
 	run_install "$new" x11
 	[ "$status" -eq 0 ]
 	run git --git-dir="$new/.cfg" grep -F -e 'stacks/wayland' HEAD -- .local/share/docs
-	[ "$status" -eq 1 ]
-	[ -z "$output" ]
+	[ "$status" -eq 0 ]
 
 	on_branch x11
-	printf 'see stacks/x11/display.md\n' > "$OFFLINE_WORKTREE/.local/share/docs/README.md"
-	publish x11 'same stack mention' .local/share/docs/README.md
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
+	printf 'see [display](stacks/x11/display.md)\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display.md"
+	publish x11 'same stack link' .local/share/docs/stacks/x11/display.md
 	rm -rf "$new" "$OFFLINE_OUTPUT"
 	pack --branch x11
 	[ "$status" -eq 0 ]
@@ -718,11 +729,11 @@ assert_same_line_blobs() {
 	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
 	run_install "$new" x11
 	[ "$status" -eq 0 ]
+	[ -f "$new/.local/share/docs/stacks/x11/display.md" ]
 
 	on_branch x11
-	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
-	printf 'see stacks/wayland/ghostty.md\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display.md"
-	publish x11 'bad stack link' .local/share/docs/stacks/x11/display.md
+	printf 'see [ghostty](stacks/wayland/ghostty.md)\n' > "$OFFLINE_WORKTREE/.local/share/docs/README.md"
+	publish x11 'public opposite link' .local/share/docs/README.md
 	rm -rf "$new" "$OFFLINE_OUTPUT"
 	pack --branch x11
 	[ "$status" -eq 0 ]
@@ -734,8 +745,8 @@ assert_same_line_blobs() {
 	[ ! -e "$new/.local/bin/dotcfg" ]
 
 	on_branch wayland
-	printf 'see stacks/x11/display.md\n' > "$OFFLINE_WORKTREE/.local/share/docs/README.md"
-	publish wayland 'bad public link' .local/share/docs/README.md
+	printf 'see [display](stacks/x11/display.md)\n' > "$OFFLINE_WORKTREE/.local/share/docs/README.md"
+	publish wayland 'wayland public link' .local/share/docs/README.md
 	rm -rf "$new" "$OFFLINE_OUTPUT"
 	pack --branch wayland
 	[ "$status" -eq 0 ]
