@@ -103,7 +103,7 @@ check_manifest() {
 	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" commit -m ahead >/dev/null
 	pack
 	[ "$status" -eq 0 ]
-	[[ "$output" == *"当前 HEAD 领先 origin/x11 1 笔（含未合并任务分支提交）"* ]]
+	[[ "$output" == *"警告：dotfiles 当前 HEAD 领先 origin/x11 1 笔（含未合并任务分支提交）"* ]]
 	assert_readme $'content\n'
 
 	rm -f "$OFFLINE_OUTPUT"
@@ -489,5 +489,39 @@ EOS
 	[ "$status" -eq 1 ]
 	[[ "$output" == *"无法将 master 改名为 x11"* ]]
 	[ "$(git --git-dir="$bad/.cfg" symbolic-ref --short HEAD)" = master ]
-	rm -rf "$new" "$bad"
+
+	local weird=$HOME/weird det=$HOME/det head_sha
+	mkdir -p "$weird"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$weird"
+	git clone -q --bare "$weird/dotfiles.bundle" "$weird/.cfg"
+	git --git-dir="$weird/.cfg" branch weird HEAD
+	git --git-dir="$weird/.cfg" symbolic-ref HEAD refs/heads/weird
+	head_sha=$(git --git-dir="$weird/.cfg" rev-parse HEAD)
+	install_fake_git "$weird"
+	rm -f "$weird/fail"
+	OFFLINE_LS_HEAD=x11 OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git HOME=$weird OFFLINE_HOME=$weird \
+		DOTCFG_GIT_DIR=$weird/.cfg PATH=$weird/bin:$PATH \
+		run "$weird/dotcfg-offline-install" </dev/null
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"本地分支是 weird"* ]]
+	[ "$(git --git-dir="$weird/.cfg" symbolic-ref --short HEAD)" = weird ]
+	[ "$(git --git-dir="$weird/.cfg" rev-parse HEAD)" = "$head_sha" ]
+	! git --git-dir="$weird/.cfg" rev-parse --verify --quiet refs/heads/x11 >/dev/null
+
+	mkdir -p "$det"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$det"
+	git clone -q --bare "$det/dotfiles.bundle" "$det/.cfg"
+	head_sha=$(git --git-dir="$det/.cfg" rev-parse HEAD)
+	git --git-dir="$det/.cfg" update-ref --no-deref HEAD "$head_sha"
+	install_fake_git "$det"
+	rm -f "$det/fail"
+	OFFLINE_LS_HEAD=x11 OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git HOME=$det OFFLINE_HOME=$det \
+		DOTCFG_GIT_DIR=$det/.cfg PATH=$det/bin:$PATH \
+		run "$det/dotcfg-offline-install" </dev/null
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"本地分支是 detached"* ]]
+	! git --git-dir="$det/.cfg" symbolic-ref --short HEAD >/dev/null
+	[ "$(git --git-dir="$det/.cfg" rev-parse HEAD)" = "$head_sha" ]
+	! git --git-dir="$det/.cfg" rev-parse --verify --quiet refs/heads/x11 >/dev/null
+	rm -rf "$new" "$bad" "$weird" "$det"
 }
