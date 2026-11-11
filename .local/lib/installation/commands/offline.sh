@@ -53,6 +53,14 @@ offline_warn_ahead() {
 	[ "${count:-0}" -eq 0 ] || printf '警告：%s 领先 %s %s 笔，包取 %s\n' "$label" "$ref" "$count" "$ref" >&2
 }
 
+offline_warn_dotfiles_ahead() {
+	local ref=$1 count
+	shift
+	count=$("$@" rev-list --count "$ref"..HEAD 2>/dev/null || printf '0')
+	[ "${count:-0}" -eq 0 ] ||
+		printf '当前 HEAD 领先 %s %s 笔（含未合并任务分支提交）\n' "$ref" "$count" >&2
+}
+
 offline_warn_untracked() {
 	local label=$1 untracked
 	shift
@@ -204,6 +212,36 @@ git --git-dir="$cfg" config remote.origin.fetch '+refs/heads/*:refs/remotes/orig
 show_untracked=$(git --git-dir="$cfg" config --get status.showUntrackedFiles || true)
 [ "$show_untracked" = no ] || git --git-dir="$cfg" config status.showUntrackedFiles no
 
+# The bundle branch is always master. Rename it on clone and on an existing .cfg.
+cfg_target=$(awk '$1 == "target" { print $2; exit }' "$manifest")
+case $cfg_target in
+	x11|wayland|master) ;;
+	*)
+		printf 'MANIFEST 缺少 target\n' >&2
+		exit 1
+		;;
+esac
+head_ref=$(git --git-dir="$cfg" symbolic-ref --short HEAD 2>/dev/null || true)
+if [ "$head_ref" = "$cfg_target" ]; then
+	:
+elif [ "$head_ref" = master ]; then
+	if [ "$cfg_target" != master ]; then
+		if git --git-dir="$cfg" rev-parse --verify --quiet "refs/heads/$cfg_target" >/dev/null; then
+			printf '拒绝：无法将 master 改名为 %s\n' "$cfg_target" >&2
+			exit 1
+		fi
+		git --git-dir="$cfg" branch -m master "$cfg_target"
+	fi
+	git --git-dir="$cfg" symbolic-ref HEAD "refs/heads/$cfg_target"
+else
+	printf '拒绝：本地分支是 %s，无法改为 %s\n' "${head_ref:-detached}" "$cfg_target" >&2
+	exit 1
+fi
+git --git-dir="$cfg" rev-parse --verify --quiet "refs/heads/$cfg_target" >/dev/null || {
+	printf '拒绝：本地没有分支 %s\n' "$cfg_target" >&2
+	exit 1
+}
+
 list=$here/.checkout-list
 git --git-dir="$cfg" ls-tree -r --name-only HEAD > "$list"
 wrote=0
@@ -274,14 +312,6 @@ if ! command -v timeout >/dev/null 2>&1; then
 	printf '缺少命令：timeout\n' >&2
 	exit 1
 fi
-cfg_target=$(awk '$1 == "target" { print $2; exit }' "$manifest")
-case $cfg_target in
-	x11|wayland|master) ;;
-	*)
-		printf 'MANIFEST 缺少 target\n' >&2
-		exit 1
-		;;
-esac
 if ! timeout 10 git --git-dir="$cfg" ls-remote --heads origin | grep -q -F "refs/heads/$cfg_target"; then
 	printf '本地安装已完成，远端尚未就绪。\n请确认网络，以及到 %s 的 %s。\n完成后重新运行本脚本。\n' "$origin" "$cfg_target" >&2
 	exit 2
@@ -294,17 +324,29 @@ INSTALLER
 }
 
 offline_resolve_target() {
-	local allow=$1 branch=$2 current
+	local allow=$1 branch=$2 current head tip
+	current=$(git --git-dir="$(offline_cfg)" symbolic-ref --short HEAD 2>/dev/null || true)
+	if [ "$allow" -eq 1 ]; then
+		if [ -n "$branch" ] || [ "$current" != master ]; then
+			offline_die "拒绝：--allow-stale-target 只适用于冻结 master" 2
+		fi
+		head=$(git --git-dir="$(offline_cfg)" rev-parse --verify HEAD) ||
+			offline_die "拒绝：无法解析 HEAD" 2
+		tip=$(git --git-dir="$(offline_cfg)" rev-parse --verify origin/master) ||
+			offline_die "拒绝：无法解析 origin/master" 2
+		[ "$head" = "$tip" ] || offline_die "拒绝：HEAD 不等于 origin/master" 2
+		printf 'master\n'
+		return 0
+	fi
 	if [ -n "$branch" ]; then
 		printf '%s\n' "$branch"
 		return 0
 	fi
-	current=$(git --git-dir="$(offline_cfg)" symbolic-ref --short HEAD 2>/dev/null || true)
 	case $current in
 		x11|wayland|master) ;;
 		*) offline_die "拒绝：无法确定 dotfiles 分支" 2 ;;
 	esac
-	if [ "$current" = master ] && [ "$allow" -ne 1 ]; then
+	if [ "$current" = master ]; then
 		offline_die "拒绝：master 是冻结锚点，需要 --allow-stale-target" 2
 	fi
 	printf '%s\n' "$current"
@@ -326,7 +368,7 @@ offline_pack() {
 	fi
 	offline_require_ref dotfiles "$ref" git --git-dir="$cfg"
 	offline_warn_dirt dotfiles git --git-dir="$cfg" --work-tree="$work"
-	offline_warn_ahead dotfiles "$ref" git --git-dir="$cfg" --work-tree="$work"
+	offline_warn_dotfiles_ahead "$ref" git --git-dir="$cfg" --work-tree="$work"
 	offline_warn_untracked dotfiles git --git-dir="$cfg" --work-tree="$work"
 	if [ "$with" -eq 1 ]; then
 		for name in "${offline_names[@]}"; do
