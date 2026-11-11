@@ -15,6 +15,7 @@ setup() {
 	export DOTCFG_GIT_DIR="$HOME/.cfg"
 	mkdir -p "$HOME/src" "$HOME/remotes" "$HOME/out"
 	make_repo "$HOME/wt" "$HOME/remotes/dotfiles.git" 1
+	seed_public_docs "$HOME/wt"
 	git clone --bare "$HOME/wt" "$HOME/.cfg" >/dev/null
 	git --git-dir="$HOME/.cfg" remote set-url origin "$HOME/remotes/dotfiles.git"
 	git --git-dir="$HOME/.cfg" config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
@@ -50,6 +51,31 @@ make_repo() {
 	git init --bare "$remote" >/dev/null
 	git -C "$dir" remote add origin "$remote"
 	git -C "$dir" push -u origin master >/dev/null
+}
+
+seed_public_docs() {
+	local dir=$1
+	mkdir -p "$dir/.local/share/docs/user"
+	printf 'docs index\n' > "$dir/.local/share/docs/README.md"
+	printf 'desktop guide\n' > "$dir/.local/share/docs/user/desktop-guide-zh.md"
+	git -C "$dir" add -- .local/share/docs/README.md .local/share/docs/user/desktop-guide-zh.md
+	git -C "$dir" commit -m 'public docs' >/dev/null
+	git -C "$dir" push -q origin master
+}
+
+on_branch() {
+	local branch=$1
+	git --git-dir="$DOTCFG_GIT_DIR" symbolic-ref HEAD "refs/heads/$branch"
+	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" reset -q --hard "$branch"
+}
+
+publish() {
+	local branch=$1 msg=$2
+	shift 2
+	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" add -- "$@"
+	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" commit -q -m "$msg"
+	git --git-dir="$DOTCFG_GIT_DIR" push -q origin "$branch"
+	git --git-dir="$DOTCFG_GIT_DIR" fetch -q origin
 }
 
 pack() {
@@ -247,7 +273,7 @@ ENDTAR
 	[[ "$output" == *"已有 dotcfg，跳过检出。"* ]]
 	[[ "$(git --git-dir="$new/.cfg" config --get remote.origin.fetch)" == *refs/remotes/origin/* ]]
 	[ "$(grep -c -- '--bare' "$new/git.log")" -eq 1 ]
-	[ "$(grep -c ' show ' "$new/git.log")" -eq 2 ]
+	[ "$(grep -c ' show ' "$new/git.log")" -eq 4 ]
 	[ ! -e "$new/.config-backup" ]
 }
 
@@ -524,4 +550,218 @@ EOS
 	[ "$(git --git-dir="$det/.cfg" rev-parse HEAD)" = "$head_sha" ]
 	! git --git-dir="$det/.cfg" rev-parse --verify --quiet refs/heads/x11 >/dev/null
 	rm -rf "$new" "$bad" "$weird" "$det"
+}
+
+stacks_on_disk() {
+	local home=$1
+	if [ -d "$home/.local/share/docs/stacks" ]; then
+		find "$home/.local/share/docs/stacks" -type f | sed "s|^$home/||" | LC_ALL=C sort
+	fi
+}
+
+stacks_in_head() {
+	local gitdir=$1
+	git --git-dir="$gitdir" ls-tree -r --name-only HEAD -- .local/share/docs/stacks | LC_ALL=C sort
+}
+
+run_install() {
+	local new=$1 target=$2
+	install_fake_git "$new"
+	rm -f "$new/fail"
+	OFFLINE_LS_HEAD=$target OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git HOME=$new OFFLINE_HOME=$new \
+		DOTCFG_GIT_DIR=$new/.cfg PATH=$new/bin:$PATH \
+		run "$new/dotcfg-offline-install" </dev/null
+}
+
+assert_same_line_blobs() {
+	local gitdir=$1 old=$2 new=$3 a b
+	a=$(git --git-dir="$gitdir" rev-parse "HEAD:$old")
+	b=$(git --git-dir="$gitdir" rev-parse "HEAD:$new")
+	[ "$a" = "$b" ]
+}
+
+@test "TC-OFF15: a non-whitelist path is not written after a hit" {
+	on_branch x11
+	printf 'nope\n' > "$OFFLINE_WORKTREE/.local/lib/installation/notes.txt"
+	printf 'nope\n' > "$OFFLINE_WORKTREE/zzz-outside.txt"
+	publish x11 outside .local/lib/installation/notes.txt zzz-outside.txt
+	pack
+	[ "$status" -eq 0 ]
+	local new=$HOME/new
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	run_install "$new" x11
+	[ "$status" -eq 0 ]
+	[ -f "$new/.local/share/docs/README.md" ]
+	[ -f "$new/.local/share/docs/user/desktop-guide-zh.md" ]
+	[ ! -e "$new/.local/lib/installation/notes.txt" ]
+	[ ! -e "$new/zzz-outside.txt" ]
+	[ "$(grep -c ' show ' "$new/git.log")" -eq 4 ]
+}
+
+@test "TC-OFF16: each target checks out only its own stack and does not rewrite" {
+	on_branch x11
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11" \
+		"$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland"
+	printf 'x11 display\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display.md"
+	printf 'poison wayland\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland/poison.md"
+	publish x11 'x11 stacks' \
+		.local/share/docs/stacks/x11/display.md \
+		.local/share/docs/stacks/wayland/poison.md
+	pack --branch x11
+	[ "$status" -eq 0 ]
+	local new=$HOME/new shows
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	run_install "$new" x11
+	[ "$status" -eq 0 ]
+	[ "$(cat "$new/.local/share/docs/stacks/x11/display.md")" = "x11 display" ]
+	[ ! -e "$new/.local/share/docs/stacks/wayland" ]
+	printf 'edited\n' > "$new/.local/share/docs/stacks/x11/display.md"
+	printf 'edited-public\n' > "$new/.local/share/docs/README.md"
+	shows=$(grep -c ' show ' "$new/git.log")
+	OFFLINE_LS_HEAD=x11 OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git HOME=$new OFFLINE_HOME=$new \
+		DOTCFG_GIT_DIR=$new/.cfg PATH=$new/bin:$PATH \
+		run "$new/dotcfg-offline-install" </dev/null
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"已有 dotcfg，跳过检出。"* ]]
+	[ "$(cat "$new/.local/share/docs/stacks/x11/display.md")" = "edited" ]
+	[ "$(cat "$new/.local/share/docs/README.md")" = "edited-public" ]
+	[ "$(grep -c ' show ' "$new/git.log")" -eq "$shows" ]
+
+	on_branch wayland
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland" \
+		"$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
+	printf 'wayland ghostty\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland/ghostty.md"
+	printf 'poison x11\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/poison.md"
+	publish wayland 'wayland stacks' \
+		.local/share/docs/stacks/wayland/ghostty.md \
+		.local/share/docs/stacks/x11/poison.md
+	rm -rf "$new" "$OFFLINE_OUTPUT"
+	pack --branch wayland
+	[ "$status" -eq 0 ]
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	run_install "$new" wayland
+	[ "$status" -eq 0 ]
+	[ "$(cat "$new/.local/share/docs/stacks/wayland/ghostty.md")" = "wayland ghostty" ]
+	[ ! -e "$new/.local/share/docs/stacks/x11" ]
+}
+
+@test "TC-OFF17: stack leftovers not in HEAD are removed and public docs stay" {
+	on_branch x11
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
+	printf 'display\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display.md"
+	publish x11 'clean x11' .local/share/docs/stacks/x11/display.md
+	pack
+	[ "$status" -eq 0 ]
+	local new=$HOME/new disk head
+	mkdir -p "$new/.local/share/docs/stacks/x11" "$new/.local/share/docs/stacks/wayland" \
+		"$new/.local/share/docs"
+	printf 'stale\n' > "$new/.local/share/docs/stacks/x11/stale.md"
+	printf 'old-line\n' > "$new/.local/share/docs/stacks/wayland/ghostty.md"
+	printf 'keep-public\n' > "$new/.local/share/docs/README.md"
+	printf 'keep-user\n' > "$new/.local/share/docs/user-note.md"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	run_install "$new" x11
+	[ "$status" -eq 0 ]
+	[ ! -e "$new/.local/share/docs/stacks/x11/stale.md" ]
+	[ ! -e "$new/.local/share/docs/stacks/wayland" ]
+	[ "$(cat "$new/.local/share/docs/stacks/x11/display.md")" = "display" ]
+	[ "$(cat "$new/.local/share/docs/README.md")" = "keep-public" ]
+	[ "$(cat "$new/.local/share/docs/user-note.md")" = "keep-user" ]
+	disk=$(stacks_on_disk "$new")
+	head=$(stacks_in_head "$new/.cfg")
+	[ "$disk" = "$head" ]
+	[ "$head" = ".local/share/docs/stacks/x11/display.md" ]
+}
+
+@test "TC-OFF18: master does not check out stacks" {
+	on_branch master
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11" \
+		"$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland"
+	printf 'x\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display.md"
+	printf 'w\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland/ghostty.md"
+	publish master 'master stacks' \
+		.local/share/docs/stacks/x11/display.md \
+		.local/share/docs/stacks/wayland/ghostty.md
+	pack --allow-stale-target
+	[ "$status" -eq 0 ]
+	local new=$HOME/new
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	run_install "$new" master
+	[ "$status" -eq 0 ]
+	[ -f "$new/.local/share/docs/README.md" ]
+	[ ! -e "$new/.local/share/docs/stacks" ]
+}
+
+@test "TC-OFF19: opposite-stack links use hit count, not git grep status" {
+	pack
+	[ "$status" -eq 0 ]
+	local new=$HOME/new
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	run_install "$new" x11
+	[ "$status" -eq 0 ]
+	run git --git-dir="$new/.cfg" grep -F -e 'stacks/wayland' HEAD -- .local/share/docs
+	[ "$status" -eq 1 ]
+	[ -z "$output" ]
+
+	on_branch x11
+	printf 'see stacks/x11/display.md\n' > "$OFFLINE_WORKTREE/.local/share/docs/README.md"
+	publish x11 'same stack mention' .local/share/docs/README.md
+	rm -rf "$new" "$OFFLINE_OUTPUT"
+	pack --branch x11
+	[ "$status" -eq 0 ]
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	run_install "$new" x11
+	[ "$status" -eq 0 ]
+
+	on_branch x11
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
+	printf 'see stacks/wayland/ghostty.md\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display.md"
+	publish x11 'bad stack link' .local/share/docs/stacks/x11/display.md
+	rm -rf "$new" "$OFFLINE_OUTPUT"
+	pack --branch x11
+	[ "$status" -eq 0 ]
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	run_install "$new" x11
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"文档链接越界：stacks/wayland 命中 1"* ]]
+	[ ! -e "$new/.local/bin/dotcfg" ]
+
+	on_branch wayland
+	printf 'see stacks/x11/display.md\n' > "$OFFLINE_WORKTREE/.local/share/docs/README.md"
+	publish wayland 'bad public link' .local/share/docs/README.md
+	rm -rf "$new" "$OFFLINE_OUTPUT"
+	pack --branch wayland
+	[ "$status" -eq 0 ]
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	run_install "$new" wayland
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"文档链接越界：stacks/x11 命中 1"* ]]
+}
+
+@test "TC-OFF20: mapped blobs must match on the same line before a master delete" {
+	on_branch x11
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
+	printf 'same body\n' > "$OFFLINE_WORKTREE/.local/share/docs/display-management.md"
+	printf 'same body\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display-management.md"
+	publish x11 'mapped copy' \
+		.local/share/docs/display-management.md \
+		.local/share/docs/stacks/x11/display-management.md
+	assert_same_line_blobs "$DOTCFG_GIT_DIR" \
+		.local/share/docs/display-management.md \
+		.local/share/docs/stacks/x11/display-management.md
+	printf 'different\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display-management.md"
+	publish x11 'mapped drift' .local/share/docs/stacks/x11/display-management.md
+	run assert_same_line_blobs "$DOTCFG_GIT_DIR" \
+		.local/share/docs/display-management.md \
+		.local/share/docs/stacks/x11/display-management.md
+	[ "$status" -ne 0 ]
+	git --git-dir="$DOTCFG_GIT_DIR" cat-file -e HEAD:.local/share/docs/display-management.md
 }
