@@ -242,14 +242,15 @@ git --git-dir="$cfg" rev-parse --verify --quiet "refs/heads/$cfg_target" >/dev/n
 	exit 1
 }
 
-# Opposite-stack mentions are counted, not judged by git grep's exit status.
+# Only a markdown link to the other stack counts. Plain names do not.
+# Hit count, not git grep's exit status.
 link_needle=
 case $cfg_target in
 	x11) link_needle=stacks/wayland ;;
 	wayland) link_needle=stacks/x11 ;;
 esac
 if [ -n "$link_needle" ]; then
-	link_hits=$(git --git-dir="$cfg" grep -F -e "$link_needle" HEAD -- .local/share/docs 2>/dev/null || true)
+	link_hits=$(git --git-dir="$cfg" grep -E -e "\]\([^)]*${link_needle}[^)]*\)" HEAD -- .local/share/docs 2>/dev/null || true)
 	link_n=0
 	if [ -n "$link_hits" ]; then
 		link_n=$(printf '%s\n' "$link_hits" | grep -c . || true)
@@ -262,6 +263,8 @@ fi
 
 list=$here/.checkout-list
 git --git-dir="$cfg" ls-tree -r --name-only HEAD > "$list"
+docs_owned=$here/.docs-owned
+: > "$docs_owned"
 wrote=0
 while IFS= read -r path; do
 	# Reset every path. A previous hit must not write a later non-whitelist path.
@@ -269,13 +272,13 @@ while IFS= read -r path; do
 	case $path in
 		.local/bin/dotcfg|.local/lib/installation/cfg-validate.sh|.local/lib/installation/utils/*|.local/lib/installation/commands/*|.local/lib/installation/categories*.conf|.local/lib/installation/exclude.conf|.local/share/docs/*)
 			case $path in
-				.local/share/docs/stacks/x11|.local/share/docs/stacks/x11/*)
+				.local/share/docs/stacks/x11/*)
 					[ "$cfg_target" = x11 ] || continue
 					;;
-				.local/share/docs/stacks/wayland|.local/share/docs/stacks/wayland/*)
+				.local/share/docs/stacks/wayland/*)
 					[ "$cfg_target" = wayland ] || continue
 					;;
-				.local/share/docs/stacks|.local/share/docs/stacks/*)
+				.local/share/docs/stacks/*)
 					continue
 					;;
 			esac
@@ -286,6 +289,7 @@ while IFS= read -r path; do
 				mv -- "$dest.tmp" "$dest"
 				case $path in
 					.local/bin/dotcfg) chmod +x "$dest" ;;
+					.local/share/docs/*) printf '%s\n' "$path" >> "$docs_owned" ;;
 				esac
 				take=1
 			fi
@@ -295,29 +299,67 @@ while IFS= read -r path; do
 		wrote=1
 	fi
 done < "$list"
+rm -f "$list"
 
-# Writes only. Drop stack files this target does not own. Public docs stay.
-stacks_root=$home/.local/share/docs/stacks
-if [ -d "$stacks_root" ]; then
-	find "$stacks_root" -type f | while IFS= read -r file; do
-		rel=${file#"$home"/}
+# Delete only paths this installer wrote earlier that this target does not own.
+docs_manifest=$home/.local/share/docs/.offline-docs-manifest
+docs_next=$here/.docs-next
+: > "$docs_next"
+deleted=0
+if [ -f "$docs_manifest" ]; then
+	while IFS= read -r path; do
+		[ -n "$path" ] || continue
 		keep=0
-		case $rel in
-			.local/share/docs/stacks/x11|.local/share/docs/stacks/x11/*)
+		case $path in
+			.local/share/docs/stacks/x11/*)
 				[ "$cfg_target" = x11 ] && keep=1
 				;;
-			.local/share/docs/stacks/wayland|.local/share/docs/stacks/wayland/*)
+			.local/share/docs/stacks/wayland/*)
 				[ "$cfg_target" = wayland ] && keep=1
 				;;
+			.local/share/docs/stacks/*)
+				keep=0
+				;;
+			.local/share/docs/*)
+				keep=1
+				;;
 		esac
-		if [ "$keep" -eq 1 ] && grep -qxF -e "$rel" "$list"; then
+		if [ "$keep" -eq 1 ]; then
+			printf '%s\n' "$path" >> "$docs_next"
 			continue
 		fi
-		rm -f -- "$file"
-	done
-	find "$stacks_root" -depth -type d -exec rmdir {} + 2>/dev/null || true
+		if [ -e "$home/$path" ]; then
+			rm -f -- "$home/$path"
+			printf '删除 %s\n' "$path"
+			deleted=$((deleted + 1))
+			rmdir "$(dirname -- "$home/$path")" 2>/dev/null || true
+		fi
+	done < "$docs_manifest" || true
 fi
-rm -f "$list"
+if [ -s "$docs_owned" ]; then
+	while IFS= read -r path; do
+		[ -n "$path" ] || continue
+		if ! grep -qxF -e "$path" "$docs_next"; then
+			printf '%s\n' "$path" >> "$docs_next"
+		fi
+	done < "$docs_owned" || true
+fi
+if [ -s "$docs_next" ]; then
+	mkdir -p "$home/.local/share/docs"
+	mv -- "$docs_next" "$docs_manifest"
+else
+	rm -f -- "$docs_manifest" "$docs_next"
+fi
+rm -f -- "$docs_owned"
+printf '删除 %s 个清单文件\n' "$deleted"
+case $cfg_target in
+	x11) other=.local/share/docs/stacks/wayland ;;
+	wayland) other=.local/share/docs/stacks/x11 ;;
+	*) other= ;;
+esac
+if [ -n "$other" ] && [ -d "$home/$other" ]; then
+	printf '警告：工作树仍有对面栈目录 %s\n' "$other" >&2
+fi
 if [ ! -x "$home/.local/bin/dotcfg" ]; then
 	printf 'HEAD 中没有可执行的 dotcfg\n' >&2
 	exit 1
