@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Pack origin/<target>. The installer checks out dotcfg only and does not call
-# bootstrap_finish_install, because that runs fresh_create_root_backup.
+# Pack origin/<target>. The installer checks out dotcfg and this target's docs.
+# It does not call bootstrap_finish_install, because that runs fresh_create_root_backup.
 
 set -euo pipefail
 
@@ -242,26 +242,81 @@ git --git-dir="$cfg" rev-parse --verify --quiet "refs/heads/$cfg_target" >/dev/n
 	exit 1
 }
 
+# Opposite-stack mentions are counted, not judged by git grep's exit status.
+link_needle=
+case $cfg_target in
+	x11) link_needle=stacks/wayland ;;
+	wayland) link_needle=stacks/x11 ;;
+esac
+if [ -n "$link_needle" ]; then
+	link_hits=$(git --git-dir="$cfg" grep -F -e "$link_needle" HEAD -- .local/share/docs 2>/dev/null || true)
+	link_n=0
+	if [ -n "$link_hits" ]; then
+		link_n=$(printf '%s\n' "$link_hits" | grep -c . || true)
+	fi
+	if [ "$link_n" -ne 0 ]; then
+		printf '文档链接越界：%s 命中 %s\n' "$link_needle" "$link_n" >&2
+		exit 1
+	fi
+fi
+
 list=$here/.checkout-list
 git --git-dir="$cfg" ls-tree -r --name-only HEAD > "$list"
 wrote=0
 while IFS= read -r path; do
+	# Reset every path. A previous hit must not write a later non-whitelist path.
+	take=0
 	case $path in
-		.local/bin/dotcfg|.local/lib/installation/cfg-validate.sh|.local/lib/installation/utils/*|.local/lib/installation/commands/*|.local/lib/installation/categories*.conf|.local/lib/installation/exclude.conf)
-			dest=$home/$path
-			if [ -e "$dest" ]; then
-				continue
-			fi
-			mkdir -p "$(dirname -- "$dest")"
-			git --git-dir="$cfg" show "HEAD:$path" > "$dest.tmp"
-			mv -- "$dest.tmp" "$dest"
+		.local/bin/dotcfg|.local/lib/installation/cfg-validate.sh|.local/lib/installation/utils/*|.local/lib/installation/commands/*|.local/lib/installation/categories*.conf|.local/lib/installation/exclude.conf|.local/share/docs/*)
 			case $path in
-				.local/bin/dotcfg) chmod +x "$dest" ;;
+				.local/share/docs/stacks/x11|.local/share/docs/stacks/x11/*)
+					[ "$cfg_target" = x11 ] || continue
+					;;
+				.local/share/docs/stacks/wayland|.local/share/docs/stacks/wayland/*)
+					[ "$cfg_target" = wayland ] || continue
+					;;
+				.local/share/docs/stacks|.local/share/docs/stacks/*)
+					continue
+					;;
 			esac
-			wrote=1
+			dest=$home/$path
+			if [ ! -e "$dest" ]; then
+				mkdir -p "$(dirname -- "$dest")"
+				git --git-dir="$cfg" show "HEAD:$path" > "$dest.tmp"
+				mv -- "$dest.tmp" "$dest"
+				case $path in
+					.local/bin/dotcfg) chmod +x "$dest" ;;
+				esac
+				take=1
+			fi
 			;;
 	esac
+	if [ "$take" -eq 1 ]; then
+		wrote=1
+	fi
 done < "$list"
+
+# Writes only. Drop stack files this target does not own. Public docs stay.
+stacks_root=$home/.local/share/docs/stacks
+if [ -d "$stacks_root" ]; then
+	find "$stacks_root" -type f | while IFS= read -r file; do
+		rel=${file#"$home"/}
+		keep=0
+		case $rel in
+			.local/share/docs/stacks/x11|.local/share/docs/stacks/x11/*)
+				[ "$cfg_target" = x11 ] && keep=1
+				;;
+			.local/share/docs/stacks/wayland|.local/share/docs/stacks/wayland/*)
+				[ "$cfg_target" = wayland ] && keep=1
+				;;
+		esac
+		if [ "$keep" -eq 1 ] && grep -qxF -e "$rel" "$list"; then
+			continue
+		fi
+		rm -f -- "$file"
+	done
+	find "$stacks_root" -depth -type d -exec rmdir {} + 2>/dev/null || true
+fi
 rm -f "$list"
 if [ ! -x "$home/.local/bin/dotcfg" ]; then
 	printf 'HEAD 中没有可执行的 dotcfg\n' >&2
