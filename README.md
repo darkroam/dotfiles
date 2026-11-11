@@ -4,7 +4,7 @@ Personal Linux configuration managed as a bare Git repository. Tracked files
 are intended to work from `$HOME`; untracked files are deliberately outside the
 repository.
 
-Last reviewed: 2026-08-31.
+Last reviewed: 2026-11-11. Project documents are edited on `master` and snapshotted to `x11` and `wayland`.
 
 ## Repository Usage
 
@@ -152,9 +152,11 @@ the domain map is the single path-to-domain registry:
 - [Maintenance policy](.local/share/docs/project/maintenance-policy.md): project
   constraints plus accepted and rejected design directions.
 - [Collaboration charter](.local/share/docs/project/collaboration.md): the
-  user × dsh × codex three-role development workflow, review standards, and
-  commit discipline; round archives live in the machine-local
+  user × dsh × qoder × codex workflow, review standards, and commit discipline.
+  Project docs are edited on `master`; round archives live in the machine-local
   `.local/share/collab/` directory.
+- [Branch registry](.local/share/docs/project/branch-registry.md): the master
+  document trunk, frozen code anchor, and x11/wayland task rows.
 - [Current TODO](.local/share/docs/planning/todo.md): active work only.
 - [Suspended items](.local/share/docs/planning/suspended.md): deferred work and the
   conditions required to resume it.
