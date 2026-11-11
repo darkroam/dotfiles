@@ -58,7 +58,7 @@ offline_warn_dotfiles_ahead() {
 	shift
 	count=$("$@" rev-list --count "$ref"..HEAD 2>/dev/null || printf '0')
 	[ "${count:-0}" -eq 0 ] ||
-		printf '当前 HEAD 领先 %s %s 笔（含未合并任务分支提交）\n' "$ref" "$count" >&2
+		printf '警告：dotfiles 当前 HEAD 领先 %s %s 笔（含未合并任务分支提交）\n' "$ref" "$count" >&2
 }
 
 offline_warn_untracked() {
