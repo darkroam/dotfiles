@@ -933,11 +933,31 @@ dotcfg fresh-update [--force] [--dry-run] [--no-backup]  # 以当前 $HOME 重�
 `dotcfg-offline-install`、`dotfiles.bundle` 和 `MANIFEST`。`--with-suckless`
 再加入 `src/{st,dmenu,dwm,dwmblocks}.bundle`。
 
-bundle 取 `origin/master`，不取本地 HEAD，也不打包工作树、index、`FETCH_HEAD`
-或不可达对象。打包侧执行 `git bundle verify`，不执行 `git gc --prune=now`。
-本地领先或落后不拒绝。已跟踪脏文件不进入包，但会警告；未跟踪文件只警告。
-`--with-suckless` 不执行 `make clean`：bundle 只含提交对象，工作树构建产物本来就不在包内；
-源码仓或 `origin/master` 缺失则停止。敏感扫描只覆盖将进入包的可达对象，命中时只打印路径。
+dotfiles bundle 取 `origin/<target>`，不取本地 HEAD。`target` 默认是当前 `.cfg`
+分支，只能是 `x11`、`wayland` 或 `master`；对不上就拒绝。`master` 是冻结锚点，默认拒绝。`--allow-stale-target` 只在当前分支已经是
+`master` 且 HEAD 等于 `origin/master` 时放行，并在 MANIFEST 写 `note 冻结锚点`。
+在 x11/wayland 上，或与 `--branch` 同时使用，都拒绝，不能借此打出冻结 master。
+`--branch` 只接受 `x11` 或 `wayland`，而且只作用于 dotfiles。MANIFEST 记录
+`target` 和该提交。bundle 内部仍用本地 `master` ref 供安装器检出，不代表远端分支名。
+
+安装器在 clone 新 `.cfg` 和重跑已有 `.cfg` 时，都按 MANIFEST 的 `target` 整理本地分支。
+改名发生在所有权修正之后、检出 `dotcfg` 之前。`target` 不是 `master` 时，把本地
+`master` 改名为 target，并把 HEAD 设为 `refs/heads/<target>`。HEAD 已经是 target 则跳过。
+目标分支不存在或无法改名时退出 1，不静默留在 `master`。
+
+三种拒绝都不改 HEAD：
+
+| 现场 | 结果 | 恢复 |
+| --- | --- | --- |
+| 本地 `master` 与 target 两个分支都在 | 退出 1，`拒绝：无法将 master 改名为 x11`（名字随 target） | 删掉或移走多余的 target 分支后再跑 |
+| HEAD 在其他分支，例如 `weird` | 退出 1，`拒绝：本地分支是 weird，无法改为 x11` | 先把 HEAD 指回 `master` 或已经正确的 target，再跑 |
+| detached HEAD | 退出 1，`拒绝：本地分支是 detached，无法改为 x11` | 先把 HEAD 设回 `refs/heads/master`，再跑 |
+
+不打包工作树、index、`FETCH_HEAD` 或不可达对象。打包侧执行 `git bundle verify`，
+不执行 `git gc --prune=now`。本地领先或落后不拒绝。已跟踪脏文件不进入包，但会警告；
+未跟踪文件只警告。`--with-suckless` 不执行 `make clean`：四个源码 bundle 仍取各自
+`origin/master`，不受 dotfiles target 影响。源码仓或所选 `origin/<target>` 缺失则停止。
+敏感扫描只覆盖将进入包的可达对象，命中时只打印路径。
 
 新机运行包内的 `dotcfg-offline-install`。它先按 MANIFEST 做 `sha256sum -c`，
 不在新机执行 `git bundle verify`。然后用 bundle 建立 bare `~/.cfg`，写出
@@ -955,8 +975,8 @@ clone。四个源码仓的 origin 从同一个 `OFFLINE_ORIGIN` 推导（把末�
 `switch.sh` 仍会调用 `fresh_create_root_backup`，把当时的 `~/.config` 等混合模式文件
 备份到新的 `fresh_root/backup/`。这个豁免只属于安装器进程，不延伸到后续 switch。
 
-`timeout 10 git ls-remote --heads origin` 看不到 `refs/heads/master` 时，本地结果保留，
-退出 2。远端可用时 `git fetch`，并确认 `refs/remotes/origin/master`，退出 0。
+`timeout 10 git ls-remote --heads origin` 看不到 MANIFEST 里的 `refs/heads/<target>` 时，
+本地结果保留，退出 2。远端可用时 `git fetch`，并确认 `refs/remotes/origin/<target>`，退出 0。
 重跑不重复 clone、chown、检出或源码 clone。安装脚本留在新机上，由用户自己删除。
 
 ## 核心脚本

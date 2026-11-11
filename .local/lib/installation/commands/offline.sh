@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pack origin/master. The installer checks out dotcfg only and does not call
+# Pack origin/<target>. The installer checks out dotcfg only and does not call
 # bootstrap_finish_install, because that runs fresh_create_root_backup.
 
 set -euo pipefail
@@ -47,10 +47,18 @@ offline_tar_members_ok() {
 }
 
 offline_warn_ahead() {
-	local label=$1 count
+	local label=$1 ref=$2 count
+	shift 2
+	count=$("$@" rev-list --count "$ref"..HEAD 2>/dev/null || printf '0')
+	[ "${count:-0}" -eq 0 ] || printf '警告：%s 领先 %s %s 笔，包取 %s\n' "$label" "$ref" "$count" "$ref" >&2
+}
+
+offline_warn_dotfiles_ahead() {
+	local ref=$1 count
 	shift
-	count=$("$@" rev-list --count origin/master..HEAD 2>/dev/null || printf '0')
-	[ "${count:-0}" -eq 0 ] || printf '警告：%s 领先 origin/master %s 笔，包取 origin/master\n' "$label" "$count" >&2
+	count=$("$@" rev-list --count "$ref"..HEAD 2>/dev/null || printf '0')
+	[ "${count:-0}" -eq 0 ] ||
+		printf '警告：dotfiles 当前 HEAD 领先 %s %s 笔（含未合并任务分支提交）\n' "$ref" "$count" >&2
 }
 
 offline_warn_untracked() {
@@ -60,11 +68,11 @@ offline_warn_untracked() {
 	[ -z "$untracked" ] || printf '警告：%s 有未跟踪文件，不进入包\n' "$label" >&2
 }
 
-offline_require_origin() {
-	local label=$1
-	shift
-	"$@" rev-parse --verify origin/master >/dev/null 2>&1 ||
-		offline_die "拒绝：${label} 无法解析 origin/master" 2
+offline_require_ref() {
+	local label=$1 ref=$2
+	shift 2
+	"$@" rev-parse --verify "$ref" >/dev/null 2>&1 ||
+		offline_die "拒绝：${label} 无法解析 $ref" 2
 }
 
 offline_warn_dirt() {
@@ -112,10 +120,11 @@ offline_sensitive() {
 	[ "$hit" -eq 0 ] || exit 2
 }
 
-# A shared clone does not carry the source's origin/master ref.
+# A shared clone does not carry the source ref. The bundle's local master
+# is only the installable HEAD; MANIFEST records the real target.
 offline_bundle_at() {
-	local repo=$1 dest=$2 commit scratch rc
-	commit=$(git -C "$repo" rev-parse --verify origin/master) || return 1
+	local repo=$1 dest=$2 ref=${3:-origin/master} commit scratch rc
+	commit=$(git -C "$repo" rev-parse --verify "$ref") || return 1
 	scratch=$(mktemp -d)
 	rc=0
 	git clone -q --shared --bare "$repo" "$scratch/repo" &&
@@ -203,6 +212,36 @@ git --git-dir="$cfg" config remote.origin.fetch '+refs/heads/*:refs/remotes/orig
 show_untracked=$(git --git-dir="$cfg" config --get status.showUntrackedFiles || true)
 [ "$show_untracked" = no ] || git --git-dir="$cfg" config status.showUntrackedFiles no
 
+# The bundle branch is always master. Rename it on clone and on an existing .cfg.
+cfg_target=$(awk '$1 == "target" { print $2; exit }' "$manifest")
+case $cfg_target in
+	x11|wayland|master) ;;
+	*)
+		printf 'MANIFEST 缺少 target\n' >&2
+		exit 1
+		;;
+esac
+head_ref=$(git --git-dir="$cfg" symbolic-ref --short HEAD 2>/dev/null || true)
+if [ "$head_ref" = "$cfg_target" ]; then
+	:
+elif [ "$head_ref" = master ]; then
+	if [ "$cfg_target" != master ]; then
+		if git --git-dir="$cfg" rev-parse --verify --quiet "refs/heads/$cfg_target" >/dev/null; then
+			printf '拒绝：无法将 master 改名为 %s\n' "$cfg_target" >&2
+			exit 1
+		fi
+		git --git-dir="$cfg" branch -m master "$cfg_target"
+	fi
+	git --git-dir="$cfg" symbolic-ref HEAD "refs/heads/$cfg_target"
+else
+	printf '拒绝：本地分支是 %s，无法改为 %s\n' "${head_ref:-detached}" "$cfg_target" >&2
+	exit 1
+fi
+git --git-dir="$cfg" rev-parse --verify --quiet "refs/heads/$cfg_target" >/dev/null || {
+	printf '拒绝：本地没有分支 %s\n' "$cfg_target" >&2
+	exit 1
+}
+
 list=$here/.checkout-list
 git --git-dir="$cfg" ls-tree -r --name-only HEAD > "$list"
 wrote=0
@@ -273,32 +312,63 @@ if ! command -v timeout >/dev/null 2>&1; then
 	printf '缺少命令：timeout\n' >&2
 	exit 1
 fi
-if ! timeout 10 git --git-dir="$cfg" ls-remote --heads origin | grep -q 'refs/heads/master'; then
-	printf '本地安装已完成，远端尚未就绪。\n请确认网络，以及到 %s 的 SSH。\n完成后重新运行本脚本。\n' "$origin" >&2
+if ! timeout 10 git --git-dir="$cfg" ls-remote --heads origin | grep -q -F "refs/heads/$cfg_target"; then
+	printf '本地安装已完成，远端尚未就绪。\n请确认网络，以及到 %s 的 %s。\n完成后重新运行本脚本。\n' "$origin" "$cfg_target" >&2
 	exit 2
 fi
 git --git-dir="$cfg" fetch origin
-git --git-dir="$cfg" rev-parse --verify refs/remotes/origin/master >/dev/null
+git --git-dir="$cfg" rev-parse --verify "refs/remotes/origin/$cfg_target" >/dev/null
 exit 0
 INSTALLER
 	chmod 755 "$dest"
 }
 
+offline_resolve_target() {
+	local allow=$1 branch=$2 current head tip
+	current=$(git --git-dir="$(offline_cfg)" symbolic-ref --short HEAD 2>/dev/null || true)
+	if [ "$allow" -eq 1 ]; then
+		if [ -n "$branch" ] || [ "$current" != master ]; then
+			offline_die "拒绝：--allow-stale-target 只适用于冻结 master" 2
+		fi
+		head=$(git --git-dir="$(offline_cfg)" rev-parse --verify HEAD) ||
+			offline_die "拒绝：无法解析 HEAD" 2
+		tip=$(git --git-dir="$(offline_cfg)" rev-parse --verify origin/master) ||
+			offline_die "拒绝：无法解析 origin/master" 2
+		[ "$head" = "$tip" ] || offline_die "拒绝：HEAD 不等于 origin/master" 2
+		printf 'master\n'
+		return 0
+	fi
+	if [ -n "$branch" ]; then
+		printf '%s\n' "$branch"
+		return 0
+	fi
+	case $current in
+		x11|wayland|master) ;;
+		*) offline_die "拒绝：无法确定 dotfiles 分支" 2 ;;
+	esac
+	if [ "$current" = master ]; then
+		offline_die "拒绝：master 是冻结锚点，需要 --allow-stale-target" 2
+	fi
+	printf '%s\n' "$current"
+}
+
 offline_pack() {
-	local with=$1 cfg work src out name dir commit
+	local with=$1 allow=$2 branch=$3 cfg work src out name dir commit target ref
 	cfg=$(offline_cfg)
 	work=$(offline_work)
 	src=$(offline_src)
 	out=$(offline_output)
+	target=$(offline_resolve_target "$allow" "$branch")
+	ref=origin/$target
 	if [ -e "$out" ]; then
 		offline_die "已存在，拒绝覆盖：$out" 2
 	fi
 	if [ ! -d "$cfg" ] || ! git --git-dir="$cfg" rev-parse --git-dir >/dev/null 2>&1; then
 		offline_die "拒绝：没有 $cfg" 2
 	fi
-	offline_require_origin dotfiles git --git-dir="$cfg"
+	offline_require_ref dotfiles "$ref" git --git-dir="$cfg"
 	offline_warn_dirt dotfiles git --git-dir="$cfg" --work-tree="$work"
-	offline_warn_ahead dotfiles git --git-dir="$cfg" --work-tree="$work"
+	offline_warn_dotfiles_ahead "$ref" git --git-dir="$cfg" --work-tree="$work"
 	offline_warn_untracked dotfiles git --git-dir="$cfg" --work-tree="$work"
 	if [ "$with" -eq 1 ]; then
 		for name in "${offline_names[@]}"; do
@@ -309,13 +379,13 @@ offline_pack() {
 			if ! git -C "$dir" rev-parse --git-dir >/dev/null 2>&1; then
 				offline_die "拒绝：${name} 不是 git 仓库" 2
 			fi
-			offline_require_origin "$name" git -C "$dir"
+			offline_require_ref "$name" origin/master git -C "$dir"
 			offline_warn_dirt "$name" git -C "$dir"
-			offline_warn_ahead "$name" git -C "$dir"
+			offline_warn_ahead "$name" origin/master git -C "$dir"
 			offline_warn_untracked "$name" git -C "$dir"
 		done
 	fi
-	commit=$(git --git-dir="$cfg" rev-parse --verify origin/master)
+	commit=$(git --git-dir="$cfg" rev-parse --verify "$ref")
 	offline_sensitive "$cfg" "$commit"
 	if [ "$with" -eq 1 ]; then
 		for name in "${offline_names[@]}"; do
@@ -326,7 +396,7 @@ offline_pack() {
 
 	offline_stage=$(mktemp -d)
 	trap offline_cleanup EXIT
-	offline_bundle_at "$cfg" "$offline_stage/dotfiles.bundle" || offline_die "bundle 失败：dotfiles" 1
+	offline_bundle_at "$cfg" "$offline_stage/dotfiles.bundle" "$ref" || offline_die "bundle 失败：dotfiles" 1
 	if [ "$with" -eq 1 ]; then
 		mkdir -p "$offline_stage/src"
 		for name in "${offline_names[@]}"; do
@@ -336,7 +406,11 @@ offline_pack() {
 	fi
 	{
 		printf 'time %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-		printf 'dotfiles %s\n' "$(git --git-dir="$cfg" rev-parse --verify origin/master)"
+		printf 'target %s\n' "$target"
+		if [ "$target" = master ]; then
+			printf 'note 冻结锚点\n'
+		fi
+		printf 'dotfiles %s\n' "$(git --git-dir="$cfg" rev-parse --verify "$ref")"
 		printf 'dotfiles.bundle %s\n' "$(offline_sha256 "$offline_stage/dotfiles.bundle")"
 		if [ "$with" -eq 1 ]; then
 			for name in "${offline_names[@]}"; do
@@ -366,12 +440,30 @@ offline_pack() {
 }
 
 if [ "${OFFLINE_LIB_ONLY:-0}" != 1 ]; then
-	if [ "$#" -eq 1 ] && [ "$1" = "--with-suckless" ]; then
-		offline_pack 1
-	elif [ "$#" -ne 0 ]; then
-		printf '用法：dotcfg-offline [--with-suckless]\n' >&2
-		exit 2
-	else
-		offline_pack 0
-	fi
+	offline_with=0
+	offline_allow=0
+	offline_branch=
+	while [ "$#" -gt 0 ]; do
+		case $1 in
+			--with-suckless) offline_with=1 ;;
+			--allow-stale-target) offline_allow=1 ;;
+			--branch)
+				shift
+				if [ "$#" -eq 0 ]; then
+					printf '用法：dotcfg-offline [--branch x11|wayland] [--with-suckless] [--allow-stale-target]\n' >&2
+					exit 2
+				fi
+				case $1 in
+					x11|wayland) offline_branch=$1 ;;
+					*) offline_die "拒绝：--branch 只能是 x11 或 wayland" 2 ;;
+				esac
+				;;
+			*)
+				printf '用法：dotcfg-offline [--branch x11|wayland] [--with-suckless] [--allow-stale-target]\n' >&2
+				exit 2
+				;;
+		esac
+		shift
+	done
+	offline_pack "$offline_with" "$offline_allow" "$offline_branch"
 fi

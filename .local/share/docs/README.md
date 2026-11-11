@@ -1,6 +1,6 @@
 # 文档中心索引
 
-本配置库的文档体系按读者类型和主题组织。根目录 `README.md` 提供安装入口，本文档提供完整导航。
+本配置库的文档体系按读者类型和主题组织。根目录 `README.md` 提供安装入口，本文档提供完整导航。项目级文档在 master 编辑，x11 与 wayland 只保留同步快照。
 根 README 与 `user/` 构成面向最终用户的交付层；其余文档构成面向开发、验证和维护的开发文档层。
 两层各自保持自洽并独立维护，通过本索引互相导航，不要求任一类读者先理解另一层，也不把用户指南
 迁入上游 LARBS 保留区。
@@ -30,13 +30,14 @@
 - [显示管理测试](project/display-testing.md) — 状态、显示布局、配置和适配器的测试方案与验收步骤
 - [Wayland 迁移研究](project/wayland-migration.md) — R42 的硬件实测、输入法/Vulkan 限制、分支与未决问题（挂起）
 - [Wayland 桌面替代选型](project/wayland-desktop-alternatives.md) — R43 的 sway/niri/dwl/Hyprland 对比和完整替换表（挂起）
+- [分支与任务登记](project/branch-registry.md) — master 文档主干与代码冻结、x11/wayland 快照、任务分支与审计记录
 - [访问子系统](project/access-system.md) — 网络访问控制：怎么用；实现在 `.local/lib/access/`
 - [访问设计](project/access-design.md) — 命令行为、退出码和术语
 - [访问架构](project/access-architecture.md) — 文件怎么摆、分层和上限
 - [访问约束](project/access-constraints.md) — 隐私、仓库边界和回滚
 - [访问路线](project/access-roadmap.md) — 还没授权的事
 - [访问测试](project/access-testing.md) — 离线套件与真机 lab
-- [协作规约](project/collaboration.md) — 用户 × dsh × qoder × codex 四角色协作流程、两级审查标准与提交纪律；轮次档案保存在本机私有目录 `.local/share/collab/`
+- [协作规约](project/collaboration.md) — v1.0；用户 × dsh × qoder × codex 四角色协作流程、两级审查标准与提交纪律；文档主干在 master；轮次档案保存在本机私有目录 `.local/share/collab/`
 
 ### 约束速查
 
@@ -91,7 +92,7 @@
 安装脚本、状态机和已知问题：
 
 - [安装系统设计](project/installation-system.md) — 节点幂等安装系统架构、统一 CLI 和共享验证库
-- [安装测试](project/installation-testing.md) — 节点系统测试框架，登记 272 条。最近一次完整通过是 2026-08-12
+- [安装测试](project/installation-testing.md) — 节点系统测试。2026-11-11 安装套件 289/289，offline 14/14；与 project-tools 36 合计 325
 - [安装修复记录](planning/installation-fixes.md) — B1-B8 已修复缺陷、设计变更和验证记录
 
 ## 项目跟踪
@@ -132,7 +133,7 @@
     ↓
 docs/README.md (中文，文档索引)
     ├── 用户指南 (desktop-guide-zh.md, keybindings-zh.md)
-    ├── 维护者文档 (architecture.md, domain-map.md, dependencies.md, maintenance-policy.md, docs-standard.md, collaboration.md)
+    ├── 维护者文档 (architecture.md, domain-map.md, dependencies.md, maintenance-policy.md, docs-standard.md, collaboration.md, branch-registry.md)
     ├── 显示管理 (display-management.md, display-device-adapter.md, display-testing.md)
     ├── 安装系统 (project/installation-system.md, project/installation-testing.md)
     ├── 平台部署 (platforms/index.md → 各平台档案)

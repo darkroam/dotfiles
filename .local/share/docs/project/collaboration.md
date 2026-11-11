@@ -1,7 +1,7 @@
 # 协作规约（用户 × dsh × qoder × codex）
 
 > 服务域：S03 文档与治理；S04 内部工程工具；S02 验证
-> 建立于 2026-08-31 · v0.6 · 由用户确认生效（2026-08-31；v0.6 于 2026-11-11）
+> 建立于 2026-08-31 · v1.0 · 由用户确认生效（2026-08-31；v1.0 于 2026-11-11）
 > 本文综合 clear-jlpt-n2、cni249、innogpu-fh2m-debian-trixie 三个参考项目的协作经验，按本仓库约束适配，
 > 是四角色协作的唯一权威规约；其他文档只链接本文，不复制规则。
 
@@ -254,25 +254,127 @@ dsh 向用户汇报待办时，固定分成三块，序号跨块连续：
 - `x11`：X11/dwm 维护；
 - `wayland`：Wayland 迁移与替代。
 
-规则：
+### 1. master 冻结
 
-1. `master` 在拆分治理提交后冻结，只允许用户明确批准的紧急 revert；
-   拆分点打 `split-base` tag。
-2. `x11` 与 `wayland` 不互相 merge；共享改动必须分别落到两个主线。
-3. 每项开发任务先从目标主线建 `task/R{编号}-{x11|wayland}-{主题}`；
-   审完、用户批准后只合入目标主线。合并后删除任务分支，登记保留。
-4. 同时影响两边的任务建两个分支，分别实现、分别审查、分别合并；
-   两边内容相同时，允许审查后 cherry-pick，但仍需在目标分支独立验证。
-5. `R42`、`R43` 归 `wayland`；R43 的 picom 相关工作取消。
-6. 任务登记至少记录：R、target、task branch、base/head SHA、状态、
-   审查结论、合并目标、合并 SHA、是否已删除。
-7. 每次任务合并后、每 5 个 R 或每月、发布前，dsh 检查：
-   master 是否仍为 split-base、两主线是否同步、任务 base 是否属于目标主线、
-   是否存在 target 错配或长期未合并分支、both 任务是否两边都有提交。
-8. R40 离线包在拆分后必须支持 `--branch x11|wayland`，
-   不再默认 `origin/master`；这是拆分后的强制跟随项。
+`master` 的代码在拆分治理提交后冻结，文档可写。拆分点用 `split-base`
+附注标签标记；审计比较必须写 `split-base^{commit}`。
 
-## 十、变更
+- 允许的 master 提交只有项目级文档：`.local/share/docs/**` 与根 `README.md`。
+- 非文档 diff 必须为 0。关闭条件是 §12.10 的审计命令无输出，且没有未登记的紧急 revert。
+- 代码、配置、脚本、安装系统和测试不得在 master 上修改。
+- 紧急 revert 仍只允许用户明确批准，并且必须登记：R、原因、批准人、commit、恢复审计结论。
+  未登记的非文档变更一律视为违例。
+
+### 2. 双主线
+
+`x11` 与 `wayland` 不互相 merge。共享代码必须分别落到两个主线；
+判断两边是否一致看目标路径的 blob，不看主线 head 是否相等。
+项目文档例外见 §12.10：只从 master 流向两条主线。
+
+### 3. 任务分支
+
+每项开发任务先从目标主线建 `task/R{编号}-{x11|wayland}-{主题}`，
+审完、用户批准后只合入目标主线。合并后由 dsh 删除任务分支并登记；
+未合并分支保留。
+
+### 4. both 任务与 cherry-pick
+
+同时影响两边的任务建两个分支，分别实现、分别审查、分别合并。
+“内容相同”以结果 blob 比对为准，不以 patch-id 或提交消息为准；
+内容相同才允许审查后 cherry-pick。cherry-pick 后必须：
+
+- 更新登记中的两边 commit SHA；
+- 在目标分支重新跑受影响测试/配置校验；
+- 记录独立验证结果；
+- 明确哪条分支先合并、哪条后合并，以及删除执行者。
+
+### 5. R42/R43
+
+`R42`、`R43` 归 `wayland`。Wayland 线上涉及装包、切会话、换 compositor
+的任务必须先过 R42 的 TTY/DRM 探测门；只改配置文件的任务不受此门限制。
+
+R43 不给 Ghostty 增加 picom 规则；picom 是 X11 专属且当前仍在运行。
+R43 的 Ghostty 只做 Wayland 视觉对齐。
+
+R43 的统一状态是「开发中（部分完成，未合入）」；“挂起”只作为暂停说明，
+不得与 `INDEX.md` 或其他档案的状态行并列使用。
+
+### 6. 任务登记
+
+登记表至少包含：
+
+`R、target、task branch、base、head、状态、审查结论、合并目标、
+合并 SHA、是否已删除、备注`
+
+无提交的占位任务也必须有行；状态与轮次 `INDEX.md` 一致。
+
+登记权威文件是 master 上的 `docs/project/branch-registry.md`。
+x11 与 wayland 只保留同步快照，blob 必须与 master 一致，不得在主线上单独改登记。
+它会进入离线包的 git 对象库，但当前安装器检出白名单不含 `docs/**`；
+新机要取用需 `git show`/显式检出。把登记加入安装器白名单列为后续，
+不在本规约宣称已自动部署。
+`collab/R44-.../BRANCHES.md` 只是机器本地副本，不参与审计，必须纳入用户备份。
+
+### 7. 长期审计
+
+每次任务合并后、每 5 个 R 或每月、发布前，dsh 检查：
+
+- `split-base^{commit}..master` 的非文档 diff 为空，或仅有已登记的紧急 revert；
+- `x11`、`wayland` 各自 head 与登记/远端一致，不要求两者相等；
+- task base 属于目标主线，target 无错配，无跨目标 merge；
+- both 任务的变更 blob 成对一致，两边都有审查和合并记录；
+- 治理文档的权威在 master；同步后 `x11`、`wayland` 的 blob 与 master 一致；
+- 当前工作树 HEAD 必须属于声明的主线或活动 task；日常 `$HOME` 应常驻
+  `x11`，Wayland 验证使用独立 worktree 或显式切换并记录；
+- `docs/project/branch-registry.md` 的权威在 master；x11/wayland 只保留同步快照；
+- 登记表中的 `head` 是「最近一次已审 head」；审计以现场 `git rev-parse`
+  为准，任务分支允许比登记晚一笔；
+- 无长期未合并任务分支；任务删除状态已登记。
+
+### 8. R40 文档归属
+
+R40 的 `--branch x11|wayland` 交付阻塞已在两条任务分支实现、分别合并并删除。
+行为正文不留在任务分支，归 master 的安装文档，再同步到两条主线：
+
+- `--branch` 只作用于 dotfiles；四个源码仓仍使用各自 master；
+- 默认 target 与当前分支一致；无法确定时失败；
+- `--allow-stale-target` 只在当前分支是 `master` 且 HEAD 等于 `origin/master` 时放行；
+- 安装器按 MANIFEST 把本地 `master` 改名为 target；双分支、外部分支和 detached HEAD 三种拒绝见
+  [安装系统](installation-system.md)；
+- 安装测试基线以 [安装测试](installation-testing.md) 为准。
+
+### 9. R44 验收
+
+R44 通过条件还包括：`x11`、`wayland`、`split-base` 已 push 并核对远端；
+push 本身须用户批准。未 push 前只能标“本地合规”，不得宣称可回滚。
+文档主干另须满足 §12.10 的关闭条件。
+
+### 10. 文档主干
+
+用户于 2026-11-11 确认：项目级文档不按分支拆分，统一放 master。
+根 `README.md` 属于文档主干。
+
+- master 代码冻结，文档可写。直接在 master 上编辑，不使用独立 docs worktree、submodule 或软链接。
+- x11、wayland 的文档是只读快照，不各自编辑。
+- 文档只从 master 流向两条主线：把 master merge 进 x11，再 merge 进 wayland。
+  不反向 merge，也不在 x11 与 wayland 之间 merge。
+- 只有项目级文档允许这样 merge 到两条主线。代码仍走任务分支，不借文档同步带入。
+- 任务分支禁止改 docs。R42、R43 的研究正文写在 master，主题归属仍是 wayland。
+- R40 的安装文档归属 master 的安装系统文档，不留在已删除的 R40 任务分支。
+- 当前文档一次性从 x11 导入。导入时 x11 与 wayland 的文档 blob 一致。
+  R43 的 Ghostty 试点段从 `task/R43-wayland-desktop` 补入，不带回该分支的旧文档。
+
+审计命令：
+
+```
+git diff --name-only split-base^{commit}..master \
+  -- . ':(exclude).local/share/docs/**' ':(exclude)README.md'
+```
+
+关闭条件：该命令无输出；master、x11、wayland 的 `.local/share/docs/**` 与 `README.md`
+blob 一致；没有任务分支携带 docs 改动；日常工作树回到 x11。未 push 时只标本地合规。
+
+## 附录：变更记录
 
 本规约如需修改，由用户提出，dsh 草拟，确认后更新并提交。
 
@@ -294,3 +396,7 @@ dsh 向用户汇报待办时，固定分成三块，序号跨块连续：
 | 2026-10-21 | R30 阶段 5：同一主题只留一个 round，可多阶段；同主题后续工作不另开 round（2026-10-21 用户确认后生效，不追溯既往轮次；子系统级授权变更或主题实质分离可另立） |
 | 2026-11-01 | 新增 §十一：待办清单固定三块、跨块连续编号；每项写描述、所属 R、环境；不另开同主题 R；规约升至 v0.5 |
 | 2026-11-11 | 新增 §十二：master 冻结、x11/wayland 双主线、task 分支、both 任务双落、任务登记与长期审计；规约升至 v0.6 |
+| 2026-11-11 | R44 返工：补登记必填列、冻结紧急例外、blob 级 both 审计、R40 交付阻塞、push 验收项；规约升至 v0.7 |
+| 2026-11-11 | R44 二轮返工：登记迁入受控路径、当前 worktree HEAD 审计、R43 状态统一；规约升至 v0.8 |
+| 2026-11-11 | R44 收尾：登记改为对象库/显式检出、head 定义为最近已审、变更记录移至附录；规约升至 v0.9 |
+| 2026-11-11 | R44 文档主干：master 代码冻结、文档可写；文档只从 master 流向两条主线；规约升至 v1.0 |
