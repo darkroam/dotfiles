@@ -103,7 +103,7 @@ check_manifest() {
 	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" commit -m ahead >/dev/null
 	pack
 	[ "$status" -eq 0 ]
-	[[ "$output" == *"领先 origin/x11"* ]]
+	[[ "$output" == *"当前 HEAD 领先 origin/x11 1 笔（含未合并任务分支提交）"* ]]
 	assert_readme $'content\n'
 
 	rm -f "$OFFLINE_OUTPUT"
@@ -232,6 +232,8 @@ ENDTAR
 	OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git HOME=$new OFFLINE_HOME=$new DOTCFG_GIT_DIR=$new/.cfg OFFLINE_LS_FAIL=$new/fail \
 		PATH=$new/bin:$PATH run "$new/dotcfg-offline-install" </dev/null
 	[ "$status" -eq 2 ]
+	[ "$(git --git-dir="$new/.cfg" symbolic-ref --short HEAD)" = x11 ]
+	! git --git-dir="$new/.cfg" rev-parse --verify --quiet refs/heads/master >/dev/null
 	[ -x "$new/.local/bin/dotcfg" ]
 	[ ! -e "$new/.config-backup" ]
 	[ "$(cat "$new/.config/canary")" = "canary" ]
@@ -337,15 +339,18 @@ EOS
 	git clone -q "$tmp/src/st.bundle" "$tmp/st"
 	[ "$(git -C "$tmp/st" rev-parse HEAD)" = "$src_sha" ]
 	rm -rf "$tmp" "$OFFLINE_OUTPUT"
-	pack --branch x11
+	pack --branch x11 --with-suckless
 	[ "$status" -eq 0 ]
 	tmp=$(mktemp -d)
 	tar -xzf "$OFFLINE_OUTPUT" -C "$tmp"
 	grep -qx 'target x11' "$tmp/MANIFEST"
+	[ -f "$tmp/src/st.bundle" ]
 	git clone -q "$tmp/dotfiles.bundle" "$tmp/repo"
 	git -C "$tmp/repo" show HEAD:README > "$tmp/got"
 	printf 'content\n' > "$tmp/want"
 	cmp -s "$tmp/want" "$tmp/got"
+	git clone -q "$tmp/src/st.bundle" "$tmp/st"
+	[ "$(git -C "$tmp/st" rev-parse HEAD)" = "$src_sha" ]
 	rm -rf "$tmp"
 }
 
@@ -369,6 +374,26 @@ EOS
 	pack
 	[ "$status" -eq 2 ]
 	[[ "$output" == *"无法确定"* ]]
+
+	git --git-dir="$DOTCFG_GIT_DIR" symbolic-ref HEAD refs/heads/master
+	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" reset -q --hard master
+	printf 'local-master\n' >> "$OFFLINE_WORKTREE/README"
+	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" add README
+	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" commit -qm local-master
+	pack --allow-stale-target
+	[ "$status" -eq 2 ]
+	[[ "$output" == *"HEAD 不等于 origin/master"* ]]
+	[ ! -e "$OFFLINE_OUTPUT" ]
+
+	git --git-dir="$DOTCFG_GIT_DIR" symbolic-ref HEAD refs/heads/x11
+	pack --allow-stale-target
+	[ "$status" -eq 2 ]
+	[[ "$output" == *"只适用于冻结 master"* ]]
+	[ ! -e "$OFFLINE_OUTPUT" ]
+	pack --branch wayland --allow-stale-target
+	[ "$status" -eq 2 ]
+	[[ "$output" == *"只适用于冻结 master"* ]]
+	[ ! -e "$OFFLINE_OUTPUT" ]
 }
 
 @test "TC-OFF13: the installer remote gate follows the manifest target" {
@@ -427,4 +452,42 @@ exec /usr/bin/git "$@"
 EOS
 	chmod 755 "$new/bin/git"
 	export GIT_LOG=$new/git.log
+}
+
+@test "TC-OFF14: an existing cfg takes the manifest branch and can pack again" {
+	pack
+	[ "$status" -eq 0 ]
+	local new=$HOME/new bad=$HOME/bad
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	git clone -q --bare "$new/dotfiles.bundle" "$new/.cfg"
+	install_fake_git "$new"
+	rm -f "$new/fail"
+	OFFLINE_LS_HEAD=x11 OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git HOME=$new OFFLINE_HOME=$new \
+		DOTCFG_GIT_DIR=$new/.cfg PATH=$new/bin:$PATH \
+		run "$new/dotcfg-offline-install" </dev/null
+	[ "$status" -eq 0 ]
+	[ "$(git --git-dir="$new/.cfg" symbolic-ref --short HEAD)" = x11 ]
+	! git --git-dir="$new/.cfg" rev-parse --verify --quiet refs/heads/master >/dev/null
+	mkdir -p "$new/wt" "$new/out"
+	git --git-dir="$new/.cfg" --work-tree="$new/wt" checkout -q -f HEAD -- .
+	OFFLINE_WORKTREE=$new/wt OFFLINE_OUTPUT=$new/out/again.tar.gz DOTCFG_GIT_DIR=$new/.cfg \
+		HOME=$new run "$DOTFILES_ROOT/.local/bin/dotcfg-offline"
+	[ "$status" -eq 0 ]
+	[[ "$output" != *"无法确定"* ]]
+	grep -qx 'target x11' <(tar -xOzf "$new/out/again.tar.gz" MANIFEST)
+
+	mkdir -p "$bad"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$bad"
+	git clone -q --bare "$bad/dotfiles.bundle" "$bad/.cfg"
+	git --git-dir="$bad/.cfg" branch x11 HEAD
+	install_fake_git "$bad"
+	rm -f "$bad/fail"
+	OFFLINE_LS_HEAD=x11 OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git HOME=$bad OFFLINE_HOME=$bad \
+		DOTCFG_GIT_DIR=$bad/.cfg PATH=$bad/bin:$PATH \
+		run "$bad/dotcfg-offline-install" </dev/null
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"无法将 master 改名为 x11"* ]]
+	[ "$(git --git-dir="$bad/.cfg" symbolic-ref --short HEAD)" = master ]
+	rm -rf "$new" "$bad"
 }
