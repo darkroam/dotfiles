@@ -449,14 +449,14 @@ bats -r .local/share/test/ --tap
 ### 当前安装测试结果
 
 2026-08-12 在[平台档案索引](../platforms/index.md)所列 Debian 平台完整执行是 272/272。
-2026-11-06 在同一索引所列 KaiTian X7h G1e + Gentoo 上、commit `e100bb7`，安装套件为 285/285。
+2026-11-06 在同一索引所列 KaiTian X7h G1e + Gentoo 上、commit `b13f897`，安装套件为 285/285。
 同一次还有 `offline.bats` 10/10、`.local/share/test/build/run.sh` 14 项通过；`.local/bin` 与 `.local/lib` 的 shellcheck 为 0（`.bats` 不直接以 shellcheck 检查）。
 
-**验证环境**：2026-11-06，KaiTian X7h G1e + Gentoo，commit `e100bb7`；执行：qoder，验收：dsh。Bats 满足本文
+**验证环境**：2026-11-06，KaiTian X7h G1e + Gentoo，commit `b13f897`；执行：qoder，验收：dsh。Bats 满足本文
 `>= 1.11.0` 的前置要求。`bats --count` 对 installation 与 project-tools 仍分别是 285 和 36。
 
 ```
-# 2026-11-06 e100bb7，KaiTian X7h G1e + Gentoo
+# 2026-11-06 b13f897，KaiTian X7h G1e + Gentoo
 Total:  285
 Passed: 285
 Failed: 0
