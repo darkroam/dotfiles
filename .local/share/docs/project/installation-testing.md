@@ -101,14 +101,14 @@ setup_bootstrap_env() # 从当前工作树构造自举安装用的临时 remote
 `$HOME`，也不应把测试产物或缓存加入仓库。
 
 
-### TC-OFF01..OFF13：离线包（offline.bats）
+### TC-OFF01..OFF14：离线包（offline.bats）
 
 临时 HOME 和真实 git。不访问网络，不调用 `dotcfg switch fresh`。
 
 | 用例 | 覆盖 |
 | --- | --- |
 | TC-OFF01 | 当前分支为 x11 时默认包只有安装脚本、bundle、MANIFEST，并记录 target |
-| TC-OFF02 | 领先、落后仍打包当前 target；已跟踪脏文件警告且不入库；未跟踪只警告 |
+| TC-OFF02 | 领先时警告为“警告：dotfiles 当前 HEAD 领先 origin/<target> N 笔（含未合并任务分支提交）”；落后仍打包；脏文件与未跟踪只警告 |
 | TC-OFF03 | `--with-suckless` 含四个源码 bundle，源码仍取 `origin/master`，已有源码不覆盖 |
 | TC-OFF04 | 目标包已存在则拒绝覆盖 |
 | TC-OFF05 | 只有所选 target 可达的私钥拒绝打包，输出不含密钥正文 |
@@ -118,11 +118,12 @@ setup_bootstrap_env() # 从当前工作树构造自举安装用的临时 remote
 | TC-OFF09 | `OFFLINE_ORIGIN` 无法推导源码地址时，在 clone 前退出 1，不留下半成品 |
 | TC-OFF10 | 已存在源码仓的 origin 仍指向包内 bundle 时，重跑会修正为推导地址 |
 | TC-OFF11 | `--branch x11` 与 `--branch wayland` 打对应提交；wayland 不改变源码 bundle |
-| TC-OFF12 | 当前分支是 master 时默认拒绝；`--allow-stale-target` 放行并标记冻结锚点；其他分支拒绝 |
+| TC-OFF12 | master 默认拒绝；`--allow-stale-target` 仅当 HEAD 等于 `origin/master` 才放行；HEAD 不等，或在 x11/wayland 上使用该开关，都拒绝 |
 | TC-OFF13 | 安装器按 MANIFEST 的 x11 或 wayland 做远端门，不匹配则退出 2 |
+| TC-OFF14 | 已有 `.cfg` 把 `master` 改名为 target；双分支、外部分支、detached HEAD 都退出 1 且不改 HEAD；新机可再打包 |
 
 `suckless-rebuild` 的检查在 `.local/share/test/build/run.sh`，14 项。它不是 Bats，
-不计入 288，也不计入下面的 324。
+不计入 289，也不计入下面的 325。
 
 ### TC-AXS01：access 入口（access-entry.bats）
 
@@ -465,19 +466,22 @@ Passed: 285
 Failed: 0
 ```
 
-2026-11-11 在 KaiTian X7h G1e + Gentoo 上复跑当前清单：安装套件 288/288，`offline.bats` 13/13。
-`bats --count` 对 installation 与 project-tools 分别是 288 和 36。
+2026-11-11 在 KaiTian X7h G1e + Gentoo 上复跑当时清单：安装套件 288/288，`offline.bats` 13/13。
+
+2026-11-11 在同一台机器复跑当前清单，代码提交 `559efba`（含 `32f0e04`）：安装套件 289/289，
+`offline.bats` 14/14，project-tools 36/36。`bats --count` 对 installation 与 project-tools
+分别是 289 和 36，合计 325。
 
 ```
-# 2026-11-11，KaiTian X7h G1e + Gentoo
-Total:  288
-Passed: 288
+# 2026-11-11 559efba，KaiTian X7h G1e + Gentoo
+Total:  289
+Passed: 289
 Failed: 0
 ```
 
 project-tools 测试由[协作规约](collaboration.md)维护自己的 Bats 基线；显示子系统由
 [显示管理测试](display-testing.md)维护独立 shell fixture 基线。只有同时写明组成与递归命令时，
-才把 installation 与 project-tools 合称全仓 Bats。二者合计 324 个 Bats；该数字不包含显示 fixture，
+才把 installation 与 project-tools 合称全仓 Bats。二者合计 325 个 Bats；该数字不包含显示 fixture，
 也不包含 `test/build` 的 14 项 shell 测试。
 
 ---
@@ -500,4 +504,4 @@ project-tools 测试由[协作规约](collaboration.md)维护自己的 Bats 基�
 ---
 
 **最后更新**: 2026-11-11
-**版本**: 5.8 — 离线包按 x11/wayland target；安装套件 288/288，离线 13/13
+**版本**: 5.9 — 安装器改名与三种拒绝；安装套件 289/289，离线 14/14，合计 325
