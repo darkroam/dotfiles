@@ -242,19 +242,41 @@ git --git-dir="$cfg" rev-parse --verify --quiet "refs/heads/$cfg_target" >/dev/n
 	exit 1
 }
 
-# Only a markdown link to the other stack counts. Plain names do not.
-# Hit count, not git grep's exit status.
+# Opposite-stack links only. Plain names are not links. Count hits, not git grep status.
 link_needle=
 case $cfg_target in
 	x11) link_needle=stacks/wayland ;;
 	wayland) link_needle=stacks/x11 ;;
 esac
 if [ -n "$link_needle" ]; then
-	link_hits=$(git --git-dir="$cfg" grep -E -e "\]\([^)]*${link_needle}[^)]*\)" HEAD -- .local/share/docs 2>/dev/null || true)
-	link_n=0
-	if [ -n "$link_hits" ]; then
-		link_n=$(printf '%s\n' "$link_hits" | grep -c . || true)
-	fi
+	link_blob=$(git --git-dir="$cfg" grep -h -I -e . HEAD -- .local/share/docs 2>/dev/null || true)
+	link_n=$(printf '%s\n' "$link_blob" | awk -v needle="$link_needle" '
+		{ lines[++nr] = $0 }
+		END {
+			for (i = 1; i <= nr; i++) {
+				line = lines[i]
+				if (line ~ ("^[ \\t]*\\[[^]]+\\]:[ \\t]*.*" needle)) {
+					id = line
+					sub(/^[ \t]*\[/, "", id)
+					sub(/\].*/, "", id)
+					if (id != "") bad[id] = 1
+				}
+			}
+			n = 0
+			for (i = 1; i <= nr; i++) {
+				line = lines[i]
+				hit = 0
+				if (line ~ ("\\]\\([^)]*" needle "[^)]*\\)")) hit = 1
+				if (line ~ ("href=[^[:space:]>]*" needle)) hit = 1
+				if (line ~ ("^[ \\t]*\\[[^]]+\\]:[ \\t]*.*" needle)) hit = 1
+				for (id in bad) {
+					if (index(line, "][" id "]") > 0) hit = 1
+				}
+				n += hit
+			}
+			print n + 0
+		}
+	')
 	if [ "$link_n" -ne 0 ]; then
 		printf '文档链接越界：%s 命中 %s\n' "$link_needle" "$link_n" >&2
 		exit 1
@@ -301,8 +323,8 @@ while IFS= read -r path; do
 done < "$list"
 rm -f "$list"
 
-# Delete only paths this installer wrote earlier that this target does not own.
-docs_manifest=$home/.local/share/docs/.offline-docs-manifest
+# 保留项 ∪ 本次写入项. State is gitignored, so track.sh cannot add it to HEAD.
+docs_manifest=$home/.local/state/dotcfg/offline-docs-manifest
 docs_next=$here/.docs-next
 : > "$docs_next"
 deleted=0
@@ -345,13 +367,12 @@ if [ -s "$docs_owned" ]; then
 	done < "$docs_owned" || true
 fi
 if [ -s "$docs_next" ]; then
-	mkdir -p "$home/.local/share/docs"
+	mkdir -p "$(dirname -- "$docs_manifest")"
 	mv -- "$docs_next" "$docs_manifest"
 else
 	rm -f -- "$docs_manifest" "$docs_next"
 fi
 rm -f -- "$docs_owned"
-printf '删除 %s 个清单文件\n' "$deleted"
 case $cfg_target in
 	x11) other=.local/share/docs/stacks/wayland ;;
 	wayland) other=.local/share/docs/stacks/x11 ;;
@@ -365,9 +386,14 @@ if [ ! -x "$home/.local/bin/dotcfg" ]; then
 	exit 1
 fi
 if [ "$wrote" -eq 1 ]; then
-	printf '已检出 dotcfg。未备份 ~/.config，也未执行 switch。\n'
+	printf '已检出 dotcfg。未备份 ~/.config，也未执行 switch。'
 else
-	printf '已有 dotcfg，跳过检出。\n'
+	printf '已有 dotcfg，跳过检出。'
+fi
+if [ "$deleted" -gt 0 ]; then
+	printf '删除 %s 个清单文件。\n' "$deleted"
+else
+	printf '\n'
 fi
 
 src_base=${origin%/}
@@ -449,6 +475,17 @@ offline_resolve_target() {
 	printf '%s\n' "$current"
 }
 
+offline_refuse_foreign_stack() {
+	local cfg=$1 target=$2 commit=$3 other hits
+	case $target in
+		x11) other=wayland ;;
+		wayland) other=x11 ;;
+		*) return 0 ;;
+	esac
+	hits=$(git --git-dir="$cfg" ls-tree -r --name-only "$commit" -- ".local/share/docs/stacks/$other")
+	[ -z "$hits" ] || offline_die "拒绝：${target} 包含对面栈 .local/share/docs/stacks/${other}" 2
+}
+
 offline_pack() {
 	local with=$1 allow=$2 branch=$3 cfg work src out name dir commit target ref
 	cfg=$(offline_cfg)
@@ -483,6 +520,7 @@ offline_pack() {
 		done
 	fi
 	commit=$(git --git-dir="$cfg" rev-parse --verify "$ref")
+	offline_refuse_foreign_stack "$cfg" "$target" "$commit"
 	offline_sensitive "$cfg" "$commit"
 	if [ "$with" -eq 1 ]; then
 		for name in "${offline_names[@]}"; do
