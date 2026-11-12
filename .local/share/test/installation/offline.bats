@@ -589,13 +589,9 @@ assert_same_line_blobs() {
 
 @test "TC-OFF16: each target checks out only its own stack and does not rewrite" {
 	on_branch x11
-	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11" \
-		"$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland"
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
 	printf 'x11 display\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display.md"
-	printf 'poison wayland\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland/poison.md"
-	publish x11 'x11 stacks' \
-		.local/share/docs/stacks/x11/display.md \
-		.local/share/docs/stacks/wayland/poison.md
+	publish x11 'x11 stacks' .local/share/docs/stacks/x11/display.md
 	pack --branch x11
 	[ "$status" -eq 0 ]
 	local new=$HOME/new shows
@@ -618,13 +614,9 @@ assert_same_line_blobs() {
 	[ "$(grep -c ' show ' "$new/git.log")" -eq "$shows" ]
 
 	on_branch wayland
-	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland" \
-		"$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland"
 	printf 'wayland ghostty\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland/ghostty.md"
-	printf 'poison x11\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/poison.md"
-	publish wayland 'wayland stacks' \
-		.local/share/docs/stacks/wayland/ghostty.md \
-		.local/share/docs/stacks/x11/poison.md
+	publish wayland 'wayland stacks' .local/share/docs/stacks/wayland/ghostty.md
 	rm -rf "$new" "$OFFLINE_OUTPUT"
 	pack --branch wayland
 	[ "$status" -eq 0 ]
@@ -648,8 +640,14 @@ assert_same_line_blobs() {
 	tar -xzf "$OFFLINE_OUTPUT" -C "$x11home"
 	run_install "$x11home" x11
 	[ "$status" -eq 0 ]
+	[ -f "$x11home/.local/state/dotcfg/offline-docs-manifest" ]
+	[ ! -e "$x11home/.local/share/docs/.offline-docs-manifest" ]
 	grep -qx '.local/share/docs/stacks/x11/display.md' \
-		"$x11home/.local/share/docs/.offline-docs-manifest"
+		"$x11home/.local/state/dotcfg/offline-docs-manifest"
+	! git --git-dir="$x11home/.cfg" ls-tree -r --name-only HEAD | grep -q offline-docs-manifest
+	git --git-dir="$REAL_HOME/.cfg" --work-tree="$REAL_HOME" check-ignore -q -- \
+		.local/state/dotcfg/offline-docs-manifest
+	[[ "$output" != *"删除 0"* ]]
 
 	on_branch wayland
 	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland"
@@ -659,8 +657,9 @@ assert_same_line_blobs() {
 	pack --branch wayland
 	[ "$status" -eq 0 ]
 	mkdir -p "$way/.local/share/docs/stacks/x11" "$way/.local/share/docs/stacks/wayland"
-	cp "$x11home/.local/share/docs/.offline-docs-manifest" \
-		"$way/.local/share/docs/.offline-docs-manifest"
+	mkdir -p "$way/.local/state/dotcfg"
+	cp "$x11home/.local/state/dotcfg/offline-docs-manifest" \
+		"$way/.local/state/dotcfg/offline-docs-manifest"
 	cp "$x11home/.local/share/docs/stacks/x11/display.md" \
 		"$way/.local/share/docs/stacks/x11/display.md"
 	printf 'mine\n' > "$way/.local/share/docs/stacks/x11/user-note.md"
@@ -678,10 +677,12 @@ assert_same_line_blobs() {
 	[ "$(cat "$way/.local/share/docs/stacks/wayland/ghostty.md")" = "ghostty" ]
 	[ "$(cat "$way/.local/share/docs/README.md")" = "keep-public" ]
 	grep -qx '.local/share/docs/stacks/wayland/ghostty.md' \
-		"$way/.local/share/docs/.offline-docs-manifest"
-	! grep -q 'display.md' "$way/.local/share/docs/.offline-docs-manifest"
-	! grep -q 'user-note' "$way/.local/share/docs/.offline-docs-manifest"
-	! grep -q 'local.md' "$way/.local/share/docs/.offline-docs-manifest"
+		"$way/.local/state/dotcfg/offline-docs-manifest"
+	! grep -q 'display.md' "$way/.local/state/dotcfg/offline-docs-manifest"
+	! grep -q 'user-note' "$way/.local/state/dotcfg/offline-docs-manifest"
+	! grep -q 'local.md' "$way/.local/state/dotcfg/offline-docs-manifest"
+	[[ "$output" == *"已检出 dotcfg"* ]]
+	[[ "$output" == *"删除 1 个清单文件。"* ]]
 }
 
 @test "TC-OFF18: master does not check out stacks" {
@@ -707,8 +708,10 @@ assert_same_line_blobs() {
 @test "TC-OFF19: only an opposite-stack markdown link is rejected" {
 	local new=$HOME/new
 	on_branch x11
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
 	printf 'see stacks/x11 and stacks/wayland\n' > "$OFFLINE_WORKTREE/.local/share/docs/README.md"
-	publish x11 'plain names' .local/share/docs/README.md
+	printf 'see stacks/wayland in a stack file\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/plain.md"
+	publish x11 'plain names' .local/share/docs/README.md .local/share/docs/stacks/x11/plain.md
 	pack --branch x11
 	[ "$status" -eq 0 ]
 	mkdir -p "$new"
@@ -744,6 +747,34 @@ assert_same_line_blobs() {
 	[[ "$output" == *"文档链接越界：stacks/wayland 命中 1"* ]]
 	[ ! -e "$new/.local/bin/dotcfg" ]
 
+	on_branch x11
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
+	printf 'see stacks/x11 and stacks/wayland\n' > "$OFFLINE_WORKTREE/.local/share/docs/README.md"
+	printf '[ghostty][wl]\n[wl]: stacks/wayland/ghostty.md\n' > \
+		"$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display.md"
+	publish x11 'ref link' .local/share/docs/README.md .local/share/docs/stacks/x11/display.md
+	rm -rf "$new" "$OFFLINE_OUTPUT"
+	pack --branch x11
+	[ "$status" -eq 0 ]
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	run_install "$new" x11
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"文档链接越界：stacks/wayland 命中 2"* ]]
+
+	on_branch x11
+	printf 'see <a href="../stacks/wayland/ghostty.md">x</a>\n' > "$OFFLINE_WORKTREE/.local/share/docs/README.md"
+	printf 'plain stack note\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display.md"
+	publish x11 'html link' .local/share/docs/README.md .local/share/docs/stacks/x11/display.md
+	rm -rf "$new" "$OFFLINE_OUTPUT"
+	pack --branch x11
+	[ "$status" -eq 0 ]
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	run_install "$new" x11
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"文档链接越界：stacks/wayland 命中 1"* ]]
+
 	on_branch wayland
 	printf 'see [display](stacks/x11/display.md)\n' > "$OFFLINE_WORKTREE/.local/share/docs/README.md"
 	publish wayland 'wayland public link' .local/share/docs/README.md
@@ -775,4 +806,33 @@ assert_same_line_blobs() {
 		.local/share/docs/stacks/x11/display-management.md
 	[ "$status" -ne 0 ]
 	git --git-dir="$DOTCFG_GIT_DIR" cat-file -e HEAD:.local/share/docs/display-management.md
+}
+
+@test "TC-OFF21: packing refuses a non-empty opposite stack" {
+	on_branch x11
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11" \
+		"$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland"
+	printf 'own\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display.md"
+	printf 'other\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland/poison.md"
+	publish x11 'foreign stack' \
+		.local/share/docs/stacks/x11/display.md \
+		.local/share/docs/stacks/wayland/poison.md
+	pack --branch x11
+	[ "$status" -eq 2 ]
+	[[ "$output" == *"拒绝：x11 包含对面栈 .local/share/docs/stacks/wayland"* ]]
+	[ ! -e "$OFFLINE_OUTPUT" ]
+
+	on_branch wayland
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland" \
+		"$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
+	printf 'own\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland/ghostty.md"
+	printf 'other\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/poison.md"
+	publish wayland 'foreign stack' \
+		.local/share/docs/stacks/wayland/ghostty.md \
+		.local/share/docs/stacks/x11/poison.md
+	rm -f "$OFFLINE_OUTPUT"
+	pack --branch wayland
+	[ "$status" -eq 2 ]
+	[[ "$output" == *"拒绝：wayland 包含对面栈 .local/share/docs/stacks/x11"* ]]
+	[ ! -e "$OFFLINE_OUTPUT" ]
 }
