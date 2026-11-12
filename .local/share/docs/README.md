@@ -92,7 +92,7 @@
 安装脚本、状态机和已知问题：
 
 - [安装系统设计](project/installation-system.md) — 节点幂等安装系统架构、统一 CLI 和共享验证库
-- [安装测试](project/installation-testing.md) — 节点系统测试。2026-11-11 安装套件 289/289，offline 14/14；与 project-tools 36 合计 325
+- [安装测试](project/installation-testing.md) — 节点系统测试。2026-11-12 安装套件 298/298，offline 23/23；与 project-tools 36 合计 334
 - [安装修复记录](planning/installation-fixes.md) — B1-B8 已修复缺陷、设计变更和验证记录
 
 ## 项目跟踪

@@ -456,6 +456,8 @@ bats -r .local/share/test/ --tap
 2026-11-06 在同一索引所列 KaiTian X7h G1e + Gentoo 上、commit `b13f897`，安装套件为 285/285。
 同一次还有 `offline.bats` 10/10、`.local/share/test/build/run.sh` 14 项通过；`.local/bin` 与 `.local/lib` 的 shellcheck 为 0（`.bats` 不直接以 shellcheck 检查）。
 
+2026-11-12 更新：安装套件 298/298，`offline.bats` 23/23，project-tools 36/36；`bats --count` 为 installation 298、project-tools 36，合计 334；`test/build` 的 14 项 shell 测试不计入。
+
 **验证环境**：2026-11-06，KaiTian X7h G1e + Gentoo，commit `b13f897`；执行：qoder，验收：dsh。Bats 满足本文
 `>= 1.11.0` 的前置要求。
 
@@ -504,4 +506,4 @@ project-tools 测试由[协作规约](collaboration.md)维护自己的 Bats 基�
 ---
 
 **最后更新**: 2026-11-11
-**版本**: 5.9 — 安装器改名与三种拒绝；安装套件 289/289，离线 14/14，合计 325
+**版本**: 6.0 — docs 白名单与 298/23/334 基线；安装套件 298/298，离线 23/23，合计 334
