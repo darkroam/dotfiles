@@ -843,3 +843,180 @@ EOF
 	[[ "$output" == *"拒绝：x11 含不允许的栈文档 .local/share/docs/stacks/foo/note.md"* ]]
 	[ ! -e "$OFFLINE_OUTPUT" ]
 }
+
+refresh_bundle_sha() {
+	local dir=$1 sum
+	sum=$(sha256sum -- "$dir/dotfiles.bundle")
+	sum=${sum%% *}
+	awk -v sum="$sum" '$1 == "dotfiles.bundle" { $2 = sum } { print }' \
+		"$dir/MANIFEST" > "$dir/MANIFEST.next"
+	mv "$dir/MANIFEST.next" "$dir/MANIFEST"
+}
+
+set_manifest_target() {
+	local dir=$1 target=$2
+	awk -v target="$target" '$1 == "target" { $2 = target } { print }' \
+		"$dir/MANIFEST" > "$dir/MANIFEST.next"
+	mv "$dir/MANIFEST.next" "$dir/MANIFEST"
+}
+
+@test "TC-OFF22: link scan fails closed and lists every stack" {
+	local script=$DOTFILES_ROOT/.local/lib/installation/commands/offline.sh
+	local commit showfail awkfail awksilent countfail
+	on_branch x11
+	commit=$(git --git-dir="$DOTCFG_GIT_DIR" rev-parse origin/x11)
+	run bash -c 'OFFLINE_LIB_ONLY=1 . "$1"; offline_refuse_bad_docs "$2" x11 "$3"' _ \
+		"$script" "$DOTCFG_GIT_DIR" "$commit"
+	[ "$status" -eq 0 ]
+
+	showfail=$HOME/showfail
+	mkdir -p "$showfail"
+	cat > "$showfail/git" << 'EOS'
+#!/bin/sh
+case " $* " in
+	*" show "*) exit 1 ;;
+esac
+exec /usr/bin/git "$@"
+EOS
+	chmod 755 "$showfail/git"
+	run bash -c 'export PATH="$1:$PATH"; OFFLINE_LIB_ONLY=1; . "$2"; offline_bad_links "$3" "$4" x11' _ \
+		"$showfail" "$script" "$DOTCFG_GIT_DIR" "$commit"
+	[ "$status" -ne 0 ]
+	run bash -c 'export PATH="$1:$PATH"; OFFLINE_LIB_ONLY=1; . "$2"; offline_refuse_bad_docs "$3" x11 "$4"' _ \
+		"$showfail" "$script" "$DOTCFG_GIT_DIR" "$commit"
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"文档链接扫描失败"* ]]
+	[[ "$output" != *"文档链接越界"* ]]
+
+	awkfail=$HOME/awkfail
+	mkdir -p "$awkfail"
+	printf '#!/bin/sh\nexit 1\n' > "$awkfail/awk"
+	chmod 755 "$awkfail/awk"
+	run bash -c 'export PATH="$1:$PATH"; OFFLINE_LIB_ONLY=1; . "$2"; offline_refuse_bad_docs "$3" x11 "$4"' _ \
+		"$awkfail" "$script" "$DOTCFG_GIT_DIR" "$commit"
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"文档链接扫描失败"* ]]
+	[[ "$output" != *"文档链接越界"* ]]
+
+	awksilent=$HOME/awksilent
+	mkdir -p "$awksilent"
+	printf '#!/bin/sh\nexit 0\n' > "$awksilent/awk"
+	chmod 755 "$awksilent/awk"
+	run bash -c 'export PATH="$1:$PATH"; OFFLINE_LIB_ONLY=1; . "$2"; offline_refuse_bad_docs "$3" x11 "$4"' _ \
+		"$awksilent" "$script" "$DOTCFG_GIT_DIR" "$commit"
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"文档链接扫描失败"* ]]
+
+	countfail=$HOME/countfail
+	mkdir -p "$countfail"
+	cat > "$countfail/git" << 'EOS'
+#!/bin/sh
+case " $* " in
+	*" -- .local/share/docs/stacks "*)
+		exec /usr/bin/git "$@"
+		;;
+	*" -- .local/share/docs "*)
+		/usr/bin/git "$@" || exit 1
+		printf '\n'
+		exit 0
+		;;
+esac
+exec /usr/bin/git "$@"
+EOS
+	chmod 755 "$countfail/git"
+	run bash -c 'export PATH="$1:$PATH"; OFFLINE_LIB_ONLY=1; . "$2"; offline_refuse_bad_docs "$3" x11 "$4"' _ \
+		"$countfail" "$script" "$DOTCFG_GIT_DIR" "$commit"
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"文档链接扫描失败"* ]]
+	[[ "$output" != *"文档链接越界"* ]]
+
+	cat > "$OFFLINE_WORKTREE/.local/share/docs/README.md" << 'EOF'
+see stacks/wayland
+```
+[bad](stacks/wayland/a.md)
+```
+see `[bad](stacks/wayland/b.md)`
+see [ok](stacks/x11/display.md)
+EOF
+	publish x11 'code is not a link' .local/share/docs/README.md
+	commit=$(git --git-dir="$DOTCFG_GIT_DIR" rev-parse origin/x11)
+	run bash -c 'OFFLINE_LIB_ONLY=1 . "$1"; offline_refuse_bad_docs "$2" x11 "$3"' _ \
+		"$script" "$DOTCFG_GIT_DIR" "$commit"
+	[ "$status" -eq 0 ]
+
+	cat > "$OFFLINE_WORKTREE/.local/share/docs/README.md" << 'EOF'
+see [w](stacks/wayland/a.md)
+[f][foo]
+[foo]: stacks/foo/b.md
+<a href = "stacks/wayland/c.md">x</a>
+<a href='stacks/foo/d.md'>y</a>
+EOF
+	publish x11 'every bad shape' .local/share/docs/README.md
+	commit=$(git --git-dir="$DOTCFG_GIT_DIR" rev-parse origin/x11)
+	run bash -c 'OFFLINE_LIB_ONLY=1 . "$1"; offline_refuse_bad_docs "$2" x11 "$3"' _ \
+		"$script" "$DOTCFG_GIT_DIR" "$commit"
+	[ "$status" -eq 2 ]
+	[[ "$output" == *"文档链接越界：stacks/wayland 命中 2"* ]]
+	[[ "$output" == *"文档链接越界：stacks/foo 命中 3"* ]]
+}
+
+@test "TC-OFF23: a bad stack package writes nothing" {
+	on_branch x11
+	pack
+	[ "$status" -eq 0 ]
+	local pkg=$HOME/pkg repo dest target
+	mkdir -p "$pkg"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$pkg"
+	repo=$(mktemp -d)
+	git clone -q "$pkg/dotfiles.bundle" "$repo/wt"
+	mkdir -p "$repo/wt/.local/share/docs/stacks/x11" \
+		"$repo/wt/.local/share/docs/stacks/wayland" \
+		"$repo/wt/.local/share/docs/stacks/foo"
+	printf 'own\n' > "$repo/wt/.local/share/docs/stacks/x11/display.md"
+	printf 'poison\n' > "$repo/wt/.local/share/docs/stacks/wayland/poison.md"
+	printf 'other\n' > "$repo/wt/.local/share/docs/stacks/foo/note.md"
+	printf 'loose\n' > "$repo/wt/.local/share/docs/stacks/loose.md"
+	git -C "$repo/wt" add -A
+	git -C "$repo/wt" commit -q -m poison
+	rm -f "$pkg/dotfiles.bundle"
+	git -C "$repo/wt" bundle create "$pkg/dotfiles.bundle" HEAD master
+	refresh_bundle_sha "$pkg"
+	rm -rf "$repo"
+
+	for target in x11 wayland master; do
+		dest=$HOME/dest-$target
+		set_manifest_target "$pkg" "$target"
+		mkdir -p "$dest"
+		install_fake_git "$dest"
+		rm -f "$dest/fail"
+		OFFLINE_LS_HEAD=$target OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git \
+			HOME=$dest OFFLINE_HOME=$dest DOTCFG_GIT_DIR=$dest/.cfg \
+			PATH=$dest/bin:$PATH \
+			run "$pkg/dotcfg-offline-install" </dev/null
+		[ "$status" -eq 1 ]
+		[ -d "$dest/.cfg" ]
+		[ ! -e "$dest/.local" ]
+		[[ "$output" != *"已检出"* ]]
+		[[ "$output" != *"删除"* ]]
+		case $target in
+			x11)
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/wayland/poison.md"* ]]
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/foo/note.md"* ]]
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/loose.md"* ]]
+				[[ "$output" != *"stacks/x11/display.md"* ]]
+				;;
+			wayland)
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/x11/display.md"* ]]
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/foo/note.md"* ]]
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/loose.md"* ]]
+				[[ "$output" != *"stacks/wayland/poison.md"* ]]
+				;;
+			master)
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/x11/display.md"* ]]
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/wayland/poison.md"* ]]
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/foo/note.md"* ]]
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/loose.md"* ]]
+				;;
+		esac
+	done
+}
