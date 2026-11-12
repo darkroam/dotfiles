@@ -229,7 +229,7 @@ check_manifest() {
 	tmp=$(mktemp -d)
 	printf 'x\n' > "$tmp/evil"
 	tar -C "$tmp" -czf "$tmp/bad.tgz" evil
-	run bash -c 'OFFLINE_LIB_ONLY=1 . "$1"; offline_tar_members_ok "$2"' _ \
+	run bash -c 'DOTCFG_OFFLINE_LIB_ONLY=1 . "$1"; offline_tar_members_ok "$2"' _ \
 		"$DOTFILES_ROOT/.local/lib/installation/commands/offline.sh" "$tmp/bad.tgz"
 	[ "$status" -ne 0 ]
 	python3 - "$tmp/escape.tgz" << 'ENDTAR'
@@ -241,7 +241,7 @@ info.size = len(data)
 tar.addfile(info, io.BytesIO(data))
 tar.close()
 ENDTAR
-	run bash -c 'OFFLINE_LIB_ONLY=1 . "$1"; offline_tar_members_ok "$2"' _ \
+	run bash -c 'DOTCFG_OFFLINE_LIB_ONLY=1 . "$1"; offline_tar_members_ok "$2"' _ \
 		"$DOTFILES_ROOT/.local/lib/installation/commands/offline.sh" "$tmp/escape.tgz"
 	[ "$status" -ne 0 ]
 	rm -rf "$tmp"
@@ -865,7 +865,7 @@ set_manifest_target() {
 	local commit showfail awkfail awksilent countfail
 	on_branch x11
 	commit=$(git --git-dir="$DOTCFG_GIT_DIR" rev-parse origin/x11)
-	run bash -c 'OFFLINE_LIB_ONLY=1 . "$1"; offline_refuse_bad_docs "$2" x11 "$3"' _ \
+	run bash -c 'DOTCFG_OFFLINE_LIB_ONLY=1 . "$1"; offline_refuse_bad_docs "$2" x11 "$3"' _ \
 		"$script" "$DOTCFG_GIT_DIR" "$commit"
 	[ "$status" -eq 0 ]
 
@@ -879,10 +879,10 @@ esac
 exec /usr/bin/git "$@"
 EOS
 	chmod 755 "$showfail/git"
-	run bash -c 'export PATH="$1:$PATH"; OFFLINE_LIB_ONLY=1; . "$2"; offline_bad_links "$3" "$4" x11' _ \
+	run bash -c 'export PATH="$1:$PATH"; DOTCFG_OFFLINE_LIB_ONLY=1; . "$2"; offline_bad_links "$3" "$4" x11' _ \
 		"$showfail" "$script" "$DOTCFG_GIT_DIR" "$commit"
 	[ "$status" -ne 0 ]
-	run bash -c 'export PATH="$1:$PATH"; OFFLINE_LIB_ONLY=1; . "$2"; offline_refuse_bad_docs "$3" x11 "$4"' _ \
+	run bash -c 'export PATH="$1:$PATH"; DOTCFG_OFFLINE_LIB_ONLY=1; . "$2"; offline_refuse_bad_docs "$3" x11 "$4"' _ \
 		"$showfail" "$script" "$DOTCFG_GIT_DIR" "$commit"
 	[ "$status" -eq 1 ]
 	[[ "$output" == *"文档链接扫描失败"* ]]
@@ -892,7 +892,7 @@ EOS
 	mkdir -p "$awkfail"
 	printf '#!/bin/sh\nexit 1\n' > "$awkfail/awk"
 	chmod 755 "$awkfail/awk"
-	run bash -c 'export PATH="$1:$PATH"; OFFLINE_LIB_ONLY=1; . "$2"; offline_refuse_bad_docs "$3" x11 "$4"' _ \
+	run bash -c 'export PATH="$1:$PATH"; DOTCFG_OFFLINE_LIB_ONLY=1; . "$2"; offline_refuse_bad_docs "$3" x11 "$4"' _ \
 		"$awkfail" "$script" "$DOTCFG_GIT_DIR" "$commit"
 	[ "$status" -eq 1 ]
 	[[ "$output" == *"文档链接扫描失败"* ]]
@@ -902,7 +902,7 @@ EOS
 	mkdir -p "$awksilent"
 	printf '#!/bin/sh\nexit 0\n' > "$awksilent/awk"
 	chmod 755 "$awksilent/awk"
-	run bash -c 'export PATH="$1:$PATH"; OFFLINE_LIB_ONLY=1; . "$2"; offline_refuse_bad_docs "$3" x11 "$4"' _ \
+	run bash -c 'export PATH="$1:$PATH"; DOTCFG_OFFLINE_LIB_ONLY=1; . "$2"; offline_refuse_bad_docs "$3" x11 "$4"' _ \
 		"$awksilent" "$script" "$DOTCFG_GIT_DIR" "$commit"
 	[ "$status" -eq 1 ]
 	[[ "$output" == *"文档链接扫描失败"* ]]
@@ -924,7 +924,7 @@ esac
 exec /usr/bin/git "$@"
 EOS
 	chmod 755 "$countfail/git"
-	run bash -c 'export PATH="$1:$PATH"; OFFLINE_LIB_ONLY=1; . "$2"; offline_refuse_bad_docs "$3" x11 "$4"' _ \
+	run bash -c 'export PATH="$1:$PATH"; DOTCFG_OFFLINE_LIB_ONLY=1; . "$2"; offline_refuse_bad_docs "$3" x11 "$4"' _ \
 		"$countfail" "$script" "$DOTCFG_GIT_DIR" "$commit"
 	[ "$status" -eq 1 ]
 	[[ "$output" == *"文档链接扫描失败"* ]]
@@ -940,7 +940,7 @@ see [ok](stacks/x11/display.md)
 EOF
 	publish x11 'code is not a link' .local/share/docs/README.md
 	commit=$(git --git-dir="$DOTCFG_GIT_DIR" rev-parse origin/x11)
-	run bash -c 'OFFLINE_LIB_ONLY=1 . "$1"; offline_refuse_bad_docs "$2" x11 "$3"' _ \
+	run bash -c 'DOTCFG_OFFLINE_LIB_ONLY=1 . "$1"; offline_refuse_bad_docs "$2" x11 "$3"' _ \
 		"$script" "$DOTCFG_GIT_DIR" "$commit"
 	[ "$status" -eq 0 ]
 
@@ -953,7 +953,7 @@ see [w](stacks/wayland/a.md)
 EOF
 	publish x11 'every bad shape' .local/share/docs/README.md
 	commit=$(git --git-dir="$DOTCFG_GIT_DIR" rev-parse origin/x11)
-	run bash -c 'OFFLINE_LIB_ONLY=1 . "$1"; offline_refuse_bad_docs "$2" x11 "$3"' _ \
+	run bash -c 'DOTCFG_OFFLINE_LIB_ONLY=1 . "$1"; offline_refuse_bad_docs "$2" x11 "$3"' _ \
 		"$script" "$DOTCFG_GIT_DIR" "$commit"
 	[ "$status" -eq 2 ]
 	[[ "$output" == *"文档链接越界：stacks/wayland 命中 2"* ]]
@@ -1019,4 +1019,33 @@ EOF
 				;;
 		esac
 	done
+
+	local filepkg=$HOME/pkg-stacks-file
+	mkdir -p "$filepkg"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$filepkg"
+	repo=$(mktemp -d)
+	git clone -q "$filepkg/dotfiles.bundle" "$repo/wt"
+	printf 'not a directory\n' > "$repo/wt/.local/share/docs/stacks"
+	git -C "$repo/wt" add -A
+	git -C "$repo/wt" commit -q -m 'stacks file'
+	rm -f "$filepkg/dotfiles.bundle"
+	git -C "$repo/wt" bundle create "$filepkg/dotfiles.bundle" HEAD master
+	refresh_bundle_sha "$filepkg"
+	rm -rf "$repo"
+	dest=$HOME/dest-stacks-file
+	set_manifest_target "$filepkg" x11
+	mkdir -p "$dest"
+	install_fake_git "$dest"
+	rm -f "$dest/fail"
+	OFFLINE_LS_HEAD=x11 OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git \
+		HOME=$dest OFFLINE_HOME=$dest DOTCFG_GIT_DIR=$dest/.cfg \
+		PATH=$dest/bin:$PATH \
+		run "$filepkg/dotcfg-offline-install" </dev/null
+	[ "$status" -eq 1 ]
+	[ -d "$dest/.cfg" ]
+	[ ! -e "$dest/.local" ]
+	[ ! -e "$dest/.local/bin/dotcfg" ]
+	[ ! -e "$dest/.local/share/docs/stacks" ]
+	[[ "$output" != *"已检出"* ]]
+	grep -qx '拒绝：包内含非本栈文档 .local/share/docs/stacks' <<< "$output"
 }
