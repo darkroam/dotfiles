@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Pack origin/<target>. The installer checks out dotcfg only and does not call
-# bootstrap_finish_install, because that runs fresh_create_root_backup.
+# Pack origin/<target>. The installer checks out dotcfg and this target's docs.
+# It does not call bootstrap_finish_install, because that runs fresh_create_root_backup.
 
 set -euo pipefail
 
@@ -244,25 +244,149 @@ git --git-dir="$cfg" rev-parse --verify --quiet "refs/heads/$cfg_target" >/dev/n
 
 list=$here/.checkout-list
 git --git-dir="$cfg" ls-tree -r --name-only HEAD > "$list"
-wrote=0
+# Reject foreign stacks before checkout. A mid-loop exit would already have written dotcfg.
+bad=0
 while IFS= read -r path; do
 	case $path in
-		.local/bin/dotcfg|.local/lib/installation/cfg-validate.sh|.local/lib/installation/utils/*|.local/lib/installation/commands/*|.local/lib/installation/categories*.conf|.local/lib/installation/exclude.conf)
-			dest=$home/$path
-			if [ -e "$dest" ]; then
-				continue
-			fi
-			mkdir -p "$(dirname -- "$dest")"
-			git --git-dir="$cfg" show "HEAD:$path" > "$dest.tmp"
-			mv -- "$dest.tmp" "$dest"
+		.local/share/docs/stacks|.local/share/docs/stacks/*) ;;
+		*) continue ;;
+	esac
+	ok=0
+	case $cfg_target in
+		x11)
 			case $path in
-				.local/bin/dotcfg) chmod +x "$dest" ;;
+				.local/share/docs/stacks/x11/*) ok=1 ;;
 			esac
-			wrote=1
+			;;
+		wayland)
+			case $path in
+				.local/share/docs/stacks/wayland/*) ok=1 ;;
+			esac
 			;;
 	esac
+	if [ "$ok" -eq 0 ]; then
+		printf '拒绝：包内含非本栈文档 %s\n' "$path" >&2
+		bad=1
+	fi
+done < "$list"
+if [ "$bad" -eq 1 ]; then
+	rm -f "$list"
+	exit 1
+fi
+docs_owned=$here/.docs-owned
+: > "$docs_owned"
+wrote=0
+while IFS= read -r path; do
+	# Reset every path. A previous hit must not write a later non-whitelist path.
+	take=0
+	case $path in
+		.local/bin/dotcfg|.local/lib/installation/cfg-validate.sh|.local/lib/installation/utils/*|.local/lib/installation/commands/*|.local/lib/installation/categories*.conf|.local/lib/installation/exclude.conf|.local/share/docs/*)
+			# Unreachable: the pre-checkout check above already rejected these paths.
+			case $path in
+				.local/share/docs/stacks/x11/*)
+					if [ "$cfg_target" != x11 ]; then
+						printf '拒绝：包内含非本栈文档 %s\n' "$path" >&2
+						exit 1
+					fi
+					;;
+				.local/share/docs/stacks/wayland/*)
+					if [ "$cfg_target" != wayland ]; then
+						printf '拒绝：包内含非本栈文档 %s\n' "$path" >&2
+						exit 1
+					fi
+					;;
+				.local/share/docs/stacks/*)
+					printf '拒绝：包内含非本栈文档 %s\n' "$path" >&2
+					exit 1
+					;;
+			esac
+			dest=$home/$path
+			if [ ! -e "$dest" ]; then
+				mkdir -p "$(dirname -- "$dest")"
+				git --git-dir="$cfg" show "HEAD:$path" > "$dest.tmp"
+				mv -- "$dest.tmp" "$dest"
+				case $path in
+					.local/bin/dotcfg) chmod +x "$dest" ;;
+					.local/share/docs/*) printf '%s\n' "$path" >> "$docs_owned" ;;
+				esac
+				take=1
+			fi
+			;;
+	esac
+	if [ "$take" -eq 1 ]; then
+		wrote=1
+	fi
 done < "$list"
 rm -f "$list"
+
+# 保留项 ∪ 本次写入项. Bare-repo file, not a worktree path track.sh can add.
+docs_manifest=$cfg/offline-docs-manifest
+docs_next=$here/.docs-next
+: > "$docs_next"
+deleted=0
+if [ -f "$docs_manifest" ]; then
+	while IFS= read -r path; do
+		[ -n "$path" ] || continue
+		keep=0
+		case $path in
+			.local/share/docs/stacks/x11/*)
+				[ "$cfg_target" = x11 ] && keep=1
+				;;
+			.local/share/docs/stacks/wayland/*)
+				[ "$cfg_target" = wayland ] && keep=1
+				;;
+			.local/share/docs/stacks/*)
+				keep=0
+				;;
+			.local/share/docs/*)
+				keep=1
+				;;
+		esac
+		if [ "$keep" -eq 1 ]; then
+			printf '%s\n' "$path" >> "$docs_next"
+			continue
+		fi
+		if [ -e "$home/$path" ]; then
+			rm -f -- "$home/$path"
+			printf '删除 %s\n' "$path"
+			deleted=$((deleted + 1))
+			rmdir "$(dirname -- "$home/$path")" 2>/dev/null || true
+		fi
+	done < "$docs_manifest" || true
+fi
+if [ -s "$docs_owned" ]; then
+	while IFS= read -r path; do
+		[ -n "$path" ] || continue
+		if ! grep -qxF -e "$path" "$docs_next"; then
+			printf '%s\n' "$path" >> "$docs_next"
+		fi
+	done < "$docs_owned" || true
+fi
+if [ -s "$docs_next" ]; then
+	# shortcut: git add -f can still stage this file, upgrade if track.sh starts using -f.
+	rel=
+	case $cfg in
+		"$home"/*) rel=${cfg#"$home"/} ;;
+	esac
+	if [ -n "$rel" ]; then
+		mkdir -p "$cfg/info"
+		if [ ! -f "$cfg/info/exclude" ] || ! grep -qxF -- "$rel" "$cfg/info/exclude"; then
+			printf '%s\n' "$rel" >> "$cfg/info/exclude"
+		fi
+	fi
+	mv -- "$docs_next" "$docs_manifest"
+else
+	rm -f -- "$docs_manifest" "$docs_next"
+fi
+rm -f -- "$docs_owned"
+case $cfg_target in
+	x11) other=.local/share/docs/stacks/wayland ;;
+	wayland) other=.local/share/docs/stacks/x11 ;;
+	*) other= ;;
+esac
+if [ -n "$other" ] && [ -d "$home/$other" ]; then
+	printf '警告：工作树仍有对面栈目录 %s\n' "$other" >&2
+fi
 if [ ! -x "$home/.local/bin/dotcfg" ]; then
 	printf 'HEAD 中没有可执行的 dotcfg\n' >&2
 	exit 1
@@ -271,6 +395,9 @@ if [ "$wrote" -eq 1 ]; then
 	printf '已检出 dotcfg。未备份 ~/.config，也未执行 switch。\n'
 else
 	printf '已有 dotcfg，跳过检出。\n'
+fi
+if [ "$deleted" -gt 0 ]; then
+	printf '删除 %s 个清单文件。\n' "$deleted"
 fi
 
 src_base=${origin%/}
@@ -352,6 +479,188 @@ offline_resolve_target() {
 	printf '%s\n' "$current"
 }
 
+offline_bad_links() {
+	local cfg=$1 commit=$2 own=$3
+	local path line name n listed=0 scanned=0 rc=0
+	local list body hits out
+	local -A counts=()
+	list=$(mktemp)
+	body=$(mktemp)
+	hits=$(mktemp)
+	if ! git --git-dir="$cfg" ls-tree -r --name-only "$commit" -- .local/share/docs >"$list"; then
+		rm -f -- "$list" "$body" "$hits"
+		return 1
+	fi
+	while IFS= read -r path || [ -n "$path" ]; do
+		listed=$((listed + 1))
+		if [ -z "$path" ]; then
+			# A blank ls-tree line is not a scanned file, so the count check refuses.
+			continue
+		fi
+		if ! git --git-dir="$cfg" show "$commit:$path" >"$body"; then
+			rc=1
+			break
+		fi
+		if ! awk -v own="$own" '
+
+function strip(s,    i, n, c, out, tick) {
+	n = length(s)
+	out = ""
+	tick = 0
+	for (i = 1; i <= n; i++) {
+		c = substr(s, i, 1)
+		if (c == "`") { tick = !tick; continue }
+		if (!tick) out = out c
+	}
+	return out
+}
+function badstack(text,    name, rest) {
+	rest = text
+	while (match(rest, /stacks\/[A-Za-z0-9_-]+/)) {
+		name = substr(rest, RSTART + 7, RLENGTH - 7)
+		if (own == "" || name != own) return name
+		rest = substr(rest, RSTART + RLENGTH)
+	}
+	return ""
+}
+function scan_md(line,    rest, target, name, start, len) {
+	rest = line
+	while (match(rest, /\]\([^)]*\)/)) {
+		start = RSTART
+		len = RLENGTH
+		target = substr(rest, start + 2, len - 3)
+		name = badstack(target)
+		if (name != "") return name
+		rest = substr(rest, start + len)
+	}
+	return ""
+}
+function scan_href(line,    rest, val, name, start, len) {
+	rest = line
+	while (match(rest, /href[[:space:]]*=[[:space:]]*["\047][^"\047]*["\047]/)) {
+		start = RSTART
+		len = RLENGTH
+		val = substr(rest, start, len)
+		name = badstack(val)
+		if (name != "") return name
+		rest = substr(rest, start + len)
+	}
+	return ""
+}
+{
+	raw[++nr] = $0
+}
+END {
+	fence = 0
+	for (i = 1; i <= nr; i++) {
+		line = raw[i]
+		if (line ~ /^[[:space:]]*(```|~~~)/) { fence = !fence; continue }
+		if (fence) continue
+		lines[++n] = strip(line)
+	}
+	for (i = 1; i <= n; i++) {
+		line = lines[i]
+		if (line ~ /^[ \t]*\[[^]]+\]:/) {
+			id = line
+			sub(/^[ \t]*\[/, "", id)
+			sub(/\].*/, "", id)
+			url = line
+			sub(/^[ \t]*\[[^]]+\]:[ \t]*/, "", url)
+			name = badstack(url)
+			if (id != "" && name != "") bad[id] = name
+			if (name != "") defbad[i] = name
+		}
+	}
+	for (i = 1; i <= n; i++) {
+		line = lines[i]
+		name = scan_md(line)
+		if (name == "") name = scan_href(line)
+		if (name == "" && defbad[i] != "") name = defbad[i]
+		if (name == "") {
+			for (id in bad) if (index(line, "][" id "]") > 0) { name = bad[id]; break }
+		}
+		if (name != "") count[name]++
+	}
+	for (name in count) print name, count[name] + 0
+	print "SCAN_OK"
+}' "$body" >"$hits"; then
+			rc=1
+			break
+		fi
+		if ! grep -qxF -- SCAN_OK "$hits"; then
+			rc=1
+			break
+		fi
+		while IFS= read -r line; do
+			[ -n "$line" ] || continue
+			[ "$line" = SCAN_OK ] && continue
+			name=${line%% *}
+			n=${line#* }
+			counts[$name]=$((${counts[$name]:-0} + n))
+		done <"$hits"
+		scanned=$((scanned + 1))
+	done <"$list"
+	if [ "$rc" -eq 0 ] && [ "$scanned" -ne "$listed" ]; then
+		rc=1
+	fi
+	if [ "$rc" -ne 0 ]; then
+		rm -f -- "$list" "$body" "$hits"
+		return 1
+	fi
+	if [ "${#counts[@]}" -eq 0 ]; then
+		rm -f -- "$list" "$body" "$hits"
+		return 0
+	fi
+	out=$(
+		for name in "${!counts[@]}"; do
+			printf '%s %s\n' "$name" "${counts[$name]}"
+		done | LC_ALL=C sort
+	) || rc=1
+	rm -f -- "$list" "$body" "$hits"
+	[ "$rc" -eq 0 ] || return 1
+	printf '%s\n' "$out"
+}
+
+offline_refuse_bad_docs() {
+	local cfg=$1 target=$2 commit=$3 own hits path report name n msg piece line
+	case $target in
+		x11) own=x11 ;;
+		wayland) own=wayland ;;
+		master) own= ;;
+		*) offline_die "拒绝：未知 target $target" 2 ;;
+	esac
+	hits=$(git --git-dir="$cfg" ls-tree -r --name-only "$commit" -- .local/share/docs/stacks)
+	if [ "$target" = master ]; then
+		[ -z "$hits" ] || offline_die "拒绝：master 的 stacks/ 必须为空" 2
+	else
+		while IFS= read -r path; do
+			[ -n "$path" ] || continue
+			case $path in
+				.local/share/docs/stacks/"$own"/*) ;;
+				*) offline_die "拒绝：${target} 含不允许的栈文档 $path" 2 ;;
+			esac
+		done <<EOF
+$hits
+EOF
+	fi
+	report=$(offline_bad_links "$cfg" "$commit" "$own") || offline_die "文档链接扫描失败" 1
+	[ -z "$report" ] && return 0
+	msg=
+	while IFS= read -r line; do
+		[ -n "$line" ] || continue
+		name=${line%% *}
+		n=${line#* }
+		piece="文档链接越界：stacks/${name} 命中 ${n}"
+		if [ -z "$msg" ]; then
+			msg=$piece
+		else
+			msg="${msg}"$'\n'"${piece}"
+		fi
+	done <<< "$report"
+	offline_die "$msg" 2
+}
+
+
 offline_pack() {
 	local with=$1 allow=$2 branch=$3 cfg work src out name dir commit target ref
 	cfg=$(offline_cfg)
@@ -386,6 +695,7 @@ offline_pack() {
 		done
 	fi
 	commit=$(git --git-dir="$cfg" rev-parse --verify "$ref")
+	offline_refuse_bad_docs "$cfg" "$target" "$commit"
 	offline_sensitive "$cfg" "$commit"
 	if [ "$with" -eq 1 ]; then
 		for name in "${offline_names[@]}"; do
@@ -439,7 +749,7 @@ offline_pack() {
 	printf '已打包：%s\n' "$out"
 }
 
-if [ "${OFFLINE_LIB_ONLY:-0}" != 1 ]; then
+if [ "${DOTCFG_OFFLINE_LIB_ONLY:-0}" != 1 ]; then
 	offline_with=0
 	offline_allow=0
 	offline_branch=

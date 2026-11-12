@@ -15,6 +15,7 @@ setup() {
 	export DOTCFG_GIT_DIR="$HOME/.cfg"
 	mkdir -p "$HOME/src" "$HOME/remotes" "$HOME/out"
 	make_repo "$HOME/wt" "$HOME/remotes/dotfiles.git" 1
+	seed_public_docs "$HOME/wt"
 	git clone --bare "$HOME/wt" "$HOME/.cfg" >/dev/null
 	git --git-dir="$HOME/.cfg" remote set-url origin "$HOME/remotes/dotfiles.git"
 	git --git-dir="$HOME/.cfg" config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
@@ -50,6 +51,31 @@ make_repo() {
 	git init --bare "$remote" >/dev/null
 	git -C "$dir" remote add origin "$remote"
 	git -C "$dir" push -u origin master >/dev/null
+}
+
+seed_public_docs() {
+	local dir=$1
+	mkdir -p "$dir/.local/share/docs/user"
+	printf 'docs index\n' > "$dir/.local/share/docs/README.md"
+	printf 'desktop guide\n' > "$dir/.local/share/docs/user/desktop-guide-zh.md"
+	git -C "$dir" add -- .local/share/docs/README.md .local/share/docs/user/desktop-guide-zh.md
+	git -C "$dir" commit -m 'public docs' >/dev/null
+	git -C "$dir" push -q origin master
+}
+
+on_branch() {
+	local branch=$1
+	git --git-dir="$DOTCFG_GIT_DIR" symbolic-ref HEAD "refs/heads/$branch"
+	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" reset -q --hard "$branch"
+}
+
+publish() {
+	local branch=$1 msg=$2
+	shift 2
+	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" add -- "$@"
+	git --git-dir="$DOTCFG_GIT_DIR" --work-tree="$OFFLINE_WORKTREE" commit -q -m "$msg"
+	git --git-dir="$DOTCFG_GIT_DIR" push -q origin "$branch"
+	git --git-dir="$DOTCFG_GIT_DIR" fetch -q origin
 }
 
 pack() {
@@ -203,7 +229,7 @@ check_manifest() {
 	tmp=$(mktemp -d)
 	printf 'x\n' > "$tmp/evil"
 	tar -C "$tmp" -czf "$tmp/bad.tgz" evil
-	run bash -c 'OFFLINE_LIB_ONLY=1 . "$1"; offline_tar_members_ok "$2"' _ \
+	run bash -c 'DOTCFG_OFFLINE_LIB_ONLY=1 . "$1"; offline_tar_members_ok "$2"' _ \
 		"$DOTFILES_ROOT/.local/lib/installation/commands/offline.sh" "$tmp/bad.tgz"
 	[ "$status" -ne 0 ]
 	python3 - "$tmp/escape.tgz" << 'ENDTAR'
@@ -215,7 +241,7 @@ info.size = len(data)
 tar.addfile(info, io.BytesIO(data))
 tar.close()
 ENDTAR
-	run bash -c 'OFFLINE_LIB_ONLY=1 . "$1"; offline_tar_members_ok "$2"' _ \
+	run bash -c 'DOTCFG_OFFLINE_LIB_ONLY=1 . "$1"; offline_tar_members_ok "$2"' _ \
 		"$DOTFILES_ROOT/.local/lib/installation/commands/offline.sh" "$tmp/escape.tgz"
 	[ "$status" -ne 0 ]
 	rm -rf "$tmp"
@@ -247,7 +273,7 @@ ENDTAR
 	[[ "$output" == *"已有 dotcfg，跳过检出。"* ]]
 	[[ "$(git --git-dir="$new/.cfg" config --get remote.origin.fetch)" == *refs/remotes/origin/* ]]
 	[ "$(grep -c -- '--bare' "$new/git.log")" -eq 1 ]
-	[ "$(grep -c ' show ' "$new/git.log")" -eq 2 ]
+	[ "$(grep -c ' show ' "$new/git.log")" -eq 4 ]
 	[ ! -e "$new/.config-backup" ]
 }
 
@@ -524,4 +550,502 @@ EOS
 	[ "$(git --git-dir="$det/.cfg" rev-parse HEAD)" = "$head_sha" ]
 	! git --git-dir="$det/.cfg" rev-parse --verify --quiet refs/heads/x11 >/dev/null
 	rm -rf "$new" "$bad" "$weird" "$det"
+}
+
+run_install() {
+	local new=$1 target=$2
+	install_fake_git "$new"
+	rm -f "$new/fail"
+	OFFLINE_LS_HEAD=$target OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git HOME=$new OFFLINE_HOME=$new \
+		DOTCFG_GIT_DIR=$new/.cfg PATH=$new/bin:$PATH \
+		run "$new/dotcfg-offline-install" </dev/null
+}
+
+assert_same_line_blobs() {
+	local gitdir=$1 old=$2 new=$3 a b
+	a=$(git --git-dir="$gitdir" rev-parse "HEAD:$old")
+	b=$(git --git-dir="$gitdir" rev-parse "HEAD:$new")
+	[ "$a" = "$b" ]
+}
+
+@test "TC-OFF15: a non-whitelist path is not written after a hit" {
+	on_branch x11
+	printf 'nope\n' > "$OFFLINE_WORKTREE/.local/lib/installation/notes.txt"
+	printf 'nope\n' > "$OFFLINE_WORKTREE/zzz-outside.txt"
+	publish x11 outside .local/lib/installation/notes.txt zzz-outside.txt
+	pack
+	[ "$status" -eq 0 ]
+	local new=$HOME/new
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	run_install "$new" x11
+	[ "$status" -eq 0 ]
+	[ -f "$new/.local/share/docs/README.md" ]
+	[ -f "$new/.local/share/docs/user/desktop-guide-zh.md" ]
+	[ ! -e "$new/.local/lib/installation/notes.txt" ]
+	[ ! -e "$new/zzz-outside.txt" ]
+	[ "$(grep -c ' show ' "$new/git.log")" -eq 4 ]
+}
+
+@test "TC-OFF16: each target checks out only its own stack and does not rewrite" {
+	on_branch x11
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
+	printf 'x11 display\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display.md"
+	publish x11 'x11 stacks' .local/share/docs/stacks/x11/display.md
+	pack --branch x11
+	[ "$status" -eq 0 ]
+	local new=$HOME/new shows
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	run_install "$new" x11
+	[ "$status" -eq 0 ]
+	[ "$(cat "$new/.local/share/docs/stacks/x11/display.md")" = "x11 display" ]
+	[ ! -e "$new/.local/share/docs/stacks/wayland" ]
+	printf 'edited\n' > "$new/.local/share/docs/stacks/x11/display.md"
+	printf 'edited-public\n' > "$new/.local/share/docs/README.md"
+	shows=$(grep -c ' show ' "$new/git.log")
+	OFFLINE_LS_HEAD=x11 OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git HOME=$new OFFLINE_HOME=$new \
+		DOTCFG_GIT_DIR=$new/.cfg PATH=$new/bin:$PATH \
+		run "$new/dotcfg-offline-install" </dev/null
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"已有 dotcfg，跳过检出。"* ]]
+	[ "$(cat "$new/.local/share/docs/stacks/x11/display.md")" = "edited" ]
+	[ "$(cat "$new/.local/share/docs/README.md")" = "edited-public" ]
+	[ "$(grep -c ' show ' "$new/git.log")" -eq "$shows" ]
+
+	on_branch wayland
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland"
+	printf 'wayland ghostty\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland/ghostty.md"
+	publish wayland 'wayland stacks' .local/share/docs/stacks/wayland/ghostty.md
+	rm -rf "$new" "$OFFLINE_OUTPUT"
+	pack --branch wayland
+	[ "$status" -eq 0 ]
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	run_install "$new" wayland
+	[ "$status" -eq 0 ]
+	[ "$(cat "$new/.local/share/docs/stacks/wayland/ghostty.md")" = "wayland ghostty" ]
+	[ ! -e "$new/.local/share/docs/stacks/x11" ]
+}
+
+@test "TC-OFF17: a line switch deletes only manifest files and warns" {
+	on_branch x11
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
+	printf 'display\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display.md"
+	publish x11 'clean x11' .local/share/docs/stacks/x11/display.md
+	pack --branch x11
+	[ "$status" -eq 0 ]
+	local x11home=$HOME/x11home way=$HOME/way
+	mkdir -p "$x11home"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$x11home"
+	run_install "$x11home" x11
+	[ "$status" -eq 0 ]
+	[ -f "$x11home/.cfg/offline-docs-manifest" ]
+	[ ! -e "$x11home/.local/state/dotcfg/offline-docs-manifest" ]
+	[ ! -e "$x11home/.local/share/docs/.offline-docs-manifest" ]
+	grep -qx '.local/share/docs/stacks/x11/display.md' \
+		"$x11home/.cfg/offline-docs-manifest"
+	grep -qxF .cfg "$x11home/.cfg/info/exclude"
+	! git --git-dir="$x11home/.cfg" ls-tree -r --name-only HEAD | grep -q offline-docs-manifest
+	[[ "$output" != *"删除 0"* ]]
+	git --git-dir="$x11home/.cfg" --work-tree="$x11home" add -A
+	! git --git-dir="$x11home/.cfg" --work-tree="$x11home" diff --cached --name-only | grep -q offline-docs-manifest
+	run git --git-dir="$x11home/.cfg" --work-tree="$x11home" add -- .cfg/offline-docs-manifest
+	[ "$status" -ne 0 ]
+
+	on_branch wayland
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland"
+	printf 'ghostty\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland/ghostty.md"
+	publish wayland 'clean wayland' .local/share/docs/stacks/wayland/ghostty.md
+	rm -f "$OFFLINE_OUTPUT"
+	pack --branch wayland
+	[ "$status" -eq 0 ]
+	mkdir -p "$way/.local/share/docs/stacks/x11" "$way/.local/share/docs/stacks/wayland"
+	cp "$x11home/.local/share/docs/stacks/x11/display.md" \
+		"$way/.local/share/docs/stacks/x11/display.md"
+	printf 'mine\n' > "$way/.local/share/docs/stacks/x11/user-note.md"
+	printf 'local\n' > "$way/.local/share/docs/stacks/wayland/local.md"
+	printf 'keep-public\n' > "$way/.local/share/docs/README.md"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$way"
+	git clone -q --bare "$way/dotfiles.bundle" "$way/.cfg"
+	cp "$x11home/.cfg/offline-docs-manifest" "$way/.cfg/offline-docs-manifest"
+	run_install "$way" wayland
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"删除 .local/share/docs/stacks/x11/display.md"* ]]
+	[[ "$output" == *"删除 1 个清单文件"* ]]
+	[[ "$output" == *"警告：工作树仍有对面栈目录 .local/share/docs/stacks/x11"* ]]
+	[ ! -e "$way/.local/share/docs/stacks/x11/display.md" ]
+	[ "$(cat "$way/.local/share/docs/stacks/x11/user-note.md")" = "mine" ]
+	[ "$(cat "$way/.local/share/docs/stacks/wayland/local.md")" = "local" ]
+	[ "$(cat "$way/.local/share/docs/stacks/wayland/ghostty.md")" = "ghostty" ]
+	[ "$(cat "$way/.local/share/docs/README.md")" = "keep-public" ]
+	grep -qx '.local/share/docs/stacks/wayland/ghostty.md' \
+		"$way/.cfg/offline-docs-manifest"
+	! grep -q 'display.md' "$way/.cfg/offline-docs-manifest"
+	! grep -q 'user-note' "$way/.cfg/offline-docs-manifest"
+	! grep -q 'local.md' "$way/.cfg/offline-docs-manifest"
+	[[ "$output" == *"已检出 dotcfg"* ]]
+	[[ "$output" == *"删除 1 个清单文件。"* ]]
+}
+
+@test "TC-OFF18: master packing refuses a non-empty stacks tree" {
+	on_branch master
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11" \
+		"$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland"
+	printf 'x\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display.md"
+	printf 'w\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland/ghostty.md"
+	publish master 'master stacks' \
+		.local/share/docs/stacks/x11/display.md \
+		.local/share/docs/stacks/wayland/ghostty.md
+	pack --allow-stale-target
+	[ "$status" -eq 2 ]
+	[[ "$output" == *"拒绝：master 的 stacks/ 必须为空"* ]]
+	[ ! -e "$OFFLINE_OUTPUT" ]
+}
+
+@test "TC-OFF19: only an opposite-stack markdown link is rejected" {
+	local new=$HOME/new
+	on_branch x11
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
+	printf 'see stacks/x11 and stacks/wayland\n' > "$OFFLINE_WORKTREE/.local/share/docs/README.md"
+	printf 'see stacks/wayland in a stack file\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/plain.md"
+	publish x11 'plain names' .local/share/docs/README.md .local/share/docs/stacks/x11/plain.md
+	pack --branch x11
+	[ "$status" -eq 0 ]
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	run_install "$new" x11
+	[ "$status" -eq 0 ]
+	run git --git-dir="$new/.cfg" grep -F -e 'stacks/wayland' HEAD -- .local/share/docs
+	[ "$status" -eq 0 ]
+
+	on_branch x11
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
+	printf 'see [display](stacks/x11/display.md)\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display.md"
+	publish x11 'same stack link' .local/share/docs/stacks/x11/display.md
+	rm -rf "$new" "$OFFLINE_OUTPUT"
+	pack --branch x11
+	[ "$status" -eq 0 ]
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	run_install "$new" x11
+	[ "$status" -eq 0 ]
+	[ -f "$new/.local/share/docs/stacks/x11/display.md" ]
+
+	on_branch x11
+	printf 'see stacks/wayland\n```\n[bad](stacks/wayland/a.md)\n```\nsee `[bad](stacks/wayland/b.md)`\n' > \
+		"$OFFLINE_WORKTREE/.local/share/docs/README.md"
+	publish x11 'code is not a link' .local/share/docs/README.md
+	rm -rf "$new" "$OFFLINE_OUTPUT"
+	pack --branch x11
+	[ "$status" -eq 0 ]
+
+	on_branch x11
+	printf 'see [ghostty](stacks/wayland/ghostty.md)\n' > "$OFFLINE_WORKTREE/.local/share/docs/README.md"
+	publish x11 'public opposite link' .local/share/docs/README.md
+	rm -f "$OFFLINE_OUTPUT"
+	pack --branch x11
+	[ "$status" -eq 2 ]
+	[[ "$output" == *"文档链接越界：stacks/wayland 命中 1"* ]]
+	[ ! -e "$OFFLINE_OUTPUT" ]
+
+	on_branch x11
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
+	printf 'see stacks/x11 and stacks/wayland\n' > "$OFFLINE_WORKTREE/.local/share/docs/README.md"
+	printf '[ghostty][wl]\n[wl]: stacks/wayland/ghostty.md\n' > \
+		"$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display.md"
+	publish x11 'ref link' .local/share/docs/README.md .local/share/docs/stacks/x11/display.md
+	rm -f "$OFFLINE_OUTPUT"
+	pack --branch x11
+	[ "$status" -eq 2 ]
+	[[ "$output" == *"文档链接越界：stacks/wayland 命中 2"* ]]
+	[ ! -e "$OFFLINE_OUTPUT" ]
+
+	on_branch x11
+	cat > "$OFFLINE_WORKTREE/.local/share/docs/README.md" << 'EOF'
+see <a href="../stacks/wayland/ghostty.md">x</a>
+<a href = "../stacks/wayland/a.md">y</a>
+<a href='stacks/wayland/b.md'>z</a>
+EOF
+	printf 'plain stack note\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display.md"
+	publish x11 'html link' .local/share/docs/README.md .local/share/docs/stacks/x11/display.md
+	rm -f "$OFFLINE_OUTPUT"
+	pack --branch x11
+	[ "$status" -eq 2 ]
+	[[ "$output" == *"文档链接越界：stacks/wayland 命中 3"* ]]
+	[ ! -e "$OFFLINE_OUTPUT" ]
+
+	on_branch wayland
+	printf 'see [display](stacks/x11/display.md)\n' > "$OFFLINE_WORKTREE/.local/share/docs/README.md"
+	publish wayland 'wayland public link' .local/share/docs/README.md
+	rm -f "$OFFLINE_OUTPUT"
+	pack --branch wayland
+	[ "$status" -eq 2 ]
+	[[ "$output" == *"文档链接越界：stacks/x11 命中 1"* ]]
+	[ ! -e "$OFFLINE_OUTPUT" ]
+}
+
+@test "TC-OFF20: mapped blobs must match on the same line before a master delete" {
+	on_branch x11
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
+	printf 'same body\n' > "$OFFLINE_WORKTREE/.local/share/docs/display-management.md"
+	printf 'same body\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display-management.md"
+	publish x11 'mapped copy' \
+		.local/share/docs/display-management.md \
+		.local/share/docs/stacks/x11/display-management.md
+	assert_same_line_blobs "$DOTCFG_GIT_DIR" \
+		.local/share/docs/display-management.md \
+		.local/share/docs/stacks/x11/display-management.md
+	printf 'different\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display-management.md"
+	publish x11 'mapped drift' .local/share/docs/stacks/x11/display-management.md
+	run assert_same_line_blobs "$DOTCFG_GIT_DIR" \
+		.local/share/docs/display-management.md \
+		.local/share/docs/stacks/x11/display-management.md
+	[ "$status" -ne 0 ]
+	git --git-dir="$DOTCFG_GIT_DIR" cat-file -e HEAD:.local/share/docs/display-management.md
+}
+
+@test "TC-OFF21: packing refuses a non-empty opposite stack" {
+	on_branch x11
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11" \
+		"$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland"
+	printf 'own\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/display.md"
+	printf 'other\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland/poison.md"
+	publish x11 'foreign stack' \
+		.local/share/docs/stacks/x11/display.md \
+		.local/share/docs/stacks/wayland/poison.md
+	pack --branch x11
+	[ "$status" -eq 2 ]
+	[[ "$output" == *"拒绝：x11 含不允许的栈文档 .local/share/docs/stacks/wayland/poison.md"* ]]
+	[ ! -e "$OFFLINE_OUTPUT" ]
+
+	on_branch wayland
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland" \
+		"$OFFLINE_WORKTREE/.local/share/docs/stacks/x11"
+	printf 'own\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/wayland/ghostty.md"
+	printf 'other\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/x11/poison.md"
+	publish wayland 'foreign stack' \
+		.local/share/docs/stacks/wayland/ghostty.md \
+		.local/share/docs/stacks/x11/poison.md
+	rm -f "$OFFLINE_OUTPUT"
+	pack --branch wayland
+	[ "$status" -eq 2 ]
+	[[ "$output" == *"拒绝：wayland 含不允许的栈文档 .local/share/docs/stacks/x11/poison.md"* ]]
+	[ ! -e "$OFFLINE_OUTPUT" ]
+
+	on_branch x11
+	mkdir -p "$OFFLINE_WORKTREE/.local/share/docs/stacks/foo"
+	printf 'other\n' > "$OFFLINE_WORKTREE/.local/share/docs/stacks/foo/note.md"
+	publish x11 'unknown stack' .local/share/docs/stacks/foo/note.md
+	rm -f "$OFFLINE_OUTPUT"
+	pack --branch x11
+	[ "$status" -eq 2 ]
+	[[ "$output" == *"拒绝：x11 含不允许的栈文档 .local/share/docs/stacks/foo/note.md"* ]]
+	[ ! -e "$OFFLINE_OUTPUT" ]
+}
+
+refresh_bundle_sha() {
+	local dir=$1 sum
+	sum=$(sha256sum -- "$dir/dotfiles.bundle")
+	sum=${sum%% *}
+	awk -v sum="$sum" '$1 == "dotfiles.bundle" { $2 = sum } { print }' \
+		"$dir/MANIFEST" > "$dir/MANIFEST.next"
+	mv "$dir/MANIFEST.next" "$dir/MANIFEST"
+}
+
+set_manifest_target() {
+	local dir=$1 target=$2
+	awk -v target="$target" '$1 == "target" { $2 = target } { print }' \
+		"$dir/MANIFEST" > "$dir/MANIFEST.next"
+	mv "$dir/MANIFEST.next" "$dir/MANIFEST"
+}
+
+@test "TC-OFF22: link scan fails closed and lists every stack" {
+	local script=$DOTFILES_ROOT/.local/lib/installation/commands/offline.sh
+	local commit showfail awkfail awksilent countfail
+	on_branch x11
+	commit=$(git --git-dir="$DOTCFG_GIT_DIR" rev-parse origin/x11)
+	run bash -c 'DOTCFG_OFFLINE_LIB_ONLY=1 . "$1"; offline_refuse_bad_docs "$2" x11 "$3"' _ \
+		"$script" "$DOTCFG_GIT_DIR" "$commit"
+	[ "$status" -eq 0 ]
+
+	showfail=$HOME/showfail
+	mkdir -p "$showfail"
+	cat > "$showfail/git" << 'EOS'
+#!/bin/sh
+case " $* " in
+	*" show "*) exit 1 ;;
+esac
+exec /usr/bin/git "$@"
+EOS
+	chmod 755 "$showfail/git"
+	run bash -c 'export PATH="$1:$PATH"; DOTCFG_OFFLINE_LIB_ONLY=1; . "$2"; offline_bad_links "$3" "$4" x11' _ \
+		"$showfail" "$script" "$DOTCFG_GIT_DIR" "$commit"
+	[ "$status" -ne 0 ]
+	run bash -c 'export PATH="$1:$PATH"; DOTCFG_OFFLINE_LIB_ONLY=1; . "$2"; offline_refuse_bad_docs "$3" x11 "$4"' _ \
+		"$showfail" "$script" "$DOTCFG_GIT_DIR" "$commit"
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"文档链接扫描失败"* ]]
+	[[ "$output" != *"文档链接越界"* ]]
+
+	awkfail=$HOME/awkfail
+	mkdir -p "$awkfail"
+	printf '#!/bin/sh\nexit 1\n' > "$awkfail/awk"
+	chmod 755 "$awkfail/awk"
+	run bash -c 'export PATH="$1:$PATH"; DOTCFG_OFFLINE_LIB_ONLY=1; . "$2"; offline_refuse_bad_docs "$3" x11 "$4"' _ \
+		"$awkfail" "$script" "$DOTCFG_GIT_DIR" "$commit"
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"文档链接扫描失败"* ]]
+	[[ "$output" != *"文档链接越界"* ]]
+
+	awksilent=$HOME/awksilent
+	mkdir -p "$awksilent"
+	printf '#!/bin/sh\nexit 0\n' > "$awksilent/awk"
+	chmod 755 "$awksilent/awk"
+	run bash -c 'export PATH="$1:$PATH"; DOTCFG_OFFLINE_LIB_ONLY=1; . "$2"; offline_refuse_bad_docs "$3" x11 "$4"' _ \
+		"$awksilent" "$script" "$DOTCFG_GIT_DIR" "$commit"
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"文档链接扫描失败"* ]]
+
+	countfail=$HOME/countfail
+	mkdir -p "$countfail"
+	cat > "$countfail/git" << 'EOS'
+#!/bin/sh
+case " $* " in
+	*" -- .local/share/docs/stacks "*)
+		exec /usr/bin/git "$@"
+		;;
+	*" -- .local/share/docs "*)
+		/usr/bin/git "$@" || exit 1
+		printf '\n'
+		exit 0
+		;;
+esac
+exec /usr/bin/git "$@"
+EOS
+	chmod 755 "$countfail/git"
+	run bash -c 'export PATH="$1:$PATH"; DOTCFG_OFFLINE_LIB_ONLY=1; . "$2"; offline_refuse_bad_docs "$3" x11 "$4"' _ \
+		"$countfail" "$script" "$DOTCFG_GIT_DIR" "$commit"
+	[ "$status" -eq 1 ]
+	[[ "$output" == *"文档链接扫描失败"* ]]
+	[[ "$output" != *"文档链接越界"* ]]
+
+	cat > "$OFFLINE_WORKTREE/.local/share/docs/README.md" << 'EOF'
+see stacks/wayland
+```
+[bad](stacks/wayland/a.md)
+```
+see `[bad](stacks/wayland/b.md)`
+see [ok](stacks/x11/display.md)
+EOF
+	publish x11 'code is not a link' .local/share/docs/README.md
+	commit=$(git --git-dir="$DOTCFG_GIT_DIR" rev-parse origin/x11)
+	run bash -c 'DOTCFG_OFFLINE_LIB_ONLY=1 . "$1"; offline_refuse_bad_docs "$2" x11 "$3"' _ \
+		"$script" "$DOTCFG_GIT_DIR" "$commit"
+	[ "$status" -eq 0 ]
+
+	cat > "$OFFLINE_WORKTREE/.local/share/docs/README.md" << 'EOF'
+see [w](stacks/wayland/a.md)
+[f][foo]
+[foo]: stacks/foo/b.md
+<a href = "stacks/wayland/c.md">x</a>
+<a href='stacks/foo/d.md'>y</a>
+EOF
+	publish x11 'every bad shape' .local/share/docs/README.md
+	commit=$(git --git-dir="$DOTCFG_GIT_DIR" rev-parse origin/x11)
+	run bash -c 'DOTCFG_OFFLINE_LIB_ONLY=1 . "$1"; offline_refuse_bad_docs "$2" x11 "$3"' _ \
+		"$script" "$DOTCFG_GIT_DIR" "$commit"
+	[ "$status" -eq 2 ]
+	[[ "$output" == *"文档链接越界：stacks/wayland 命中 2"* ]]
+	[[ "$output" == *"文档链接越界：stacks/foo 命中 3"* ]]
+}
+
+@test "TC-OFF23: a bad stack package writes nothing" {
+	on_branch x11
+	pack
+	[ "$status" -eq 0 ]
+	local pkg=$HOME/pkg repo dest target
+	mkdir -p "$pkg"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$pkg"
+	repo=$(mktemp -d)
+	git clone -q "$pkg/dotfiles.bundle" "$repo/wt"
+	mkdir -p "$repo/wt/.local/share/docs/stacks/x11" \
+		"$repo/wt/.local/share/docs/stacks/wayland" \
+		"$repo/wt/.local/share/docs/stacks/foo"
+	printf 'own\n' > "$repo/wt/.local/share/docs/stacks/x11/display.md"
+	printf 'poison\n' > "$repo/wt/.local/share/docs/stacks/wayland/poison.md"
+	printf 'other\n' > "$repo/wt/.local/share/docs/stacks/foo/note.md"
+	printf 'loose\n' > "$repo/wt/.local/share/docs/stacks/loose.md"
+	git -C "$repo/wt" add -A
+	git -C "$repo/wt" commit -q -m poison
+	rm -f "$pkg/dotfiles.bundle"
+	git -C "$repo/wt" bundle create "$pkg/dotfiles.bundle" HEAD master
+	refresh_bundle_sha "$pkg"
+	rm -rf "$repo"
+
+	for target in x11 wayland master; do
+		dest=$HOME/dest-$target
+		set_manifest_target "$pkg" "$target"
+		mkdir -p "$dest"
+		install_fake_git "$dest"
+		rm -f "$dest/fail"
+		OFFLINE_LS_HEAD=$target OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git \
+			HOME=$dest OFFLINE_HOME=$dest DOTCFG_GIT_DIR=$dest/.cfg \
+			PATH=$dest/bin:$PATH \
+			run "$pkg/dotcfg-offline-install" </dev/null
+		[ "$status" -eq 1 ]
+		[ -d "$dest/.cfg" ]
+		[ ! -e "$dest/.local" ]
+		[[ "$output" != *"已检出"* ]]
+		[[ "$output" != *"删除"* ]]
+		case $target in
+			x11)
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/wayland/poison.md"* ]]
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/foo/note.md"* ]]
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/loose.md"* ]]
+				[[ "$output" != *"stacks/x11/display.md"* ]]
+				;;
+			wayland)
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/x11/display.md"* ]]
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/foo/note.md"* ]]
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/loose.md"* ]]
+				[[ "$output" != *"stacks/wayland/poison.md"* ]]
+				;;
+			master)
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/x11/display.md"* ]]
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/wayland/poison.md"* ]]
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/foo/note.md"* ]]
+				[[ "$output" == *"拒绝：包内含非本栈文档 .local/share/docs/stacks/loose.md"* ]]
+				;;
+		esac
+	done
+
+	local filepkg=$HOME/pkg-stacks-file
+	mkdir -p "$filepkg"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$filepkg"
+	repo=$(mktemp -d)
+	git clone -q "$filepkg/dotfiles.bundle" "$repo/wt"
+	printf 'not a directory\n' > "$repo/wt/.local/share/docs/stacks"
+	git -C "$repo/wt" add -A
+	git -C "$repo/wt" commit -q -m 'stacks file'
+	rm -f "$filepkg/dotfiles.bundle"
+	git -C "$repo/wt" bundle create "$filepkg/dotfiles.bundle" HEAD master
+	refresh_bundle_sha "$filepkg"
+	rm -rf "$repo"
+	dest=$HOME/dest-stacks-file
+	set_manifest_target "$filepkg" x11
+	mkdir -p "$dest"
+	install_fake_git "$dest"
+	rm -f "$dest/fail"
+	OFFLINE_LS_HEAD=x11 OFFLINE_ORIGIN=$HOME/remotes/dotfiles.git \
+		HOME=$dest OFFLINE_HOME=$dest DOTCFG_GIT_DIR=$dest/.cfg \
+		PATH=$dest/bin:$PATH \
+		run "$filepkg/dotcfg-offline-install" </dev/null
+	[ "$status" -eq 1 ]
+	[ -d "$dest/.cfg" ]
+	[ ! -e "$dest/.local" ]
+	[ ! -e "$dest/.local/bin/dotcfg" ]
+	[ ! -e "$dest/.local/share/docs/stacks" ]
+	[[ "$output" != *"已检出"* ]]
+	grep -qx '拒绝：包内含非本栈文档 .local/share/docs/stacks' <<< "$output"
 }
