@@ -248,7 +248,7 @@ git --git-dir="$cfg" ls-tree -r --name-only HEAD > "$list"
 bad=0
 while IFS= read -r path; do
 	case $path in
-		.local/share/docs/stacks/*) ;;
+		.local/share/docs/stacks|.local/share/docs/stacks/*) ;;
 		*) continue ;;
 	esac
 	ok=0
@@ -281,6 +281,7 @@ while IFS= read -r path; do
 	take=0
 	case $path in
 		.local/bin/dotcfg|.local/lib/installation/cfg-validate.sh|.local/lib/installation/utils/*|.local/lib/installation/commands/*|.local/lib/installation/categories*.conf|.local/lib/installation/exclude.conf|.local/share/docs/*)
+			# Unreachable: the pre-checkout check above already rejected these paths.
 			case $path in
 				.local/share/docs/stacks/x11/*)
 					if [ "$cfg_target" != x11 ]; then
@@ -748,7 +749,7 @@ offline_pack() {
 	printf '已打包：%s\n' "$out"
 }
 
-if [ "${OFFLINE_LIB_ONLY:-0}" != 1 ]; then
+if [ "${DOTCFG_OFFLINE_LIB_ONLY:-0}" != 1 ]; then
 	offline_with=0
 	offline_allow=0
 	offline_branch=
