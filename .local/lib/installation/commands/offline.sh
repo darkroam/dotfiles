@@ -244,6 +244,35 @@ git --git-dir="$cfg" rev-parse --verify --quiet "refs/heads/$cfg_target" >/dev/n
 
 list=$here/.checkout-list
 git --git-dir="$cfg" ls-tree -r --name-only HEAD > "$list"
+# Reject foreign stacks before checkout. A mid-loop exit would already have written dotcfg.
+bad=0
+while IFS= read -r path; do
+	case $path in
+		.local/share/docs/stacks/*) ;;
+		*) continue ;;
+	esac
+	ok=0
+	case $cfg_target in
+		x11)
+			case $path in
+				.local/share/docs/stacks/x11/*) ok=1 ;;
+			esac
+			;;
+		wayland)
+			case $path in
+				.local/share/docs/stacks/wayland/*) ok=1 ;;
+			esac
+			;;
+	esac
+	if [ "$ok" -eq 0 ]; then
+		printf '拒绝：包内含非本栈文档 %s\n' "$path" >&2
+		bad=1
+	fi
+done < "$list"
+if [ "$bad" -eq 1 ]; then
+	rm -f "$list"
+	exit 1
+fi
 docs_owned=$here/.docs-owned
 : > "$docs_owned"
 wrote=0
@@ -450,16 +479,28 @@ offline_resolve_target() {
 }
 
 offline_bad_links() {
-	local cfg=$1 commit=$2 own=$3 path line name n
+	local cfg=$1 commit=$2 own=$3
+	local path line name n listed=0 scanned=0 rc=0
+	local list body hits out
 	local -A counts=()
-	while IFS= read -r path; do
-		[ -n "$path" ] || continue
-		while IFS= read -r line; do
-			[ -n "$line" ] || continue
-			name=${line%% *}
-			n=${line#* }
-			counts[$name]=$(( ${counts[$name]:-0} + n ))
-		done < <(git --git-dir="$cfg" show "$commit:$path" | awk -v own="$own" '
+	list=$(mktemp)
+	body=$(mktemp)
+	hits=$(mktemp)
+	if ! git --git-dir="$cfg" ls-tree -r --name-only "$commit" -- .local/share/docs >"$list"; then
+		rm -f -- "$list" "$body" "$hits"
+		return 1
+	fi
+	while IFS= read -r path || [ -n "$path" ]; do
+		listed=$((listed + 1))
+		if [ -z "$path" ]; then
+			# A blank ls-tree line is not a scanned file, so the count check refuses.
+			continue
+		fi
+		if ! git --git-dir="$cfg" show "$commit:$path" >"$body"; then
+			rc=1
+			break
+		fi
+		if ! awk -v own="$own" '
 
 function strip(s,    i, n, c, out, tick) {
 	n = length(s)
@@ -540,17 +581,47 @@ END {
 		if (name != "") count[name]++
 	}
 	for (name in count) print name, count[name] + 0
-}
-		')
-	done < <(git --git-dir="$cfg" ls-tree -r --name-only "$commit" -- .local/share/docs)
-	[ "${#counts[@]}" -eq 0 ] && return 0
-	for name in "${!counts[@]}"; do
-		printf '%s %s\n' "$name" "${counts[$name]}"
-	done
+	print "SCAN_OK"
+}' "$body" >"$hits"; then
+			rc=1
+			break
+		fi
+		if ! grep -qxF -- SCAN_OK "$hits"; then
+			rc=1
+			break
+		fi
+		while IFS= read -r line; do
+			[ -n "$line" ] || continue
+			[ "$line" = SCAN_OK ] && continue
+			name=${line%% *}
+			n=${line#* }
+			counts[$name]=$((${counts[$name]:-0} + n))
+		done <"$hits"
+		scanned=$((scanned + 1))
+	done <"$list"
+	if [ "$rc" -eq 0 ] && [ "$scanned" -ne "$listed" ]; then
+		rc=1
+	fi
+	if [ "$rc" -ne 0 ]; then
+		rm -f -- "$list" "$body" "$hits"
+		return 1
+	fi
+	if [ "${#counts[@]}" -eq 0 ]; then
+		rm -f -- "$list" "$body" "$hits"
+		return 0
+	fi
+	out=$(
+		for name in "${!counts[@]}"; do
+			printf '%s %s\n' "$name" "${counts[$name]}"
+		done | LC_ALL=C sort
+	) || rc=1
+	rm -f -- "$list" "$body" "$hits"
+	[ "$rc" -eq 0 ] || return 1
+	printf '%s\n' "$out"
 }
 
 offline_refuse_bad_docs() {
-	local cfg=$1 target=$2 commit=$3 own hits path report name n
+	local cfg=$1 target=$2 commit=$3 own hits path report name n msg piece line
 	case $target in
 		x11) own=x11 ;;
 		wayland) own=wayland ;;
@@ -573,10 +644,19 @@ EOF
 	fi
 	report=$(offline_bad_links "$cfg" "$commit" "$own") || offline_die "文档链接扫描失败" 1
 	[ -z "$report" ] && return 0
-	report=${report%%$'\n'*}
-	name=${report%% *}
-	n=${report#* }
-	offline_die "文档链接越界：stacks/${name} 命中 ${n}" 2
+	msg=
+	while IFS= read -r line; do
+		[ -n "$line" ] || continue
+		name=${line%% *}
+		n=${line#* }
+		piece="文档链接越界：stacks/${name} 命中 ${n}"
+		if [ -z "$msg" ]; then
+			msg=$piece
+		else
+			msg="${msg}"$'\n'"${piece}"
+		fi
+	done <<< "$report"
+	offline_die "$msg" 2
 }
 
 
