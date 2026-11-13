@@ -450,6 +450,8 @@ bats --filter "TC-36" .local/share/test/installation/
 bats -r .local/share/test/ --tap
 ```
 
+发布前在 x11/wayland 检出上运行 `.local/lib/project-tools/check-doc-counts`；脚本解析 2026-11-12 起的最新测试记录，换基线日期要同步放宽匹配。
+
 ### 当前安装测试结果
 
 2026-08-12 在[平台档案索引](../platforms/index.md)所列 Debian 平台完整执行是 272/272。

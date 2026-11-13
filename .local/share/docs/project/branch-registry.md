@@ -7,8 +7,8 @@ blob 必须与 master 一致，不得在主线上单独改。机器本地的 `co
 | R | 类型 | target | task branch | base | head | 状态 | 审查结论 | 合并目标 | 合并 SHA | 已删除 | 备注 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | - | 冻结锚点 | - | master | - | 2172961 | 代码冻结 | - | - | - | 否 | `split-base^{commit}`；文档可写 |
-| - | 主线 | x11 | x11 | - | 68f10cf | 已同步 | - | - | - | 否 | docs whitelist 已合并；未 push |
-| - | 主线 | wayland | wayland | - | f9ead5d | 已同步 | - | - | - | 否 | docs whitelist 已合并；未 push |
+| - | 主线 | x11 | x11 | - | 68f10cf | 已同步 | - | - | - | 否 | docs whitelist 已合并；已推送 |
+| - | 主线 | wayland | wayland | - | f9ead5d | 已同步 | - | - | - | 否 | docs whitelist 已合并；已推送 |
 | R40 | 任务 | x11 | task/R40-x11-offline-branch | ae4822a | 32f0e04 | 已合并 | dsh 合并入主线 | x11 | 559efba | 是 | 离线包 target；合并后删除 |
 | R40 | 任务 | wayland | task/R40-wayland-offline-branch | b9d5ba2 | 24ac5ed | 已合并 | dsh 合并入主线 | wayland | b23e006 | 是 | 与 x11 任务树一致后合并；合并后删除 |
 | R42 | 任务 | wayland | task/R42-wayland-migration | 2172961 | 1f68229 | 开发中 | - | wayland | - | 否 | 无提交；暂停；已同步 wayland |
