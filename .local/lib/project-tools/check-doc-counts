@@ -1,0 +1,177 @@
+#!/bin/sh
+# Compare bats --count with the latest 2026-11-12 record.
+# Same date: the last matching line wins.
+# shortcut: pinned to 2026-11-12, widen the match when a newer baseline is the source.
+# Fixture (not Bats): check-doc-counts --self-check
+
+set -eu
+
+PROGRAM=${0##*/}
+script=$(readlink -f -- "$0" 2>/dev/null || realpath -- "$0")
+root=$(CDPATH='' cd -- "$(dirname -- "$script")/../../.." && pwd)
+doc=$root/.local/share/docs/project/installation-testing.md
+
+self_check() {
+	tmp=$(mktemp -d)
+	trap 'rm -r "$tmp"' EXIT
+	repo=$tmp/repo
+	copy=$repo/.local/share/docs/project/installation-testing.md
+	mkdir -p "$repo/.local/lib/project-tools" "$(dirname -- "$copy")" "$repo/.local/share/test" "$tmp/bin"
+	cp "$script" "$repo/.local/lib/project-tools/check-doc-counts"
+	chmod 755 "$repo/.local/lib/project-tools/check-doc-counts"
+	cp "$doc" "$copy"
+	ln -s "$root/.local/share/test/installation" "$repo/.local/share/test/installation"
+	ln -s "$root/.local/share/test/project-tools" "$repo/.local/share/test/project-tools"
+	ln -s "$repo/.local/lib/project-tools/check-doc-counts" "$tmp/bin/check-doc-counts"
+	"$tmp/bin/check-doc-counts" || {
+		printf '%s: self-check original failed\n' "$PROGRAM" >&2
+		exit 1
+	}
+	awk '
+		/2026-11-12/ && /安装套件/ && /offline/ && /project-tools/ && /合计/ && !done {
+			if (!sub(/合计 [0-9]+/, "合计 0")) exit 2
+			done = 1
+		}
+		{ print }
+		END { if (!done) exit 2 }
+	' "$copy" > "$tmp/mutated" || {
+		printf '%s: self-check could not change the record\n' "$PROGRAM" >&2
+		exit 1
+	}
+	mv "$tmp/mutated" "$copy"
+	if err=$("$tmp/bin/check-doc-counts" 2>&1); then
+		printf '%s: self-check changed record exited 0\n' "$PROGRAM" >&2
+		exit 1
+	fi
+	case $err in
+		*expected*actual*) ;;
+		*)
+			printf '%s: self-check changed record gave no expected/actual\n' "$PROGRAM" >&2
+			printf '%s\n' "$err" >&2
+			exit 1
+			;;
+	esac
+	exit 0
+}
+
+if [ "${1:-}" = --self-check ]; then
+	self_check
+fi
+
+if [ ! -f "$doc" ]; then
+	printf '%s: missing %s\n' "$PROGRAM" "$doc" >&2
+	exit 1
+fi
+
+record=$(awk '
+	/2026-11-12/ && /安装套件/ && /offline/ && /project-tools/ && /合计/ { line = $0 }
+	END { if (line != "") print line }
+' "$doc")
+
+if [ -z "$record" ]; then
+	printf '%s: no 2026-11-12 test record\n' "$PROGRAM" >&2
+	exit 1
+fi
+
+parsed=$(awk -v text="$record" '
+function die(msg) {
+	printf "%s\n", msg > "/dev/stderr"
+	exit 2
+}
+function pair(key,    pos, tail, nums, a, b) {
+	pos = index(text, key)
+	if (pos == 0) die("missing " key)
+	tail = substr(text, pos + length(key))
+	if (!match(tail, /^[^0-9]*[0-9]+\/[0-9]+/)) die("missing pair " key)
+	nums = substr(tail, RSTART, RLENGTH)
+	sub(/^[^0-9]*/, "", nums)
+	a = nums
+	sub(/\/.*/, "", a)
+	b = nums
+	sub(/.*\//, "", b)
+	return a " " b
+}
+function lastnum(key,    pos, from, rel, tail, num, klen) {
+	num = ""
+	pos = 1
+	klen = length(key)
+	while ((rel = index(substr(text, pos), key)) > 0) {
+		from = pos + rel - 1 + klen
+		tail = substr(text, from)
+		if (match(tail, /^[^0-9]*[0-9]+/)) {
+			num = substr(tail, RSTART, RLENGTH)
+			sub(/^[^0-9]*/, "", num)
+		}
+		pos = from
+		if (pos > length(text)) break
+	}
+	if (num == "") die("missing " key)
+	return num
+}
+BEGIN {
+	split(pair("安装套件"), inst, " ")
+	split(pair("offline.bats"), off, " ")
+	split(pair("project-tools"), pt, " ")
+	inst_count = lastnum("installation")
+	pt_count = lastnum("project-tools")
+	total = lastnum("合计")
+	printf "%s %s %s\n", inst[1], inst[2], inst_count
+	printf "%s %s\n", off[1], off[2]
+	printf "%s %s %s\n", pt[1], pt[2], pt_count
+	printf "%s\n", total
+}
+') || {
+	printf '%s: cannot parse test record\n' "$PROGRAM" >&2
+	exit 1
+}
+
+count_at() {
+	bats --count "$1"
+}
+
+inst_actual=$(count_at "$root/.local/share/test/installation") || exit 1
+off_actual=$(count_at "$root/.local/share/test/installation/offline.bats") || exit 1
+pt_actual=$(count_at "$root/.local/share/test/project-tools") || exit 1
+inst_actual=$(printf '%s' "$inst_actual" | tr -d '[:space:]')
+off_actual=$(printf '%s' "$off_actual" | tr -d '[:space:]')
+pt_actual=$(printf '%s' "$pt_actual" | tr -d '[:space:]')
+
+for value in $inst_actual $off_actual $pt_actual; do
+	case $value in
+		''|*[!0-9]*)
+			printf '%s: bats --count returned %s\n' "$PROGRAM" "$value" >&2
+			exit 1
+			;;
+	esac
+done
+
+# offline.bats is already inside the installation suite.
+total_actual=$((inst_actual + pt_actual))
+
+inst_line=$(printf '%s\n' "$parsed" | awk 'NR == 1')
+off_line=$(printf '%s\n' "$parsed" | awk 'NR == 2')
+pt_line=$(printf '%s\n' "$parsed" | awk 'NR == 3')
+total_expected=$(printf '%s\n' "$parsed" | awk 'NR == 4')
+
+mismatch=0
+check_all() {
+	name=$1
+	actual=$2
+	shift 2
+	for expected in "$@"; do
+		if [ "$expected" != "$actual" ]; then
+			printf '%s expected %s actual %s\n' "$name" "$expected" "$actual" >&2
+			mismatch=1
+		fi
+	done
+}
+
+# shellcheck disable=SC2086
+check_all installation "$inst_actual" $inst_line
+# shellcheck disable=SC2086
+check_all offline "$off_actual" $off_line
+# shellcheck disable=SC2086
+check_all project-tools "$pt_actual" $pt_line
+check_all total "$total_actual" "$total_expected"
+
+exit "$mismatch"
