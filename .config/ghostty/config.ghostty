@@ -46,3 +46,17 @@ window-height = 24
 confirm-close-surface = false
 
 term = st-256color
+
+# st-like mouse/keyboard behavior.
+# st's right click is selpaste; user asked to disable it.
+right-click-action = ignore
+copy-on-select = false
+cursor-click-to-move = false
+mouse-hide-while-typing = false
+mouse-shift-capture = false
+# st uses Alt+C / Alt+V (MODKEY=Mod1). Plain Ctrl+C remains SIGINT.
+keybind = alt+c=copy_to_clipboard:mixed
+keybind = alt+v=paste_from_clipboard
+keybind = alt+shift+c=copy_to_clipboard:mixed
+keybind = alt+shift+v=paste_from_clipboard
+keybind = shift+insert=paste_from_selection
