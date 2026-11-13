@@ -1,9 +1,16 @@
-# Match ~/src/st/config.h. Ghostty sizes are points. At Xft.dpi 96,
-# 10.5pt is 14px. Padding only accepts whole points; 2pt rounds to 2px.
+# Match ~/src/st/config.h on X11 without picom.
+# Ghostty sizes are points; at Xft.dpi 96, 10.5pt is 14px.
 font-family = monospace
 font-size = 10.5
+font-thicken = false
+
 background = #282828
 foreground = #ebdbb2
+background-opacity = 0.8
+background-blur = false
+# st applies XRender alpha in native sRGB; linear-corrected made Ghostty look darker.
+alpha-blending = native
+
 palette = 0=#282828
 palette = 1=#cc241d
 palette = 2=#98971a
@@ -20,14 +27,22 @@ palette = 12=#83a598
 palette = 13=#d3869b
 palette = 14=#8ec07c
 palette = 15=#ebdbb2
-background-opacity = 0.8
+
+selection-background = #458588
+selection-foreground = #ebdbb2
+
 cursor-style = block
 cursor-color = #add8e6
 cursor-text = #555555
-shell-integration-features = no-cursor
-term = st-256color
+cursor-style-blink = false
+
 window-padding-x = 2
 window-padding-y = 2
+window-padding-balance = true
 window-decoration = false
+window-save-state = never
 window-width = 80
 window-height = 24
+confirm-close-surface = false
+
+term = st-256color
