@@ -484,7 +484,7 @@ Failed: 0
 ```
 
 project-tools 测试由[协作规约](collaboration.md)维护自己的 Bats 基线；显示子系统由
-[显示管理测试](display-testing.md)维护独立 shell fixture 基线。只有同时写明组成与递归命令时，
+显示管理测试（stacks/x11/display-testing.md）维护独立 shell fixture 基线。只有同时写明组成与递归命令时，
 才把 installation 与 project-tools 合称全仓 Bats。二者合计 325 个 Bats；该数字不包含显示 fixture，
 也不包含 `test/build` 的 14 项 shell 测试。
 

@@ -32,8 +32,8 @@ innogpu 设备或其他 Debian 版本。同一设备升级到新的发行版主�
 - 稳定命令与能力：[依赖清单](../project/dependencies.md)
 - 跨发行版验证步骤：[依赖与文档审计流程](../planning/dependency-audit.md)
 - 共享结构与职责：[架构与设计](../project/architecture.md)
-- 显示状态模型与验证：[X11 显示管理设计](../project/display-management.md)
-- 非标准显示硬件扩展：[显示设备适配器指引](../project/display-device-adapter.md)
+- 显示状态模型与验证：X11 显示管理设计（stacks/x11/display-management.md）
+- 非标准显示硬件扩展：显示设备适配器指引（stacks/x11/display-device-adapter.md）
 - 文档与平台边界：[维护策略](../project/maintenance-policy.md)
 
 ## Debian 13 依赖审计
@@ -404,7 +404,7 @@ sudo /root/networkmanager-transition-20260719/networkmanager-transition.sh rollb
   2026-07-20 仅讨论了临时库方案，用户在创建前决定挂起，当前没有测试目录需要清理。
 - [ ] 仅在本机出现可用的匿名 SMB 服务或明确产生 CIFS 使用需求时，恢复
   `.local/bin/dmenumountcifs` 的真实 LAN 验证；当前因无测试服务跳过，代码和 mock 结果已记录在依赖审计中。
-- [ ] 2026-09-10 之后进入下一轮检查时，先询问是否恢复[跨设备显示工作](../project/display-management.md#未完成的通用工作)；
+- [ ] 2026-09-10 之后进入下一轮检查时，先询问是否恢复跨设备显示工作（stacks/x11/display-management.md#未完成的通用工作）；
   当前屏幕切换继续视为已完成。
 - [ ] 后续通过键帽或输入事件确认本机存在实际发出 `XF86Sleep` 的实体键时，再验证该键只触发
   一次挂起；当前 X11 映射包含 keycode 150，但尚不能对应到具体键帽。恢复条件是先识别出实际

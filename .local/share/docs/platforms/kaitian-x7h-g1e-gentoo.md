@@ -19,7 +19,7 @@ Debian 的实测、包映射和待办仍只在 [Debian 13 档案](kaitian-x7h-g1
 | 内核 | 2026-10-12 正在运行 `6.12.111-gentoo-x86_64`。`@world` 含 `sys-kernel/gentoo-sources` 与 `sys-kernel/gentoo-sources:6.12.111`。`6.18.54` 的源码和模块也在，未核对其能否启动 |
 | init 与服务管理 | profile 选择 systemd。2026-10-12 用户回传 `ps -p 1` 的命令名是 systemd。不记录主机其他信息 |
 | 图形会话与桌面启动链 | 2026-10-12：`.zprofile` 只在本地第一控制台、没有 SSH、没有 `DISPLAY`、有显卡设备、且没有已在跑的 Xorg 时设置 `XINITRC` 并 `exec startx`。`~/.xinitrc` 指向 `.config/x11/xinitrc`，先 source `xprofile`，再 `ssh-agent dwm`。`xprofile` 拉起壁纸、xrdb、输入法、`xss-lock`、picom，以及 `mpd`、`dunst`、`unclutter`、`/opt/Synergy/synergy-service`。dwm 的 `runAutostart()` 执行 `killall -q dwmblocks; dwmblocks &` |
-| Wayland 能力（研究） | 2026-11-06 实测：fh2m `2.19.50278583` 上 `weston --backend=drm` 可启动，EGL/GLES、双输出和 dmabuf 协商正常；Vulkan 运行时无 `VK_KHR_wayland_surface`。详见 [Wayland 迁移研究](../project/wayland-migration.md) |
+| Wayland 能力（研究） | 2026-11-06 实测：fh2m `2.19.50278583` 上 `weston --backend=drm` 可启动，EGL/GLES、双输出和 dmabuf 协商正常；Vulkan 运行时无 `VK_KHR_wayland_surface`。详见 Wayland 迁移研究（stacks/wayland/wayland-migration.md） |
 | 使用人 | 本机日常账户。公开档案不记录用户名 |
 
 ## 适用范围与隐私边界
@@ -36,8 +36,8 @@ Debian 13 档案。没有在本系统重新核对的项目保持待填，不用 
 - 稳定命令与能力：[依赖清单](../project/dependencies.md)
 - 跨发行版验证步骤：[依赖与文档审计流程](../planning/dependency-audit.md)
 - 共享结构与职责：[架构与设计](../project/architecture.md)
-- 显示状态模型与验证：[X11 显示管理设计](../project/display-management.md)
-- 非标准显示硬件扩展：[显示设备适配器指引](../project/display-device-adapter.md)
+- 显示状态模型与验证：X11 显示管理设计（stacks/x11/display-management.md）
+- 非标准显示硬件扩展：显示设备适配器指引（stacks/x11/display-device-adapter.md）
 - 文档与平台边界：[维护策略](../project/maintenance-policy.md)
 
 ## Gentoo 依赖审计
