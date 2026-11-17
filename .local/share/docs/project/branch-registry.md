@@ -7,8 +7,8 @@
 | R | 类型 | target | task branch | base | head | 状态 | 审查结论 | 合并目标 | 合并 SHA | 已删除 | 备注 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | - | 冻结锚点 | - | master | - | 2172961 | 代码冻结 | - | - | - | 否 | `split-base^{commit}`；文档可写 |
-| - | 主线 | x11 | x11 | - | c8108a6 | 已同步 | - | - | - | 否 | count checker 已合并；待 push |
-| - | 主线 | wayland | wayland | - | dd35ade | 已同步 | - | - | - | 否 | count checker 已合并；待 push |
+| - | 主线 | x11 | x11 | - | 4d870f7 | 已同步 | - | - | - | 否 | retired docs + latest-date checker；待 push |
+| - | 主线 | wayland | wayland | - | 651ca27 | 已同步 | - | - | - | 否 | retired docs + latest-date checker；待 push |
 | R40 | 任务 | x11 | task/R40-x11-offline-branch | ae4822a | 32f0e04 | 已合并 | dsh 合并入主线 | x11 | 559efba | 是 | 离线包 target；合并后删除 |
 | R40 | 任务 | wayland | task/R40-wayland-offline-branch | b9d5ba2 | 24ac5ed | 已合并 | dsh 合并入主线 | wayland | b23e006 | 是 | 与 x11 任务树一致后合并；合并后删除 |
 | R42 | 任务 | wayland | task/R42-wayland-migration | 2172961 | 1f68229 | 开发中 | - | wayland | - | 否 | 无提交；暂停；已同步 wayland |
@@ -17,6 +17,10 @@
 | R44 | 任务 | wayland | task/R44-wayland-docs-whitelist | 70f95b4 | 99e8373 | 已合并 | qoder 复审通过 | wayland | f9ead5d | 是 | docs 白名单；合并后删除 |
 | R44 | 任务 | x11 | task/R44-x11-doc-counts | cd1d342 | d6711f4 | 已合并 | dsh 终审通过 | x11 | c8108a6 | 是 | 数字断言；合并后删除 |
 | R44 | 任务 | wayland | task/R44-wayland-doc-counts | 7b85bd3 | 4fce0da | 已合并 | dsh 终审通过 | wayland | dd35ade | 是 | 数字断言；合并后删除 |
+| R44 | 任务 | x11 | task/R44-x11-retired-docs | 7dec330 | 2097eb3 | 已合并 | qoder 复审通过 | x11 | 4d870f7 | 是 | 旧 docs 清理；同批合并 |
+| R44 | 任务 | wayland | task/R44-wayland-retired-docs | 9dc86e6 | 6d1a0e2 | 已合并 | qoder 复审通过 | wayland | 651ca27 | 是 | 旧 docs 清理；同批合并 |
+| R44 | 任务 | x11 | task/R44-x11-doc-count-date | 7dec330 | b093e5a | 已合并 | qoder 复审通过 | x11 | 4d870f7 | 是 | 最新日期记录；同批合并 |
+| R44 | 任务 | wayland | task/R44-wayland-doc-count-date | 9dc86e6 | e20b1e8 | 已合并 | qoder 复审通过 | wayland | 651ca27 | 是 | 最新日期记录；同批合并 |
 | R44 | 治理 | master | master | - | 2172961 | 通过 | qoder 复审通过 | master | 2172961 | 否 | v0.9 规约；代码冻结点 |
 | R44 | 文档主干 | master | master | 2172961 | 532846a | 通过 | qoder 回读/收尾 | master | 532846a | 否 | v1.0；head 为上次审计值 |
 | R44 | 任务 | x11 | task/R44-x11-test-record | 2172961 | 3729850 | 已合并 | qoder 复审通过 | x11 | c75f00a | 是 | 测试标签 + 规约 |
