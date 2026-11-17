@@ -324,6 +324,7 @@ docs_manifest=$cfg/offline-docs-manifest
 docs_next=$here/.docs-next
 : > "$docs_next"
 deleted=0
+retired_deleted=0
 if [ -f "$docs_manifest" ]; then
 	while IFS= read -r path; do
 		[ -n "$path" ] || continue
@@ -362,6 +363,36 @@ if [ -s "$docs_owned" ]; then
 		fi
 	done < "$docs_owned" || true
 fi
+# One-time: drop pre-move docs only when the on-disk blob is still the old copy.
+while read -r path blob; do
+	[ -n "$path" ] || continue
+	case $path in
+		.local/share/docs/stacks/*) continue ;;
+	esac
+	dest=$home/$path
+	[ -f "$dest" ] || continue
+	if ! got=$(git hash-object -- "$home/$path" 2>/dev/null); then
+		printf '警告：%s 无法读取，未删除\n' "$path" >&2
+		continue
+	fi
+	if [ "$got" = "$blob" ]; then
+		rm -f -- "$dest"
+		printf '删除 %s\n' "$path"
+		retired_deleted=$((retired_deleted + 1))
+		rmdir "$(dirname -- "$dest")" 2>/dev/null || true
+		grep -vxF -e "$path" "$docs_next" > "$docs_next.retired" || true
+		mv -- "$docs_next.retired" "$docs_next"
+	else
+		printf '警告：%s 本地修改，未删除\n' "$path" >&2
+	fi
+done << 'RETIRED'
+.local/share/docs/project/display-management.md 2ed361864329fe99caf5eb5449519cc03e375493
+.local/share/docs/project/display-device-adapter.md 05754c4f19ee66003edb5b71075f068a68b6297e
+.local/share/docs/project/display-testing.md 4f0b38b4d87f90c8b4773c597cd6d02a002ab48f
+.local/share/docs/user/keybindings-zh.md d73e306d9537358564ad2b18cbaa6a568a1e2ccd
+.local/share/docs/project/wayland-migration.md 65830c83cb8c899a7ad02f74c1f21eda79a8cc93
+.local/share/docs/project/wayland-desktop-alternatives.md d93dfab438146d76acbab82e67d160202ac96f65
+RETIRED
 if [ -s "$docs_next" ]; then
 	# shortcut: git add -f can still stage this file, upgrade if track.sh starts using -f.
 	rel=
@@ -398,6 +429,9 @@ else
 fi
 if [ "$deleted" -gt 0 ]; then
 	printf '删除 %s 个清单文件。\n' "$deleted"
+fi
+if [ "$retired_deleted" -gt 0 ]; then
+	printf '删除 %s 个旧文档。\n' "$retired_deleted"
 fi
 
 src_base=${origin%/}
