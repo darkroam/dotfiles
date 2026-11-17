@@ -1,39 +1,19 @@
 # Match ~/src/st/config.h on X11 without picom.
+# Colors come from wal; ? suppresses the include before wal has run.
+config-file = ?../../.cache/wal/ghostty
 # Ghostty sizes are points; at Xft.dpi 96, 10.5pt is 14px.
 font-family = monospace
 font-size = 10.5
 font-thicken = false
 
-background = #282828
-foreground = #ebdbb2
 background-opacity = 0.8
 background-blur = false
 # st applies XRender alpha in native sRGB; linear-corrected made Ghostty look darker.
 alpha-blending = native
 
-palette = 0=#282828
-palette = 1=#cc241d
-palette = 2=#98971a
-palette = 3=#d79921
-palette = 4=#458588
-palette = 5=#b16286
-palette = 6=#689d6a
-palette = 7=#a89984
-palette = 8=#928374
-palette = 9=#fb4934
-palette = 10=#b8bb26
-palette = 11=#fabd2f
-palette = 12=#83a598
-palette = 13=#d3869b
-palette = 14=#8ec07c
-palette = 15=#ebdbb2
 
-selection-background = #458588
-selection-foreground = #ebdbb2
 
 cursor-style = block
-cursor-color = #add8e6
-cursor-text = #555555
 cursor-style-blink = false
 
 window-padding-x = 2
@@ -49,8 +29,8 @@ term = st-256color
 
 # st-like mouse/keyboard behavior.
 # st's right click is selpaste; user asked to disable it.
-right-click-action = ignore
-copy-on-select = false
+right-click-action = paste
+copy-on-select = true
 cursor-click-to-move = false
 mouse-hide-while-typing = false
 mouse-shift-capture = false
@@ -60,3 +40,5 @@ keybind = alt+v=paste_from_clipboard
 keybind = alt+shift+c=copy_to_clipboard:mixed
 keybind = alt+shift+v=paste_from_clipboard
 keybind = shift+insert=paste_from_selection
+keybind = alt+l=scroll_page_down
+keybind = alt+shift+l=scroll_page_up
