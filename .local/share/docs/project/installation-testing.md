@@ -450,7 +450,7 @@ bats --filter "TC-36" .local/share/test/installation/
 bats -r .local/share/test/ --tap
 ```
 
-发布前在 x11/wayland 检出上运行 `.local/lib/project-tools/check-doc-counts`；脚本解析 2026-11-12 起的最新测试记录，换基线日期要同步放宽匹配。
+发布前在 x11/wayland 检出上运行 `.local/lib/project-tools/check-doc-counts`；脚本选择日期最新的测试记录，同一天取最后一条。
 
 ### 当前安装测试结果
 
@@ -459,6 +459,8 @@ bats -r .local/share/test/ --tap
 同一次还有 `offline.bats` 10/10、`.local/share/test/build/run.sh` 14 项通过；`.local/bin` 与 `.local/lib` 的 shellcheck 为 0（`.bats` 不直接以 shellcheck 检查）。
 
 2026-11-12 更新：安装套件 298/298，`offline.bats` 23/23，project-tools 36/36；`bats --count` 为 installation 298、project-tools 36，合计 334；`test/build` 的 14 项 shell 测试不计入。
+
+2026-11-17 更新：安装套件 299/299，`offline.bats` 24/24，project-tools 36/36；`bats --count` 为 installation 299、project-tools 36，合计 335；`test/build` 的 14 项 shell 测试不计入。
 
 **验证环境**：2026-11-06，KaiTian X7h G1e + Gentoo，commit `b13f897`；执行：qoder，验收：dsh。Bats 满足本文
 `>= 1.11.0` 的前置要求。
@@ -507,5 +509,5 @@ project-tools 测试由[协作规约](collaboration.md)维护自己的 Bats 基�
 
 ---
 
-**最后更新**: 2026-11-11
-**版本**: 6.0 — docs 白名单与 298/23/334 基线；安装套件 298/298，离线 23/23，合计 334
+**最后更新**: 2026-11-17
+**版本**: 6.0 — docs 白名单与 299/24/335 基线；安装套件 299/299，离线 24/24，合计 335

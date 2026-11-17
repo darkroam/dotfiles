@@ -971,6 +971,13 @@ clone。四个源码仓的 origin 从同一个 `OFFLINE_ORIGIN` 推导（把末�
 从而把新机器的 `~/.config` 收进 fresh 备份。它也不执行 `dotcfg switch fresh`。
 因此新机不会自动建立 `fresh_root`。
 
+已装机器若仍留着迁到 `stacks/` 之前的旧文档，安装器按一次性表核对 `git hash-object`。
+文件不存在则跳过。内容仍是迁移前 blob 则删除该路径，并从 `offline-docs-manifest` 去掉。
+内容不同则保留，并警告「本地修改，未删除」。无法读取则保留，并警告「无法读取，未删除」，安装不因此退出。
+不删除 `stacks/` 下的新路径，也不删除表外的未跟踪文件。
+键位旧路径是 `.local/share/docs/user/keybindings-zh.md`。
+清单删除与旧文档删除分开计数。
+
 注意：安装器本身不碰 `~/.config`，但安装后第一次执行 `dotcfg switch min`（或 full）时，
 `switch.sh` 仍会调用 `fresh_create_root_backup`，把当时的 `~/.config` 等混合模式文件
 备份到新的 `fresh_root/backup/`。这个豁免只属于安装器进程，不延伸到后续 switch。
