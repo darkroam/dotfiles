@@ -130,10 +130,10 @@ the domain map is the single path-to-domain registry:
   history.
 - [Architecture and design](.local/share/docs/project/architecture.md): directory
   map, load order, optional-feature model, and ownership boundaries.
-- [Display management design](.local/share/docs/project/display-management.md):
+- Display management design: `.local/share/docs/stacks/x11/display-management.md`.
   shared X11 ownership, state model, display-layout policy, validation, and
   diagnostics.
-- [Display device adapter guide](.local/share/docs/project/display-device-adapter.md):
+- Display device adapter guide: `.local/share/docs/stacks/x11/display-device-adapter.md`.
   the implemented, default-disabled extension contract for nonstandard hardware.
 - [Installation system](.local/share/docs/project/installation-system.md):
   node- and category-based idempotent installation architecture, unified CLI,
@@ -164,7 +164,7 @@ the domain map is the single path-to-domain registry:
   implementation record.
 - [LARBS guide in Chinese](.local/share/docs/user/desktop-guide-zh.md): a
   localized guide based on this repository's current behavior.
-- [Chinese keybinding cheat sheet](.local/share/docs/user/keybindings-zh.md):
+- Chinese keybinding cheat sheet: `.local/share/docs/stacks/x11/keybindings-zh.md`.
   concise DWM and media-key reference.
 
 The DWM `Mod+F1` binding opens the installed English guide generated from the

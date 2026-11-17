@@ -8,7 +8,7 @@
 
 - [ ] 显示管理的统一 desired/off 规划器、有效 manual marker、完整自动显示布局 health、最高共同模式
   镜像、无盖桌面回退和显式 framebuffer 收敛仍需明确恢复决定后再实施；通用范围见
-  [显示管理设计](../project/display-management.md#未完成的通用工作)，各平台的真实硬件矩阵见
+  显示管理设计（stacks/x11/display-management.md#未完成的通用工作），各平台的真实硬件矩阵见
   [平台档案索引](../platforms/index.md)。设备适配器和任意数量外屏的链式显示布局已经实现，不再列为
   挂起能力。
 - [ ] 仅在启用更多网络模块或当前两秒天气查询确实造成卡顿时，考虑异步 DWMBlocks 网络模块；
