@@ -30,7 +30,7 @@ term = st-256color
 # st-like mouse/keyboard behavior.
 # st's right click is selpaste; user asked to disable it.
 right-click-action = paste
-copy-on-select = true
+copy-on-select = clipboard
 cursor-click-to-move = false
 mouse-hide-while-typing = false
 mouse-shift-capture = false
@@ -40,5 +40,5 @@ keybind = alt+v=paste_from_clipboard
 keybind = alt+shift+c=copy_to_clipboard:mixed
 keybind = alt+shift+v=paste_from_clipboard
 keybind = shift+insert=paste_from_selection
-keybind = alt+l=scroll_page_down
-keybind = alt+shift+l=scroll_page_up
+keybind = alt+l=scroll_page_up
+keybind = alt+shift+l=scroll_page_down
