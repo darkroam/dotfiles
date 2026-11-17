@@ -1049,3 +1049,52 @@ EOF
 	[[ "$output" != *"已检出"* ]]
 	grep -qx '拒绝：包内含非本栈文档 .local/share/docs/stacks' <<< "$output"
 }
+
+@test "TC-OFF24: retired common docs are removed only when the blob matches" {
+	pack
+	[ "$status" -eq 0 ]
+	local new=$HOME/retired
+	mkdir -p "$new"
+	tar -xzf "$OFFLINE_OUTPUT" -C "$new"
+	run_install "$new" x11
+	[ "$status" -eq 0 ]
+
+	local gitdir=$REAL_HOME/.cfg
+	mkdir -p "$new/.local/share/docs/project" "$new/.local/share/docs/stacks/x11"
+	git --git-dir="$gitdir" cat-file blob 2ed361864329fe99caf5eb5449519cc03e375493 \
+		> "$new/.local/share/docs/project/display-management.md"
+	printf 'edited\n' > "$new/.local/share/docs/project/display-device-adapter.md"
+	printf 'new stack\n' > "$new/.local/share/docs/stacks/x11/display-management.md"
+	printf 'mine\n' > "$new/.local/share/docs/project/user-note.md"
+	mkdir -p "$new/.local/share/docs/user"
+	printf 'locked\n' > "$new/.local/share/docs/user/keybindings-zh.md"
+	chmod 000 "$new/.local/share/docs/user/keybindings-zh.md"
+	printf '%s\n' \
+		.local/share/docs/project/display-management.md \
+		.local/share/docs/project/display-device-adapter.md \
+		.local/share/docs/stacks/x11/display-management.md \
+		.local/share/docs/user/keybindings-zh.md \
+		>> "$new/.cfg/offline-docs-manifest"
+
+	run_install "$new" x11
+	[ "$status" -eq 0 ]
+	[ ! -e "$new/.local/share/docs/project/display-management.md" ]
+	[ "$(cat "$new/.local/share/docs/project/display-device-adapter.md")" = "edited" ]
+	[[ "$output" == *"警告：.local/share/docs/project/display-device-adapter.md 本地修改，未删除"* ]]
+	[[ "$output" == *"警告：.local/share/docs/user/keybindings-zh.md 无法读取，未删除"* ]]
+	[[ "$output" == *"删除 1 个旧文档。"* ]]
+	[[ "$output" != *"清单文件"* ]]
+	[[ "$output" != *"display-testing.md"* ]]
+	[ -f "$new/.local/share/docs/user/keybindings-zh.md" ]
+	[ "$(cat "$new/.local/share/docs/stacks/x11/display-management.md")" = "new stack" ]
+	[ "$(cat "$new/.local/share/docs/project/user-note.md")" = "mine" ]
+	! grep -qx '.local/share/docs/project/display-management.md' \
+		"$new/.cfg/offline-docs-manifest"
+	grep -qx '.local/share/docs/project/display-device-adapter.md' \
+		"$new/.cfg/offline-docs-manifest"
+	grep -qx '.local/share/docs/stacks/x11/display-management.md' \
+		"$new/.cfg/offline-docs-manifest"
+	grep -qx '.local/share/docs/user/keybindings-zh.md' \
+		"$new/.cfg/offline-docs-manifest"
+	! grep -q 'user-note.md' "$new/.cfg/offline-docs-manifest"
+}
