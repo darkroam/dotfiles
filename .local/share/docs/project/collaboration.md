@@ -1,7 +1,7 @@
 # 协作规约（用户 × dsh × qoder × codex）
 
 > 服务域：S03 文档与治理；S04 内部工程工具；S02 验证
-> 建立于 2026-08-31 · v1.0 · 由用户确认生效（2026-08-31；v1.0 于 2026-11-11）
+> 建立于 2026-08-31 · v1.0 · 由用户确认生效（2026-08-31；v1.0 于 2026-11-11；2026-11-17 起公共层与栈层分开）
 > 本文综合 clear-jlpt-n2、cni249、innogpu-fh2m-debian-trixie 三个参考项目的协作经验，按本仓库约束适配，
 > 是四角色协作的唯一权威规约；其他文档只链接本文，不复制规则。
 
@@ -349,20 +349,27 @@ R44 通过条件还包括：`x11`、`wayland`、`split-base` 已 push 并核对�
 push 本身须用户批准。未 push 前只能标“本地合规”，不得宣称可回滚。
 文档主干另须满足 §12.10 的关闭条件。
 
-### 10. 文档主干
+### 10. 文档分层
 
-用户于 2026-11-11 确认：项目级文档不按分支拆分，统一放 master。
-根 `README.md` 属于文档主干。
+用户于 2026-11-11 确认项目级公共文档放 master。2026-11-17 起公共层与栈层分开。
+根 `README.md` 属于公共文档。
 
-- master 代码冻结，文档可写。直接在 master 上编辑，不使用独立 docs worktree、submodule 或软链接。
-- x11、wayland 的文档是只读快照，不各自编辑。
-- 文档只从 master 流向两条主线：把 master merge 进 x11，再 merge 进 wayland。
-  不反向 merge，也不在 x11 与 wayland 之间 merge。
-- 只有项目级文档允许这样 merge 到两条主线。代码仍走任务分支，不借文档同步带入。
-- 任务分支禁止改 docs。R42、R43 的研究正文写在 master，主题归属仍是 wayland。
-- R40 的安装文档归属 master 的安装系统文档，不留在已删除的 R40 任务分支。
-- 当前文档一次性从 x11 导入。导入时 x11 与 wayland 的文档 blob 一致。
-  R43 的 Ghostty 试点段从 `task/R43-wayland-desktop` 补入，不带回该分支的旧文档。
+公共层：
+
+- master 代码冻结，公共文档可写。直接在 master 上编辑，不使用独立 docs worktree、submodule 或软链接。
+- 公共文档只从 master 流向 x11、wayland。不反向 merge，也不在 x11 与 wayland 之间 merge。
+- 公共文档不得使用 Markdown 链接或 href 指向 `stacks/`。这类链接会先让对面主线打包失败：打包 x11 时拒绝 `stacks/wayland`，打包 wayland 时拒绝 `stacks/x11`。失败信息里的栈名不是当前正在打的那条。master 包同样拒绝任何 `stacks/` 链接。
+- 栈文件不得进入 master。master 的 `stacks/` 树必须为空。git 不保存空目录；审计看的是树里没有栈文件。
+- 只有公共文档允许从 master merge 到两条主线。代码仍走任务分支，不借文档同步带入。
+- R40 的安装文档归属 master 的安装系统文档。
+
+栈层：
+
+- `stacks/x11/` 只由 x11 维护，`stacks/wayland/` 只由 wayland 维护。同一文档只有一个权威位置。
+- 栈文档任务只能改本栈路径，不合入 master，不交叉合并。
+- 迁移窗口允许旧路径和新路径同时存在，必须在 branch-registry 登记旧路径、新路径、归属和两边 blob。窗口结束后删除旧路径。
+- 回滚：未推送提交可以 reset；已推送主线只能 revert。revert 删除提交后若旧路径和新路径同时存在，必须重新登记双权威窗口。
+- 日常工作树常驻 x11。恢复 `task/R43-wayland-desktop` 前，先 merge 归属线 wayland。R43 保持挂起。Ghostty 配置仍只在该任务分支，不随文档迁移。
 
 审计命令：
 
@@ -371,8 +378,7 @@ git diff --name-only split-base^{commit}..master \
   -- . ':(exclude).local/share/docs/**' ':(exclude)README.md'
 ```
 
-关闭条件：该命令无输出；master、x11、wayland 的 `.local/share/docs/**` 与 `README.md`
-blob 一致；没有任务分支携带 docs 改动；日常工作树回到 x11。未 push 时只标本地合规。
+关闭条件：该命令无输出；公共文档 blob 在 master、x11、wayland 一致；master 无 `stacks/` 文件；x11 无 `stacks/wayland`；wayland 无 `stacks/x11`；公共 Markdown 链接和 href 不含 `stacks/`；日常工作树回到 x11。未 push 时只标本地合规。
 
 ## 附录：变更记录
 
@@ -400,3 +406,4 @@ blob 一致；没有任务分支携带 docs 改动；日常工作树回到 x11�
 | 2026-11-11 | R44 二轮返工：登记迁入受控路径、当前 worktree HEAD 审计、R43 状态统一；规约升至 v0.8 |
 | 2026-11-11 | R44 收尾：登记改为对象库/显式检出、head 定义为最近已审、变更记录移至附录；规约升至 v0.9 |
 | 2026-11-11 | R44 文档主干：master 代码冻结、文档可写；文档只从 master 流向两条主线；规约升至 v1.0 |
+| 2026-11-17 | R44 文档分层：公共层留 master，栈文档归 x11/wayland；公共文档不得链接 stacks/ |

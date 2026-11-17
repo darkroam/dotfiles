@@ -27,11 +27,14 @@
 ```
 docs/
 ├── README.md                # 文档索引（导航入口）
-├── user/                    # 用户指南（最终用户）
-├── project/                 # 维护者文档（Agent/开发者）
+├── user/                    # 公共用户指南
+├── project/                 # 公共维护者文档
 ├── planning/                # 项目跟踪（待办、历史、缺陷）
 ├── platforms/               # 平台部署（设备/发行版事实）
-└── audits/                  # 审计记录（按日期归档）
+├── audits/                  # 审计记录（按日期归档）
+└── stacks/
+    ├── x11/                 # X11 栈文档，只由 x11 维护
+    └── wayland/             # Wayland 栈文档，只由 wayland 维护
 ```
 
 ### 命名规则
@@ -51,6 +54,8 @@ docs/
 | `planning/` | 活动待办、挂起项、历史、缺陷 | Agent/维护者 |
 | `platforms/` | 设备事实、发行版映射、验证状态 | 运维/Agent |
 | `audits/` | 审计发现、执行记录、进度表 | Agent/维护者 |
+| `stacks/x11/` | X11 显示、键位和桌面细节 | 维护者/用户 |
+| `stacks/wayland/` | Wayland 研究与后续桌面指南 | 维护者/用户 |
 
 新建文件前，确认其职责不属于已有文件。仅在形成明确配置或维护边界时才新建文件。
 跟踪路径的主域/关联域只在[架构域归属表](domain-map.md)登记；文档开头的“服务域”是导航元数据，
@@ -83,6 +88,7 @@ docs/
 - 内部链接使用相对路径（如 `[维护策略](maintenance-policy.md)`）
 - 跨目录链接注明相对位置（如 `[待办](../planning/todo.md)`）
 - 避免信息孤岛：相关文档之间应互相引用
+- 公共文档不得用 Markdown 链接或 href 指向 `stacks/`。需要点名时只写纯文本路径。栈文档可以相对链接公共文档，不得链接对面栈。
 
 ## 完整性自检
 
@@ -130,7 +136,7 @@ docs/
 ### 独立性
 
 - 同一份文档不得同时面向多类读者
-- `architecture.md` 与 `desktop-guide-zh.md` 因读者不同存在内容重叠是设计意图，两者各自独立完整
+- `architecture.md` 与 `desktop-guide-zh.md` 的公共残段不再各自包下整份 X11 正文。X11 细节在 `stacks/x11/`，公共层只用纯文本路径指向，不使用 Markdown 链接
 
 ---
 
