@@ -1,7 +1,6 @@
 #!/bin/sh
-# Compare bats --count with the latest 2026-11-12 record.
+# Compare bats --count with the latest dated test record.
 # Same date: the last matching line wins.
-# shortcut: pinned to 2026-11-12, widen the match when a newer baseline is the source.
 # Fixture (not Bats): check-doc-counts --self-check
 
 set -eu
@@ -11,6 +10,16 @@ script=$(readlink -f -- "$0" 2>/dev/null || realpath -- "$0")
 root=$(CDPATH='' cd -- "$(dirname -- "$script")/../../.." && pwd)
 doc=$root/.local/share/docs/project/installation-testing.md
 
+record_line() {
+	rec_date=$1
+	rec_inst=$2
+	rec_off=$3
+	rec_pt=$4
+	rec_total=$5
+	printf '%s 更新：安装套件 %s/%s，offline.bats %s/%s，project-tools %s/%s；bats --count 为 installation %s、project-tools %s，合计 %s。\n' \
+		"$rec_date" "$rec_inst" "$rec_inst" "$rec_off" "$rec_off" "$rec_pt" "$rec_pt" "$rec_inst" "$rec_pt" "$rec_total"
+}
+
 self_check() {
 	tmp=$(mktemp -d)
 	trap 'rm -r "$tmp"' EXIT
@@ -19,38 +28,57 @@ self_check() {
 	mkdir -p "$repo/.local/lib/project-tools" "$(dirname -- "$copy")" "$repo/.local/share/test" "$tmp/bin"
 	cp "$script" "$repo/.local/lib/project-tools/check-doc-counts"
 	chmod 755 "$repo/.local/lib/project-tools/check-doc-counts"
-	cp "$doc" "$copy"
 	ln -s "$root/.local/share/test/installation" "$repo/.local/share/test/installation"
 	ln -s "$root/.local/share/test/project-tools" "$repo/.local/share/test/project-tools"
 	ln -s "$repo/.local/lib/project-tools/check-doc-counts" "$tmp/bin/check-doc-counts"
+	inst=$(bats --count "$root/.local/share/test/installation")
+	off=$(bats --count "$root/.local/share/test/installation/offline.bats")
+	pt=$(bats --count "$root/.local/share/test/project-tools")
+	total=$((inst + pt))
+
+	# Older record is wrong. The later date must win.
+	{
+		record_line 2026-11-12 1 1 1 7
+		record_line 2026-11-17 "$inst" "$off" "$pt" "$total"
+	} > "$copy"
 	"$tmp/bin/check-doc-counts" || {
-		printf '%s: self-check original failed\n' "$PROGRAM" >&2
+		printf '%s: self-check latest record failed\n' "$PROGRAM" >&2
 		exit 1
 	}
+
 	awk '
-		/2026-11-12/ && /安装套件/ && /offline/ && /project-tools/ && /合计/ && !done {
-			if (!sub(/合计 [0-9]+/, "合计 0")) exit 2
-			done = 1
-		}
+		/2026-11-17/ && /合计/ { sub(/合计 [0-9]+/, "合计 0") }
 		{ print }
-		END { if (!done) exit 2 }
-	' "$copy" > "$tmp/mutated" || {
-		printf '%s: self-check could not change the record\n' "$PROGRAM" >&2
-		exit 1
-	}
+	' "$copy" > "$tmp/mutated"
 	mv "$tmp/mutated" "$copy"
 	if err=$("$tmp/bin/check-doc-counts" 2>&1); then
-		printf '%s: self-check changed record exited 0\n' "$PROGRAM" >&2
+		printf '%s: self-check changed latest record exited 0\n' "$PROGRAM" >&2
 		exit 1
 	fi
 	case $err in
-		*expected*actual*) ;;
+		*"total expected 0"*) ;;
 		*)
-			printf '%s: self-check changed record gave no expected/actual\n' "$PROGRAM" >&2
+			printf '%s: self-check did not use the latest record\n' "$PROGRAM" >&2
 			printf '%s\n' "$err" >&2
 			exit 1
 			;;
 	esac
+	case $err in
+		*"installation expected 1"*)
+			printf '%s: self-check used the old record\n' "$PROGRAM" >&2
+			exit 1
+			;;
+	esac
+
+	# Same day: the last line wins, even when that day is the old baseline.
+	{
+		record_line 2026-11-12 1 1 1 7
+		record_line 2026-11-12 "$inst" "$off" "$pt" "$total"
+	} > "$copy"
+	"$tmp/bin/check-doc-counts" || {
+		printf '%s: self-check same-day last record failed\n' "$PROGRAM" >&2
+		exit 1
+	}
 	exit 0
 }
 
@@ -64,12 +92,24 @@ if [ ! -f "$doc" ]; then
 fi
 
 record=$(awk '
-	/2026-11-12/ && /安装套件/ && /offline/ && /project-tools/ && /合计/ { line = $0 }
+	function ymd(line,    d) {
+		if (match(line, /[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/))
+			return substr(line, RSTART, RLENGTH)
+		return ""
+	}
+	/安装套件/ && /offline/ && /project-tools/ && /合计/ {
+		d = ymd($0)
+		if (d == "") next
+		if (best == "" || ("x" d) >= ("x" best)) {
+			best = d
+			line = $0
+		}
+	}
 	END { if (line != "") print line }
 ' "$doc")
 
 if [ -z "$record" ]; then
-	printf '%s: no 2026-11-12 test record\n' "$PROGRAM" >&2
+	printf '%s: no dated test record\n' "$PROGRAM" >&2
 	exit 1
 fi
 
