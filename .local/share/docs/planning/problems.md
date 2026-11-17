@@ -161,7 +161,7 @@
   6/6 矩阵、本侧只读复核（4.0.2-i3 已安装、SHA 一致、`mem_sleep=s2idle [deep]` 已激活、模块已加载）
   以及既有本机 journal 根因证据。若问题复发，可临时切换为 `s2idle` 并回传证据；当前无需回滚。
 - **下一步**：无（已解决）。
-- **关联轮次/权威来源**：R07、R08 本机私有协作档案；[显示管理设计](../project/display-management.md)、
+- **关联轮次/权威来源**：R07、R08 本机私有协作档案；显示管理设计（stacks/x11/display-management.md）、
   [平台档案索引](../platforms/index.md)。
 
 ## P4：s2idle 外屏红屏（澄清为 slock 锁屏失败色）
@@ -228,8 +228,8 @@
   （1）是否仍出现瞬时黑屏及起止时间；（2）最终分辨率是否仍过大、是否仍需开盖再合盖。
   若分辨率正确但黑屏仍在，优先按 R11 取证设计核查首轮 `--query` 与 modeset 的重叠，再决定是否
   另轮实施 D5；两类现象都消失后再将 P5 推进为已解决。2026-10-14：上述验收改在现行合盖启动配置上重做（登录前 `Option "Disable" "true"`）。状态仍是待验证，不因 R18 结项 P6 而改。
-- **关联轮次/权威来源**：R11 研究、R12 实施的本机私有协作档案；[显示管理设计](../project/display-management.md)、
-  [显示管理测试](../project/display-testing.md)；本条为 dotfiles 侧研究记录，innogpu 驱动事实仍以
+- **关联轮次/权威来源**：R11 研究、R12 实施的本机私有协作档案；显示管理设计（stacks/x11/display-management.md）、
+  显示管理测试（stacks/x11/display-testing.md）；本条为 dotfiles 侧研究记录，innogpu 驱动事实仍以
   innogpu 项目文档为准。
 
 ## P6：外屏一直连接时仍周期探测，并可能再次设置屏幕
@@ -255,7 +255,7 @@
   3. 内核阶段登录前黑屏：根因是 fbcon 接管交接 + 外屏信号重锁（标准流程）。fantgpu 开放路径 030-051 已收敛（`get_output_mode` 回退缓存/去重 modeset）。剩余单次提示为设计内、闭源噪声，不改字节边界。记为外部边界，非缺陷。
 - **验证与回滚**：① 用户确认扫描感消失。回滚 `9748fb9` 后重启 X。② 用户实测无 spanning、eDP-1 无初始模式、进 dwm 不再黑屏。回滚 `edb0f96`，并删除 `/etc/X11/xorg.conf.d/90-lid-external.conf`。③ 本仓库无内核改动，无需回滚。
 - **下一步**：无。
-- **关联轮次/权威来源**：R18 本机私有协作档案；P5；[显示管理设计](../project/display-management.md)。
+- **关联轮次/权威来源**：R18 本机私有协作档案；P5；显示管理设计（stacks/x11/display-management.md）。
 
 ## P7：会话自证不可信（沙箱写蒸发）
 
@@ -315,7 +315,7 @@
 | A2 | 设备适配器本地配置缺少精确 Git ignore 规则 | 已增加精确规则和机械门禁 | R03 本机私有协作档案 D4 |
 | A3 | 安装系统缺陷 B1–B8 | 已全部修复并保留历史方案与验证 | [安装系统修复记录](installation-fixes.md) |
 | A4 | 2026-07-31 的 112 项审计发现；2026-08-04 的 64 项修改计划 | 前者均已裁决/关闭，包含确认缺陷、设计判断和误报；后者全部完成 | [2026-07-31 审计](../audits/2026-07-31-full-review.md) · [2026-08-04 审计](../audits/2026-08-04-full-review.md) |
-| A5 | 断开的显示输出残留 geometry 并扩大 framebuffer | 共享显示引擎已加入 stale 清理、重读验证和 framebuffer 收敛，实机链路已验证 | [显示管理设计](../project/display-management.md) · [平台档案](../platforms/kaitian-x7h-g1e-debian-13.md) |
+| A5 | 断开的显示输出残留 geometry 并扩大 framebuffer | 共享显示引擎已加入 stale 清理、重读验证和 framebuffer 收敛，实机链路已验证 | 显示管理设计（stacks/x11/display-management.md） · [平台档案](../platforms/kaitian-x7h-g1e-debian-13.md) |
 
 ## 排查工具速查（只读）
 

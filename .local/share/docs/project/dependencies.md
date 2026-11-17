@@ -45,25 +45,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 
 ## U02 · X11 桌面与输入
 
-| 软件或命令 | 用途 |
-| --- | --- |
-| Xorg/Xinit, `dbus-launch`, `dbus-update-activation-environment` | X11 会话启动 |
-| `dwm`, `dwmblocks`, `st`, `dmenu` | 窗口管理器、状态栏、终端和启动器；从 `~/src/` 单独构建 |
-| C99 编译器、`make`、`pkg-config` | 构建四个独立桌面源码仓库 |
-| `suckless-rebuild` | 仓库命令。比较产物 SHA 后按需 `sudo make install`。不自动安装发行版包 |
-| X11、Xft、Xrender、Xinerama、Fontconfig、FreeType、HarfBuzz 开发头文件和库 | DWM、DWMBlocks、dmenu 与 st 的编译、字体和渲染能力 |
-| X11-XCB、XCB、XCB Res 开发头文件和库 | 当前 DWM 补丁使用的进程/窗口资源能力 |
-| `tic` | 安装 st 的 terminfo 条目 |
-| kbd（`loadkeys`） | 按需手动加载已跟踪的 TTY 键盘映射；登录 Shell 不执行提权命令 |
-| `fbterm` | 使用已跟踪 `.fbtermrc` 时的可选 framebuffer 终端；平台需要的 redraw 兼容二进制由对应驱动项目维护，系统包可作为回退 |
-| `slock` | 系统安装的 X11 锁屏程序；不属于仓库约定的四个 `~/src/` 源码目录 |
-| `dunst`, `picom`, `unclutter`, `xwallpaper` | 通知、合成器、鼠标隐藏和壁纸 |
-| `xrdb`, `xrandr`, `xset`, `xdotool`, `xdpyinfo`, `xclip`, `xprop`, `setxkbmap` | Xresources、显示、输入、剪贴板和辅助脚本 |
-| `xkblayout-state` | 可选键盘布局状态命令；上游来源：<https://github.com/nonpop/xkblayout-state>。缺失时 `sb-kbselect` 回退到 `setxkbmap`。 |
-| `notify-send` (libnotify) | 桌面通知 |
-| `fcitx5` | 首选已配置输入法；`fcitx` 或 `ibus` 为回退；GTK4 程序（如 Ghostty）需要 `app-i18n/fcitx-gtk` 的 `gtk4` USE |
-| `xcape` | 启用时将 Caps 作为 Escape/修饰键重映射 |
-| `microsoft-edge` | 当前 `BROWSER` 的值 |
+X11 桌面与输入的命令在 stacks/x11/dependencies.md。
 
 ## U03 · 外观、字体与壁纸
 
@@ -124,12 +106,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 
 | 软件或命令 | 用途 |
 | --- | --- |
-| `xrandr`, `flock` | `xdisplay` 与 `displayselect` 的基础显示布局和互斥；`xdisplay.sh` 是兼容包装；缺少任一命令时拒绝运行 |
-| `dmenu`, `bc` | `displayselect` 的选择界面和双屏镜像缩放计算 |
-| `arandr` | `displayselect` 的可选手动显示布局界面；选中该路径但缺少命令时提示安装 |
-| `dunst`, `xwallpaper` | 手动显示布局后的可选通知与壁纸刷新；不属于自动 watcher 的基础依赖 |
-| `cvt` | 仅在非标准面板确需自定义 modeline 时使用的可选设备适配开发工具 |
-| `systemd-analyze`, `udevadm` | 可选的 logind 合并配置检查和显示迁移规则维护工具；不属于 watcher 运行依赖 |
+| `systemd-analyze`, `udevadm` | 可选的 logind 合并配置检查；不属于网络或挂载运行依赖。显示迁移规则见 stacks/x11/dependencies.md |
 | NetworkManager 守护进程、`nmtui`、`nmcli` | 网络连接、自动连接、地址/路由/DNS 所有权、交互式设置和诊断；选择该栈时，同一接口不能再由其他网络管理器接管 |
 | `wpa_supplicant` | 可供 NetworkManager 选用的全局 D-Bus Wi-Fi 认证后端，也是已跟踪接口模板的实现；平台可选择 NetworkManager 支持的其他认证后端，选用时仍不取代 NetworkManager 的连接和三层网络所有权 |
 | `.local/bin/xbacklight` | 仓库自带。按百分比读写内屏背光（-get 可到 0，写入下限 1），优先 `panel_backlight`，否则第一个节点。不调用 sudo，不依赖发行版 `xorg-xbacklight` |
@@ -138,12 +115,10 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | `avahi-browse`、Avahi 守护进程 | mDNS/DNS-SD 的 SMB 服务发现；守护进程必须运行 |
 | `smbclient` | 以 guest/空密码枚举匿名 SMB 共享；本配置不向它提供账户凭据 |
 | `mount.cifs`、`findmnt`、`flock`、`sudo` | `dmenumountcifs` 的匿名 CIFS 挂载、精确状态核对、单实例锁和提权入口 |
-| systemd-logind（`systemctl`）或 elogind（`loginctl`）、`flock`、`xss-lock`、`slock`、`pstree` | 硬件睡眠键、挂起前锁屏以及 `sysact` 电源/会话控制；`flock` 按登录会话和 X server 保证单实例，`xss-lock` 只桥接 login1 事件，不接管 XScreenSaver 空闲超时 |
+| systemd-logind（`systemctl`）或 elogind（`loginctl`）、`pstree` | 硬件睡眠键以及 `sysact` 电源/会话控制 |
 | `geoiplookup` | 可选 IP 地理位置状态模块 |
-| `xinput` | DWM 触控板开关（`Mod+Ctrl+t` 和触摸板硬件键）。按设备名查找后设置 `libinput Send Events Mode Enabled`。不再使用 `synclient` 或 Synaptics 驱动 |
-| `screenkey` | 为单独构建 DWM 绑定保留的可选按键覆盖层；无已跟踪 dotfiles 运行调用 |
 | `bluez`（`bluetoothctl`） | `btmenu` 的适配器、扫描、配对和连接；状态栏块只读同一状态 |
-| `fzf`、`curl` | `btmenu --dynamic` 用本地 Unix socket 每秒刷新扫描列表，目录 `0700`、socket `0600`，不开 TCP。缺少任一命令时提示并退出 0。终端 `st` 属于 U02 |
+| `fzf`、`curl` | `btmenu --dynamic` 用本地 Unix socket 每秒刷新扫描列表，目录 `0700`、socket `0600`，不开 TCP。缺少任一命令时提示并退出 0。终端 st 属于 stacks/x11/dependencies.md 的 U02 |
 | 本机 `mihomo`、python3、PyYAML | 访问子系统的内核与命令运行时；二进制和订阅不入库 |
 
 `.local/bin/dmenumountcifs` 只处理 Avahi 发布且允许 guest 访问的匿名共享，挂载目标限制在

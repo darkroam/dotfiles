@@ -1,6 +1,6 @@
 # 文档中心索引
 
-本配置库的文档体系按读者类型和主题组织。根目录 `README.md` 提供安装入口，本文档提供完整导航。项目级文档在 master 编辑，x11 与 wayland 只保留同步快照。
+本配置库的文档体系按读者类型和主题组织。根目录 `README.md` 提供安装入口，本文档提供完整导航。公共文档在 master 编辑，x11 与 wayland 只保留同步快照。栈文档在 `stacks/x11/` 与 `stacks/wayland/`，由对应主线维护，不进入 master。
 根 README 与 `user/` 构成面向最终用户的交付层；其余文档构成面向开发、验证和维护的开发文档层。
 两层各自保持自洽并独立维护，通过本索引互相导航，不要求任一类读者先理解另一层，也不把用户指南
 迁入上游 LARBS 保留区。
@@ -14,7 +14,7 @@
 日常使用、快捷键、个性化设置：
 
 - [桌面使用指南](user/desktop-guide-zh.md) — 安装、启动、使用和故障处理
-- [快捷键摘要](user/keybindings-zh.md) — DWM/st 键位和桌面级按键；Vim、Emacs、Herdr、Tmux 的完整分类速查可用 `getkeys <program>`
+- 快捷键摘要（stacks/x11/keybindings-zh.md） — DWM/st 键位和桌面级按键；Vim、Emacs、Herdr、Tmux 的完整分类速查可用 `getkeys <program>`
 
 ## 维护者/Codex 文档（面向 AI 助手和开发者）
 
@@ -25,11 +25,11 @@
 - [依赖清单](project/dependencies.md) — 十个用户能力域到通用命令、库和服务的映射
 - [维护策略](project/maintenance-policy.md) — 项目约束、工作流规则、已接受决定和明确不采用项
 - [文档质量规范](project/docs-standard.md) — 文件级写作标准、完整性自检、Agent 维护规范
-- [显示管理设计](project/display-management.md) — X11 显示引擎的状态模型、显示布局策略和验证矩阵
-- [显示设备适配器指引](project/display-device-adapter.md) — 非标准硬件扩展接口规范
-- [显示管理测试](project/display-testing.md) — 状态、显示布局、配置和适配器的测试方案与验收步骤
-- [Wayland 迁移研究](project/wayland-migration.md) — R42 的硬件实测、输入法/Vulkan 限制、分支与未决问题（挂起）
-- [Wayland 桌面替代选型](project/wayland-desktop-alternatives.md) — R43 的 sway/niri/dwl/Hyprland 对比和完整替换表（挂起）
+- 显示管理设计（stacks/x11/display-management.md） — X11 显示引擎的状态模型、显示布局策略和验证矩阵
+- 显示设备适配器指引（stacks/x11/display-device-adapter.md） — 非标准硬件扩展接口规范
+- 显示管理测试（stacks/x11/display-testing.md） — 状态、显示布局、配置和适配器的测试方案与验收步骤
+- Wayland 迁移研究（stacks/wayland/wayland-migration.md） — R42 的硬件实测、输入法/Vulkan 限制、分支与未决问题（挂起）
+- Wayland 桌面替代选型（stacks/wayland/wayland-desktop-alternatives.md） — R43 的 sway/niri/dwl/Hyprland 对比和完整替换表（挂起）
 - [分支与任务登记](project/branch-registry.md) — master 文档主干与代码冻结、x11/wayland 快照、任务分支与审计记录
 - [访问子系统](project/access-system.md) — 网络访问控制：怎么用；实现在 `.local/lib/access/`
 - [访问设计](project/access-design.md) — 命令行为、退出码和术语
@@ -50,7 +50,7 @@
 | 文档质量与术语 | [文档质量规范](project/docs-standard.md) | 文档必须面向单一读者，并与实现、链接和权威术语同步。 |
 | 多 Agent 协作与提交 | [协作规约](project/collaboration.md) | 用户决策、dsh 终审、qoder 初审与建议、codex 实现的职责和文件边界不得越权。 |
 | 安装系统外部契约 | [安装系统](project/installation-system.md#核心开发契约与不可变规则) | 用户接口、数据保护、幂等性和配置驱动契约不可由内部重构改变。 |
-| 验证基线 | [安装测试](project/installation-testing.md) · [显示测试](project/display-testing.md) · [访问测试](project/access-testing.md) · [协作规约](project/collaboration.md) | 行为变更必须同步相应测试基线，失败不得绕过。 |
+| 验证基线 | [安装测试](project/installation-testing.md) · 显示测试（stacks/x11/display-testing.md） · [访问测试](project/access-testing.md) · [协作规约](project/collaboration.md) | 行为变更必须同步相应测试基线，失败不得绕过。 |
 
 ## 按能力域导航
 
@@ -61,11 +61,11 @@
 | 域 | 主要命令/配置位置 | 文档入口 |
 | --- | --- | --- |
 | U01 Shell、源代码管理与开发 | `.config/{shell,zsh,tmux,powershell}/`、Shell/开发辅助命令 | [架构](project/architecture.md) · [依赖](project/dependencies.md) |
-| U02 X11 桌面与输入 | `.config/x11/`、`.fbtermrc`、会话/输入命令 | [架构](project/architecture.md) · [快捷键](user/keybindings-zh.md) |
+| U02 X11 桌面与输入 | `.config/x11/`、`.fbtermrc`、会话/输入命令 | [架构](project/architecture.md) · 快捷键（stacks/x11/keybindings-zh.md） |
 | U03 外观、字体与壁纸 | `.config/{fontconfig,gtk-2.0,gtk-3.0,dunst,wal}/`、`setbg` | [架构](project/architecture.md) · [桌面指南](user/desktop-guide-zh.md) |
 | U04 音频、音乐、录制与视频 | `.config/{alsa,mpd,mpv,ncmpcpp}/`、媒体辅助命令 | [架构](project/architecture.md) · [依赖](project/dependencies.md) |
 | U05 文件、文档、密码与桌面处理 | `.config/{lf,nsxiv,zathura}/`、MIME/密码命令、桌面入口 | [架构](project/architecture.md) · [桌面指南](user/desktop-guide-zh.md) |
-| U06 显示、网络、挂载与系统控制 | `xdisplay`、`displayselect`、`.local/lib/display/`、系统辅助命令 | [架构](project/architecture.md) · [显示设计](project/display-management.md) |
+| U06 显示、网络、挂载与系统控制 | `xdisplay`、`displayselect`、`.local/lib/display/`、系统辅助命令 | [架构](project/architecture.md) · 显示设计（stacks/x11/display-management.md） |
 | U07 状态栏、通信与网络服务 | `.local/bin/statusbar/`、`weath` | [架构](project/architecture.md) · [依赖](project/dependencies.md) |
 | U08 下载、种子与文本浏览 | `.config/newsboat/`、下载/RSS/种子辅助命令 | [架构](project/architecture.md) · [依赖](project/dependencies.md) |
 | U09 编译、排版与数据辅助 | `compiler`、`getbib`、`texroot`、`opout`、`texclear` | [架构](project/architecture.md) · [依赖](project/dependencies.md) |
@@ -76,7 +76,7 @@
 | 域 | 主要位置 | 文档入口 |
 | --- | --- | --- |
 | S01 安装与交付 | `.local/bin/{dotcfg,install.sh}`、`.local/lib/installation/` | [安装系统](project/installation-system.md) |
-| S02 验证 | `.local/share/test/` | [安装测试](project/installation-testing.md) · [显示测试](project/display-testing.md) · [project-tools 测试](project/collaboration.md) |
+| S02 验证 | `.local/share/test/` | [安装测试](project/installation-testing.md) · 显示测试（stacks/x11/display-testing.md） · [project-tools 测试](project/collaboration.md) |
 | S03 文档与治理 | `README.md`、`.local/share/docs/` | [文档质量规范](project/docs-standard.md) · [维护策略](project/maintenance-policy.md) |
 | S04 内部工程工具 | `.local/lib/project-tools/` | [协作规约](project/collaboration.md) |
 | S05 元数据与来源 | `.gitignore`、LARBS 许可证/迁移来源 | [架构域归属表](project/domain-map.md) · [维护策略](project/maintenance-policy.md) |
@@ -124,7 +124,7 @@
 
 ### 内容重叠说明
 
-`architecture.md` 与 `desktop-guide-zh.md` 因读者不同必然存在内容重叠（如快捷键、启动流程），这是设计意图而非缺陷。两者各自独立完整，不要求读者交叉引用。
+`architecture.md` 与 `desktop-guide-zh.md` 的公共残段不再各自独立完整。X11 正文在 `stacks/x11/`，公共层用纯文本路径指向，不使用 Markdown 链接。
 
 ## 文档关系
 
@@ -132,9 +132,10 @@
 根 README.md (英文，安装入口)
     ↓
 docs/README.md (中文，文档索引)
-    ├── 用户指南 (desktop-guide-zh.md, keybindings-zh.md)
+    ├── 用户指南 (desktop-guide-zh.md；X11 键位在 stacks/x11/keybindings-zh.md)
     ├── 维护者文档 (architecture.md, domain-map.md, dependencies.md, maintenance-policy.md, docs-standard.md, collaboration.md, branch-registry.md)
-    ├── 显示管理 (display-management.md, display-device-adapter.md, display-testing.md)
+    ├── X11 栈 (stacks/x11/display-management.md, display-device-adapter.md, display-testing.md)
+    ├── Wayland 栈 (stacks/wayland/wayland-migration.md, wayland-desktop-alternatives.md)
     ├── 安装系统 (project/installation-system.md, project/installation-testing.md)
     ├── 平台部署 (platforms/index.md → 各平台档案)
     ├── 审计记录 (audits/ — 按日期归档的审计发现和执行记录)
