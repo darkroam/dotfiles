@@ -1,8 +1,8 @@
 # 分支与任务登记
 
-本文是分支治理的权威登记，权威副本在 master。x11 与 wayland 只保留同步快照，
-blob 必须与 master 一致，不得在主线上单独改。机器本地的 `collab/R44-.../BRANCHES.md`
-只是副本，不参与审计。
+本文是分支治理的权威登记，权威副本在 master。公共文档 blob 必须与 master 一致，
+不得在主线上单独改。栈文档不进入 master：`stacks/x11/` 只在 x11，`stacks/wayland/` 只在 wayland。
+机器本地的 `collab/R44-.../BRANCHES.md` 只是副本，不参与审计。
 
 | R | 类型 | target | task branch | base | head | 状态 | 审查结论 | 合并目标 | 合并 SHA | 已删除 | 备注 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -25,9 +25,39 @@ blob 必须与 master 一致，不得在主线上单独改。机器本地的 `co
 | R44 | 同步 | wayland | wayland | b23e006 | a0744ac | 已同步 | qoder 回读通过 | wayland | a0744ac | 否 | 第一轮文档 sync |
 | R44 | 同步 | x11 | x11 | 47dacaf | 4a44aab | 已同步 | 二轮 registry 修正 | x11 | 4a44aab | 否 | 第二轮 sync |
 | R44 | 同步 | wayland | wayland | a0744ac | 1f68229 | 已同步 | 二轮 registry 修正 | wayland | 1f68229 | 否 | 第二轮 sync |
+| R44 | 任务 | wayland | task/R44-wayland-stack-docs | 139e73e | 670b64a | 已合并 | 待审查 | wayland | 813250f | 否 | 只新增 stacks/wayland |
+| R44 | 任务 | x11 | task/R44-x11-stack-docs | 91eaec0 | 49ad472 | 已合并 | 待审查 | x11 | 4e4eb49 | 否 | 只新增 stacks/x11 |
+
 
 `head` 列是最近一次已审 head；主线 head 的滞后只代表同步历史，不代表任务未审。
 审计以现场 `git rev-parse` 为准。
+
+
+## 文档分层窗口
+
+2026-11-17 打开。整份搬迁在窗口期内旧路径和新路径同时存在。切分文件的旧路径保留公共残段，不删除。已推送历史只 revert，不 reset。关闭条件：归属线新 blob 已登记，且公共文档不再用 Markdown 链接指向旧路径。
+
+### 整份搬迁
+
+| 旧路径 | 新路径 | 归属 | 旧 blob | 新 blob | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| `.local/share/docs/project/display-management.md` | `.local/share/docs/stacks/x11/display-management.md` | x11 | 2ed361864329 | 9d210b424622 | 打开 |
+| `.local/share/docs/project/display-device-adapter.md` | `.local/share/docs/stacks/x11/display-device-adapter.md` | x11 | 05754c4f19ee | 63ed8ebff3f2 | 打开 |
+| `.local/share/docs/project/display-testing.md` | `.local/share/docs/stacks/x11/display-testing.md` | x11 | 4f0b38b4d87f | 4f0b38b4d87f | 打开 |
+| `.local/share/docs/user/keybindings-zh.md` | `.local/share/docs/stacks/x11/keybindings-zh.md` | x11 | d73e306d9537 | c668ac498af7 | 打开 |
+| `.local/share/docs/project/wayland-migration.md` | `.local/share/docs/stacks/wayland/wayland-migration.md` | wayland | 65830c83cb8c | 519a52127743 | 打开 |
+| `.local/share/docs/project/wayland-desktop-alternatives.md` | `.local/share/docs/stacks/wayland/wayland-desktop-alternatives.md` | wayland | d93dfab43814 | d93dfab43814 | 打开 |
+
+### 切分
+
+旧路径保留。状态不随窗口关闭而删除。
+
+| 旧路径 | 新路径 | 归属 | 新 blob | 说明 |
+| --- | --- | --- | --- | --- |
+| `.local/share/docs/project/dependencies.md` | `.local/share/docs/stacks/x11/dependencies.md` | x11 | 0559c2eb60e1 | U02 与 U06 的 X11 行 |
+| `.local/share/docs/project/architecture.md` | `.local/share/docs/stacks/x11/architecture.md` | x11 | cc653e3d28f4 | U02 与 U06 的 X11 段 |
+| `.local/share/docs/user/desktop-guide-zh.md` | `.local/share/docs/stacks/x11/desktop-guide-zh.md` | x11 | 3c8f79fc8965 | X11 桌面节与 xdisplay 段 |
+
 
 ## 当前工作树
 
@@ -38,5 +68,5 @@ blob 必须与 master 一致，不得在主线上单独改。机器本地的 `co
 ## 审计
 
 任务 base 必须属于目标主线；both 任务以结果 blob 比对；合并后由 dsh 删除并登记。
-文档权威在 master。非文档 diff 用 `split-base^{commit}..master` 排除
+公共文档权威在 master，栈文档权威在归属主线。非文档 diff 用 `split-base^{commit}..master` 排除
 `.local/share/docs/**` 与 `README.md` 后必须为空。
