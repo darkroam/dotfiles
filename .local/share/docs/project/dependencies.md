@@ -61,7 +61,7 @@ grep、sed、awk、util-linux（`setsid`、`lsblk`、`flock`、`findmnt`）、pr
 | `xrdb`, `xrandr`, `xset`, `xdotool`, `xdpyinfo`, `xclip`, `xprop`, `setxkbmap` | Xresources、显示、输入、剪贴板和辅助脚本 |
 | `xkblayout-state` | 可选键盘布局状态命令；上游来源：<https://github.com/nonpop/xkblayout-state>。缺失时 `sb-kbselect` 回退到 `setxkbmap`。 |
 | `notify-send` (libnotify) | 桌面通知 |
-| `fcitx5` | 首选已配置输入法；`fcitx` 或 `ibus` 为回退 |
+| `fcitx5` | 首选已配置输入法；`fcitx` 或 `ibus` 为回退；GTK4 程序（如 Ghostty）需要 `app-i18n/fcitx-gtk` 的 `gtk4` USE |
 | `xcape` | 启用时将 Caps 作为 Escape/修饰键重映射 |
 | `microsoft-edge` | 当前 `BROWSER` 的值 |
 

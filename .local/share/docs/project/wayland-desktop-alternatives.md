@@ -56,13 +56,35 @@
 | `Synergy` | 跨机键鼠 | 需单独验证；可能用 Waynergy/Input Leap | 同左 | 同左 | 同左 |
 | X11 专用程序 | 兼容 | XWayland | `xwayland-satellite` | XWayland | XWayland |
 
-## Ghostty 试点（R43，2026-11-11）
+## Ghostty 试点（R43，2026-11-17 更新）
 
-- 已安装 Ghostty 1.3.1，作为 `st` 的 Wayland 替代候选；
-- 配置在 `~/.config/ghostty/config.ghostty`，仍只在 `task/R43-wayland-desktop`，本阶段不合并该配置；
-- 目标：字体、16 色、transparency、cursor、term 与 `st` 对齐；
-- picom 规则属于 X11，不纳入 R43；R43 的 picom 工作已取消；
-- `tab-width` 在 Ghostty 1.3.1 不是可配置项，只能实测。
+- 已安装 Ghostty 1.3.1（GTK4），作为 `st` 的 Wayland 替代；
+- 配置只在 `task/R43-wayland-desktop` 的
+  `~/.config/ghostty/config.ghostty`，不部署到 x11；
+- 视觉对齐：
+  - 字体 monospace，10.5pt（Xft.dpi 96 下约 14px）；
+  - 80x24、2px padding、无窗口装饰；
+  - 背景透明度 0.8，`alpha-blending = native`，不依赖 picom；
+  - block 光标、Gruvbox/st 光标色。
+- 颜色由 wal 生成，不写死在 Ghostty 配置：
+  - 模板 `.config/wal/templates/ghostty`；
+  - 生成 `~/.cache/wal/ghostty`；
+  - Ghostty 用 `config-file = ?../../.cache/wal/ghostty` 引入；
+  - 换壁纸后运行 `wal -i <wallpaper>`。
+- 鼠标：
+  - 左键选择即复制，`copy-on-select = clipboard`（primary + system）；
+  - 右键 `right-click-action = paste`，不弹菜单；
+  - `Alt+C`/`Alt+V` 保留，普通 `Ctrl+C` 仍是 SIGINT。
+- 滚屏：
+  - `Alt+L` 上翻一页；
+  - `Alt+Shift+L` 下翻一页；
+  - zsh 的 vi-mode 也可能把 Alt+L 的 ESC 序列当成命令模式，当前接受这个副作用。
+- 输入法：
+  - Ghostty 是 GTK4，需要 `app-i18n/fcitx-gtk` 的 `gtk4` USE；
+  - 当前只有 gtk3 immodule，所以 Ghostty 无法接 fcitx；
+  - 这只是 X11 GTK4 前端问题，不是 Ghostty 没编 Wayland；
+  - Wayland 会话仍需 fcitx5 的 `wayland` USE 前端，另行处理。
+- `tab-width` 在 1.3.1 不是可配置项，只能实测。
 
 ## 关键说明
 
