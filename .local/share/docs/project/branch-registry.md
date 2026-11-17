@@ -12,7 +12,7 @@
 | R40 | 任务 | x11 | task/R40-x11-offline-branch | ae4822a | 32f0e04 | 已合并 | dsh 合并入主线 | x11 | 559efba | 是 | 离线包 target；合并后删除 |
 | R40 | 任务 | wayland | task/R40-wayland-offline-branch | b9d5ba2 | 24ac5ed | 已合并 | dsh 合并入主线 | wayland | b23e006 | 是 | 与 x11 任务树一致后合并；合并后删除 |
 | R42 | 任务 | wayland | task/R42-wayland-migration | 2172961 | 1f68229 | 开发中 | - | wayland | - | 否 | 无提交；暂停；已同步 wayland |
-| R43 | 任务 | wayland | task/R43-wayland-desktop | 2172961 | f7c2d3f | 开发中 | Ghostty 配置初审通过 | wayland | - | 否 | 暂停；部分完成，未合入；仅配置；docs 不随任务 |
+| R43 | 任务 | wayland | task/R43-wayland-desktop | 2172961 | f7c2d3f | 开发中 | Ghostty 配置初审通过 | wayland | - | 否 | 暂停；部分完成，未合入；仅配置；docs 不随任务；Ghostty 正文在 stacks/wayland/wayland-desktop-alternatives.md |
 | R44 | 任务 | x11 | task/R44-x11-docs-whitelist | f9af676 | 469b00e | 已合并 | qoder 复审通过 | x11 | 68f10cf | 是 | docs 白名单；合并后删除 |
 | R44 | 任务 | wayland | task/R44-wayland-docs-whitelist | 70f95b4 | 99e8373 | 已合并 | qoder 复审通过 | wayland | f9ead5d | 是 | docs 白名单；合并后删除 |
 | R44 | 任务 | x11 | task/R44-x11-doc-counts | cd1d342 | d6711f4 | 已合并 | dsh 终审通过 | x11 | c8108a6 | 是 | 数字断言；合并后删除 |
