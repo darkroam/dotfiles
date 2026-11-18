@@ -21,6 +21,7 @@
 项目架构、依赖、设计决策和维护边界：
 
 - [架构与设计](project/architecture.md) — 目录结构、运行关系、所有权和维护边界
+- [共用路径表](project/common-path-inventory.md) — x11/wayland 共用、适配和栈专属路径；触发时人工查表
 - [架构域归属表](project/domain-map.md) — 跟踪路径到唯一主域和可选关联域的权威登记
 - [依赖清单](project/dependencies.md) — 十个用户能力域到通用命令、库和服务的映射
 - [维护策略](project/maintenance-policy.md) — 项目约束、工作流规则、已接受决定和明确不采用项
@@ -133,7 +134,7 @@
     ↓
 docs/README.md (中文，文档索引)
     ├── 用户指南 (desktop-guide-zh.md；X11 键位在 stacks/x11/keybindings-zh.md)
-    ├── 维护者文档 (architecture.md, domain-map.md, dependencies.md, maintenance-policy.md, docs-standard.md, collaboration.md, branch-registry.md)
+    ├── 维护者文档 (architecture.md, domain-map.md, dependencies.md, common-path-inventory.md, maintenance-policy.md, docs-standard.md, collaboration.md, branch-registry.md)
     ├── X11 栈 (stacks/x11/display-management.md, display-device-adapter.md, display-testing.md)
     ├── Wayland 栈 (stacks/wayland/wayland-migration.md, wayland-desktop-alternatives.md)
     ├── 安装系统 (project/installation-system.md, project/installation-testing.md)
