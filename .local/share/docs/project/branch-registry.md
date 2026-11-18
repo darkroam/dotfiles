@@ -11,8 +11,9 @@
 | - | 主线 | wayland | wayland | - | 651ca27 | 已同步 | - | - | - | 否 | retired docs + latest-date checker；待 push |
 | R40 | 任务 | x11 | task/R40-x11-offline-branch | ae4822a | 32f0e04 | 已合并 | dsh 合并入主线 | x11 | 559efba | 是 | 离线包 target；合并后删除 |
 | R40 | 任务 | wayland | task/R40-wayland-offline-branch | b9d5ba2 | 24ac5ed | 已合并 | dsh 合并入主线 | wayland | b23e006 | 是 | 与 x11 任务树一致后合并；合并后删除 |
-| R42 | 任务 | wayland | task/R42-wayland-migration | 2172961 | 1f68229 | 开发中 | - | wayland | - | 否 | 无提交；暂停；已同步 wayland |
-| R43 | 任务 | wayland | task/R43-wayland-desktop | 2172961 | f7c2d3f | 开发中 | Ghostty 配置初审通过 | wayland | - | 否 | 暂停；部分完成，未合入；仅配置；docs 不随任务；Ghostty 正文在 stacks/wayland/wayland-desktop-alternatives.md |
+| R42 | 任务 | wayland | task/R42-wayland-migration | 2172961 | 2c92b78 | 开发中 | - | wayland | - | 否 | 无提交；暂停；head 已是当前 wayland |
+| R43 | 任务 | wayland | task/R43-wayland-desktop | 2172961 | b8eb55e | 已合并 | Ghostty 已合入 wayland | wayland | 2c92b78 | 是 | 任务已删除。`.config/ghostty/config.ghostty` 与 `.config/wal/templates/ghostty` 归 wayland。轮次 INDEX 仍是开发中 |
+| R45 | 研究 | - | - | - | - | 待开发/触发式 | - | - | - | 否 | 人工查 [共用路径表](common-path-inventory.md)；未出现内容分叉前不建公共代码层 |
 | R44 | 任务 | x11 | task/R44-x11-docs-whitelist | f9af676 | 469b00e | 已合并 | qoder 复审通过 | x11 | 68f10cf | 是 | docs 白名单；合并后删除 |
 | R44 | 任务 | wayland | task/R44-wayland-docs-whitelist | 70f95b4 | 99e8373 | 已合并 | qoder 复审通过 | wayland | f9ead5d | 是 | docs 白名单；合并后删除 |
 | R44 | 任务 | x11 | task/R44-x11-doc-counts | cd1d342 | d6711f4 | 已合并 | dsh 终审通过 | x11 | c8108a6 | 是 | 数字断言；合并后删除 |
