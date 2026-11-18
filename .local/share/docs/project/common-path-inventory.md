@@ -31,7 +31,7 @@ git diff --name-only 47490dc 3cb4d9f -- . ':(exclude).local/share/docs/**' ':(ex
 | `innogpu-restore-dp1-mode-x11` | x11 | 未跟踪；用 xrandr 恢复 eDP/DP | 不在 git，也没有 categories 条目 |
 | `.config/x11/`、`.xinitrc`、`.xprofile`、`xdisplay`、`xdisplay.sh`、`displayselect` | x11 | X 启动、picom、xrandr、dmenu | 存在性应只留 x11 |
 | `.local/lib/installation/` | common | 安装基础设施；含 per-target stacks / RETIRED / categories 校验 | 改动必须 both 双落，未来内容分叉优先查这里 |
-| `.local/lib/project-tools/` | common | check-doc-counts、validate-collab 等审计工具 | 改动必须 both 双落 |
+| `.local/lib/project-tools/` | common | check-doc-counts、validate-collab 等审计工具 | 改动必须 both 双落。不进离线包；只在开发检出上运行。
 | `.local/lib/access/` | common | 访问子系统 | 改动必须 both 双落；未列路径先补表 |
 | `.local/share/` | common | 数据、模板、帮助 | 未列路径先补表 |
 | `.local/bin/cron/` | common | 计划任务 | 未列路径先补表 |
