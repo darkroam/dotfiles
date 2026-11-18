@@ -8,7 +8,7 @@
 git diff --name-only 9c3f4e1 1ec9536 -- . ':(exclude).local/share/docs/**' ':(exclude)README.md'
 ```
 
-这条命令只列出 `.config/ghostty/config.ghostty` 与 `.config/wal/templates/ghostty`。它们是唯一存在性分叉，只归 wayland。`categories` 与 `exclude` 命中为 0，待 categories 条目；只在 git 里不算已部署。
+这条命令只列出 `.config/ghostty/config.ghostty` 与 `.config/wal/templates/ghostty`。它们是唯一存在性分叉，只归 wayland。`full` 动态展开为当前 HEAD 的全部跟踪文件，所以 wayland 的 full 会部署这两条，x11 的 full 不会。`min` 是显式列表，不包含它们。不新增显式 category。没有显式条目不等于 full 未部署；`exclude.conf` 也不过滤 category。
 
 目录：`.local/lib/display/` 归 x11。`.local/lib/installation/` 归 common，但改这里必须 both 双落。`.local/bin/statusbar/` 和 `.local/bin/` 里没点名的脚本先补表，不默认 common。
 
@@ -35,4 +35,4 @@ git diff --name-only 9c3f4e1 1ec9536 -- . ':(exclude).local/share/docs/**' ':(ex
 | `.local/share/` | common | 数据、模板、帮助 | 未列路径先补表 |
 | `.local/bin/cron/` | common | 计划任务 | 未列路径先补表 |
 | `.config/` 其余子目录 | 待定 | 不默认 common | 先补表再动手 |
-| `.config/ghostty/config.ghostty`、`.config/wal/templates/ghostty` | wayland | 唯一存在性分叉 | 待 categories 条目；不进 x11 |
+| `.config/ghostty/config.ghostty`、`.config/wal/templates/ghostty` | wayland | 唯一存在性分叉。GUI 节点是 `full`（`switch-desktop`），不是 `min` | full 会部署；min 不部署；不新增显式 category；不进 x11 |
