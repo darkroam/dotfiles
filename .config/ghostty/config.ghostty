@@ -1,0 +1,44 @@
+# Match ~/src/st/config.h on X11 without picom.
+# Colors come from wal; ? suppresses the include before wal has run.
+config-file = ?../../.cache/wal/ghostty
+# Ghostty sizes are points; at Xft.dpi 96, 10.5pt is 14px.
+font-family = monospace
+font-size = 10.5
+font-thicken = false
+
+background-opacity = 0.8
+background-blur = false
+# st applies XRender alpha in native sRGB; linear-corrected made Ghostty look darker.
+alpha-blending = native
+
+
+
+cursor-style = block
+cursor-style-blink = false
+
+window-padding-x = 2
+window-padding-y = 2
+window-padding-balance = true
+window-decoration = false
+window-save-state = never
+window-width = 80
+window-height = 24
+confirm-close-surface = false
+
+term = st-256color
+
+# st-like mouse/keyboard behavior.
+# st's right click is selpaste; user asked to disable it.
+right-click-action = paste
+copy-on-select = clipboard
+cursor-click-to-move = false
+mouse-hide-while-typing = false
+mouse-shift-capture = false
+# st uses Alt+C / Alt+V (MODKEY=Mod1). Plain Ctrl+C remains SIGINT.
+keybind = alt+c=copy_to_clipboard:mixed
+keybind = alt+v=paste_from_clipboard
+keybind = alt+shift+c=copy_to_clipboard:mixed
+keybind = alt+shift+v=paste_from_clipboard
+keybind = shift+insert=paste_from_selection
+keybind = alt+l=scroll_page_up
+keybind = alt+shift+l=scroll_page_down
