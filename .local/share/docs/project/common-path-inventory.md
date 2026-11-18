@@ -2,13 +2,13 @@
 
 人工查表。未列出的路径或目录一律停，禁止 fail-open。不写检查脚本，不做长期自动巡检。
 
-基线：master `eb8e48b`、x11 `9c3f4e1`、wayland `1ec9536`。复现非文档差异：
+基线：master `47223c8`、x11 `47490dc`、wayland `3cb4d9f`。复现非文档差异：
 
 ```
-git diff --name-only 9c3f4e1 1ec9536 -- . ':(exclude).local/share/docs/**' ':(exclude)README.md'
+git diff --name-only 47490dc 3cb4d9f -- . ':(exclude).local/share/docs/**' ':(exclude)README.md'
 ```
 
-这条命令只列出 `.config/ghostty/config.ghostty` 与 `.config/wal/templates/ghostty`。它们是唯一存在性分叉，只归 wayland。`full` 动态展开为当前 HEAD 的全部跟踪文件，所以 wayland 的 full 会部署这两条，x11 的 full 不会。`min` 是显式列表，不包含它们。不新增显式 category。没有显式条目不等于 full 未部署；`exclude.conf` 也不过滤 category。
+这条命令只列出 `.config/ghostty/config.ghostty` 与 `.config/wal/templates/ghostty`。它们是唯一存在性分叉，只归 wayland。`full` 动态展开为当前 HEAD 的全部跟踪文件，所以 wayland 的 full 会部署这两条，x11 的 full 不会。`min` 是显式列表，不包含它们。不新增显式 category。没有显式条目不等于 full 未部署；`exclude.conf` 也不过滤 category。STATE_INDICATORS 没有可命中 Wayland 的项；Wayland 的 full 必须显式 switch --type=full，不能依赖自动指标。
 
 目录：`.local/lib/display/` 归 x11。`.local/lib/installation/` 归 common，但改这里必须 both 双落。`.local/bin/statusbar/` 和 `.local/bin/` 里没点名的脚本先补表，不默认 common。
 
@@ -31,6 +31,7 @@ git diff --name-only 9c3f4e1 1ec9536 -- . ':(exclude).local/share/docs/**' ':(ex
 | `innogpu-restore-dp1-mode-x11` | x11 | 未跟踪；用 xrandr 恢复 eDP/DP | 不在 git，也没有 categories 条目 |
 | `.config/x11/`、`.xinitrc`、`.xprofile`、`xdisplay`、`xdisplay.sh`、`displayselect` | x11 | X 启动、picom、xrandr、dmenu | 存在性应只留 x11 |
 | `.local/lib/installation/` | common | 安装基础设施；含 per-target stacks / RETIRED / categories 校验 | 改动必须 both 双落，未来内容分叉优先查这里 |
+| `.local/lib/project-tools/` | common | check-doc-counts、validate-collab 等审计工具 | 改动必须 both 双落 |
 | `.local/lib/access/` | common | 访问子系统 | 改动必须 both 双落；未列路径先补表 |
 | `.local/share/` | common | 数据、模板、帮助 | 未列路径先补表 |
 | `.local/bin/cron/` | common | 计划任务 | 未列路径先补表 |
