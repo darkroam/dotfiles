@@ -21,3 +21,8 @@
 - [ ] 仅在确实需要认证 SMB 共享或图形化 CIFS 卸载时，设计独立凭据与卸载入口；凭据必须留在
   未跟踪的用户/系统存储中，不能扩展普通块设备菜单或放宽 sudoers。当前 `dmenumountcifs` 仅支持
   匿名 guest 共享。
+
+## 轮次
+
+- [ ] R43：Ghostty 配置已合入 wayland `2c92b78`。`.config/ghostty/config.ghostty` 与 `.config/wal/templates/ghostty` 归 wayland，categories 未收录。恢复其余桌面前，先过 R42 的 TTY/DRM 探测门。
+- [ ] R45：待开发/触发式。共用路径先查 [共用路径表](../project/common-path-inventory.md)。未出现内容分叉前不建公共代码层。
